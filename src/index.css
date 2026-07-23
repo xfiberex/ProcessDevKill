@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #0f1115;
+  --color-surface-raised: #171a21;
+  --color-border-subtle: #262b36;
+  --color-node: #5fa04e;
+  --color-python: #3776ab;
+  --color-dotnet: #8a4fdb;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--color-surface);
+  color: #e6e8ec;
+  /* La ventana es de la app, no un documento: sin selección accidental de texto. */
+  user-select: none;
+}
