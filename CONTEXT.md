@@ -26,19 +26,19 @@
 
 ## 3. Estado actual
 
-**Fase actual:** ✅ Tier 1 completado y verificado sobre la app en ejecución.
+**Fase actual:** ✅ Tiers 1 y 2 completados y verificados sobre la app en ejecución.
 
 | Tier | Descripción | Estado |
 |---|---|---|
 | 1 | Cimientos y MVP | ✅ Completado y verificado |
-| 2 | UX/UI y reactividad | ⬜ Sin empezar |
+| 2 | UX/UI y reactividad | ✅ Completado y verificado |
 | 3 | Puertos, notificaciones, tray | ⬜ Sin empezar |
 | 4 | Power user y optimización | ⬜ Sin empezar |
 | 5 | Distribución y estética | ⬜ Sin empezar |
 
-Verificado el 2026-07-23 con la app corriendo: 5 tests de `cargo test` en verde, la UI lista 13 procesos `node` reales con RAM y tiempo correctos, un proceso saturando un núcleo reporta 6,28 % en un equipo de 16 núcleos, y el botón "Kill" mata un proceso real (la fila desaparece y el PID deja de existir).
+Verificado el 2026-07-23 con la app corriendo: 5 tests de `cargo test` en verde; la UI lista procesos `node` reales con RAM, CPU y tiempo correctos; un proceso saturando un núcleo reporta 6,28 % en un equipo de 16 núcleos; el buscador, el auto-refresco, la selección múltiple, el diálogo de confirmación y el cierre en lote funcionan contra procesos reales.
 
-**Próximo paso concreto:** Tier 2 → iconos por lenguaje, barras de consumo, auto-refresco y acciones masivas.
+**Próximo paso concreto:** Tier 3 → detección de puertos por PID (crate `listeners` o `netstat2`), notificaciones nativas y system tray.
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -82,6 +82,10 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 | 2026-07-23 | Crear el `System` con `RefreshKind::nothing().with_cpu(CpuRefreshKind::nothing())` | **Obligatorio**: sysinfo multiplica el uso de CPU por `cpus.len()`, y con `System::new()` esa lista queda vacía → todos los procesos reportan 0 % |
 | 2026-07-23 | Calentar la CPU con **tres** muestras, en un hilo aparte | sysinfo descarta la primera lectura sin guardar líneas base y la segunda las compara contra cero; solo la tercera es real. En un hilo para no retrasar la ventana |
 | 2026-07-23 | Separar `collect_processes()` del comando de Tauri | Permite probar la lógica contra el sistema real sin montar una `App` |
+| 2026-07-23 | Barras de consumo escaladas al mayor de la lista, no al total del equipo | Un Node de 300 MB sobre 32 GB daría una barra invisible; lo útil es comparar procesos entre sí. El número sigue siendo absoluto |
+| 2026-07-23 | `kill_processes` devuelve un resultado por PID, no `Result` global | En un lote es normal que algún proceso muera solo entre el refresco y el clic; eso no debe impedir matar los demás |
+| 2026-07-23 | Auto-refresco con guardia `inFlight` y poda de la selección | Evita encolar peticiones si una tarda más que el intervalo, y que un PID muerto siga contando para "matar seleccionados" |
+| 2026-07-23 | Iconos como SVG inline, no imágenes | La app funciona offline y así heredan el color del runtime sin peticiones de red |
 
 ## 5. Decisiones pendientes
 
@@ -107,6 +111,12 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-23 (noche) — Tier 2 completo
+- Backend: comando `kill_processes` para lotes, con resultado por PID.
+- Frontend: iconos SVG por runtime, barras de CPU/RAM, animaciones de salida con Motion, auto-refresco conmutable (Off/2s/5s), buscador por nombre o PID, selección múltiple y "Nuke All" con diálogo de confirmación.
+- Código repartido en `src/icons.tsx`, `src/components/{UsageBar,ConfirmDialog,ProcessTable}.tsx` y `src/types.ts` (helpers de formato compartidos).
+- Verificado end-to-end vía CDP, incluida la parte que más importa: **Escape cancela el diálogo sin matar nada**, y confirmar sí mata los procesos de verdad.
 
 ### 2026-07-23 (tarde) — Tier 1 desbloqueado, verificado y con un bug corregido
 - Reparado el toolset MSVC añadiendo el componente de C++ (ver §3). `cargo` ya compila.

@@ -37,21 +37,30 @@
 
 ---
 
-## 🎨 Tier 2: UX/UI y Reactividad
+## 🎨 Tier 2: UX/UI y Reactividad — ✅ **completado y verificado**
 *Objetivo: que la app sea visualmente atractiva y fácil de usar.*
 
-- [ ] **Visualización avanzada:**
-    - [ ] Iconos por lenguaje (logos de Node.js, Python, .NET).
-    - [ ] Barras de consumo (CPU y RAM) por proceso.
-      > ⚠️ `sysinfo` devuelve la memoria en **bytes** (convertir a MB) y el % de CPU requiere **dos refrescos** separados por `MINIMUM_CPU_UPDATE_INTERVAL`; con el refresco periódico esto se cumple solo, pero la primera lectura mostrará 0%.
-    - [ ] Animaciones al eliminar procesos de la lista con **Motion** (`AnimatePresence` + `motion.tr`).
+- [x] **Visualización avanzada:**
+    - [x] Iconos por lenguaje (Node.js, Python, .NET) como **SVG inline** en `src/icons.tsx`, sin peticiones de red.
+    - [x] Barras de consumo (CPU y RAM) por proceso.
+      > ⚠️ Las barras se escalan al proceso que más consume de la lista, **no** a la capacidad total del equipo: con 32 GB de RAM, un Node de 300 MB daría una barra invisible. El número junto a la barra sí es el valor absoluto real.
+    - [x] Animaciones al eliminar procesos con **Motion** (`AnimatePresence` + `motion.tr`).
       > ⚠️ Framer Motion fue renombrado: el paquete ahora es `motion` y se importa desde `motion/react`.
-- [ ] **Automatización de UI:**
-    - [ ] `setInterval` para refrescar la lista cada 2–5 s (suficiente para esta fase; en Tier 4 se migra a eventos desde Rust).
-    - [ ] Buscador/filtro por nombre o PID.
-- [ ] **Acciones masivas:**
-    - [ ] Botón **"Nuke All"** (cerrar todos los procesos filtrados) con diálogo de confirmación.
-    - [ ] Casillas de selección múltiple para matar procesos en lote.
+- [x] **Automatización de UI:**
+    - [x] Auto-refresco conmutable (Off / 2 s / 5 s) con guardia para no encolar peticiones si una tarda más que el intervalo. En Tier 4 se migra a eventos desde Rust.
+    - [x] Buscador por nombre o PID.
+- [x] **Acciones masivas:**
+    - [x] Botón **"Nuke All"** (cierra los procesos de la lista filtrada) con diálogo de confirmación.
+    - [x] Casillas de selección múltiple; el botón pasa a "Matar N" cuando hay selección.
+    - [x] Comando `kill_processes` en Rust que devuelve un resultado por PID en vez de abortar al primer fallo.
+- [x] **Verificación end-to-end** (2026-07-23, inspeccionando el DOM real vía CDP):
+    - [x] 15 iconos SVG y 30 barras de consumo renderizadas (2 por fila).
+    - [x] Buscar por PID filtra de 15 filas a 1; buscar texto inexistente muestra el mensaje vacío.
+    - [x] Auto-refresco: la columna "Activo" pasa de `33m` a `34m` sin intervención.
+    - [x] Seleccionar 2 procesos cambia el botón a "Matar 2"; el diálogo abre con el foco en el botón destructivo.
+    - [x] **Escape cancela sin matar nada** (los 2 procesos siguen vivos tras cancelar).
+    - [x] Confirmar mata ambos de verdad: desaparecen de la tabla y del sistema.
+    - [x] Motion anima la salida: opacidad 1 → 0 y `translateX` 0 → −24 px antes de quitar la fila del DOM.
 
 ---
 

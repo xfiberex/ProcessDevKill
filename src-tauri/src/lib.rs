@@ -24,6 +24,15 @@ struct ProcessInfo {
     run_time_secs: u64,
 }
 
+/// Que paso con cada PID de un intento de cierre en lote.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct KillOutcome {
+    pid: u32,
+    killed: bool,
+    error: Option<String>,
+}
+
 /// Clasifica un ejecutable por su nombre; `None` si no es un runtime vigilado.
 ///
 /// Compara sin extension y en minusculas para que el mismo codigo sirva en
@@ -116,10 +125,8 @@ fn get_processes(state: State<'_, Mutex<System>>) -> Result<Vec<ProcessInfo>, St
     Ok(collect_processes(&mut sys))
 }
 
-/// Termina un proceso vigilado.
-#[tauri::command]
-fn kill_process(pid: u32, state: State<'_, Mutex<System>>) -> Result<(), String> {
-    let mut sys = state.lock().map_err(|_| "Estado del sistema corrupto")?;
+/// Termina un unico proceso vigilado.
+fn kill_one(sys: &mut System, pid: u32) -> Result<(), String> {
     let target = Pid::from_u32(pid);
 
     // Releer solo este PID antes de matarlo: si el sistema lo reciclo desde el
@@ -148,6 +155,38 @@ fn kill_process(pid: u32, state: State<'_, Mutex<System>>) -> Result<(), String>
     }
 }
 
+#[tauri::command]
+fn kill_process(pid: u32, state: State<'_, Mutex<System>>) -> Result<(), String> {
+    let mut sys = state.lock().map_err(|_| "Estado del sistema corrupto")?;
+    kill_one(&mut sys, pid)
+}
+
+/// Termina varios procesos y detalla que paso con cada uno.
+///
+/// Devuelve un resultado por PID en vez de abortar al primer fallo: en un lote es
+/// normal que alguno haya muerto solo entre el ultimo refresco y el clic, y eso no
+/// deberia impedir matar los demas.
+#[tauri::command]
+fn kill_processes(pids: Vec<u32>, state: State<'_, Mutex<System>>) -> Result<Vec<KillOutcome>, String> {
+    let mut sys = state.lock().map_err(|_| "Estado del sistema corrupto")?;
+
+    Ok(pids
+        .into_iter()
+        .map(|pid| match kill_one(&mut sys, pid) {
+            Ok(()) => KillOutcome {
+                pid,
+                killed: true,
+                error: None,
+            },
+            Err(error) => KillOutcome {
+                pid,
+                killed: false,
+                error: Some(error),
+            },
+        })
+        .collect())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -168,7 +207,11 @@ pub fn run() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_processes, kill_process])
+        .invoke_handler(tauri::generate_handler![
+            get_processes,
+            kill_process,
+            kill_processes
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -214,6 +257,19 @@ mod tests {
             assert!(json.get(clave).is_some(), "falta la clave '{clave}' en el JSON");
         }
         assert_eq!(json["runtime"], "node");
+
+        let outcome = serde_json::to_value(KillOutcome {
+            pid: 42,
+            killed: false,
+            error: Some("boom".into()),
+        })
+        .expect("KillOutcome deberia serializar");
+        for clave in ["pid", "killed", "error"] {
+            assert!(
+                outcome.get(clave).is_some(),
+                "falta la clave '{clave}' en KillOutcome"
+            );
+        }
     }
 
     /// Recorre los procesos reales de la maquina. No exige que haya alguno activo
