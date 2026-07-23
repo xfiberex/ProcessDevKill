@@ -34,8 +34,18 @@ export function DotnetIcon({ className, style }: IconProps) {
   );
 }
 
+/** Para los nombres que añade el usuario, que no tienen logo propio. */
+export function GenericIcon({ className, style }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style} aria-hidden>
+      <path d="M12 2.1 3.5 6.5v11L12 21.9l8.5-4.4v-11L12 2.1Zm0 2.25 6.1 3.16L12 10.66 5.9 7.51 12 4.35ZM5.2 9.02l6 3.1v6.9l-6-3.1v-6.9Zm7.6 10v-6.9l6-3.1v6.9l-6 3.1Z" />
+    </svg>
+  );
+}
+
 export const RUNTIME_ICONS = {
   node: NodeIcon,
   python: PythonIcon,
   dotnet: DotnetIcon,
+  other: GenericIcon,
 } as const;

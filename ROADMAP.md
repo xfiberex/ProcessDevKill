@@ -92,16 +92,28 @@
 
 ---
 
-## ⚡ Tier 4: Power User y optimización
+## ⚡ Tier 4: Power User y optimización — ✅ **completado y verificado**
 *Objetivo: pulir detalles y mejorar el rendimiento.*
 
-- [ ] **Logs y auditoría:**
-    - [ ] Sección "Historial": qué procesos se cerraron y cuándo (persistir en JSON con `tauri-plugin-store` o archivo propio en `app_data_dir`).
-- [ ] **Configuración personalizada:**
-    - [ ] Lista de procesos vigilados editable por el usuario (añadir `docker`, `go`, `php`, …), persistida igual que el historial.
-    - [ ] Hotkeys globales con `tauri-plugin-global-shortcut` (ej: `Ctrl + Alt + K` para "Nuke All") + permisos en `capabilities/`.
-- [ ] **Rendimiento:**
-    - [ ] Sustituir el polling del frontend por un **hilo en Rust** que refresque `sysinfo` y emita eventos (`app.emit("processes-updated", …)`) que React escucha con `listen()`. La UI deja de pedir datos: los recibe.
+- [x] **Refactor previo:** `lib.rs` se dividió en `processes.rs`, `ports.rs`, `storage.rs` y `tray.rs` antes de seguir creciendo.
+- [x] **Logs y auditoría:**
+    - [x] Vista "Historial" con fecha, proceso, PID, puertos liberados y **origen** (ventana / bandeja / atajo).
+    - [x] Persistido en `app_data_dir/history.json`, lo más reciente primero, con tope de 200 entradas para que el archivo no crezca sin fin.
+      > Se descartó `tauri-plugin-store`: su API es de frontend, y aquí la bandeja y el atajo escriben historial sin que la ventana intervenga.
+- [x] **Configuración personalizada:**
+    - [x] Lista de procesos vigilados editable (`docker`, `go`, `php`, …), persistida en `settings.json`. Los nombres se normalizan en Rust: minúsculas, sin `.exe`, sin duplicados.
+      > ⚠️ Los nombres del usuario se comparan **exactos**, no por prefijo: añadir `go` no debe capturar `golang`.
+    - [x] Atajo global `Ctrl+Alt+K` con `tauri-plugin-global-shortcut` + permiso en `capabilities/`.
+      > ⚠️ Añadido un interruptor en Ajustes para desactivarlo: dispara un cierre masivo **sin confirmación**, y un atajo global mal pulsado no debería ser irreversible por accidente. Queda registrado en el historial.
+- [x] **Rendimiento:**
+    - [x] El `setInterval` del frontend se sustituyó por un hilo en Rust que emite `processes-updated`; React solo escucha con `listen()`. El intervalo se configura desde la UI y se persiste.
+- [x] **Verificación end-to-end** (2026-07-23):
+    - [x] La tabla se actualiza sola (13 → 14 filas, "Activo" de 34s a 38s) **sin polling en el frontend**.
+    - [x] Añadir un ejecutable propio lo hace aparecer al instante, clasificado en el filtro "Otros".
+    - [x] Al matar un proceso, el historial registra nombre, PID, puerto liberado y origen.
+    - [x] Ajustes e historial **sobreviven al reinicio** de la app.
+    - [x] Atajo global comprobado sin dispararlo: con él activo ningún otro proceso puede registrar `Ctrl+Alt+K`; al desactivarlo queda libre; al reactivarlo lo vuelve a tomar.
+    - [x] 12 tests de `cargo test` en verde (antes 7).
 
 ---
 

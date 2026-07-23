@@ -26,21 +26,23 @@
 
 ## 3. Estado actual
 
-**Fase actual:** ✅ Tiers 1, 2 y 3 completados y verificados sobre la app en ejecución.
+**Fase actual:** ✅ Tiers 1 a 4 completados y verificados sobre la app en ejecución.
 
 | Tier | Descripción | Estado |
 |---|---|---|
 | 1 | Cimientos y MVP | ✅ Completado y verificado |
 | 2 | UX/UI y reactividad | ✅ Completado y verificado |
 | 3 | Puertos, notificaciones, tray | ✅ Completado y verificado |
-| 4 | Power user y optimización | ⬜ Sin empezar |
+| 4 | Power user y optimización | ✅ Completado y verificado |
 | 5 | Distribución y estética | ⬜ Sin empezar |
 
-Verificado el 2026-07-23 con la app corriendo: 7 tests de `cargo test` en verde; la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; cerrar la ventana la esconde en la bandeja sin terminar la app.
+Verificado el 2026-07-23 con la app corriendo: 12 tests de `cargo test` en verde; la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; la lista se actualiza sola por eventos desde Rust; ajustes e historial sobreviven al reinicio; cerrar la ventana la esconde en la bandeja sin terminar la app.
+
+**Salvedad honesta sobre el atajo global:** se comprobó que `Ctrl+Alt+K` se registra y se libera correctamente (con él activo ningún otro proceso puede tomarlo), pero **no se llegó a pulsar**: dispararlo habría cerrado los ~13 procesos `node` reales del equipo. La ruta de cierre que ejecuta es la misma `kill_and_record` que usan la ventana y la bandeja, ambas verificadas end-to-end.
 
 **Salvedad honesta sobre las notificaciones:** se comprobó que `notification().show()` devuelve `Ok` (stderr de la app limpio), pero **no** que el toast aparezca en pantalla. En Windows, una build de desarrollo sin instalar puede no renderizar el toast, y el Asistente de concentración puede suprimirlo. Conviene confirmarlo a ojo tras generar el instalador en el Tier 5.
 
-**Próximo paso concreto:** Tier 4 → historial de procesos cerrados, lista de runtimes configurable, hotkeys globales y migrar el polling a eventos emitidos desde Rust.
+**Próximo paso concreto:** Tier 5 → modo claro/oscuro, componentes de shadcn/ui, icono propio, instaladores y CI con GitHub Actions.
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -92,6 +94,13 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 | 2026-07-23 | Emitir las notificaciones desde Rust, no desde el frontend | El menú de la bandeja mata procesos con la ventana oculta; ahí la notificación es el único feedback que recibe el usuario |
 | 2026-07-23 | Añadir "Salir" al menú de la bandeja (no estaba en el plan) | Al esconder la ventana en vez de cerrarla, sin esa opción la app no se puede terminar |
 | 2026-07-23 | No conceder `core:window:allow-close` al frontend | La app no necesita cerrarse a sí misma desde JS; el botón X pasa por el sistema y lo intercepta `CloseRequested` |
+| 2026-07-23 | Dividir `lib.rs` en `processes`/`ports`/`storage`/`tray` | Pasaba de 450 líneas y el Tier 4 la habría llevado a 900 |
+| 2026-07-23 | Persistencia con archivos JSON propios, no `tauri-plugin-store` | La bandeja y el atajo escriben historial sin que la ventana exista; el store es una API de frontend |
+| 2026-07-23 | Guardar el timestamp como epoch en ms y formatearlo en JS | Evita meter `chrono` solo para esto, y `toLocaleString()` respeta el idioma y la zona del usuario |
+| 2026-07-23 | Toda muerte pasa por `kill_and_record` | Ventana, bandeja y atajo registran historial, notifican y refrescan igual; tres caminos separados se habrían desincronizado |
+| 2026-07-23 | Interruptor para desactivar `Ctrl+Alt+K` (no estaba en el plan) | Dispara un cierre masivo sin confirmación; un atajo global mal pulsado no debería ser irreversible |
+| 2026-07-23 | Los nombres personalizados se comparan exactos, no por prefijo | Añadir `go` no debe capturar `golang`, ni `docker` capturar `dockerd` |
+| 2026-07-23 | Copiar los ajustes y soltar su candado antes de bloquear `sys` | Evita anidar candados y con ello cualquier riesgo de deadlock entre el hilo emisor y los comandos |
 
 ## 5. Decisiones pendientes
 
@@ -117,6 +126,13 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-23 (noche) — Tier 4 completo
+- `lib.rs` dividido en cuatro módulos antes de crecer más; los tests subieron de 7 a 12 al poder probar cada pieza por separado.
+- Persistencia propia en `%APPDATA%\com.processvisor.app\{settings,history}.json`. Un JSON corrupto degrada a valores por defecto en vez de impedir el arranque, con test que lo cubre.
+- Vistas nuevas de Historial y Ajustes, con navegación en el sidebar.
+- El frontend ya no hace polling: Rust emite `processes-updated` desde un hilo propio.
+- Atajo `Ctrl+Alt+K` con interruptor en Ajustes. Verificado por registro/liberación, sin dispararlo (habría matado los procesos reales del equipo).
 
 ### 2026-07-23 (noche) — Tier 3 completo
 - Puertos por PID con el crate `listeners` 0.6, filtrando TCP en escucha y deduplicando IPv4/IPv6. Columna "Puerto" en la tabla y búsqueda por número de puerto.

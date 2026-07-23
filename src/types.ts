@@ -1,7 +1,7 @@
-/** Espejo de `Runtime` en src-tauri/src/lib.rs. */
-export type Runtime = "node" | "python" | "dotnet";
+/** Espejo de `Runtime` en src-tauri/src/processes.rs. */
+export type Runtime = "node" | "python" | "dotnet" | "other";
 
-/** Espejo de `ProcessInfo` en src-tauri/src/lib.rs. */
+/** Espejo de `ProcessInfo` en src-tauri/src/processes.rs. */
 export type ProcessInfo = {
   pid: number;
   name: string;
@@ -13,18 +13,48 @@ export type ProcessInfo = {
   ports: number[];
 };
 
-/** Espejo de `KillOutcome` en src-tauri/src/lib.rs. */
+/** Espejo de `KillOutcome` en src-tauri/src/processes.rs. */
 export type KillOutcome = {
   pid: number;
   killed: boolean;
   error: string | null;
   freedPorts: number[];
+  name: string;
 };
+
+/** Espejo de `KillSource` en src-tauri/src/storage.rs. */
+export type KillSource = "window" | "tray" | "hotkey";
+
+/** Espejo de `HistoryEntry` en src-tauri/src/storage.rs. */
+export type HistoryEntry = {
+  pid: number;
+  name: string;
+  freedPorts: number[];
+  killedAt: number;
+  source: KillSource;
+};
+
+/** Espejo de `Settings` en src-tauri/src/storage.rs. */
+export type Settings = {
+  customNames: string[];
+  hotkeyEnabled: boolean;
+  refreshMs: number;
+};
+
+/** Evento que emite Rust con cada lista nueva de procesos. */
+export const PROCESSES_UPDATED = "processes-updated";
 
 export const RUNTIMES: Record<Runtime, { label: string; color: string }> = {
   node: { label: "Node.js", color: "var(--color-node)" },
   python: { label: "Python", color: "var(--color-python)" },
   dotnet: { label: ".NET", color: "var(--color-dotnet)" },
+  other: { label: "Otros", color: "var(--color-other)" },
+};
+
+export const KILL_SOURCES: Record<KillSource, string> = {
+  window: "Ventana",
+  tray: "Bandeja",
+  hotkey: "Ctrl+Alt+K",
 };
 
 /** Intervalos ofrecidos para el refresco automatico, en milisegundos. */
@@ -45,4 +75,9 @@ export function formatUptime(seconds: number): string {
 
 export function formatMemory(mb: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`;
+}
+
+/** Rust guarda epoch en ms; el formato lo pone aqui la configuracion del equipo. */
+export function formatTimestamp(millis: number): string {
+  return new Date(millis).toLocaleString();
 }

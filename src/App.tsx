@@ -1,62 +1,102 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { RUNTIMES, REFRESH_INTERVALS } from "./types";
-import type { KillOutcome, ProcessInfo, Runtime } from "./types";
+import { listen } from "@tauri-apps/api/event";
+import { PROCESSES_UPDATED, REFRESH_INTERVALS, RUNTIMES } from "./types";
+import type {
+  HistoryEntry,
+  KillOutcome,
+  ProcessInfo,
+  Runtime,
+  Settings,
+} from "./types";
 import { RUNTIME_ICONS } from "./icons";
 import { ProcessTable } from "./components/ProcessTable";
+import { HistoryView } from "./components/HistoryView";
+import { SettingsView } from "./components/SettingsView";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import type { ConfirmRequest } from "./components/ConfirmDialog";
 
 type Filter = Runtime | "all";
+type View = "processes" | "history" | "settings";
+
+const DEFAULT_SETTINGS: Settings = {
+  customNames: [],
+  hotkeyEnabled: true,
+  refreshMs: 2000,
+};
 
 export default function App() {
+  const [view, setView] = useState<View>("processes");
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [killing, setKilling] = useState<Set<number>>(new Set());
-  const [refreshMs, setRefreshMs] = useState<number>(2000);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
 
-  // Evita que el auto-refresco encole peticiones si una tarda mas que el intervalo.
-  const inFlight = useRef(false);
+  const applyList = useCallback((list: ProcessInfo[]) => {
+    setProcesses(list);
+
+    // Un PID seleccionado que ya no existe seguiria contando para "matar
+    // seleccionados"; se poda contra la lista recien llegada.
+    const alive = new Set(list.map((p) => p.pid));
+    setSelected((prev) => {
+      const next = new Set([...prev].filter((pid) => alive.has(pid)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, []);
+
+  // Rust empuja la lista; la ventana ya no hace polling. El comando solo se usa
+  // para la carga inicial y el boton de refresco manual.
+  useEffect(() => {
+    const pending = listen<ProcessInfo[]>(PROCESSES_UPDATED, (event) =>
+      applyList(event.payload),
+    );
+    return () => {
+      pending.then((unlisten) => unlisten());
+    };
+  }, [applyList]);
 
   const refresh = useCallback(async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    setLoading(true);
-
     try {
-      const list = await invoke<ProcessInfo[]>("get_processes");
-      setProcesses(list);
+      applyList(await invoke<ProcessInfo[]>("get_processes"));
       setError(null);
-
-      // Un PID seleccionado que ya no existe seguiria contando para "matar
-      // seleccionados"; se poda contra la lista recien traida.
-      const alive = new Set(list.map((p) => p.pid));
-      setSelected((prev) => {
-        const next = new Set([...prev].filter((pid) => alive.has(pid)));
-        return next.size === prev.size ? prev : next;
-      });
     } catch (e) {
       setError(String(e));
-    } finally {
-      inFlight.current = false;
-      setLoading(false);
+    }
+  }, [applyList]);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      setHistory(await invoke<HistoryEntry[]>("get_history"));
+    } catch (e) {
+      setError(String(e));
     }
   }, []);
 
   useEffect(() => {
     refresh();
+    invoke<Settings>("get_settings").then(setSettings).catch(() => {});
   }, [refresh]);
 
+  // El historial cambia al matar procesos desde cualquier sitio, asi que se
+  // recarga al entrar en la vista en vez de mantenerlo sincronizado siempre.
   useEffect(() => {
-    if (refreshMs === 0) return;
-    const id = setInterval(refresh, refreshMs);
-    return () => clearInterval(id);
-  }, [refreshMs, refresh]);
+    if (view === "history") loadHistory();
+  }, [view, loadHistory]);
+
+  async function saveSettings(next: Settings) {
+    setSettings(next); // Optimista: la UI responde al instante.
+    try {
+      setSettings(await invoke<Settings>("save_settings", { settings: next }));
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -91,7 +131,6 @@ export default function App() {
             : `${failed.length} de ${outcomes.length} no se pudieron terminar: ${failed[0].error}`,
       );
       setSelected(new Set());
-      await refresh();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -129,24 +168,48 @@ export default function App() {
           <p className="mt-0.5 text-xs text-neutral-500">Process Manager</p>
         </div>
 
-        <nav className="flex flex-col gap-1 p-2">
-          <FilterButton
-            label="Todos"
-            count={processes.length}
-            active={filter === "all"}
-            onClick={() => setFilter("all")}
-          />
-          {(Object.keys(RUNTIMES) as Runtime[]).map((runtime) => (
-            <FilterButton
-              key={runtime}
-              label={RUNTIMES[runtime].label}
-              runtime={runtime}
-              count={processes.filter((p) => p.runtime === runtime).length}
-              active={filter === runtime}
-              onClick={() => setFilter(runtime)}
-            />
+        <nav className="flex gap-1 border-b border-border-subtle p-2">
+          {(
+            [
+              ["processes", "Procesos"],
+              ["history", "Historial"],
+              ["settings", "Ajustes"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setView(id)}
+              className={`flex-1 rounded px-2 py-1 text-xs transition ${
+                view === id
+                  ? "bg-white/15 text-white"
+                  : "text-neutral-400 hover:bg-white/5"
+              }`}
+            >
+              {label}
+            </button>
           ))}
         </nav>
+
+        {view === "processes" && (
+          <nav className="flex flex-col gap-1 p-2">
+            <FilterButton
+              label="Todos"
+              count={processes.length}
+              active={filter === "all"}
+              onClick={() => setFilter("all")}
+            />
+            {(Object.keys(RUNTIMES) as Runtime[]).map((runtime) => (
+              <FilterButton
+                key={runtime}
+                label={RUNTIMES[runtime].label}
+                runtime={runtime}
+                count={processes.filter((p) => p.runtime === runtime).length}
+                active={filter === runtime}
+                onClick={() => setFilter(runtime)}
+              />
+            ))}
+          </nav>
+        )}
 
         <div className="mt-auto border-t border-border-subtle p-3">
           <p className="mb-2 text-xs text-neutral-500">Auto-refresco</p>
@@ -154,9 +217,9 @@ export default function App() {
             {REFRESH_INTERVALS.map(({ label, ms }) => (
               <button
                 key={label}
-                onClick={() => setRefreshMs(ms)}
+                onClick={() => saveSettings({ ...settings, refreshMs: ms })}
                 className={`flex-1 rounded px-2 py-1 text-xs transition ${
-                  refreshMs === ms
+                  settings.refreshMs === ms
                     ? "bg-white/15 text-white"
                     : "text-neutral-400 hover:bg-white/5"
                 }`}
@@ -169,55 +232,56 @@ export default function App() {
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-border-subtle px-5 py-3">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por nombre, PID o puerto…"
-            className="min-w-0 flex-1 rounded-md border border-border-subtle bg-black/20 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
-          />
+        {view === "processes" && (
+          <header className="flex items-center gap-3 border-b border-border-subtle px-5 py-3">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por nombre, PID o puerto…"
+              className="min-w-0 flex-1 rounded-md border border-border-subtle bg-black/20 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
+            />
 
-          <span className="shrink-0 text-sm text-neutral-500 tabular-nums">
-            {visible.length}
-          </span>
+            <span className="shrink-0 text-sm text-neutral-500 tabular-nums">
+              {visible.length}
+            </span>
 
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className="shrink-0 rounded-md border border-border-subtle px-3 py-1.5 text-sm text-neutral-200 transition hover:bg-white/5 disabled:opacity-50"
-          >
-            Refrescar
-          </button>
-
-          {selectedVisible.length > 0 ? (
             <button
-              onClick={() =>
-                askNuke(
-                  selectedVisible.map((p) => p.pid),
-                  `los ${selectedVisible.length} procesos seleccionados`,
-                )
-              }
-              className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-500"
+              onClick={refresh}
+              className="shrink-0 rounded-md border border-border-subtle px-3 py-1.5 text-sm text-neutral-200 transition hover:bg-white/5"
             >
-              Matar {selectedVisible.length}
+              Refrescar
             </button>
-          ) : (
-            <button
-              onClick={() =>
-                askNuke(
-                  visible.map((p) => p.pid),
-                  filter === "all" && !query
-                    ? "todos los procesos de desarrollo activos"
-                    : "todos los procesos de la lista filtrada",
-                )
-              }
-              disabled={visible.length === 0}
-              className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-30"
-            >
-              Nuke All
-            </button>
-          )}
-        </header>
+
+            {selectedVisible.length > 0 ? (
+              <button
+                onClick={() =>
+                  askNuke(
+                    selectedVisible.map((p) => p.pid),
+                    `los ${selectedVisible.length} procesos seleccionados`,
+                  )
+                }
+                className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-500"
+              >
+                Matar {selectedVisible.length}
+              </button>
+            ) : (
+              <button
+                onClick={() =>
+                  askNuke(
+                    visible.map((p) => p.pid),
+                    filter === "all" && !query
+                      ? "todos los procesos de desarrollo activos"
+                      : "todos los procesos de la lista filtrada",
+                  )
+                }
+                disabled={visible.length === 0}
+                className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-30"
+              >
+                Nuke All
+              </button>
+            )}
+          </header>
+        )}
 
         {error && (
           <p className="border-b border-red-900/50 bg-red-950/40 px-5 py-2 text-sm text-red-300">
@@ -226,22 +290,45 @@ export default function App() {
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {visible.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-neutral-500">
-              {processes.length === 0
-                ? "No hay procesos de desarrollo activos."
-                : "Ningun proceso coincide con el filtro."}
-            </p>
-          ) : (
-            <ProcessTable
-              processes={visible}
-              selected={selected}
-              killing={killing}
-              onToggle={toggle}
-              onToggleAll={toggleAll}
-              onKill={(pid) => killMany([pid])}
+          {view === "settings" && (
+            <SettingsView settings={settings} onChange={saveSettings} />
+          )}
+
+          {view === "history" && (
+            <HistoryView
+              entries={history}
+              onClear={() =>
+                setConfirm({
+                  title: "Vaciar el historial",
+                  message:
+                    "Se borrara el registro de procesos cerrados. No afecta a ningun proceso en ejecucion.",
+                  confirmLabel: "Vaciar",
+                  onConfirm: async () => {
+                    await invoke("clear_history");
+                    loadHistory();
+                  },
+                })
+              }
             />
           )}
+
+          {view === "processes" &&
+            (visible.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-neutral-500">
+                {processes.length === 0
+                  ? "No hay procesos de desarrollo activos."
+                  : "Ningun proceso coincide con el filtro."}
+              </p>
+            ) : (
+              <ProcessTable
+                processes={visible}
+                selected={selected}
+                killing={killing}
+                onToggle={toggle}
+                onToggleAll={toggleAll}
+                onKill={(pid) => killMany([pid])}
+              />
+            ))}
         </div>
       </main>
 
