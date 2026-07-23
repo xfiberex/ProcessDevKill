@@ -1,8 +1,10 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use serde::Serialize;
 use sysinfo::{CpuRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System};
-use tauri::{Manager, State};
+use tauri::{AppHandle, Manager, State};
+use tauri_plugin_notification::NotificationExt;
 
 /// Runtimes de desarrollo que la app vigila.
 #[derive(Serialize, Debug, Clone, Copy, PartialEq)]
@@ -11,6 +13,16 @@ enum Runtime {
     Node,
     Python,
     Dotnet,
+}
+
+impl Runtime {
+    fn label(self) -> &'static str {
+        match self {
+            Runtime::Node => "Node",
+            Runtime::Python => "Python",
+            Runtime::Dotnet => ".NET",
+        }
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -22,6 +34,8 @@ struct ProcessInfo {
     cpu: f32,
     memory_mb: f64,
     run_time_secs: u64,
+    /// Puertos TCP en los que el proceso esta escuchando, ordenados.
+    ports: Vec<u16>,
 }
 
 /// Que paso con cada PID de un intento de cierre en lote.
@@ -31,6 +45,7 @@ struct KillOutcome {
     pid: u32,
     killed: bool,
     error: Option<String>,
+    freed_ports: Vec<u16>,
 }
 
 /// Clasifica un ejecutable por su nombre; `None` si no es un runtime vigilado.
@@ -51,6 +66,45 @@ fn classify(file_name: &str) -> Option<Runtime> {
             .filter(|v| !v.is_empty() && v.chars().all(|c| c.is_ascii_digit() || c == '.'))
             .map(|_| Runtime::Python),
     }
+}
+
+/// Mapea PID -> puertos TCP en escucha.
+///
+/// Solo interesan los sockets en estado `Listen`: `get_all()` tambien devuelve
+/// conexiones salientes establecidas, y el puerto efimero de una peticion HTTP no
+/// es "el puerto donde corre tu servidor", que es la pregunta que responde la app.
+///
+/// Un fallo aqui no tumba la lista de procesos: se devuelve el mapa vacio y la UI
+/// simplemente no muestra puertos. En Windows, los sockets de procesos de otros
+/// usuarios pueden requerir permisos elevados.
+fn listening_ports() -> HashMap<u32, Vec<u16>> {
+    let all = match listeners::get_all() {
+        Ok(all) => all,
+        Err(e) => {
+            eprintln!("No se pudieron leer los puertos en escucha: {e}");
+            return HashMap::new();
+        }
+    };
+
+    let mut by_pid: HashMap<u32, Vec<u16>> = HashMap::new();
+    for listener in all {
+        if listener.protocol != listeners::Protocol::TCP
+            || listener.state != listeners::SocketState::Listen
+        {
+            continue;
+        }
+        by_pid
+            .entry(listener.process.pid)
+            .or_default()
+            .push(listener.socket.port());
+    }
+
+    // Un servidor que escucha en IPv4 e IPv6 aparece dos veces con el mismo puerto.
+    for ports in by_pid.values_mut() {
+        ports.sort_unstable();
+        ports.dedup();
+    }
+    by_pid
 }
 
 /// Crea el `System` de la app **con la lista de CPUs poblada**.
@@ -80,20 +134,24 @@ fn collect_processes(sys: &mut System) -> Vec<ProcessInfo> {
     // Dividir entre los nucleos deja un 0-100 con la misma lectura que el
     // Administrador de tareas: porcentaje de la capacidad total del equipo.
     let cores = sys.cpus().len().max(1) as f32;
+    let mut ports = listening_ports();
+
     let mut processes: Vec<ProcessInfo> = sys
         .processes()
         .values()
         .filter_map(|p| {
             let name = p.name().to_string_lossy().into_owned();
             let runtime = classify(&name)?;
+            let pid = p.pid().as_u32();
 
             Some(ProcessInfo {
-                pid: p.pid().as_u32(),
+                pid,
                 name,
                 runtime,
                 cpu: p.cpu_usage() / cores,
                 memory_mb: p.memory() as f64 / 1_048_576.0,
                 run_time_secs: p.run_time(),
+                ports: ports.remove(&pid).unwrap_or_default(),
             })
         })
         .collect();
@@ -125,8 +183,8 @@ fn get_processes(state: State<'_, Mutex<System>>) -> Result<Vec<ProcessInfo>, St
     Ok(collect_processes(&mut sys))
 }
 
-/// Termina un unico proceso vigilado.
-fn kill_one(sys: &mut System, pid: u32) -> Result<(), String> {
+/// Termina un unico proceso vigilado y devuelve los puertos que libera.
+fn kill_one(sys: &mut System, pid: u32) -> Result<Vec<u16>, String> {
     let target = Pid::from_u32(pid);
 
     // Releer solo este PID antes de matarlo: si el sistema lo reciclo desde el
@@ -148,17 +206,60 @@ fn kill_one(sys: &mut System, pid: u32) -> Result<(), String> {
         return Err(format!("{name} no es un proceso de desarrollo vigilado"));
     }
 
+    // Hay que leer los puertos *antes* de matarlo: despues el socket ya no existe.
+    let ports = listening_ports().remove(&pid).unwrap_or_default();
+
     if process.kill() {
-        Ok(())
+        Ok(ports)
     } else {
         Err(format!("No se pudo terminar {name} (PID {pid})"))
     }
 }
 
+/// Avisa por notificacion nativa de los puertos que acaban de quedar libres.
+///
+/// Vive en Rust y no en el frontend porque el menu de la bandeja tambien mata
+/// procesos sin que la ventana intervenga (e incluso estando oculta).
+fn notify_freed_ports(app: &AppHandle, ports: &[u16]) {
+    if ports.is_empty() {
+        return;
+    }
+
+    let list = ports
+        .iter()
+        .map(|p| p.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let body = if ports.len() == 1 {
+        format!("El puerto {list} ha quedado libre.")
+    } else {
+        format!("Los puertos {list} han quedado libres.")
+    };
+
+    if let Err(e) = app
+        .notification()
+        .builder()
+        .title("ProcessVisor")
+        .body(body)
+        .show()
+    {
+        eprintln!("No se pudo mostrar la notificacion: {e}");
+    }
+}
+
 #[tauri::command]
-fn kill_process(pid: u32, state: State<'_, Mutex<System>>) -> Result<(), String> {
-    let mut sys = state.lock().map_err(|_| "Estado del sistema corrupto")?;
-    kill_one(&mut sys, pid)
+fn kill_process(
+    pid: u32,
+    app: AppHandle,
+    state: State<'_, Mutex<System>>,
+) -> Result<Vec<u16>, String> {
+    let freed = {
+        let mut sys = state.lock().map_err(|_| "Estado del sistema corrupto")?;
+        kill_one(&mut sys, pid)?
+    };
+
+    notify_freed_ports(&app, &freed);
+    Ok(freed)
 }
 
 /// Termina varios procesos y detalla que paso con cada uno.
@@ -167,34 +268,174 @@ fn kill_process(pid: u32, state: State<'_, Mutex<System>>) -> Result<(), String>
 /// normal que alguno haya muerto solo entre el ultimo refresco y el clic, y eso no
 /// deberia impedir matar los demas.
 #[tauri::command]
-fn kill_processes(pids: Vec<u32>, state: State<'_, Mutex<System>>) -> Result<Vec<KillOutcome>, String> {
-    let mut sys = state.lock().map_err(|_| "Estado del sistema corrupto")?;
+fn kill_processes(
+    pids: Vec<u32>,
+    app: AppHandle,
+    state: State<'_, Mutex<System>>,
+) -> Result<Vec<KillOutcome>, String> {
+    let outcomes = {
+        let mut sys = state.lock().map_err(|_| "Estado del sistema corrupto")?;
+        pids.into_iter()
+            .map(|pid| match kill_one(&mut sys, pid) {
+                Ok(freed_ports) => KillOutcome {
+                    pid,
+                    killed: true,
+                    error: None,
+                    freed_ports,
+                },
+                Err(error) => KillOutcome {
+                    pid,
+                    killed: false,
+                    error: Some(error),
+                    freed_ports: Vec::new(),
+                },
+            })
+            .collect::<Vec<_>>()
+    };
 
-    Ok(pids
+    // Una sola notificacion para todo el lote, no una por proceso.
+    let mut freed: Vec<u16> = outcomes.iter().flat_map(|o| o.freed_ports.clone()).collect();
+    freed.sort_unstable();
+    freed.dedup();
+    notify_freed_ports(&app, &freed);
+
+    Ok(outcomes)
+}
+
+/// Trae la ventana principal al frente, restaurandola si estaba oculta o minimizada.
+fn show_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+/// Cierra de golpe todos los procesos de un runtime y avisa de los puertos libres.
+///
+/// Es la accion del menu de la bandeja, asi que se ejecuta sin que la ventana este
+/// necesariamente visible: la notificacion es el unico feedback que recibe el
+/// usuario y por eso se emite tambien cuando no se libero ningun puerto.
+fn pids_of_runtime(sys: &mut System, runtime: Runtime) -> Vec<u32> {
+    collect_processes(sys)
         .into_iter()
-        .map(|pid| match kill_one(&mut sys, pid) {
-            Ok(()) => KillOutcome {
-                pid,
-                killed: true,
-                error: None,
-            },
-            Err(error) => KillOutcome {
-                pid,
-                killed: false,
-                error: Some(error),
-            },
+        .filter(|p| p.runtime == runtime)
+        .map(|p| p.pid)
+        .collect()
+}
+
+fn kill_all_of(app: &AppHandle, runtime: Runtime) {
+    let state = app.state::<Mutex<System>>();
+    let Ok(mut sys) = state.lock() else { return };
+
+    let targets = pids_of_runtime(&mut sys, runtime);
+
+    if targets.is_empty() {
+        let _ = app
+            .notification()
+            .builder()
+            .title("ProcessVisor")
+            .body(format!("No hay procesos {} activos.", runtime.label()))
+            .show();
+        return;
+    }
+
+    let mut freed = Vec::new();
+    let mut killed = 0usize;
+    for pid in &targets {
+        if let Ok(ports) = kill_one(&mut sys, *pid) {
+            killed += 1;
+            freed.extend(ports);
+        }
+    }
+    drop(sys);
+
+    freed.sort_unstable();
+    freed.dedup();
+
+    let body = if freed.is_empty() {
+        format!("{killed} procesos {} cerrados.", runtime.label())
+    } else {
+        format!(
+            "{killed} procesos {} cerrados. Puertos libres: {}.",
+            runtime.label(),
+            freed
+                .iter()
+                .map(|p| p.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
+    let _ = app
+        .notification()
+        .builder()
+        .title("ProcessVisor")
+        .body(body)
+        .show();
+}
+
+fn build_tray(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+
+    let show = MenuItemBuilder::with_id("show", "Mostrar ProcessVisor").build(app)?;
+    let kill_node = MenuItemBuilder::with_id("kill_node", "Cerrar todos los Node").build(app)?;
+    let kill_python = MenuItemBuilder::with_id("kill_python", "Cerrar todos los Python").build(app)?;
+    let kill_dotnet = MenuItemBuilder::with_id("kill_dotnet", "Cerrar todos los .NET").build(app)?;
+    let quit = MenuItemBuilder::with_id("quit", "Salir").build(app)?;
+
+    let menu = MenuBuilder::new(app)
+        .items(&[
+            &show,
+            &PredefinedMenuItem::separator(app)?,
+            &kill_node,
+            &kill_python,
+            &kill_dotnet,
+            &PredefinedMenuItem::separator(app)?,
+            &quit,
+        ])
+        .build()?;
+
+    TrayIconBuilder::with_id("main")
+        .icon(app.default_window_icon().unwrap().clone())
+        .tooltip("ProcessVisor")
+        .menu(&menu)
+        // Sin esto, el clic izquierdo abre el menu en vez de llegar al handler.
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "show" => show_main_window(app),
+            "kill_node" => kill_all_of(app, Runtime::Node),
+            "kill_python" => kill_all_of(app, Runtime::Python),
+            "kill_dotnet" => kill_all_of(app, Runtime::Dotnet),
+            "quit" => app.exit(0),
+            _ => {}
         })
-        .collect())
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main_window(tray.app_handle());
+            }
+        })
+        .build(app)?;
+
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         // Una sola instancia de System para toda la app: crearla en cada llamada
         // obliga a releer todo el arbol de procesos y es notablemente mas lento.
         .manage(Mutex::new(new_system()))
         .setup(|app| {
+            build_tray(app.handle())?;
+
             // Calentamiento en segundo plano para que la primera lectura de la UI
             // traiga CPU real. En un hilo aparte para no retrasar la ventana: si
             // el frontend pide datos antes de tiempo, se queda esperando el mutex
@@ -206,6 +447,14 @@ pub fn run() {
                 }
             });
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Cerrar la ventana la esconde en la bandeja en vez de terminar la app;
+            // para salir de verdad esta la opcion "Salir" del menu del icono.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_processes,
@@ -250,21 +499,32 @@ mod tests {
             cpu: 6.25,
             memory_mb: 128.0,
             run_time_secs: 900,
+            ports: vec![5173],
         };
 
         let json = serde_json::to_value(&info).expect("ProcessInfo deberia serializar");
-        for clave in ["pid", "name", "runtime", "cpu", "memoryMb", "runTimeSecs"] {
+        for clave in [
+            "pid",
+            "name",
+            "runtime",
+            "cpu",
+            "memoryMb",
+            "runTimeSecs",
+            "ports",
+        ] {
             assert!(json.get(clave).is_some(), "falta la clave '{clave}' en el JSON");
         }
         assert_eq!(json["runtime"], "node");
+        assert_eq!(json["ports"][0], 5173);
 
         let outcome = serde_json::to_value(KillOutcome {
             pid: 42,
             killed: false,
             error: Some("boom".into()),
+            freed_ports: vec![3000],
         })
         .expect("KillOutcome deberia serializar");
-        for clave in ["pid", "killed", "error"] {
+        for clave in ["pid", "killed", "error", "freedPorts"] {
             assert!(
                 outcome.get(clave).is_some(),
                 "falta la clave '{clave}' en KillOutcome"
@@ -303,6 +563,72 @@ mod tests {
                 "la lista no viene ordenada por memoria descendente"
             );
         }
+    }
+
+    /// El menu de la bandeja ofrece "Cerrar todos los Node/Python/.NET". Si esa
+    /// seleccion se equivocara, el usuario mataria procesos que no pidio y sin
+    /// ventana abierta para verlo venir, asi que se comprueba que cada runtime
+    /// solo devuelve los suyos.
+    #[test]
+    fn selecciona_solo_los_pids_del_runtime_pedido() {
+        let mut sys = new_system();
+        let todos = collect_processes(&mut sys);
+
+        for runtime in [Runtime::Node, Runtime::Python, Runtime::Dotnet] {
+            let elegidos = pids_of_runtime(&mut sys, runtime);
+            let esperados: Vec<u32> = todos
+                .iter()
+                .filter(|p| p.runtime == runtime)
+                .map(|p| p.pid)
+                .collect();
+
+            assert_eq!(
+                elegidos.len(),
+                esperados.len(),
+                "{} devolvio {} PIDs y se esperaban {}",
+                runtime.label(),
+                elegidos.len(),
+                esperados.len()
+            );
+            for pid in &elegidos {
+                assert!(
+                    esperados.contains(pid),
+                    "{} incluyo el PID {pid}, que no es suyo",
+                    runtime.label()
+                );
+            }
+        }
+    }
+
+    /// Abre un socket real y comprueba que aparece asociado a este proceso.
+    ///
+    /// Ademas verifica el filtro que de verdad importa: el puerto efimero de una
+    /// conexion *saliente* no debe contarse. Sin ese filtro, la UI mostraria
+    /// numeros aleatorios en vez del puerto donde escucha el servidor.
+    #[test]
+    fn detecta_puertos_en_escucha_e_ignora_conexiones_salientes() {
+        use std::net::{TcpListener, TcpStream};
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("no se pudo abrir el socket");
+        let address = listener.local_addr().unwrap();
+        let listen_port = address.port();
+
+        let client = TcpStream::connect(address).expect("no se pudo conectar");
+        let _accepted = listener.accept().expect("no se acepto la conexion");
+        let ephemeral_port = client.local_addr().unwrap().port();
+
+        let mine = listening_ports()
+            .remove(&std::process::id())
+            .unwrap_or_default();
+
+        assert!(
+            mine.contains(&listen_port),
+            "el puerto en escucha {listen_port} no aparece; detectados: {mine:?}"
+        );
+        assert!(
+            !mine.contains(&ephemeral_port),
+            "el puerto efimero {ephemeral_port} de una conexion saliente no deberia contarse"
+        );
     }
 
     /// Regresion de un bug real: con `System::new()` la lista de CPUs queda vacia,

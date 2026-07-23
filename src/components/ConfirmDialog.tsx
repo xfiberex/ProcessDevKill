@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 export type ConfirmRequest = {
@@ -44,7 +44,7 @@ export function ConfirmDialog({ request, onCancel }: ConfirmDialogProps) {
             role="alertdialog"
             aria-modal="true"
             aria-label={request.title}
-            className="w-full max-w-sm rounded-lg border border-(--color-border-subtle) bg-(--color-surface-raised) p-5 shadow-2xl"
+            className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-2xl"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}

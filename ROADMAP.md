@@ -64,21 +64,31 @@
 
 ---
 
-## 🔧 Tier 3: Integración profunda con el sistema
+## 🔧 Tier 3: Integración profunda con el sistema — ✅ **completado y verificado**
 *Objetivo: dar información técnica que la terminal no da fácilmente.*
 
-- [ ] **Detección de puertos (feature estrella):**
-    - [ ] Mapear cada PID a sus puertos locales en escucha (`3000`, `5173`, `8080`, …).
-      > ⚠️ `sysinfo` **no expone puertos por proceso**. Usar el crate [`listeners`](https://crates.io/crates/listeners) (API simple, multiplataforma) o [`netstat2`](https://crates.io/crates/netstat2) (más control) y cruzar los PIDs con la lista de `sysinfo`.
+- [x] **Detección de puertos (feature estrella):**
+    - [x] Mapear cada PID a sus puertos locales en escucha con el crate [`listeners`](https://crates.io/crates/listeners) 0.6.
+      > ⚠️ Confirmado: `sysinfo` **no expone puertos por proceso**, hizo falta el crate aparte.
+      > ⚠️ `listeners::get_all()` devuelve **todos** los sockets, incluidas las conexiones salientes. Hay que filtrar por `Protocol::TCP` + `SocketState::Listen`; si no, la UI mostraría el puerto efímero de una petición HTTP en vez del puerto donde sirve tu servidor.
+      > ⚠️ Un servidor que escucha en IPv4 e IPv6 aparece dos veces con el mismo puerto: hay que deduplicar.
       > ⚠️ En Windows, ver puertos de procesos de **otros usuarios** puede requerir permisos elevados; los procesos propios de desarrollo no tienen problema.
-    - [ ] Mostrar el puerto de forma prominente en la UI (badge junto al nombre).
-- [ ] **Notificaciones nativas:**
-    - [ ] Plugin `tauri-plugin-notification` (registrar en el `Builder` + permiso en `capabilities/`).
-    - [ ] Notificar cuando se libere un puerto exitosamente.
-- [ ] **System Tray:**
-    - [ ] Habilitar la feature `tray-icon` de Tauri y construir el menú con `TrayIconBuilder` (API de Tauri 2: `on_menu_event` + `on_tray_icon_event`).
-    - [ ] Minimizar a la bandeja al cerrar la ventana (interceptar `CloseRequested`).
-    - [ ] Menú rápido: "Kill All Node", "Kill All Python", "Show App".
+    - [x] Columna "Puerto" prominente, justo después del nombre, con el puerto como badge.
+    - [x] El buscador encuentra también por número de puerto.
+- [x] **Notificaciones nativas:**
+    - [x] Plugin `tauri-plugin-notification` registrado en el `Builder` + permiso `notification:default` en `capabilities/`.
+    - [x] Notificación al liberar puertos, emitida **desde Rust**: el menú de la bandeja también mata procesos sin que la ventana intervenga, así que la lógica no puede vivir en el frontend.
+- [x] **System Tray:**
+    - [x] Features `tray-icon` e `image-png` de Tauri; menú con `TrayIconBuilder` (`on_menu_event` + `on_tray_icon_event`).
+    - [x] Cerrar la ventana la esconde en la bandeja (`CloseRequested` + `api.prevent_close()`).
+    - [x] Menú: "Mostrar ProcessVisor", "Cerrar todos los Node/Python/.NET" y **"Salir"**.
+      > ⚠️ La opción "Salir" no estaba en el plan pero es imprescindible: sin ella, esconder la ventana al cerrar deja la app sin forma de terminar.
+- [x] **Verificación end-to-end** (2026-07-23):
+    - [x] Un servidor de prueba en el 4321 aparece con ese puerto; su puerto efímero saliente (60117) **no** se muestra.
+    - [x] Solo 2 de 13 procesos muestran puerto, y son los correctos — incluido el **1420 del propio Vite**.
+    - [x] Buscar "4321" filtra a 1 fila y matarla libera el puerto de verdad.
+    - [x] `WM_CLOSE` nativo (lo que hace el botón X): el proceso sigue vivo y la ventana deja de ser visible.
+    - [x] 7 tests de `cargo test` en verde, incluidos puertos reales y selección por runtime.
 
 ---
 

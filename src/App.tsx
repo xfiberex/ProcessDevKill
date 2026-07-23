@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { RUNTIMES, REFRESH_INTERVALS } from "./types";
 import type { KillOutcome, ProcessInfo, Runtime } from "./types";
@@ -64,7 +64,9 @@ export default function App() {
       if (filter !== "all" && p.runtime !== filter) return false;
       if (!needle) return true;
       return (
-        p.name.toLowerCase().includes(needle) || String(p.pid).includes(needle)
+        p.name.toLowerCase().includes(needle) ||
+        String(p.pid).includes(needle) ||
+        p.ports.some((port) => String(port).includes(needle))
       );
     });
   }, [processes, filter, query]);
@@ -121,8 +123,8 @@ export default function App() {
 
   return (
     <div className="flex h-full">
-      <aside className="flex w-52 shrink-0 flex-col border-r border-(--color-border-subtle) bg-(--color-surface-raised)">
-        <div className="border-b border-(--color-border-subtle) px-4 py-4">
+      <aside className="flex w-52 shrink-0 flex-col border-r border-border-subtle bg-surface-raised">
+        <div className="border-b border-border-subtle px-4 py-4">
           <h1 className="text-sm font-semibold tracking-wide">ProcessVisor</h1>
           <p className="mt-0.5 text-xs text-neutral-500">Process Manager</p>
         </div>
@@ -146,7 +148,7 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-(--color-border-subtle) p-3">
+        <div className="mt-auto border-t border-border-subtle p-3">
           <p className="mb-2 text-xs text-neutral-500">Auto-refresco</p>
           <div className="flex gap-1">
             {REFRESH_INTERVALS.map(({ label, ms }) => (
@@ -167,12 +169,12 @@ export default function App() {
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-(--color-border-subtle) px-5 py-3">
+        <header className="flex items-center gap-3 border-b border-border-subtle px-5 py-3">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por nombre o PID…"
-            className="min-w-0 flex-1 rounded-md border border-(--color-border-subtle) bg-black/20 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
+            placeholder="Buscar por nombre, PID o puerto…"
+            className="min-w-0 flex-1 rounded-md border border-border-subtle bg-black/20 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
           />
 
           <span className="shrink-0 text-sm text-neutral-500 tabular-nums">
@@ -182,7 +184,7 @@ export default function App() {
           <button
             onClick={refresh}
             disabled={loading}
-            className="shrink-0 rounded-md border border-(--color-border-subtle) px-3 py-1.5 text-sm text-neutral-200 transition hover:bg-white/5 disabled:opacity-50"
+            className="shrink-0 rounded-md border border-border-subtle px-3 py-1.5 text-sm text-neutral-200 transition hover:bg-white/5 disabled:opacity-50"
           >
             Refrescar
           </button>

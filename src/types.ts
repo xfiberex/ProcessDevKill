@@ -9,6 +9,8 @@ export type ProcessInfo = {
   cpu: number;
   memoryMb: number;
   runTimeSecs: number;
+  /** Puertos TCP en escucha; vacio si el proceso no sirve en ninguno. */
+  ports: number[];
 };
 
 /** Espejo de `KillOutcome` en src-tauri/src/lib.rs. */
@@ -16,6 +18,7 @@ export type KillOutcome = {
   pid: number;
   killed: boolean;
   error: string | null;
+  freedPorts: number[];
 };
 
 export const RUNTIMES: Record<Runtime, { label: string; color: string }> = {

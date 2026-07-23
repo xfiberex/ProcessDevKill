@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+﻿import { AnimatePresence, motion } from "motion/react";
 import { RUNTIME_ICONS } from "../icons";
 import { RUNTIMES, formatMemory, formatUptime } from "../types";
 import type { ProcessInfo } from "../types";
@@ -30,7 +30,7 @@ export function ProcessTable({
 
   return (
     <table className="w-full text-sm">
-      <thead className="sticky top-0 z-10 bg-(--color-surface) text-xs tracking-wide text-neutral-500 uppercase">
+      <thead className="sticky top-0 z-10 bg-surface text-xs tracking-wide text-neutral-500 uppercase">
         <tr>
           <th className="w-9 py-2 pl-5">
             <input
@@ -42,6 +42,7 @@ export function ProcessTable({
             />
           </th>
           <th className="px-3 py-2 text-left font-medium">Proceso</th>
+          <th className="px-3 py-2 text-left font-medium">Puerto</th>
           <th className="px-3 py-2 text-right font-medium">PID</th>
           <th className="px-3 py-2 text-right font-medium">CPU</th>
           <th className="px-3 py-2 text-right font-medium">RAM</th>
@@ -65,7 +66,7 @@ export function ProcessTable({
                 animate={{ opacity: isKilling ? 0.4 : 1 }}
                 exit={{ opacity: 0, x: -24, backgroundColor: "rgba(220,38,38,0.25)" }}
                 transition={{ duration: 0.18 }}
-                className="border-t border-(--color-border-subtle) hover:bg-white/[0.03]"
+                className="border-t border-border-subtle hover:bg-white/3"
               >
                 <td className="py-2 pl-5">
                   <input
@@ -83,6 +84,23 @@ export function ProcessTable({
                     <span className="truncate">{p.name}</span>
                     <span className="sr-only">{label}</span>
                   </span>
+                </td>
+
+                <td className="px-3 py-2">
+                  {p.ports.length === 0 ? (
+                    <span className="text-xs text-neutral-700">—</span>
+                  ) : (
+                    <span className="flex flex-wrap gap-1">
+                      {p.ports.map((port) => (
+                        <span
+                          key={port}
+                          className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs font-semibold text-neutral-100 tabular-nums"
+                        >
+                          {port}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </td>
 
                 <td className="px-3 py-2 text-right font-mono text-xs text-neutral-400">

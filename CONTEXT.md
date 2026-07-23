@@ -26,19 +26,21 @@
 
 ## 3. Estado actual
 
-**Fase actual:** ✅ Tiers 1 y 2 completados y verificados sobre la app en ejecución.
+**Fase actual:** ✅ Tiers 1, 2 y 3 completados y verificados sobre la app en ejecución.
 
 | Tier | Descripción | Estado |
 |---|---|---|
 | 1 | Cimientos y MVP | ✅ Completado y verificado |
 | 2 | UX/UI y reactividad | ✅ Completado y verificado |
-| 3 | Puertos, notificaciones, tray | ⬜ Sin empezar |
+| 3 | Puertos, notificaciones, tray | ✅ Completado y verificado |
 | 4 | Power user y optimización | ⬜ Sin empezar |
 | 5 | Distribución y estética | ⬜ Sin empezar |
 
-Verificado el 2026-07-23 con la app corriendo: 5 tests de `cargo test` en verde; la UI lista procesos `node` reales con RAM, CPU y tiempo correctos; un proceso saturando un núcleo reporta 6,28 % en un equipo de 16 núcleos; el buscador, el auto-refresco, la selección múltiple, el diálogo de confirmación y el cierre en lote funcionan contra procesos reales.
+Verificado el 2026-07-23 con la app corriendo: 7 tests de `cargo test` en verde; la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; cerrar la ventana la esconde en la bandeja sin terminar la app.
 
-**Próximo paso concreto:** Tier 3 → detección de puertos por PID (crate `listeners` o `netstat2`), notificaciones nativas y system tray.
+**Salvedad honesta sobre las notificaciones:** se comprobó que `notification().show()` devuelve `Ok` (stderr de la app limpio), pero **no** que el toast aparezca en pantalla. En Windows, una build de desarrollo sin instalar puede no renderizar el toast, y el Asistente de concentración puede suprimirlo. Conviene confirmarlo a ojo tras generar el instalador en el Tier 5.
+
+**Próximo paso concreto:** Tier 4 → historial de procesos cerrados, lista de runtimes configurable, hotkeys globales y migrar el polling a eventos emitidos desde Rust.
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -86,6 +88,10 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 | 2026-07-23 | `kill_processes` devuelve un resultado por PID, no `Result` global | En un lote es normal que algún proceso muera solo entre el refresco y el clic; eso no debe impedir matar los demás |
 | 2026-07-23 | Auto-refresco con guardia `inFlight` y poda de la selección | Evita encolar peticiones si una tarda más que el intervalo, y que un PID muerto siga contando para "matar seleccionados" |
 | 2026-07-23 | Iconos como SVG inline, no imágenes | La app funciona offline y así heredan el color del runtime sin peticiones de red |
+| 2026-07-23 | Filtrar los sockets por `TCP` + `Listen` | `listeners::get_all()` también devuelve conexiones salientes; sin el filtro la UI mostraría puertos efímeros aleatorios en vez del puerto del servidor |
+| 2026-07-23 | Emitir las notificaciones desde Rust, no desde el frontend | El menú de la bandeja mata procesos con la ventana oculta; ahí la notificación es el único feedback que recibe el usuario |
+| 2026-07-23 | Añadir "Salir" al menú de la bandeja (no estaba en el plan) | Al esconder la ventana en vez de cerrarla, sin esa opción la app no se puede terminar |
+| 2026-07-23 | No conceder `core:window:allow-close` al frontend | La app no necesita cerrarse a sí misma desde JS; el botón X pasa por el sistema y lo intercepta `CloseRequested` |
 
 ## 5. Decisiones pendientes
 
@@ -111,6 +117,13 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-23 (noche) — Tier 3 completo
+- Puertos por PID con el crate `listeners` 0.6, filtrando TCP en escucha y deduplicando IPv4/IPv6. Columna "Puerto" en la tabla y búsqueda por número de puerto.
+- Notificaciones nativas desde Rust al liberar puertos; plugin registrado y permiso `notification:default` añadido.
+- System tray con menú (Mostrar / Cerrar todos los Node·Python·.NET / Salir), clic izquierdo restaura la ventana, y cerrar la ventana la esconde en la bandeja.
+- Verificado que la detección de puertos distingue escucha de conexión saliente, y que `WM_CLOSE` esconde la app sin matarla.
+- Dos tests nuevos: puertos sobre sockets reales y selección de PIDs por runtime (la del menú de la bandeja, que si se equivoca mata procesos sin ventana abierta para verlo).
 
 ### 2026-07-23 (noche) — Tier 2 completo
 - Backend: comando `kill_processes` para lotes, con resultado por PID.
