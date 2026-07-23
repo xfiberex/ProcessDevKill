@@ -26,42 +26,45 @@
 
 ## 3. Estado actual
 
-**Fase actual:** 🟠 Tier 1 escrito por completo, **bloqueado** antes de poder ejecutarlo.
+**Fase actual:** ✅ Tier 1 completado y verificado sobre la app en ejecución.
 
 | Tier | Descripción | Estado |
 |---|---|---|
-| 1 | Cimientos y MVP | 🟠 Código completo, sin verificar en ejecución |
+| 1 | Cimientos y MVP | ✅ Completado y verificado |
 | 2 | UX/UI y reactividad | ⬜ Sin empezar |
 | 3 | Puertos, notificaciones, tray | ⬜ Sin empezar |
 | 4 | Power user y optimización | ⬜ Sin empezar |
 | 5 | Distribución y estética | ⬜ Sin empezar |
 
-Verificado hasta ahora: el frontend compila (`npm run build` pasa `tsc` y genera CSS de Tailwind v4). El backend Rust está escrito y con tests unitarios, pero **no se ha compilado ni una vez**.
+Verificado el 2026-07-23 con la app corriendo: 5 tests de `cargo test` en verde, la UI lista 13 procesos `node` reales con RAM y tiempo correctos, un proceso saturando un núcleo reporta 6,28 % en un equipo de 16 núcleos, y el botón "Kill" mata un proceso real (la fila desaparece y el PID deja de existir).
 
-### 🚧 Bloqueante: toolset MSVC incompleto
+**Próximo paso concreto:** Tier 2 → iconos por lenguaje, barras de consumo, auto-refresco y acciones masivas.
 
-`cargo` no puede enlazar en este equipo. Diagnóstico del 2026-07-23:
+### Entorno: el toolset MSVC venía incompleto (resuelto)
 
-- Visual Studio 18 Community está instalado con MSVC 14.51.36231 y `cl.exe`/`link.exe` presentes.
-- Pero ese toolset **no tiene directorio `VC\include`** (cero headers de C/C++: falta `excpt.h`, `stdio.h`, `vcruntime.h`) y solo trae librerías `lib\onecore\`, sin las de escritorio `lib\x64`.
-- Resultado: `LNK1104: no se puede abrir el archivo 'msvcrt.lib'`, y al forzar rutas OneCore, `C1083: no se puede abrir el archivo incluir 'excpt.h'`.
-- El Windows SDK 10.0.26100.0 sí está completo, así que **solo falta el componente de C++ de MSVC**.
+Merece la pena dejarlo escrito por si hay que montar el entorno en otra máquina. Visual Studio 18 Community estaba instalado con `cl.exe` y `link.exe`, pero **sin directorio `VC\include`** (cero headers de C) y solo con librerías `lib\onecore\`, sin las de escritorio `lib\x64`. Síntomas: `LNK1104: no se puede abrir el archivo 'msvcrt.lib'` y, al forzar rutas OneCore a mano, `C1083: no se puede abrir el archivo incluir 'excpt.h'`.
 
-**Cómo desbloquearlo** — abrir PowerShell **como administrador** y ejecutar:
+Se resolvió añadiendo el componente que faltaba, desde PowerShell **como administrador**:
 
 ```powershell
 & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify `
   --installPath "C:\Program Files\Microsoft Visual Studio\18\Community" `
-  --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-  --add Microsoft.VisualStudio.Component.Windows11SDK.26100 `
-  --passive --norestart
+  --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --passive --norestart
 ```
 
-Alternativa equivalente: abrir el Visual Studio Installer → *Modificar* → marcar **Desarrollo para el escritorio con C++**.
+Comprobación rápida de que el entorno está sano: debe existir `...\VC\Tools\MSVC\<versión>\include\excpt.h`.
 
-Después, comprobar que existe `C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\<versión>\include\excpt.h` y ejecutar `cd src-tauri && cargo test`.
+> Nota: `vswhere.exe` de este equipo no reporta VS 18 (`-products *` devuelve vacío) aunque la instalación sí esté registrada. No impidió compilar, pero puede confundir a herramientas que dependan de él.
 
-**Próximo paso concreto:** reparar MSVC (arriba) → `cargo test` → `npm run tauri dev` para verificar el Tier 1 contra procesos reales.
+### Cómo inspeccionar la UI en ejecución
+
+Para depurar el frontend dentro de la ventana de Tauri, añadir temporalmente a la ventana en `tauri.conf.json`:
+
+```json
+"additionalBrowserArgs": "--remote-debugging-port=9222"
+```
+
+Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el DOM real o simular clics. **Quitarlo después**: sustituye los argumentos por defecto de Tauri y no debe llegar a producción. La variable de entorno `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` **no** sirve aquí, Tauri la sobrescribe.
 
 ## 4. Decisiones tomadas
 
@@ -76,7 +79,9 @@ Después, comprobar que existe `C:\Program Files\Microsoft Visual Studio\18\Comm
 | 2026-07-23 | Clasificar procesos por nombre exacto o sufijo de versión, no por prefijo | Un prefijo simple capturaría `nodemon` como si fuera Node |
 | 2026-07-23 | `kill_process` valida que el PID sea de un runtime vigilado | Un comando de Tauri acepta cualquier entrada; sin la guardia sería un "mata lo que quieras" |
 | 2026-07-23 | Normalizar el % de CPU dividiendo por núcleos lógicos | `cpu_usage()` suma todos los núcleos y devuelve hasta 400 en un equipo de 4 hilos |
-| 2026-07-23 | Refresco inicial de CPU en `setup()` | Evita que la primera lectura de la UI muestre 0 % en todos los procesos |
+| 2026-07-23 | Crear el `System` con `RefreshKind::nothing().with_cpu(CpuRefreshKind::nothing())` | **Obligatorio**: sysinfo multiplica el uso de CPU por `cpus.len()`, y con `System::new()` esa lista queda vacía → todos los procesos reportan 0 % |
+| 2026-07-23 | Calentar la CPU con **tres** muestras, en un hilo aparte | sysinfo descarta la primera lectura sin guardar líneas base y la segunda las compara contra cero; solo la tercera es real. En un hilo para no retrasar la ventana |
+| 2026-07-23 | Separar `collect_processes()` del comando de Tauri | Permite probar la lógica contra el sistema real sin montar una `App` |
 
 ## 5. Decisiones pendientes
 
@@ -102,6 +107,13 @@ Después, comprobar que existe `C:\Program Files\Microsoft Visual Studio\18\Comm
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-23 (tarde) — Tier 1 desbloqueado, verificado y con un bug corregido
+- Reparado el toolset MSVC añadiendo el componente de C++ (ver §3). `cargo` ya compila.
+- **Bug encontrado y corregido: todos los procesos reportaban 0 % de CPU.** Los tests iniciales no lo cazaron porque los procesos de la máquina estaban ociosos y 0 % parecía plausible; se descubrió al lanzar un proceso `node` quemando un núcleo a propósito. Causa: `System::new()` deja vacía la lista de CPUs y sysinfo multiplica por `cpus.len()`. Añadido `reporta_cpu_de_un_proceso_ocupado` como test de regresión.
+- Descubierto además que sysinfo necesita **tres** muestras para dar un porcentaje real; el calentamiento pasó de una a dos muestras previas.
+- Añadidos tests de lectura del sistema real y del contrato JSON con `src/types.ts`. Total: 5 tests en verde.
+- Verificación end-to-end sobre la app en ejecución, inspeccionando el DOM real vía CDP: la tabla lista 13 procesos `node` con datos correctos y el botón "Kill" mata un proceso de verdad.
 
 ### 2026-07-23 — Tier 1 implementado, bloqueado en compilación
 - Instalado Rust 1.97.1 vía `rustup` (no estaba en el equipo).

@@ -6,31 +6,34 @@
 
 ---
 
-## 🛠 Tier 1: Cimientos y MVP — 🟠 código completo, **bloqueado** en verificación
+## 🛠 Tier 1: Cimientos y MVP — ✅ **completado y verificado**
 *Objetivo: tener una lista funcional de procesos y poder matarlos.*
-
-> 🚧 **Bloqueante activo:** el toolset MSVC del equipo está incompleto (sin `VC\include` ni librerías de escritorio x64), así que `cargo` no puede enlazar y la app **no se ha podido ejecutar todavía**. Ver [CONTEXT.md](CONTEXT.md) §3 para el comando de reparación.
 
 - [x] **Configuración del entorno:**
     - [x] Node.js LTS (v24.18) y npm (11.12) — ya estaban instalados.
     - [x] Rust vía `rustup` → 1.97.1 instalado.
-    - [ ] ⚠️ **Microsoft C++ Build Tools** — el componente instalado no incluye headers ni librerías de escritorio. **Pendiente de reparar.**
+    - [x] **Microsoft C++ Build Tools** — la instalación de VS 18 venía sin headers ni librerías de escritorio; se añadió el componente `Microsoft.VisualStudio.Component.VC.Tools.x86.x64`.
     - [x] Inicializar proyecto: plantilla **React + TypeScript + Vite** de `create-tauri-app`.
     - [x] `git init` + primer commit.
     - [x] Configurar **Tailwind CSS v4**.
       > ⚠️ La instalación cambió respecto a v3: `npm install tailwindcss @tailwindcss/vite`, registrar el plugin en `vite.config.ts` y añadir `@import "tailwindcss";` en el CSS. Ya no se necesita `tailwind.config.js` ni PostCSS.
-- [x] **Backend (Rust):** *(escrito, sin compilar por el bloqueante)*
+- [x] **Backend (Rust):**
     - [x] Añadir crate `sysinfo` (0.39) a `src-tauri/Cargo.toml`, solo con la feature `system`.
     - [x] Comando `get_processes`: filtra por runtime y ordena por RAM descendente.
       > ⚠️ La comparación **no** es por prefijo simple como decía el plan original: `nodemon.exe` empezaría por `node` sin ser Node. Se exige nombre exacto o sufijo de versión (`python3.11`), con tests que lo cubren.
     - [x] Comando `kill_process(pid)` con `Process::kill()`, más una guardia que rechaza PIDs que no sean de un runtime vigilado.
     - [x] Una sola instancia de `System` en `State<Mutex<System>>`, refrescada con `refresh_processes_specifics` (solo CPU y memoria).
-    - [x] Calentamiento de CPU en `setup()`: sin él, la primera lectura de la UI mostraría 0 % en todo.
+    - [x] Calentamiento de CPU al arrancar, en un hilo aparte.
+      > ⚠️ Hacen falta **tres** muestras, no una: sysinfo descarta la primera sin guardar líneas base y la segunda las compara contra cero. Ver CONTEXT.md §4.
 - [x] **Frontend (React):**
     - [x] Layout Sidebar (filtros por runtime con contadores) + Main Content.
     - [x] Botón manual de "Refrescar" (`invoke("get_processes")`).
     - [x] Tabla con: Nombre, PID, CPU, RAM, tiempo activo y botón "Kill".
-- [ ] **Verificación:** ejecutar `npm run tauri dev` y comprobar que lista y mata procesos reales.
+- [x] **Verificación end-to-end** (2026-07-23, sobre la app en ejecución):
+    - [x] 5 tests de `cargo test` en verde, incluidos dos contra los procesos reales de la máquina.
+    - [x] La UI lista 13 procesos `node` reales con RAM y tiempo correctos; contadores del sidebar coherentes.
+    - [x] Un proceso saturando un núcleo reporta 6,28 % en un equipo de 16 núcleos (100/16 = 6,25 ✓).
+    - [x] El botón "Kill" mata un proceso real: la fila desaparece y el PID deja de existir en el sistema.
 
 ---
 
