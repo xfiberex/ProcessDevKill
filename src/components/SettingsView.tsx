@@ -1,9 +1,20 @@
 import { useState } from "react";
-import type { Settings } from "../types";
+import { MonitorIcon, MoonIcon, SunIcon, XIcon } from "lucide-react";
+import { THEMES } from "../types";
+import type { Settings, Theme } from "../types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 
 type SettingsViewProps = {
   settings: Settings;
   onChange: (settings: Settings) => void;
+};
+
+const THEME_ICONS: Record<Theme, typeof SunIcon> = {
+  system: MonitorIcon,
+  light: SunIcon,
+  dark: MoonIcon,
 };
 
 export function SettingsView({ settings, onChange }: SettingsViewProps) {
@@ -33,31 +44,52 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
   return (
     <div className="max-w-2xl space-y-8 px-5 py-6">
       <section>
-        <h2 className="text-sm font-semibold">Procesos vigilados</h2>
-        <p className="mt-1 text-sm text-neutral-500">
+        <h2 className="font-heading text-sm font-semibold">Apariencia</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Con <strong className="font-medium text-foreground">Sistema</strong>, la
+          app cambia sola cuando Windows pasa de claro a oscuro.
+        </p>
+
+        <div className="mt-3 flex gap-2">
+          {THEMES.map(({ value, label }) => {
+            const Icon = THEME_ICONS[value];
+            return (
+              <Button
+                key={value}
+                variant={settings.theme === value ? "secondary" : "outline"}
+                aria-pressed={settings.theme === value}
+                onClick={() => onChange({ ...settings, theme: value })}
+              >
+                <Icon />
+                {label}
+              </Button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-heading text-sm font-semibold">Procesos vigilados</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Node, Python y .NET se vigilan siempre. Aqui puedes añadir otros
-          ejecutables, como <code className="text-neutral-400">docker</code>,{" "}
-          <code className="text-neutral-400">go</code> o{" "}
-          <code className="text-neutral-400">php</code>. Se compara el nombre
+          ejecutables, como <code className="text-foreground">docker</code>,{" "}
+          <code className="text-foreground">go</code> o{" "}
+          <code className="text-foreground">php</code>. Se compara el nombre
           exacto, sin la extension.
         </p>
 
         <div className="mt-3 flex gap-2">
-          <input
+          <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") addName();
             }}
             placeholder="nombre del ejecutable"
-            className="min-w-0 flex-1 rounded-md border border-border-subtle bg-black/20 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
           />
-          <button
-            onClick={addName}
-            className="rounded-md border border-border-subtle px-3 py-1.5 text-sm text-neutral-200 transition hover:bg-white/5"
-          >
+          <Button variant="outline" onClick={addName}>
             Añadir
-          </button>
+          </Button>
         </div>
 
         {settings.customNames.length > 0 && (
@@ -65,16 +97,17 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
             {settings.customNames.map((name) => (
               <li
                 key={name}
-                className="flex items-center gap-2 rounded-md bg-white/10 py-1 pr-1 pl-2.5 text-sm"
+                className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2.5 text-sm"
               >
                 <span className="font-mono text-xs">{name}</span>
-                <button
-                  onClick={() => removeName(name)}
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   aria-label={`Quitar ${name}`}
-                  className="rounded px-1.5 text-neutral-400 transition hover:bg-white/10 hover:text-white"
+                  onClick={() => removeName(name)}
                 >
-                  ×
-                </button>
+                  <XIcon />
+                </Button>
               </li>
             ))}
           </ul>
@@ -82,28 +115,33 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold">Atajo global</h2>
-        <label className="mt-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
+        <h2 className="font-heading text-sm font-semibold">Atajo global</h2>
+        <div className="mt-3 flex items-start gap-3">
+          <Switch
+            id="hotkey"
             checked={settings.hotkeyEnabled}
-            onChange={(e) =>
-              onChange({ ...settings, hotkeyEnabled: e.target.checked })
+            onCheckedChange={(checked) =>
+              onChange({ ...settings, hotkeyEnabled: checked })
             }
-            className="mt-0.5 size-3.5 accent-red-500"
+            className="mt-0.5"
           />
-          <span className="text-sm">
-            <span className="text-neutral-200">
-              Activar <kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs">Ctrl+Alt+K</kbd>
+          <label htmlFor="hotkey" className="cursor-pointer text-sm">
+            <span>
+              Activar{" "}
+              <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                Ctrl+Alt+K
+              </kbd>
             </span>
-            <span className="mt-1 block text-neutral-500">
-              Cierra <strong className="text-neutral-400">todos</strong> los
-              procesos vigilados al instante, funcione o no la ventana, y{" "}
-              <strong className="text-neutral-400">sin pedir confirmacion</strong>.
-              Queda registrado en el historial.
+            <span className="mt-1 block text-muted-foreground">
+              Cierra <strong className="font-medium text-foreground">todos</strong>{" "}
+              los procesos vigilados al instante, funcione o no la ventana, y{" "}
+              <strong className="font-medium text-foreground">
+                sin pedir confirmacion
+              </strong>
+              . Queda registrado en el historial.
             </span>
-          </span>
-        </label>
+          </label>
+        </div>
       </section>
     </div>
   );

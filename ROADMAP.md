@@ -1,4 +1,4 @@
-# 🚀 Roadmap: ProcessVisor — Process Manager para Devs
+# 🚀 Roadmap: ProcessDevKill — Process Manager para Devs
 
 > Aplicación de escritorio construida con **Tauri 2 + React + Vite + TypeScript** para la gestión inteligente de procesos de desarrollo (`node`, `python`, `dotnet`, …).
 >
@@ -81,7 +81,7 @@
 - [x] **System Tray:**
     - [x] Features `tray-icon` e `image-png` de Tauri; menú con `TrayIconBuilder` (`on_menu_event` + `on_tray_icon_event`).
     - [x] Cerrar la ventana la esconde en la bandeja (`CloseRequested` + `api.prevent_close()`).
-    - [x] Menú: "Mostrar ProcessVisor", "Cerrar todos los Node/Python/.NET" y **"Salir"**.
+    - [x] Menú: "Mostrar ProcessDevKill", "Cerrar todos los Node/Python/.NET" y **"Salir"**.
       > ⚠️ La opción "Salir" no estaba en el plan pero es imprescindible: sin ella, esconder la ventana al cerrar deja la app sin forma de terminar.
 - [x] **Verificación end-to-end** (2026-07-23):
     - [x] Un servidor de prueba en el 4321 aparece con ese puerto; su puerto efímero saliente (60117) **no** se muestra.
@@ -120,20 +120,64 @@
 ## 📦 Tier 5: Distribución y estética final
 *Objetivo: que parezca un producto comercial.*
 
-- [ ] **Diseño visual:**
-    - [ ] Modo oscuro / claro automático según el sistema (variante `dark` de Tailwind + `prefers-color-scheme`).
-    - [ ] Componentes de **shadcn/ui** (Dialog, Context Menu, Toast) — compatible con Vite + Tailwind v4; requiere configurar el alias `@/` en `vite.config.ts` y `tsconfig.json`.
-- [ ] **Instalación:**
-    - [ ] Icono personalizado (`npm run tauri icon icono.png` genera todos los tamaños).
-    - [ ] Instaladores con el bundler de Tauri: Windows genera **NSIS (`.exe`) y/o WiX (`.msi`)**; macOS genera `.dmg`.
-    - [ ] CI con **GitHub Actions** usando la action oficial `tauri-apps/tauri-action`.
-      > ⚠️ Compilar en **cada commit** es lento y caro (la build de Tauri tarda varios minutos por plataforma). Recomendado: compilar y publicar release solo al pushear un **tag** (`v*`), y en commits normales ejecutar solo `cargo check` + lint.
+> **La app pasa a llamarse ProcessDevKill** (2026-07-24). Cambian el `productName`, el título de la ventana, la bandeja, el crate de Rust y el identificador (`com.processdevkill.app`), que es lo que decide dónde viven los ajustes y el historial.
 
----
+### 1. Modo oscuro / claro — ✅ **completado y verificado**
+- [x] Variante `dark` de Tailwind v4 (`@custom-variant dark`) sobre las variables de tema de shadcn, con paletas propias para claro y oscuro.
+- [x] Selector **Sistema / Claro / Oscuro** en Ajustes, persistido en `settings.json` junto al resto de opciones.
+  > ⚠️ La clase `dark` **no** la pone la media query de CSS, sino `src/theme.tsx`: si lo decidiera el CSS, elegir "Claro" con Windows en oscuro no tendría ningún efecto. Con "Sistema" se escucha `prefers-color-scheme` en vivo y la app cambia sin reiniciar.
+  > ⚠️ Añadir un campo a `Settings` habría invalidado el `settings.json` de las versiones anteriores; el struct ya llevaba `#[serde(default)]`, y ahora hay un test que lo fija.
+- [x] Script en `index.html` que aplica el tema **antes** de la primera pintura, leyendo una copia en `localStorage`: los ajustes llegan de Rust de forma asíncrona y sin esto la ventana arrancaría en blanco durante unos milisegundos.
 
-## 💡 Ideas "Salsa Secreta" (Bonus, post-Tier 5)
+### 2. Componentes de shadcn/ui — ✅ **completado y verificado**
+- [x] Alias `@/` en `vite.config.ts` **y** en `tsconfig.json` (hacen falta los dos: uno resuelve el bundle y el otro el chequeo de tipos).
+- [x] `AlertDialog` para las confirmaciones, `ContextMenu` por fila y `Toaster` (Sonner) para los avisos.
+  > ⚠️ shadcn ya no genera sobre Radix: el estilo actual (`base-nova`) usa **Base UI** (`@base-ui/react`). El `Toast` clásico tampoco existe: su sustituto es **Sonner**.
+  > ⚠️ El `sonner.tsx` generado importa `next-themes`; se reescribió para leer el tema de `src/theme.tsx` y se desinstaló el paquete.
+  > ⚠️ El foco al abrir el diálogo se fuerza con `initialFocus`: Base UI enfoca "Cancelar" y aquí se mantiene el foco en el botón destructivo de los Tiers 2-4.
+- [x] `Checkbox` de shadcn en la tabla, en lugar del `<input type="checkbox">` en crudo.
+  > Era lo único que rompía la coherencia visual: sobre el tema oscuro, la casilla nativa de Windows es un cuadrado blanco macizo entre componentes que respetan la paleta.
+- [x] Menú contextual con "Matar proceso", "Copiar PID / nombre / puerto" y "Copiar http://localhost:PUERTO".
+  > ⚠️ Copiar **no** puede usar `navigator.clipboard`: la API web exige que el documento tenga el foco y lanza `NotAllowedError` si no lo tiene. Se añadió `tauri-plugin-clipboard-manager` con el permiso `clipboard-manager:allow-write-text` (solo escritura).
+
+### 3. Icono propio — ✅ **completado y verificado**
+- [x] `app-icon.svg` en la raíz → `npm run tauri icon app-icon.svg` genera todos los tamaños de `src-tauri/icons/`.
+  > ⚠️ El símbolo tiene que aguantar los 16 px de la bandeja: la primera versión llevaba un corchete `>` que a ese tamaño era un borrón sobre el anillo.
+  > ⚠️ La barra vertical del símbolo de encendido no se pintaba: un degradado con el `objectBoundingBox` por defecto no se aplica a una línea de **ancho cero**. Se arregló con `gradientUnits="userSpaceOnUse"`.
+- [x] Se borran `icons/android/` e `icons/ios/`, que genera el comando pero no usa una app de escritorio.
+
+### 4. Ideas "Salsa Secreta" — ⬜ siguiente
 - [ ] **Auto-Kill:** cerrar automáticamente un proceso que supere un umbral de RAM configurable (ej. Node > 2 GB), con notificación.
 - [ ] **Zombie Finder:** resaltar procesos con CPU ~0% sostenido durante N minutos que siguen ocupando memoria y puertos.
+
+### 5. Instaladores — ⬜ aplazado
+- [ ] Instaladores con el bundler de Tauri: Windows genera **NSIS (`.exe`) y/o WiX (`.msi`)**; macOS genera `.dmg`.
+- [ ] Confirmar a ojo que las notificaciones nativas se ven una vez instalada (ver la salvedad en CONTEXT.md §3).
+
+### 6. Publicación de releases — ⬜ aplazado
+- [ ] Script `release.ps1` propio (bump de versión + build + tag + GitHub Release con `gh`), adaptado del de FormatDiskPro.
+  > Decidido el 2026-07-24: se descarta GitHub Actions mientras el objetivo sea Windows. Ver CONTEXT.md §4.
+  > ⚠️ Adaptación pendiente: la versión vive en **tres** sitios (`package.json`, `tauri.conf.json` y `Cargo.toml`+`Cargo.lock`), la build es `npm run tauri build` y los artefactos salen en `src-tauri/target/release/bundle/`.
+
+### 7. Verificación end-to-end (2026-07-24, sobre la app en ejecución)
+- [x] La ventana arranca con el tema del sistema (Windows en oscuro → `<html class="dark">`, fondo `oklch(0.175 0.009 265)`).
+- [x] Elegir "Claro" quita la clase y el fondo pasa a `oklch(0.995 0.002 265)`; elegir "Oscuro" la devuelve.
+- [x] La preferencia llega al disco: `%APPDATA%\com.processdevkill.app\settings.json` contiene `"theme": "dark"`.
+- [x] Clic derecho sobre una fila abre el menú contextual con sus 5 opciones; la fila queda resaltada mientras está abierto.
+- [x] Copiar deja el texto en el portapapeles de Windows y sale el toast de confirmación.
+- [x] El diálogo de "Nuke All" sigue cancelándose con Escape **sin matar nada**, ahora sobre el AlertDialog de shadcn.
+- [x] 13 tests de `cargo test` en verde (antes 12) y `npm run build` sin errores de tipos.
+
+**Segunda pasada (misma fecha, sesión independiente).** Se repitió la verificación desde cero sobre la app recién compilada, porque los componentes se habían tocado después de la primera:
+
+- [x] Con Windows en oscuro, la ventana arranca en `dark`; "Claro" la deja en `oklch(0.995 0.002 265)` y la copia `light` queda en `localStorage`. Medido aparte, coincide con lo de arriba.
+- [x] De 9 procesos `node` listados, solo dos muestran puerto: el **1420 de Vite** y el **4321 de un servidor de pruebas** lanzado a propósito. Los demás, "—".
+- [x] Clic derecho **real** (evento de ratón nativo, no sintético) sobre una fila: el menú abre con sus 5 opciones y la fila se resalta.
+- [x] "Copiar PID" con la ventana **sin foco**: `Get-Clipboard` de PowerShell devuelve `11664`, el PID exacto de esa fila. Es justo el caso que fallaba con `navigator.clipboard`.
+- [x] Seleccionar una fila cambia el botón a "Matar 1", el diálogo abre con el foco en el botón destructivo y **Escape cancela**: el proceso 11664 seguía vivo y su puerto 4321 seguía ocupado después.
+- [x] Confirmar sí mata: el proceso deja de existir, el 4321 queda libre, sale el toast "node.exe cerrado / Puerto 4321 liberado" y el historial registra `pid 11664, freedPorts [4321], source "window"`.
+- [x] Textos en singular cuando se cierra un solo proceso ("Se terminará el proceso seleccionado", botón "Cerrar proceso").
+- [x] `cargo build` sin avisos de código muerto y 13 tests en verde tras hacer que la bandeja use `pids_of_runtime`.
 
 ---
 
@@ -149,5 +193,6 @@
 | Notificaciones Tauri | ✅ Válido | Plugin `tauri-plugin-notification` + capabilities |
 | System Tray | ✅ Válido | API Tauri 2 `TrayIconBuilder` |
 | Hotkeys globales | ✅ Válido | Plugin `tauri-plugin-global-shortcut` |
-| shadcn/ui | ✅ Válido | Requiere alias `@/` con Vite |
-| CI en cada commit | ⚠️ Costoso | Release solo por tag; check/lint por commit |
+| shadcn/ui | ⚠️ Cambió | Alias `@/` en Vite **y** tsconfig; hoy genera sobre **Base UI**, no Radix, y el Toast es **Sonner** |
+| Portapapeles del navegador | ❌ No sirve | `navigator.clipboard` exige foco; `tauri-plugin-clipboard-manager` |
+| CI en cada commit | ⚠️ Costoso | Descartado: release local con `release.ps1` (ver Tier 5.6) |

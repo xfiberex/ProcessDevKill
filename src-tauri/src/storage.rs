@@ -13,6 +13,16 @@ use serde::{Deserialize, Serialize};
 /// Cuantos cierres se conservan. Sin tope, el archivo crece sin fin.
 pub const HISTORY_LIMIT: usize = 200;
 
+/// Preferencia de apariencia. `System` sigue al tema de Windows.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
@@ -23,6 +33,10 @@ pub struct Settings {
     pub hotkey_enabled: bool,
     /// Intervalo del refresco automatico en ms; 0 lo pausa.
     pub refresh_ms: u64,
+    /// Apariencia de la ventana. Se guarda aqui, y no en el `localStorage` del
+    /// webview, para que viva junto al resto de ajustes en un archivo que el
+    /// usuario puede ver, copiar entre equipos o borrar.
+    pub theme: Theme,
 }
 
 impl Default for Settings {
@@ -31,6 +45,7 @@ impl Default for Settings {
             custom_names: Vec::new(),
             hotkey_enabled: true,
             refresh_ms: 2000,
+            theme: Theme::System,
         }
     }
 }
@@ -155,7 +170,7 @@ mod tests {
     use super::*;
 
     fn temp_storage(nombre: &str) -> Storage {
-        let dir = std::env::temp_dir().join(format!("processvisor-test-{nombre}-{}", now_millis()));
+        let dir = std::env::temp_dir().join(format!("processdevkill-test-{nombre}-{}", now_millis()));
         Storage::new(dir)
     }
 
@@ -190,10 +205,30 @@ mod tests {
             custom_names: vec!["php".into()],
             hotkey_enabled: false,
             refresh_ms: 5000,
+            theme: Theme::Dark,
         };
 
         storage.save_settings(&settings).unwrap();
         assert_eq!(storage.load_settings(), settings);
+    }
+
+    /// Un `settings.json` escrito por una version anterior no tiene `theme`. Sin
+    /// `#[serde(default)]` en el struct, serde lo daria por corrupto y tiraria
+    /// TODOS los ajustes del usuario (nombres vigilados incluidos) al añadir un
+    /// campo nuevo.
+    #[test]
+    fn los_ajustes_de_una_version_anterior_siguen_valiendo() {
+        let storage = temp_storage("migracion");
+        fs::write(
+            storage.settings_file(),
+            r#"{"customNames":["php"],"hotkeyEnabled":false,"refreshMs":5000}"#,
+        )
+        .unwrap();
+
+        let settings = storage.load_settings();
+        assert_eq!(settings.custom_names, vec!["php".to_string()]);
+        assert!(!settings.hotkey_enabled);
+        assert_eq!(settings.theme, Theme::System, "el campo nuevo toma su valor por defecto");
     }
 
     #[test]

@@ -1,8 +1,18 @@
-﻿import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { CopyIcon, SkullIcon } from "lucide-react";
 import { RUNTIME_ICONS } from "../icons";
 import { RUNTIMES, formatMemory, formatUptime } from "../types";
 import type { ProcessInfo } from "../types";
 import { UsageBar } from "./UsageBar";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 type ProcessTableProps = {
   processes: ProcessInfo[];
@@ -11,6 +21,7 @@ type ProcessTableProps = {
   onToggle: (pid: number) => void;
   onToggleAll: () => void;
   onKill: (pid: number) => void;
+  onCopy: (text: string, what: string) => void;
 };
 
 export function ProcessTable({
@@ -20,6 +31,7 @@ export function ProcessTable({
   onToggle,
   onToggleAll,
   onKill,
+  onCopy,
 }: ProcessTableProps) {
   // Referencias para las barras: el proceso que mas consume marca el 100 %.
   const maxCpu = Math.max(...processes.map((p) => p.cpu), 0.001);
@@ -30,15 +42,13 @@ export function ProcessTable({
 
   return (
     <table className="w-full text-sm">
-      <thead className="sticky top-0 z-10 bg-surface text-xs tracking-wide text-neutral-500 uppercase">
+      <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
         <tr>
           <th className="w-9 py-2 pl-5">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={allSelected}
-              onChange={onToggleAll}
+              onCheckedChange={onToggleAll}
               aria-label="Seleccionar todos"
-              className="size-3.5 accent-red-500"
             />
           </th>
           <th className="px-3 py-2 text-left font-medium">Proceso</th>
@@ -59,86 +69,148 @@ export function ProcessTable({
             const isKilling = killing.has(p.pid);
 
             return (
-              <motion.tr
-                key={p.pid}
-                layout
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isKilling ? 0.4 : 1 }}
-                exit={{ opacity: 0, x: -24, backgroundColor: "rgba(220,38,38,0.25)" }}
-                transition={{ duration: 0.18 }}
-                className="border-t border-border-subtle hover:bg-white/3"
-              >
-                <td className="py-2 pl-5">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(p.pid)}
-                    onChange={() => onToggle(p.pid)}
-                    aria-label={`Seleccionar PID ${p.pid}`}
-                    className="size-3.5 accent-red-500"
-                  />
-                </td>
+              // ContextMenu (Base UI) no pinta ningun elemento propio, asi que
+              // puede envolver una fila sin romper el <tbody>; el trigger es la
+              // <tr> de siempre, via `render`.
+              <ContextMenu key={p.pid}>
+                <ContextMenuTrigger
+                  render={
+                    <motion.tr
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: isKilling ? 0.4 : 1 }}
+                      exit={{
+                        opacity: 0,
+                        x: -24,
+                        backgroundColor: "rgba(220,38,38,0.25)",
+                      }}
+                      transition={{ duration: 0.18 }}
+                      className="border-t border-border hover:bg-muted/60 data-popup-open:bg-muted/60"
+                    />
+                  }
+                >
+                  <td className="py-2 pl-5">
+                    <Checkbox
+                      checked={selected.has(p.pid)}
+                      onCheckedChange={() => onToggle(p.pid)}
+                      aria-label={`Seleccionar PID ${p.pid}`}
+                    />
+                  </td>
 
-                <td className="px-3 py-2">
-                  <span className="flex items-center gap-2">
-                    <Icon className="size-4 shrink-0" style={{ color }} />
-                    <span className="truncate">{p.name}</span>
-                    <span className="sr-only">{label}</span>
-                  </span>
-                </td>
-
-                <td className="px-3 py-2">
-                  {p.ports.length === 0 ? (
-                    <span className="text-xs text-neutral-700">—</span>
-                  ) : (
-                    <span className="flex flex-wrap gap-1">
-                      {p.ports.map((port) => (
-                        <span
-                          key={port}
-                          className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs font-semibold text-neutral-100 tabular-nums"
-                        >
-                          {port}
-                        </span>
-                      ))}
+                  <td className="px-3 py-2">
+                    <span className="flex items-center gap-2">
+                      <Icon className="size-4 shrink-0" style={{ color }} />
+                      <span className="truncate">{p.name}</span>
+                      <span className="sr-only">{label}</span>
                     </span>
-                  )}
-                </td>
+                  </td>
 
-                <td className="px-3 py-2 text-right font-mono text-xs text-neutral-400">
-                  {p.pid}
-                </td>
+                  <td className="px-3 py-2">
+                    {p.ports.length === 0 ? (
+                      <span className="text-xs text-muted-foreground/50">—</span>
+                    ) : (
+                      <span className="flex flex-wrap gap-1">
+                        {p.ports.map((port) => (
+                          <span
+                            key={port}
+                            className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums"
+                          >
+                            {port}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </td>
 
-                <td className="px-3 py-2">
-                  <UsageBar
-                    label={`${p.cpu.toFixed(1)}%`}
-                    value={p.cpu}
-                    max={maxCpu}
-                    color={color}
-                  />
-                </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                    {p.pid}
+                  </td>
 
-                <td className="px-3 py-2">
-                  <UsageBar
-                    label={formatMemory(p.memoryMb)}
-                    value={p.memoryMb}
-                    max={maxMemory}
-                    color={color}
-                  />
-                </td>
+                  <td className="px-3 py-2">
+                    <UsageBar
+                      label={`${p.cpu.toFixed(1)}%`}
+                      value={p.cpu}
+                      max={maxCpu}
+                      color={color}
+                    />
+                  </td>
 
-                <td className="px-3 py-2 text-right text-neutral-500 tabular-nums">
-                  {formatUptime(p.runTimeSecs)}
-                </td>
+                  <td className="px-3 py-2">
+                    <UsageBar
+                      label={formatMemory(p.memoryMb)}
+                      value={p.memoryMb}
+                      max={maxMemory}
+                      color={color}
+                    />
+                  </td>
 
-                <td className="px-5 py-2 text-right">
-                  <button
+                  <td className="px-3 py-2 text-right text-muted-foreground tabular-nums">
+                    {formatUptime(p.runTimeSecs)}
+                  </td>
+
+                  <td className="px-5 py-2 text-right">
+                    <Button
+                      size="xs"
+                      variant="destructive"
+                      onClick={() => onKill(p.pid)}
+                      disabled={isKilling}
+                    >
+                      Kill
+                    </Button>
+                  </td>
+                </ContextMenuTrigger>
+
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    variant="destructive"
                     onClick={() => onKill(p.pid)}
-                    disabled={isKilling}
-                    className="rounded border border-red-900/60 px-2.5 py-1 text-xs font-medium text-red-300 transition hover:bg-red-900/40 disabled:opacity-40"
                   >
-                    Kill
-                  </button>
-                </td>
-              </motion.tr>
+                    <SkullIcon />
+                    Matar proceso
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onClick={() => onCopy(String(p.pid), `PID ${p.pid}`)}
+                  >
+                    <CopyIcon />
+                    Copiar PID
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onClick={() => onCopy(p.name, p.name)}
+                  >
+                    <CopyIcon />
+                    Copiar nombre
+                  </ContextMenuItem>
+                  {p.ports.length > 0 && (
+                    <ContextMenuItem
+                      onClick={() =>
+                        onCopy(
+                          p.ports.join(", "),
+                          p.ports.length === 1
+                            ? `puerto ${p.ports[0]}`
+                            : `puertos ${p.ports.join(", ")}`,
+                        )
+                      }
+                    >
+                      <CopyIcon />
+                      {p.ports.length === 1 ? "Copiar puerto" : "Copiar puertos"}
+                    </ContextMenuItem>
+                  )}
+                  {p.ports.length > 0 && (
+                    <ContextMenuItem
+                      onClick={() =>
+                        onCopy(
+                          `http://localhost:${p.ports[0]}`,
+                          `http://localhost:${p.ports[0]}`,
+                        )
+                      }
+                    >
+                      <CopyIcon />
+                      Copiar http://localhost:{p.ports[0]}
+                    </ContextMenuItem>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
             );
           })}
         </AnimatePresence>

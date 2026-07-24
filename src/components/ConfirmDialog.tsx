@@ -1,5 +1,16 @@
-﻿import { useEffect, useRef } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { TriangleAlertIcon } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export type ConfirmRequest = {
   title: string;
@@ -13,68 +24,66 @@ type ConfirmDialogProps = {
   onCancel: () => void;
 };
 
+/**
+ * Confirmacion de las acciones que matan procesos.
+ *
+ * Desde el Tier 5 se apoya en el AlertDialog de shadcn/ui (Base UI): suyos son el
+ * modal, el cierre con Escape, el foco atrapado dentro del dialogo y los roles de
+ * accesibilidad. Lo unico que se le lleva la contraria es a que boton recibe el
+ * foco al abrir.
+ */
 export function ConfirmDialog({ request, onCancel }: ConfirmDialogProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
 
-  // Escape cancela, y el foco arranca en el boton destructivo para poder
-  // confirmar con Enter sin tocar el raton.
+  // El contenido sobrevive a que `request` vuelva a null para que la animacion de
+  // cierre tenga algo que pintar; si se desmontara de golpe, el dialogo
+  // desapareceria a saltos.
+  const [shown, setShown] = useState<ConfirmRequest | null>(request);
   useEffect(() => {
-    if (!request) return;
-
-    confirmRef.current?.focus();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [request, onCancel]);
+    if (request) setShown(request);
+  }, [request]);
 
   return (
-    <AnimatePresence>
-      {request && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.12 }}
-          onClick={onCancel}
+    <AlertDialog
+      open={request !== null}
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
+    >
+      {shown && (
+        <AlertDialogContent
+          // Base UI enfocaria "Cancelar". Aqui el foco arranca en el boton
+          // destructivo, como en los Tiers 2-4: se llega a este dialogo a
+          // proposito y asi se confirma con Enter sin tocar el raton. Escape
+          // sigue cancelando, que es la salida que de verdad importa.
+          initialFocus={confirmRef}
         >
-          <motion.div
-            role="alertdialog"
-            aria-modal="true"
-            aria-label={request.title}
-            className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-2xl"
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            transition={{ duration: 0.15 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-sm font-semibold">{request.title}</h2>
-            <p className="mt-2 text-sm text-neutral-400">{request.message}</p>
+          <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive">
+              <TriangleAlertIcon />
+            </AlertDialogMedia>
+            <AlertDialogTitle>{shown.title}</AlertDialogTitle>
+            <AlertDialogDescription>{shown.message}</AlertDialogDescription>
+          </AlertDialogHeader>
 
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                onClick={onCancel}
-                className="rounded-md px-3 py-1.5 text-sm text-neutral-300 transition hover:bg-white/10"
-              >
-                Cancelar
-              </button>
-              <button
-                ref={confirmRef}
-                onClick={() => {
-                  request.onConfirm();
-                  onCancel();
-                }}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-500"
-              >
-                {request.confirmLabel}
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              ref={confirmRef}
+              variant="destructive"
+              // Rojo solido, como el boton que abre el dialogo: el `destructive`
+              // de shadcn es un rojo tenue pensado para acciones secundarias.
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90"
+              onClick={() => {
+                shown.onConfirm();
+                onCancel();
+              }}
+            >
+              {shown.confirmLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
       )}
-    </AnimatePresence>
+    </AlertDialog>
   );
 }

@@ -1,5 +1,5 @@
 [package]
-name = "processvisor"
+name = "processdevkill"
 version = "0.1.0"
 description = "Process Manager para Devs"
 authors = ["you"]
@@ -11,7 +11,7 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "processvisor_lib"
+name = "processdevkill_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -27,3 +27,4 @@ sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 listeners = "0.6.0"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-global-shortcut = "2.3.2"
+tauri-plugin-clipboard-manager = "2.3.2"

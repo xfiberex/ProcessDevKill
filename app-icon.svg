@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!--
+    Icono fuente de ProcessDevKill. De aqui salen todos los tamaños:
+        npm run tauri icon app-icon.svg
+
+    El simbolo de encendido es lo que mejor aguanta los 16 px del icono de la
+    bandeja: a ese tamaño un craneo, un corchete de prompt o cualquier otro
+    adorno se convierten en una mancha (probado: la primera version llevaba un
+    `>` y a tamaño pequeño solo se veia un borron sobre el anillo).
+  -->
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232833"/>
+      <stop offset="1" stop-color="#0f1115"/>
+    </linearGradient>
+    <!-- userSpaceOnUse, no el objectBoundingBox por defecto: la barra vertical
+         del simbolo tiene ancho cero y con el modo por defecto NO se pinta. -->
+    <linearGradient id="rojo" gradientUnits="userSpaceOnUse"
+                    x1="512" y1="230" x2="512" y2="800">
+      <stop offset="0" stop-color="#ff6a4d"/>
+      <stop offset="1" stop-color="#d92d20"/>
+    </linearGradient>
+    <radialGradient id="brillo" cx="0.5" cy="0.52" r="0.5">
+      <stop offset="0" stop-color="#ff5a3c" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ff5a3c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="72" y="72" width="880" height="880" rx="196" fill="url(#fondo)"/>
+  <rect x="72" y="72" width="880" height="880" rx="196" fill="none"
+        stroke="#ffffff" stroke-opacity="0.10" stroke-width="8"/>
+
+  <circle cx="512" cy="530" r="310" fill="url(#brillo)"/>
+
+  <g fill="none" stroke="url(#rojo)" stroke-width="78" stroke-linecap="round">
+    <!-- Anillo abierto por arriba: 300 grados de arco. -->
+    <path d="M 711 415 A 230 230 0 1 1 313 415"/>
+    <!-- Barra vertical, la que cierra el simbolo de encendido. -->
+    <path d="M 512 268 L 512 470"/>
+  </g>
+</svg>

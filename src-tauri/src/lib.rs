@@ -12,7 +12,7 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 use tauri_plugin_notification::NotificationExt;
 
 use processes::{
-    collect_processes, kill_one, new_system, warm_up_cpu, KillOutcome, ProcessInfo, Runtime,
+    collect_processes, kill_one, new_system, warm_up_cpu, KillOutcome, ProcessInfo,
 };
 use storage::{now_millis, HistoryEntry, KillSource, Settings, Storage};
 
@@ -152,7 +152,7 @@ fn notify(app: &AppHandle, body: String) {
     if let Err(e) = app
         .notification()
         .builder()
-        .title("ProcessVisor")
+        .title("ProcessDevKill")
         .body(body)
         .show()
     {
@@ -298,6 +298,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        // Copiar PID/puertos desde el menu contextual. Va por el portapapeles del
+        // sistema y no por `navigator.clipboard`, que exige que el documento
+        // tenga el foco y falla con un NotAllowedError si no lo tiene.
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -313,7 +317,7 @@ pub fn run() {
             let dir = handle
                 .path()
                 .app_data_dir()
-                .unwrap_or_else(|_| std::env::temp_dir().join("processvisor"));
+                .unwrap_or_else(|_| std::env::temp_dir().join("processdevkill"));
             let storage = Storage::new(dir);
             let settings = storage.load_settings();
 
@@ -368,6 +372,8 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Solo lo usan los tests: en el resto de lib.rs los runtimes no se nombran.
+    use processes::Runtime;
 
     /// El frontend lee estas claves literalmente. Si alguien renombra un campo en
     /// Rust sin tocar `src/types.ts`, la UI se llena de `undefined` sin que falle
@@ -417,8 +423,9 @@ mod tests {
         assert_eq!(entry["source"], "hotkey");
 
         let settings = serde_json::to_value(Settings::default()).expect("Settings deberia serializar");
-        for clave in ["customNames", "hotkeyEnabled", "refreshMs"] {
+        for clave in ["customNames", "hotkeyEnabled", "refreshMs", "theme"] {
             assert!(settings.get(clave).is_some(), "falta '{clave}' en Settings");
         }
+        assert_eq!(settings["theme"], "system");
     }
 }

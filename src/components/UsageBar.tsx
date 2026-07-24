@@ -19,8 +19,8 @@ export function UsageBar({ label, value, max, color }: UsageBarProps) {
 
   return (
     <div className="flex items-center justify-end gap-2">
-      <span className="tabular-nums text-neutral-300">{label}</span>
-      <div className="h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-white/10">
+      <span className="tabular-nums">{label}</span>
+      <div className="h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-muted">
         <div
           className="h-full rounded-full transition-[width] duration-300"
           style={{ width: `${percent}%`, backgroundColor: color }}

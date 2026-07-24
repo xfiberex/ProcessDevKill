@@ -4,7 +4,7 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
 
-use crate::processes::{collect_processes, Runtime};
+use crate::processes::{pids_of_runtime, Runtime};
 use crate::storage::KillSource;
 use crate::{kill_and_record, notify, AppState};
 
@@ -26,13 +26,12 @@ fn kill_all_of(app: &AppHandle, runtime: Runtime) {
     let state = app.state::<AppState>();
     let custom = state.custom_names();
 
+    // Via `pids_of_runtime` y no repitiendo el filtro aqui: es la funcion que
+    // cubre el test `selecciona_solo_los_pids_del_runtime_pedido`, y este menu
+    // mata procesos sin ventana delante que ensene el error.
     let targets: Vec<u32> = {
         let Ok(mut sys) = state.sys.lock() else { return };
-        collect_processes(&mut sys, &custom)
-            .into_iter()
-            .filter(|p| p.runtime == runtime)
-            .map(|p| p.pid)
-            .collect()
+        pids_of_runtime(&mut sys, &custom, runtime)
     };
 
     if targets.is_empty() {
@@ -49,7 +48,7 @@ fn kill_all_of(app: &AppHandle, runtime: Runtime) {
 }
 
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
-    let show = MenuItemBuilder::with_id("show", "Mostrar ProcessVisor").build(app)?;
+    let show = MenuItemBuilder::with_id("show", "Mostrar ProcessDevKill").build(app)?;
     let kill_node = MenuItemBuilder::with_id("kill_node", "Cerrar todos los Node").build(app)?;
     let kill_python = MenuItemBuilder::with_id("kill_python", "Cerrar todos los Python").build(app)?;
     let kill_dotnet = MenuItemBuilder::with_id("kill_dotnet", "Cerrar todos los .NET").build(app)?;
@@ -69,7 +68,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().unwrap().clone())
-        .tooltip("ProcessVisor")
+        .tooltip("ProcessDevKill")
         // Sin esto, el clic izquierdo abre el menu en vez de llegar al handler.
         .show_menu_on_left_click(false)
         .menu(&menu)

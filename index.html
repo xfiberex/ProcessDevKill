@@ -3,7 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ProcessVisor</title>
+    <title>ProcessDevKill</title>
+
+    <script>
+      // Primera pintura sin fogonazo blanco. La preferencia de verdad vive en
+      // settings.json (Rust) y llega asincrona, asi que aqui se usa la copia que
+      // dejo src/theme.tsx la ultima vez; si no hay ninguna, manda el sistema.
+      (function () {
+        var cached = null;
+        try {
+          cached = localStorage.getItem("processdevkill.theme");
+        } catch (e) {
+          // localStorage puede estar bloqueado: entonces decide el sistema.
+        }
+        var dark =
+          cached === "dark" ||
+          (cached !== "light" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+    </script>
   </head>
 
   <body>

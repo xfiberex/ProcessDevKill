@@ -25,7 +25,10 @@ impl Runtime {
         }
     }
 
-    /// Los que tienen accion propia en el menu de la bandeja.
+    /// Los que tienen accion propia en el menu de la bandeja. El menu los nombra
+    /// uno a uno (cada uno con su etiqueta), asi que fuera de los tests nadie
+    /// recorre la lista; de ahi el `cfg(test)`.
+    #[cfg(test)]
     pub const BUILT_INS: [Runtime; 3] = [Runtime::Node, Runtime::Python, Runtime::Dotnet];
 }
 

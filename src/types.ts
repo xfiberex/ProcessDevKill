@@ -34,11 +34,15 @@ export type HistoryEntry = {
   source: KillSource;
 };
 
+/** Espejo de `Theme` en src-tauri/src/storage.rs. */
+export type Theme = "system" | "light" | "dark";
+
 /** Espejo de `Settings` en src-tauri/src/storage.rs. */
 export type Settings = {
   customNames: string[];
   hotkeyEnabled: boolean;
   refreshMs: number;
+  theme: Theme;
 };
 
 /** Evento que emite Rust con cada lista nueva de procesos. */
@@ -56,6 +60,12 @@ export const KILL_SOURCES: Record<KillSource, string> = {
   tray: "Bandeja",
   hotkey: "Ctrl+Alt+K",
 };
+
+export const THEMES: { value: Theme; label: string }[] = [
+  { value: "system", label: "Sistema" },
+  { value: "light", label: "Claro" },
+  { value: "dark", label: "Oscuro" },
+];
 
 /** Intervalos ofrecidos para el refresco automatico, en milisegundos. */
 export const REFRESH_INTERVALS = [

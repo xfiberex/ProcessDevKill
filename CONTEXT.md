@@ -1,4 +1,4 @@
-# 📋 CONTEXT.md — ProcessVisor
+# 📋 CONTEXT.md — ProcessDevKill
 
 > **Documento vivo.** Registra el contexto, las decisiones y el progreso del proyecto para poder retomarlo desde cualquier equipo sin perder información. Se actualiza al final de cada sesión de trabajo o cuando se toma una decisión relevante.
 >
@@ -8,7 +8,7 @@
 
 ## 1. Qué es este proyecto
 
-**ProcessVisor** es una aplicación de escritorio (Windows primero, macOS después) para desarrolladores que lista los procesos de desarrollo activos (`node`, `python`, `dotnet`, …), muestra su consumo de CPU/RAM y **qué puerto local ocupa cada uno**, y permite matarlos individualmente o en lote. Resuelve el clásico "el puerto 3000 está ocupado y no sé por quién".
+**ProcessDevKill** es una aplicación de escritorio (Windows primero, macOS después) para desarrolladores que lista los procesos de desarrollo activos (`node`, `python`, `dotnet`, …), muestra su consumo de CPU/RAM y **qué puerto local ocupa cada uno**, y permite matarlos individualmente o en lote. Resuelve el clásico "el puerto 3000 está ocupado y no sé por quién".
 
 ## 2. Stack tecnológico
 
@@ -18,15 +18,15 @@
 | Frontend | **React + TypeScript + Vite** | Plantilla oficial de `create tauri-app` |
 | Estilos | **Tailwind CSS v4** | Vía plugin `@tailwindcss/vite` (sin config file) |
 | Animaciones | **Motion** (`motion/react`) | Ex Framer Motion |
-| Componentes UI | **shadcn/ui** | A partir de Tier 5 |
+| Componentes UI | **shadcn/ui** (estilo `base-nova`) | Sobre **Base UI**, no Radix; Toast = **Sonner** |
 | Info de procesos | crate **`sysinfo`** | Lista, CPU, RAM, kill |
 | Puertos por PID | crate **`listeners`** (o `netstat2`) | `sysinfo` no cubre puertos |
-| Plugins Tauri | `notification`, `global-shortcut` | + feature `tray-icon` |
-| CI/CD | GitHub Actions + `tauri-apps/tauri-action` | Release solo por tag |
+| Plugins Tauri | `notification`, `global-shortcut`, `clipboard-manager` | + feature `tray-icon` |
+| Publicación | `release.ps1` local + `gh` | Sin CI; ver §4 (2026-07-24) |
 
 ## 3. Estado actual
 
-**Fase actual:** ✅ Tiers 1 a 4 completados y verificados sobre la app en ejecución.
+**Fase actual:** ✅ Tiers 1 a 4 completados; Tier 5 hecho hasta el icono (puntos 1-3), pendientes las ideas "Salsa Secreta" y los instaladores.
 
 | Tier | Descripción | Estado |
 |---|---|---|
@@ -34,15 +34,18 @@
 | 2 | UX/UI y reactividad | ✅ Completado y verificado |
 | 3 | Puertos, notificaciones, tray | ✅ Completado y verificado |
 | 4 | Power user y optimización | ✅ Completado y verificado |
-| 5 | Distribución y estética | ⬜ Sin empezar |
+| 5 | Estética (tema, shadcn/ui, icono) | ✅ Puntos 1-3 completados y verificados |
+| 5 | Salsa Secreta, instaladores y releases | ⬜ Puntos 4-6 pendientes |
 
-Verificado el 2026-07-23 con la app corriendo: 12 tests de `cargo test` en verde; la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; la lista se actualiza sola por eventos desde Rust; ajustes e historial sobreviven al reinicio; cerrar la ventana la esconde en la bandeja sin terminar la app.
+Verificado el 2026-07-23 con la app corriendo: la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; la lista se actualiza sola por eventos desde Rust; ajustes e historial sobreviven al reinicio; cerrar la ventana la esconde en la bandeja sin terminar la app.
+
+Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el tema de Windows y obedece al selector de Ajustes (que persiste en disco), el menú contextual de cada fila copia PID/nombre/puerto al portapapeles real de Windows con su toast, y el diálogo destructivo —ahora el AlertDialog de shadcn— sigue cancelándose con Escape sin matar nada. 13 tests de `cargo test` en verde.
 
 **Salvedad honesta sobre el atajo global:** se comprobó que `Ctrl+Alt+K` se registra y se libera correctamente (con él activo ningún otro proceso puede tomarlo), pero **no se llegó a pulsar**: dispararlo habría cerrado los ~13 procesos `node` reales del equipo. La ruta de cierre que ejecuta es la misma `kill_and_record` que usan la ventana y la bandeja, ambas verificadas end-to-end.
 
 **Salvedad honesta sobre las notificaciones:** se comprobó que `notification().show()` devuelve `Ok` (stderr de la app limpio), pero **no** que el toast aparezca en pantalla. En Windows, una build de desarrollo sin instalar puede no renderizar el toast, y el Asistente de concentración puede suprimirlo. Conviene confirmarlo a ojo tras generar el instalador en el Tier 5.
 
-**Próximo paso concreto:** Tier 5 → modo claro/oscuro, componentes de shadcn/ui, icono propio, instaladores y CI con GitHub Actions.
+**Próximo paso concreto:** Tier 5.4 → las ideas "Salsa Secreta" (Auto-Kill por umbral de RAM y Zombie Finder). Después, instaladores (5.5) y el `release.ps1` (5.6).
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -70,6 +73,11 @@ Para depurar el frontend dentro de la ventana de Tauri, añadir temporalmente a 
 
 Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el DOM real o simular clics. **Quitarlo después**: sustituye los argumentos por defecto de Tauri y no debe llegar a producción. La variable de entorno `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` **no** sirve aquí, Tauri la sobrescribe.
 
+Dos cosas que cuestan una sesión si no se saben:
+
+- **Nunca evaluar `navigator.clipboard.readText()` por CDP.** Abre un diálogo de permiso *dentro* de la ventana ("… quiere ver texto e imágenes copiadas en el Portapapeles"), que se convierte en un target nuevo, deja colgada la evaluación y tapa la app. Para comprobar el portapapeles, `Get-Clipboard` desde PowerShell.
+- Con la ventana sin foco (que es lo normal al conducirla por CDP desde una terminal), `navigator.clipboard.writeText` falla con `NotAllowedError: Document is not focused`. No es un fallo de la app: es la razón por la que se copia con el plugin de Tauri.
+
 ## 4. Decisiones tomadas
 
 | Fecha | Decisión | Motivo |
@@ -77,7 +85,7 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 | 2026-07-23 | Tauri 2 (no Electron) | Binario ligero, backend Rust necesario para `sysinfo` |
 | 2026-07-23 | Tailwind v4 con plugin de Vite | Setup actual oficial; v3 quedó obsoleto |
 | 2026-07-23 | Crate `listeners` para puertos | `sysinfo` no mapea PID→puerto |
-| 2026-07-23 | CI compila release solo con tags `v*` | Build multi-plataforma en cada commit es lenta y cara |
+| 2026-07-23 | ~~CI compila release solo con tags `v*`~~ | Build multi-plataforma en cada commit es lenta y cara. **Superada el 2026-07-24**: no habrá CI, ver la fila del `release.ps1` |
 | 2026-07-23 | Polling frontend en Tier 2, eventos Rust en Tier 4 | Simplicidad primero, rendimiento después |
 | 2026-07-23 | `sysinfo` solo con la feature `system` | No usamos discos, red ni componentes; acorta la compilación |
 | 2026-07-23 | Clasificar procesos por nombre exacto o sufijo de versión, no por prefijo | Un prefijo simple capturaría `nodemon` como si fuera Node |
@@ -101,16 +109,29 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 | 2026-07-23 | Interruptor para desactivar `Ctrl+Alt+K` (no estaba en el plan) | Dispara un cierre masivo sin confirmación; un atajo global mal pulsado no debería ser irreversible |
 | 2026-07-23 | Los nombres personalizados se comparan exactos, no por prefijo | Añadir `go` no debe capturar `golang`, ni `docker` capturar `dockerd` |
 | 2026-07-23 | Copiar los ajustes y soltar su candado antes de bloquear `sys` | Evita anidar candados y con ello cualquier riesgo de deadlock entre el hilo emisor y los comandos |
+| 2026-07-24 | **Nombre definitivo: ProcessDevKill** | Cierra la decisión pendiente. Cambia también el identificador a `com.processdevkill.app`: se hace ahora, antes del primer instalador, porque mover el identificador después dejaría huérfanos los ajustes e historial de los usuarios |
+| 2026-07-24 | El tema se guarda en `settings.json`, no en `localStorage` | Vive junto al resto de ajustes, en un archivo que el usuario puede ver, copiar entre equipos o borrar. En `localStorage` queda solo una **copia** para pintar sin parpadeo antes de que Rust conteste |
+| 2026-07-24 | La clase `dark` la aplica JS, no la media query de CSS | Si la decidiera el CSS, elegir "Claro" con Windows en oscuro no tendría ningún efecto. Con "Sistema" se escucha `prefers-color-scheme` en vivo |
+| 2026-07-24 | Paleta propia en `.dark`, no la neutra de shadcn | Conserva el azul oscuro de los Tiers 1-4 (`#0f1115`); el gris neutro por defecto borraba la identidad de la app |
+| 2026-07-24 | Forzar el foco en el botón destructivo del diálogo (`initialFocus`) | Base UI enfoca "Cancelar" por defecto; se mantiene el comportamiento verificado en el Tier 2 (confirmar con Enter). Escape sigue cancelando, que es la salida crítica |
+| 2026-07-24 | `tauri-plugin-clipboard-manager` en vez de `navigator.clipboard` | La API web exige que el documento tenga el foco: falla con `NotAllowedError` justo cuando la ventana vuelve de la bandeja. Se concede solo `clipboard-manager:allow-write-text`, no lectura |
+| 2026-07-24 | Rojo sólido para la acción destructiva principal | El `variant="destructive"` de este estilo de shadcn es un rojo tenue, pensado para acciones secundarias; el botón que cierra toda la lista tiene que verse que quema |
+| 2026-07-24 | **Releases con `release.ps1` local, sin GitHub Actions** | La app es solo Windows por ahora y la build de Tauri en CI tarda minutos por plataforma. Se compila en la misma máquina donde se prueba, sin secretos en la nube ni minutos de CI. Si algún día se publica para macOS, entonces sí hará falta CI (no se puede compilar `.dmg` desde Windows) |
+| 2026-07-24 | Se descarta `navigator.clipboard.readText()` incluso para depurar | Abre un diálogo de permiso **dentro** de la ventana de WebView2 que bloquea la evaluación por CDP; la app solo necesita escribir |
+| 2026-07-24 | El menú de la bandeja llama a `pids_of_runtime` en vez de repetir el filtro | El test `selecciona_solo_los_pids_del_runtime_pedido` decía cubrir la bandeja, pero la bandeja tenía su propia copia del filtro: el test protegía código que nadie usaba |
+| 2026-07-24 | Una sola sesión de Claude Code por repositorio | Dos trabajando a la vez se sobrescriben los archivos, y el `tauri dev` de una reinicia la app que la otra está inspeccionando por CDP |
 
 ## 5. Decisiones pendientes
 
-- [ ] **Nombre definitivo:** la idea original lo llamaba *DevKill*; la carpeta del proyecto es *ProcessVisorDev*. Este documento usa **ProcessVisor** provisionalmente.
-- [ ] Repositorio remoto (GitHub) — aún no creado; necesario antes del Tier 5 (CI).
+- [x] ~~**Nombre definitivo**~~ → **ProcessDevKill** (2026-07-24).
+- [x] ~~Repositorio remoto~~ → <https://github.com/xfiberex/ProcessVisorDev> (rama `main`).
+- [ ] **El repositorio sigue llamándose `ProcessVisorDev`.** Renombrarlo en GitHub es opcional: el servicio deja una redirección automática, pero conviene actualizar el remoto local después (`git remote set-url origin https://github.com/xfiberex/ProcessDevKill.git`).
 - [ ] Lista inicial de procesos vigilados por defecto (¿incluir `java`, `deno`, `bun` desde el inicio?).
+- [ ] Firma de código: sin ella, Windows enseñará el aviso de SmartScreen ("editor desconocido") al instalar. Decidir antes de publicar el primer release.
 
 ## 6. Cómo retomar el proyecto en otro equipo
 
-1. Clonar el repositorio (cuando exista) o copiar la carpeta.
+1. Clonar el repositorio: `git clone https://github.com/xfiberex/ProcessVisorDev.git` (el repo conserva el nombre antiguo; la app se llama ProcessDevKill).
 2. Instalar prerequisitos: [Rust](https://rustup.rs) (`rustup`), Node.js LTS, y en Windows los **Microsoft C++ Build Tools**. WebView2 ya viene en Windows 11.
 3. `npm install` en la raíz.
 4. `npm run tauri dev` para desarrollo; `npm run tauri build` para generar el instalador.
@@ -126,6 +147,27 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-24 (tarde) — Cierre del Tier 5.1-5.3: segunda verificación y pulido
+
+> Sesión de repaso: dos sesiones de Claude Code trabajaron el mismo tier a la vez sobre este repo y se pisaron los archivos. Quedó una sola y esta entrada recoge lo que se comprobó y arregló después. **Lección: una sesión por repositorio**; dos agentes editando en paralelo se sobrescriben sin darse cuenta y el `tauri dev` de uno reinicia la app que el otro está inspeccionando.
+
+- **Verificación repetida desde cero** sobre la app recién compilada, porque los componentes se habían tocado después de la primera pasada. Detalle en ROADMAP §Tier 5.7. Lo que más importa: Escape sigue cancelando el diálogo destructivo sin matar nada, y confirmar mata de verdad, libera el puerto, avisa con el toast y lo registra en el historial.
+- **La bandeja ya usa `pids_of_runtime`.** Repetía el filtro por su cuenta, así que la función —y el test que la cubre— no protegían realmente al menú de la bandeja, que es el camino que mata procesos sin ventana delante. Ahora el test vale para lo que dice que vale.
+- **Textos en singular.** Cerrar un solo proceso decía "Se terminaran los 1 procesos seleccionados".
+- **`Checkbox` de shadcn** en la tabla: la casilla nativa era un cuadrado blanco macizo sobre el tema oscuro.
+- `cargo build` queda sin avisos de código muerto (`BUILT_INS` es de test, y `Runtime` solo lo usaba el módulo de tests de `lib.rs`).
+- Retirado de `tauri.conf.json` el `additionalBrowserArgs` con el puerto 9222 que hacía falta para inspeccionar la UI.
+
+### 2026-07-24 — Tier 5 (puntos 1-3): nombre, tema, shadcn/ui e icono
+- **La app pasa a llamarse ProcessDevKill.** Cambiados `productName`, título de ventana, menú y tooltip de la bandeja, título de la notificación, crate de Rust (`processdevkill_lib`), paquete npm e identificador (`com.processdevkill.app`). Los ajustes viven ahora en `%APPDATA%\com.processdevkill.app\`.
+- **Tema claro/oscuro** con las variables de shadcn, pero con paleta propia para conservar el azul oscuro de los tiers anteriores. Selector Sistema/Claro/Oscuro en Ajustes, persistido en `settings.json`; `src/theme.tsx` aplica la clase `dark` y escucha `prefers-color-scheme` cuando el modo es "Sistema".
+- **shadcn/ui** inicializado (estilo `base-nova`, sobre **Base UI**, no Radix). El diálogo de confirmación pasa a `AlertDialog`, cada fila tiene `ContextMenu` y los avisos van por **Sonner**. Se reescribió `sonner.tsx` para no depender de `next-themes`.
+- **Portapapeles:** el menú contextual copia PID, nombre, puertos y `http://localhost:PUERTO`. Se descubrió al probarlo que `navigator.clipboard.writeText` falla con `NotAllowedError: Document is not focused`, así que se añadió `tauri-plugin-clipboard-manager` (solo permiso de escritura).
+- **Icono propio** desde `app-icon.svg`. Dos tropiezos: un degradado no pinta sobre una línea de ancho cero (hay que usar `gradientUnits="userSpaceOnUse"`), y el adorno `>` que llevaba la primera versión era un borrón a 16 px.
+- Dos ajustes de estética salidos de mirar la captura: las tres pestañas del sidebar no cabían en 208 px y "Ajustes" se salía por el borde; y el rojo del `variant="destructive"` de shadcn es demasiado tenue para el botón que cierra toda la lista.
+- Verificado sobre la app en ejecución (ver ROADMAP §Tier 5.7): tema en los dos sentidos y persistido en disco, menú contextual con sus cinco opciones, copia real al portapapeles de Windows (`Get-Clipboard` lo confirma) y **Escape sigue cancelando el diálogo sin matar ningún proceso**.
+- 13 tests de `cargo test` (antes 12): el nuevo fija que un `settings.json` de una versión anterior, sin el campo `theme`, se sigue leyendo en vez de descartarse entero.
 
 ### 2026-07-23 (noche) — Tier 4 completo
 - `lib.rs` dividido en cuatro módulos antes de crecer más; los tests subieron de 7 a 12 al poder probar cada pieza por separado.
@@ -156,7 +198,7 @@ Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el
 
 ### 2026-07-23 — Tier 1 implementado, bloqueado en compilación
 - Instalado Rust 1.97.1 vía `rustup` (no estaba en el equipo).
-- Proyecto creado con `create-tauri-app` (React + TS + Vite), renombrado a ProcessVisor, y Tailwind v4 configurado. `npm run build` pasa.
+- Proyecto creado con `create-tauri-app` (React + TS + Vite), renombrado a ProcessVisor (nombre provisional; en el Tier 5 pasó a ProcessDevKill), y Tailwind v4 configurado. `npm run build` pasa.
 - Backend `src-tauri/src/lib.rs`: comandos `get_processes` y `kill_process` con `sysinfo` 0.39, más dos tests de la función `classify`.
 - Frontend `src/App.tsx`: sidebar con filtros por runtime, botón de refresco y tabla con nombre, PID, CPU, RAM, tiempo activo y botón Kill.
 - `git init` + primer commit.
