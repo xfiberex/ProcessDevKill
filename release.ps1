@@ -1,73 +1,68 @@
 ﻿<#
 .SYNOPSIS
-    Corta una versión de FormatDiskPro de principio a fin.
+    Corta una versión de ProcessDevKill de principio a fin.
 
 .DESCRIPTION
     Flujo completo en un paso:
       1. Valida la versión y el árbol de trabajo.
-      2. Ejecuta las pruebas (salvo -SkipTests).
-      3. Actualiza <Version> en el .csproj si cambió.
-      4. Compila el instalador (publish self-contained + Inno Setup).
-      5. Commit del bump de versión + tag anotado vX.Y.Z.
-      6. Push de la rama y el tag a origin.
-      7. Crea el GitHub Release adjuntando el instalador Y su .sha256.
+      2. Ejecuta las pruebas (salvo -SkipTests): `cargo test` y `npm run build`.
+      3. Actualiza la versión en los TRES sitios donde vive.
+      4. Compila los instaladores con `npm run tauri build` (NSIS + MSI).
+      5. Genera el .sha256 de cada instalador.
+      6. Commit del bump de versión + tag anotado vX.Y.Z.
+      7. Push de la rama y el tag a origin.
+      8. Crea el GitHub Release adjuntando los dos instaladores y sus .sha256.
 
     Para 'gh' reutiliza la credencial de GitHub ya cacheada (la del push) si no
     estuviera autenticado; nunca se imprime el token.
 
-    IMPORTANTE: el asset .sha256 es OBLIGATORIO mientras se publique sin firmar. Desde la v1.15.0 la app
-    verifica el instalador descargado antes de ejecutarlo como administrador
-    (Services/UpdateService.VerifyInstallerAsync): firma Authenticode válida si la hay; si no, el hash
-    SHA-256 publicado como asset. Sin ninguna de las dos, la app borra el instalador y la
-    auto-actualización falla.
+    LA VERSIÓN VIVE EN TRES SITIOS y tienen que ir a la vez:
+      - src-tauri/tauri.conf.json  → es la que MANDA (la que acaba en el instalador y el .exe)
+      - package.json               → la del paquete npm
+      - src-tauri/Cargo.toml       → la del crate, y arrastra a Cargo.lock
+    Si se tocara solo una, el instalador y el binario saldrían con versiones distintas. Tras
+    cambiar Cargo.toml se corre `cargo check` para que Cargo.lock quede al día; si no, el
+    commit del release deja el árbol sucio justo después de haberlo commiteado.
 
-    Firmar (-CertThumbprint/-CertFile) sigue siendo lo deseable: evita el aviso de SmartScreen
-    ("editor desconocido") y es una garantía más fuerte que el hash.
+    SOBRE EL .sha256: aquí es cortesía para quien quiera verificar la descarga, NO un requisito.
+    ProcessDevKill no tiene auto-actualización, así que nadie lo comprueba de forma automática
+    (a diferencia de FormatDiskPro, de donde viene este script). Si algún día se añade
+    `tauri-plugin-updater`, ese verifica con firmas minisign y un latest.json, no con SHA-256:
+    habrá que añadir la firma, no reutilizar el hash.
+
+    SIN FIRMAR: Windows enseñará el aviso de SmartScreen ("editor desconocido") al instalar.
+    Firmar es lo deseable; en Tauri se configura con `bundle.windows.certificateThumbprint`
+    en tauri.conf.json (o variables de entorno), no llamando a signtool a mano.
+
+    Las pruebas de Rust son seguras para un corte de release: leen los procesos del sistema y
+    solo matan procesos que ellas mismas lanzan. Ninguna toca los del usuario.
 
 .PARAMETER Version
-    Versión a publicar (X.Y.Z). Si se omite, usa la del .csproj.
+    Versión a publicar (X.Y.Z). Si se omite, usa la de tauri.conf.json.
 
 .PARAMETER NotesFile
     Ruta a un archivo Markdown con las notas del release. Si se omite, se genera una plantilla.
 
 .PARAMETER SkipTests
-    Omite la ejecución de pruebas (unitarias y de UI).
-
-.PARAMETER UiTests
-    Ejecuta también los UI tests (FlaUI/UIA3), que conducen la app REAL. No van en la solución, así que
-    `dotnet test` no los toca: hay que pedirlos. Requieren TERMINAL ELEVADA (la app es
-    requireAdministrator y un proceso no elevado no puede automatizar su ventana), y el script lo valida
-    antes de correr nada. Los 6 tests que necesitan la USB física de pruebas se OMITEN solos si no está
-    conectada (no fallan), y el que borra datos de verdad se omite salvo FORMATDISKPRO_ALLOW_DESTRUCTIVE=1
-    — que este script RECHAZA: un corte de release nunca debe formatear una unidad.
-
-    Sin este flag, el script avisa de que el release sale sin haber ejercido la app real.
+    Omite `cargo test` y `npm run build`.
 
 .PARAMETER AllowDirty
-    Permite continuar con cambios sin commitear en el árbol de trabajo.
+    Permite continuar con archivos sin rastrear en el árbol de trabajo.
 
 .PARAMETER DryRun
     Valida y muestra el plan, pero no modifica nada (ni build, ni git, ni GitHub).
 
 .EXAMPLE
-    .\release.ps1 -Version 1.2.0
-    .\release.ps1 -Version 1.2.0 -UiTests   # recomendado: ejerce también la app real
-    .\release.ps1 -Version 1.2.0 -DryRun
-    .\release.ps1 -Version 1.2.0 -NotesFile notas.md
+    .\release.ps1 -Version 1.0.0 -DryRun
+    .\release.ps1 -Version 1.0.0
 #>
 [CmdletBinding()]
 param(
     [string]$Version,
     [string]$NotesFile,
     [switch]$SkipTests,
-    [switch]$UiTests,
     [switch]$AllowDirty,
-    [switch]$DryRun,
-    # Firma de código (opcional): se reenvían a build-installer.ps1.
-    [string]$CertThumbprint,
-    [string]$CertFile,
-    [string]$CertPassword,
-    [string]$TimestampUrl
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -91,8 +86,7 @@ function Die($m)   { Write-Host "[X] $m" -ForegroundColor Red; exit 1 }
     NativeCommandError y, con $ErrorActionPreference = "Stop", ABORTA el script aunque git haya devuelto 0.
 
     En un `git push` eso es especialmente malo: el script muere DESPUÉS de haber empujado la rama, y deja
-    el release a medias (rama subida, sin tag ni GitHub Release). Ocurrió al cortar la v1.15.0 (2026-07-12),
-    precisamente por lanzarlo con la salida filtrada.
+    el release a medias (rama subida, sin tag ni GitHub Release).
 
     Aquí se baja la preferencia solo mientras corre git y se decide por $LASTEXITCODE, que es el único
     indicador fiable de si git falló. La salida se sigue mostrando, atenuada.
@@ -107,46 +101,65 @@ function Invoke-Git {
     finally { $ErrorActionPreference = $eap }
 }
 
+<#
+.SYNOPSIS
+    Lee un archivo de texto respetando su codificación.
+
+.DESCRIPTION
+    NO usar `Get-Content -Raw`: en PS 5.1 lee con la página de códigos ANSI del sistema, así que los
+    bytes UTF-8 de un acento (é = C3 A9) se convierten en dos caracteres (Ã©) y, al reescribir el
+    archivo como UTF-8, la corrupción queda GRABADA. Como el bump de versión ocurre en CADA release,
+    el daño se acumula capa sobre capa. Pasó de verdad en este repo el 2026-07-24 con CONTEXT.md y
+    hubo que revertir el doble encoding a mano.
+
+    ReadAllText detecta el BOM y asume UTF-8 si no lo hay, que es justo lo que queremos.
+#>
+function Read-Texto($ruta) { [System.IO.File]::ReadAllText($ruta) }
+
+<#
+.SYNOPSIS
+    Escribe texto como UTF-8 SIN BOM.
+
+.DESCRIPTION
+    Sin BOM a propósito: los tres archivos que toca este script (JSON y TOML) son formatos donde el
+    BOM sobra y algunas herramientas se atragantan con él. La lectura de vuelta no lo necesita porque
+    ReadAllText asume UTF-8 cuando no hay BOM.
+#>
+function Write-Texto($ruta, $texto) {
+    [System.IO.File]::WriteAllText($ruta, $texto, (New-Object System.Text.UTF8Encoding($false)))
+}
+
 # ── Rutas ──────────────────────────────────────────────────────────────────
-$root          = $PSScriptRoot
-$csproj        = Join-Path $root "src\FormatDiskPro\FormatDiskPro.csproj"
-$solution      = Join-Path $root "FormatDiskPro.slnx"
-$buildScript   = Join-Path $root "src\FormatDiskPro\installer\build-installer.ps1"
-$outputDir     = Join-Path $root "src\FormatDiskPro\installer\Output"
-# Fuera de la solución a propósito (ver -UiTests): se lanza por ruta, solo si se pide.
-$uiTestProject = Join-Path $root "tests\FormatDiskPro.UiTests\FormatDiskPro.UiTests.csproj"
+$root       = $PSScriptRoot
+$tauriConf  = Join-Path $root "src-tauri\tauri.conf.json"
+$packageJson= Join-Path $root "package.json"
+$cargoToml  = Join-Path $root "src-tauri\Cargo.toml"
+$bundleDir  = Join-Path $root "src-tauri\target\release\bundle"
 
-if (-not (Test-Path $csproj))      { Die "No se encontró el proyecto: $csproj" }
-if (-not (Test-Path $buildScript)) { Die "No se encontró el script de instalador: $buildScript" }
-if ($UiTests -and -not (Test-Path $uiTestProject)) { Die "No se encontró el proyecto de UI tests: $uiTestProject" }
-
-# Se rechaza en vez de ignorarse en silencio: quien pasa las dos cosas cree que su corte lleva la app real
-# probada, y saldría sin ninguna prueba en absoluto.
-if ($UiTests -and $SkipTests) { Die "-UiTests y -SkipTests se contradicen: -SkipTests omite TODAS las pruebas. Elige una." }
+foreach ($f in @($tauriConf, $packageJson, $cargoToml)) {
+    if (-not (Test-Path $f)) { Die "No se encontró $f" }
+}
 
 # ── Versión ────────────────────────────────────────────────────────────────
-# OJO con la codificación: NO usar `Get-Content -Raw`. En PS 5.1 lee con la página de códigos ANSI del
-# sistema, así que los bytes UTF-8 de un acento (é = C3 A9) se convierten en dos caracteres (Ã©) y, al
-# reescribir el archivo como UTF-8 más abajo, la corrupción queda GRABADA. Como el bump de versión ocurre
-# en CADA release, el daño se acumulaba capa sobre capa: <Authors>/<Copyright> del .csproj llevaban el
-# nombre del autor destrozado tras 14 versiones, y esa basura acababa en las propiedades del .exe
-# publicado. ReadAllText detecta el BOM y asume UTF-8 si no lo hay; se reescribe CONSERVANDO el BOM.
-$csprojRaw = [System.IO.File]::ReadAllText($csproj)
+$confRaw = Read-Texto $tauriConf
 $currentVersion = $null
-if ($csprojRaw -match '<Version>(.*?)</Version>') { $currentVersion = $Matches[1] }
+if ($confRaw -match '"version"\s*:\s*"([^"]+)"') { $currentVersion = $Matches[1] }
 
 if (-not $Version) {
-    if (-not $currentVersion) { Die "No hay <Version> en el .csproj y no se pasó -Version." }
+    if (-not $currentVersion) { Die "No hay 'version' en tauri.conf.json y no se pasó -Version." }
     $Version = $currentVersion
 }
-if ($Version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
-    Die "Versión inválida '$Version'. Usa el formato X.Y.Z (p. ej. 1.2.0)."
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    Die "Versión inválida '$Version'. Usa el formato X.Y.Z (p. ej. 1.0.0)."
 }
 $tag = "v$Version"
 Info "Versión a publicar: $Version  (tag $tag)"
 if ($currentVersion -and $currentVersion -ne $Version) {
     Info "Bump de versión: $currentVersion -> $Version"
 }
+
+$setup = Join-Path $bundleDir "nsis\ProcessDevKill_${Version}_x64-setup.exe"
+$msi   = Join-Path $bundleDir "msi\ProcessDevKill_${Version}_x64_en-US.msi"
 
 # ── Validaciones de git ──────────────────────────────────────────────────────
 Push-Location $root
@@ -157,19 +170,18 @@ try {
     $branch = (& git rev-parse --abbrev-ref HEAD).Trim()
     Info "Rama: $branch"
 
-    # ¿Tag ya existe? (local o remoto)
-    $localTag  = (& git tag --list $tag)
+    $localTag = (& git tag --list $tag)
     if ($localTag) { Die "El tag $tag ya existe localmente. Usa otra versión o bórralo antes." }
     $remoteTag = (& git ls-remote --tags origin $tag 2>$null)
     if ($remoteTag) { Die "El tag $tag ya existe en origin. Usa otra versión." }
 
-    # ¿Hay archivos sin rastrear? (nuevos, no añadidos con git add)
-    # Estos NO se incluirán en el commit del release — el usuario debe añadirlos explícitamente.
+    # Archivos nuevos sin rastrear: NO entran en el commit del release. Se avisa y se para, porque
+    # olvidarse de un `git add` aquí publica una versión a la que le falta código.
     $untracked = (& git status --porcelain) | Where-Object { $_ -match '^\?\?' }
     if ($untracked -and -not $AllowDirty) {
         Warn "Hay archivos nuevos sin rastrear (no se incluirán en el release):"
         $untracked | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
-        Die "Añade los archivos que necesites con 'git add <archivo>' y reintenta, o usa -AllowDirty para ignorarlos."
+        Die "Añade los que necesites con 'git add <archivo>' y reintenta, o usa -AllowDirty para ignorarlos."
     } elseif ($untracked) {
         Warn "Archivos sin rastrear ignorados (-AllowDirty):"
         $untracked | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
@@ -179,68 +191,50 @@ try {
     if ($SkipTests) {
         Warn "Pruebas omitidas (-SkipTests)."
     } else {
-        Info "Ejecutando pruebas unitarias..."
-        & dotnet test $solution --nologo
-        if ($LASTEXITCODE -ne 0) { Die "Las pruebas unitarias fallaron. Release abortado." }
-        Ok "Pruebas unitarias correctas."
+        Info "Ejecutando los tests de Rust..."
+        Push-Location (Join-Path $root "src-tauri")
+        try {
+            & cargo test --quiet
+            if ($LASTEXITCODE -ne 0) { Die "Los tests de Rust fallaron. Release abortado." }
+        } finally { Pop-Location }
+        Ok "Tests de Rust correctos."
 
-        # ── UI tests (opcionales): los únicos que ejercen la app REAL ────────
-        # No están en la solución a propósito: si lo estuvieran, el `dotnet test` de arriba los
-        # arrastraría siempre, y necesitan condiciones que no toda máquina tiene (elevación, y la USB
-        # de pruebas para 6 de ellos). Por eso se piden con -UiTests y se lanzan por ruta.
-        if ($UiTests) {
-            # 1. Elevación. La app es requireAdministrator: un proceso de pruebas NO elevado no puede
-            #    automatizar su ventana por UI Automation. Sin esto, los 17 tests que sí corren fallarían
-            #    todos a la vez con un error que no tiene nada que ver con el código.
-            $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-            $isAdmin = (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole(
-                [Security.Principal.WindowsBuiltInRole]::Administrator)
-            if (-not $isAdmin) {
-                Die "-UiTests requiere una terminal ELEVADA: FormatDiskPro.exe exige administrador y un proceso no elevado no puede automatizar su ventana. Reabre PowerShell como administrador y reintenta."
-            }
-
-            # 2. Opt-in destructivo. Con la variable a 1, la suite FORMATEA de verdad la USB de pruebas.
-            #    Un corte de release jamás debe hacer eso, ni aunque quien lo lanza la tuviera activada de
-            #    una sesión anterior de depuración.
-            if ($env:FORMATDISKPRO_ALLOW_DESTRUCTIVE -eq "1") {
-                Die "FORMATDISKPRO_ALLOW_DESTRUCTIVE=1 está activa: la suite formatearía la USB de pruebas. Un corte de release nunca debe hacerlo. Limpia la variable (`$env:FORMATDISKPRO_ALLOW_DESTRUCTIVE = `$null) y reintenta."
-            }
-
-            # 3. La USB de pruebas es OPCIONAL: los tests que la necesitan se omiten solos si no está
-            #    (ver TestDriveFactAttribute). Se avisa para que quede claro qué cobertura llevó el corte.
-            $testUsb = [System.IO.DriveInfo]::GetDrives() | Where-Object {
-                $_.DriveType -eq 'Removable' -and $_.IsReady -and $_.VolumeLabel -eq 'utilidades'
-            } | Select-Object -First 1
-            if ($testUsb) {
-                Info "USB de pruebas detectada ($($testUsb.Name)): los tests de diagnóstico también correrán."
-            } else {
-                Warn "USB de pruebas ('utilidades') NO conectada: sus tests se OMITIRÁN (no fallarán). El resto sí ejerce la app real."
-            }
-
-            Info "Ejecutando UI tests (conducen la app real; se abrirán ventanas)..."
-            & dotnet test $uiTestProject --filter "Category!=Slow" --nologo
-            if ($LASTEXITCODE -ne 0) { Die "Los UI tests fallaron. Release abortado." }
-            Ok "UI tests correctos."
-        } else {
-            Warn "UI tests NO ejecutados (sin -UiTests): este release sale sin haber ejercido la app real. Recomendado: .\release.ps1 -Version $Version -UiTests (desde una terminal elevada)."
-        }
+        # `npm run build` es `tsc && vite build`: comprueba los tipos del frontend. Vale la pena
+        # aparte, aunque `tauri build` lo repita, para fallar antes de empezar a compilar Rust.
+        Info "Comprobando tipos y compilando el frontend..."
+        & npm run build
+        if ($LASTEXITCODE -ne 0) { Die "El build del frontend falló. Release abortado." }
+        Ok "Frontend correcto."
     }
 
     # ── Notas del release ──────────────────────────────────────────────────────
     $notesPath = $NotesFile
     $tempNotes = $null
     if (-not $notesPath) {
-        $tempNotes = Join-Path $env:TEMP "fdp_release_$Version.md"
+        $tempNotes = Join-Path $env:TEMP "pdk_release_$Version.md"
         @(
-            "## FormatDiskPro v$Version",
+            "## ProcessDevKill v$Version",
             "",
-            "Instalador self-contained para Windows x64 (no requiere instalar .NET).",
+            "Gestor de procesos de desarrollo para Windows: lista los `node`, `python` y `dotnet` activos con su CPU, su RAM y **el puerto local que ocupa cada uno**, y permite cerrarlos de uno en uno o en lote.",
             "",
-            "Descarga ``FormatDiskPro-$Version-setup.exe`` y ejecútalo (requiere privilegios de administrador).",
+            "### Descarga",
             "",
-            "La app comprueba actualizaciones automáticamente desde *Ayuda → Buscar actualizaciones…*.",
+            "| Archivo | Para qué |",
+            "|---|---|",
+            "| ``ProcessDevKill_${Version}_x64-setup.exe`` | Instalador recomendado (NSIS). Se instala para el usuario actual, sin pedir permisos de administrador. |",
+            "| ``ProcessDevKill_${Version}_x64_en-US.msi`` | Instalador MSI, para despliegue por directiva de grupo o quien lo prefiera. |",
             "",
-            "El asset ``FormatDiskPro-$Version-setup.exe.sha256`` es el hash con el que la app verifica la descarga antes de ejecutarla."
+            "Los ``.sha256`` son el hash de cada instalador, por si quieres verificar la descarga:",
+            "",
+            "``````powershell",
+            "Get-FileHash .\ProcessDevKill_${Version}_x64-setup.exe -Algorithm SHA256",
+            "``````",
+            "",
+            "### Aviso de SmartScreen",
+            "",
+            "Los instaladores no están firmados, así que la primera vez Windows mostrará el aviso de SmartScreen (*Windows protegió su PC*): Más información → Ejecutar de todas formas.",
+            "",
+            "Requiere Windows 10/11 con WebView2 (incluido de serie en Windows 11)."
         ) | Out-File -FilePath $tempNotes -Encoding utf8
         $notesPath = $tempNotes
     }
@@ -250,58 +244,72 @@ try {
     if ($DryRun) {
         Write-Host ""
         Warn "DRY RUN — no se modificará nada. Plan:"
-        $signNote = if ($CertThumbprint -or $CertFile) { " (firmando con Authenticode)" } else { " (SIN firmar — la app verificará por el .sha256)" }
-        Write-Host "    1. Actualizar <Version> a $Version en el .csproj" -ForegroundColor DarkGray
-        Write-Host "    2. build-installer.ps1 -Version $Version$signNote" -ForegroundColor DarkGray
-        Write-Host "    3. git add -u  (todos los archivos rastreados modificados)" -ForegroundColor DarkGray
-        Write-Host "       git commit -m 'release: v$Version'" -ForegroundColor DarkGray
-        Write-Host "       git tag -a $tag" -ForegroundColor DarkGray
-        Write-Host "    4. git push origin $branch" -ForegroundColor DarkGray
-        Write-Host "       git push origin $tag" -ForegroundColor DarkGray
-        Write-Host "    5. gh release create $tag (assets: FormatDiskPro-$Version-setup.exe + .sha256)" -ForegroundColor DarkGray
-        if (-not $SkipTests) {
-            $uiNote = if ($UiTests) { "unitarias + UI tests (app real)" } else { "solo unitarias (sin -UiTests)" }
-            Write-Host "    Pruebas ya ejecutadas en este dry run: $uiNote" -ForegroundColor DarkGray
-        }
+        Write-Host "    1. Poner la versión $Version en tauri.conf.json, package.json y Cargo.toml" -ForegroundColor DarkGray
+        Write-Host "       + 'cargo check' para actualizar Cargo.lock" -ForegroundColor DarkGray
+        Write-Host "    2. npm run tauri build  (NSIS + MSI, SIN firmar)" -ForegroundColor DarkGray
+        Write-Host "    3. Generar los .sha256 de los dos instaladores" -ForegroundColor DarkGray
+        Write-Host "    4. git add -u ; git commit -m 'release: v$Version' ; git tag -a $tag" -ForegroundColor DarkGray
+        Write-Host "    5. git push origin $branch ; git push origin $tag" -ForegroundColor DarkGray
+        Write-Host "    6. gh release create $tag con 4 assets:" -ForegroundColor DarkGray
+        Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256)" -ForegroundColor DarkGray
+        Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
+        if (-not $SkipTests) { Write-Host "    Pruebas ya ejecutadas en este dry run: cargo test + npm run build" -ForegroundColor DarkGray }
         if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
         Ok "Dry run completado."
         return
     }
 
-    # ── 1. Bump de versión ───────────────────────────────────────────────────
+    # ── 1. Bump de versión en los tres sitios ────────────────────────────────
     if ($currentVersion -ne $Version) {
-        Info "Actualizando <Version> en el .csproj..."
-        $newRaw = $csprojRaw -replace '<Version>.*?</Version>', "<Version>$Version</Version>"
-        # CON BOM ($true), no sin él: es lo que hace que la próxima lectura —la del siguiente release, o la
-        # de MSBuild— sepa con certeza que el archivo es UTF-8. Sin BOM, PS 5.1 y MSBuild caen en la página
-        # de códigos ANSI y vuelven a romper los acentos de <Authors>/<Copyright>. Ver la nota de arriba.
-        [System.IO.File]::WriteAllText($csproj, $newRaw, (New-Object System.Text.UTF8Encoding($true)))
+        Info "Actualizando la versión en tauri.conf.json, package.json y Cargo.toml..."
+
+        # Solo la primera aparición de "version" en cada archivo: es la del propio paquete. En
+        # package.json, un reemplazo global tocaría también las de las dependencias.
+        $rx = [System.Text.RegularExpressions.Regex]
+
+        $conf = Read-Texto $tauriConf
+        Write-Texto $tauriConf ($rx::Replace($conf, '"version"\s*:\s*"[^"]+"', """version"": ""$Version""", 1))
+
+        $pkg = Read-Texto $packageJson
+        Write-Texto $packageJson ($rx::Replace($pkg, '"version"\s*:\s*"[^"]+"', """version"": ""$Version""", 1))
+
+        $cargo = Read-Texto $cargoToml
+        Write-Texto $cargoToml ($rx::Replace($cargo, '(?m)^version\s*=\s*"[^"]+"', "version = ""$Version""", 1))
+
+        # Cargo.lock guarda la versión del propio crate: sin esto queda desactualizado y el árbol
+        # aparece sucio justo después del commit del release.
+        Info "Actualizando Cargo.lock..."
+        Push-Location (Join-Path $root "src-tauri")
+        try {
+            & cargo check --quiet 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { Die "'cargo check' falló tras el bump de versión." }
+        } finally { Pop-Location }
+        Ok "Versión $Version puesta en los tres archivos."
     }
 
-    # ── 2. Compilar instalador ─────────────────────────────────────────────────
-    Info "Compilando el instalador..."
-    $buildArgs = @{ Version = $Version }
-    if ($CertThumbprint) { $buildArgs.CertThumbprint = $CertThumbprint }
-    if ($CertFile)       { $buildArgs.CertFile       = $CertFile }
-    if ($CertPassword)   { $buildArgs.CertPassword   = $CertPassword }
-    if ($TimestampUrl)   { $buildArgs.TimestampUrl   = $TimestampUrl }
-    & $buildScript @buildArgs
-    if ($LASTEXITCODE -ne 0) { Die "La compilación del instalador falló." }
-    $setup = Join-Path $outputDir "FormatDiskPro-$Version-setup.exe"
-    if (-not (Test-Path $setup)) { Die "No se encontró el instalador esperado: $setup" }
-    $sizeMB = [math]::Round((Get-Item $setup).Length / 1MB, 1)
-    Ok "Instalador: $setup ($sizeMB MB)"
+    # ── 2. Compilar los instaladores ─────────────────────────────────────────
+    Info "Compilando los instaladores (esto tarda varios minutos)..."
+    & npm run tauri build
+    if ($LASTEXITCODE -ne 0) { Die "La compilación de los instaladores falló." }
 
-    # Lo genera build-installer.ps1. Es con lo que la app verifica la descarga mientras los instaladores
-    # se publiquen sin firmar (UpdateService.VerifyInstallerAsync): si no se sube como asset, la
-    # auto-actualización no puede verificar nada, borra el instalador y falla.
-    $setupHash = "$setup.sha256"
-    if (-not (Test-Path $setupHash)) { Die "No se encontró el checksum esperado: $setupHash" }
-    Ok "Checksum: $setupHash"
+    if (-not (Test-Path $setup)) { Die "No se encontró el instalador NSIS esperado: $setup" }
+    if (-not (Test-Path $msi))   { Die "No se encontró el MSI esperado: $msi" }
+    Ok ("NSIS: {0} ({1} MB)" -f (Split-Path $setup -Leaf), [math]::Round((Get-Item $setup).Length / 1MB, 2))
+    Ok ("MSI:  {0} ({1} MB)" -f (Split-Path $msi -Leaf),   [math]::Round((Get-Item $msi).Length / 1MB, 2))
 
-    # ── 3. Commit + tag ──────────────────────────────────────────────────────
-    # Añade todos los archivos rastreados modificados/eliminados (tracked changes).
-    # Los archivos nuevos sin rastrear requieren 'git add' manual previo.
+    # ── 3. Checksums ─────────────────────────────────────────────────────────
+    # Los genera este script: en Tauri no hay un paso de build que los produzca.
+    $hashes = @()
+    foreach ($archivo in @($setup, $msi)) {
+        $destino = "$archivo.sha256"
+        $h = (Get-FileHash $archivo -Algorithm SHA256).Hash.ToLower()
+        # Formato de `sha256sum`, para que valga con las herramientas de siempre.
+        Write-Texto $destino "$h  $(Split-Path $archivo -Leaf)`n"
+        $hashes += $destino
+        Ok "SHA-256 de $(Split-Path $archivo -Leaf): $h"
+    }
+
+    # ── 4. Commit + tag ──────────────────────────────────────────────────────
     Info "Preparando commit de release..."
     if ((Invoke-Git add -u) -ne 0) { Die "git add -u falló." }
     $staged = (& git diff --cached --name-only)
@@ -314,18 +322,15 @@ try {
         Info "Sin cambios que commitear; se etiqueta el HEAD actual."
     }
     Info "Creando tag $tag..."
-    if ((Invoke-Git tag -a $tag -m "FormatDiskPro $tag") -ne 0) { Die "git tag falló." }
+    if ((Invoke-Git tag -a $tag -m "ProcessDevKill $tag") -ne 0) { Die "git tag falló." }
 
-    # ── 4. Push ──────────────────────────────────────────────────────────────
-    # Vía Invoke-Git a propósito: git escribe el resumen del push por stderr y, con
-    # $ErrorActionPreference = "Stop", eso abortaría el script DESPUÉS de haber empujado la rama,
-    # dejando el release a medias (sin tag ni GitHub Release). Ver la nota de Invoke-Git.
+    # ── 5. Push ──────────────────────────────────────────────────────────────
     Info "Push de la rama y el tag a origin..."
     if ((Invoke-Git push origin $branch) -ne 0) { Die "git push de la rama falló." }
     if ((Invoke-Git push origin $tag) -ne 0) { Die "git push del tag falló. La rama YA está subida; reintenta." }
     Ok "Rama y tag publicados."
 
-    # ── 5. GitHub Release ────────────────────────────────────────────────────
+    # ── 6. GitHub Release ────────────────────────────────────────────────────
     $gh = @(
         "C:\Program Files\GitHub CLI\gh.exe",
         "C:\Program Files (x86)\GitHub CLI\gh.exe"
@@ -336,7 +341,7 @@ try {
     }
     if (-not $gh) { Die "gh (GitHub CLI) no está instalado. Instálalo: winget install GitHub.cli  — el tag YA está publicado; crea el release manualmente o reintenta." }
 
-    # Asegurar autenticación: si gh no está logueado, reutilizar la credencial cacheada de git.
+    # Si gh no está logueado, reutilizar la credencial cacheada de git (la misma del push).
     # PS 5.1: 2>$null en exes nativos con ErrorActionPreference=Stop genera NativeCommandError;
     # se baja a SilentlyContinue solo durante las llamadas que necesitan suprimir stderr.
     $eap = $ErrorActionPreference
@@ -357,12 +362,13 @@ try {
     }
 
     Info "Creando el GitHub Release..."
-    & $gh release create $tag --title "FormatDiskPro $tag" --notes-file $notesPath $setup $setupHash
+    & $gh release create $tag --title "ProcessDevKill $tag" --notes-file $notesPath $setup $msi @hashes
     if ($LASTEXITCODE -ne 0) { Die "gh release create falló (el tag ya está publicado; puedes reintentar el release)." }
 
     if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
+    $repo = (& git remote get-url origin) -replace '\.git$', ''
     Write-Host ""
-    Ok "Release $tag publicado: https://github.com/xfiberex/FormatDiskPro/releases/tag/$tag"
+    Ok "Release $tag publicado: $repo/releases/tag/$tag"
 }
 finally {
     Pop-Location

@@ -1,6 +1,6 @@
 [package]
 name = "processdevkill"
-version = "0.1.0"
+version = "1.0.0"
 description = "Gestor de procesos de desarrollo para Windows"
 authors = ["Ricky Angel Jiménez Bueno"]
 edition = "2021"
