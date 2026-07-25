@@ -35,17 +35,18 @@
 | 3 | Puertos, notificaciones, tray | ✅ Completado y verificado |
 | 4 | Power user y optimización | ✅ Completado y verificado |
 | 5 | Estética (tema, shadcn/ui, icono) | ✅ Puntos 1-3 completados y verificados |
-| 5 | Salsa Secreta, instaladores y releases | ⬜ Puntos 4-6 pendientes |
+| 5 | Salsa Secreta: Auto-Kill y Zombie Finder | ✅ Punto 4 completado y verificado |
+| 5 | Instaladores y publicación de releases | ⬜ Puntos 5 y 6 pendientes |
 
 Verificado el 2026-07-23 con la app corriendo: la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; la lista se actualiza sola por eventos desde Rust; ajustes e historial sobreviven al reinicio; cerrar la ventana la esconde en la bandeja sin terminar la app.
 
-Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el tema de Windows y obedece al selector de Ajustes (que persiste en disco), el menú contextual de cada fila copia PID/nombre/puerto al portapapeles real de Windows con su toast, y el diálogo destructivo —ahora el AlertDialog de shadcn— sigue cancelándose con Escape sin matar nada. 13 tests de `cargo test` en verde.
+Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el tema de Windows y obedece al selector de Ajustes (que persiste en disco), el menú contextual de cada fila copia PID/nombre/puerto al portapapeles real de Windows con su toast, y el diálogo destructivo —ahora el AlertDialog de shadcn— sigue cancelándose con Escape sin matar nada. El Auto-Kill, con un umbral de prueba, cierra solo un proceso de 651 MB y deja intactos los 7 `node` reales de la máquina. 16 tests de `cargo test` en verde.
 
 **Salvedad honesta sobre el atajo global:** se comprobó que `Ctrl+Alt+K` se registra y se libera correctamente (con él activo ningún otro proceso puede tomarlo), pero **no se llegó a pulsar**: dispararlo habría cerrado los ~13 procesos `node` reales del equipo. La ruta de cierre que ejecuta es la misma `kill_and_record` que usan la ventana y la bandeja, ambas verificadas end-to-end.
 
 **Salvedad honesta sobre las notificaciones:** se comprobó que `notification().show()` devuelve `Ok` (stderr de la app limpio), pero **no** que el toast aparezca en pantalla. En Windows, una build de desarrollo sin instalar puede no renderizar el toast, y el Asistente de concentración puede suprimirlo. Conviene confirmarlo a ojo tras generar el instalador en el Tier 5.
 
-**Próximo paso concreto:** Tier 5.4 → las ideas "Salsa Secreta" (Auto-Kill por umbral de RAM y Zombie Finder). Después, instaladores (5.5) y el `release.ps1` (5.6).
+**Próximo paso concreto:** Tier 5.5 → generar los instaladores con `npm run tauri build` y comprobar sobre la app instalada las dos salvedades de abajo. Después, el `release.ps1` (5.6).
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -120,6 +121,14 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-24 | Se descarta `navigator.clipboard.readText()` incluso para depurar | Abre un diálogo de permiso **dentro** de la ventana de WebView2 que bloquea la evaluación por CDP; la app solo necesita escribir |
 | 2026-07-24 | El menú de la bandeja llama a `pids_of_runtime` en vez de repetir el filtro | El test `selecciona_solo_los_pids_del_runtime_pedido` decía cubrir la bandeja, pero la bandeja tenía su propia copia del filtro: el test protegía código que nadie usaba |
 | 2026-07-24 | Una sola sesión de Claude Code por repositorio | Dos trabajando a la vez se sobrescriben los archivos, y el `tauri dev` de una reinicia la app que la otra está inspeccionando por CDP |
+| 2026-07-24 | El Auto-Kill nace apagado y con suelo de 256 MB en el umbral | Es lo único de la app que mata sin que nadie se lo pida. Un umbral bajo por descuido (o heredado de un `settings.json` editado a mano) cerraría el entorno de desarrollo entero, así que el suelo se aplica también al leer del disco |
+| 2026-07-24 | El Auto-Kill sigue vigilando con el auto-refresco en "Off" | Una red de seguridad que deja de mirar porque la ventana no se refresca no es una red de seguridad. Se vigila cada 2 s sin publicar la lista, que es lo que el usuario pidió al apagar el refresco |
+| 2026-07-24 | El umbral se guarda al salir del campo, no al teclear | Escribir "2048" pasa por "2"; guardando en cada pulsación el umbral bajaría al mínimo un instante con el vigilante en marcha |
+| 2026-07-24 | `watch_cycle` lee la lista una vez y luego publica | Vigilar y refrescar por separado enumeraba procesos y sockets dos veces por ciclo, que es justo el trabajo que el Tier 4 sacó del frontend |
+| 2026-07-24 | Un zombi tiene que ocupar un **puerto**, no solo estar parado | Casi todo proceso de desarrollo en reposo marca 0 % de CPU (7 de 10 en la máquina de pruebas). Sin esa condición se resaltaría la tabla entera, que es igual que no resaltar nada |
+| 2026-07-24 | El corte de "sin actividad" es 0,5 % de CPU, no 0 | Un servidor parado sigue despertando por sus temporizadores y el recolector de basura, y marca décimas sueltas |
+| 2026-07-24 | Apagar el Zombie Finder borra las rachas acumuladas | Mientras estuvo apagado nadie miraba; contar ese rato al reactivarlo sería inventárselo |
+| 2026-07-24 | `ZombieWatch` olvida los PIDs que desaparecen | La app vive días en la bandeja: el mapa crecería sin fin, y un PID reciclado por Windows heredaría la racha del proceso anterior |
 
 ## 5. Decisiones pendientes
 
@@ -147,6 +156,25 @@ Dos cosas que cuestan una sesión si no se saben:
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-24 (noche) — Tier 5.4: Zombie Finder
+
+- `ZombieWatch` en `processes.rs` recuerda desde cuándo lleva cada PID sin consumir CPU. Era lo que le faltaba a la app: cada `collect_processes` es una foto sin pasado.
+- Un proceso es zombi si lleva parado los minutos configurados **y además ocupa un puerto**. Sin la segunda condición la función no sirve: en la máquina de pruebas, 7 de 10 procesos `node` marcan 0 % de CPU estando perfectamente sanos.
+- `ProcessInfo` gana `idleSecs` y `zombie`; la regla la decide Rust y la UI solo la pinta (fila en ámbar + insignia con el tiempo y el puerto en el `title`).
+- `read_list` unifica lectura y marcado, así que el refresco manual, el hilo y el evento posterior a un cierre pintan lo mismo.
+- Seis tests nuevos (22 en total). Uno de ellos cazó un fallo real: `track` no limpiaba la marca anterior, de modo que un proceso que volvía a trabajar seguiría resaltado si la lista se reutilizaba. La marca es un dato calculado, no acumulado.
+- Verificado en vivo el ciclo entero, con el umbral en 1 minuto: se marca al cumplirlo, un proceso ocupado al 9,4 % nunca se marca, y al darle 65 000 peticiones al servidor parado pierde la marca en el refresco siguiente. Detalle en ROADMAP §Tier 5.4.
+
+### 2026-07-24 (noche) — Tier 5.4: Auto-Kill por umbral de RAM
+
+- Ajustes nuevos `autoKillEnabled` (false de fábrica) y `autoKillMb` (2048), con sección propia en Ajustes: interruptor, campo de MB y la advertencia de que cierra sin preguntar.
+- La vigilancia vive en el hilo que ya emitía `processes-updated`: `watch_cycle` lee la lista una vez, deja actuar al Auto-Kill y publica. Con el refresco en "Off" se sigue vigilando cada 2 s sin publicar nada.
+- Todo cierre automático pasa por `kill_and_record` con el origen nuevo `KillSource::Auto`, así que registra historial y refresca la UI como el resto. La notificación la compone el Auto-Kill (motivo, MB y puertos liberados) y por eso se calla la de puertos, que si no saldrían dos seguidas.
+- Tres tests nuevos (16 en total): el criterio del umbral con números exactos, el suelo de 256 MB y el formato de memoria de la notificación, que debe coincidir con el de la tabla.
+- Verificado con procesos `node` de mentira de 600 MB creados a propósito: mueren solos, los 7 `node` reales de la máquina no se tocan, el puerto se libera y el historial lo marca como Auto-Kill. Detalle en ROADMAP §Tier 5.4.
+- Un fallo de diseño detectado al probarlo: el campo del umbral estaba deshabilitado hasta encender el interruptor, lo que obligaba a armar el Auto-Kill con el valor por defecto para poder cambiarlo. Ahora es editable siempre.
+- Falsa alarma que conviene no repetir: los interruptores parecían no moverse al encenderse. Tailwind v4 usa la propiedad CSS `translate`, no `transform`; medido en el DOM, el pulsador pasa de 1 px a 15 px y cambia de color.
 
 ### 2026-07-24 (tarde) — Cierre del Tier 5.1-5.3: segunda verificación y pulido
 

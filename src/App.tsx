@@ -40,6 +40,11 @@ const DEFAULT_SETTINGS: Settings = {
   hotkeyEnabled: true,
   refreshMs: 2000,
   theme: "system",
+  // Igual que en Rust: ni el Auto-Kill ni el Zombie Finder arrancan encendidos.
+  autoKillEnabled: false,
+  autoKillMb: 2048,
+  zombieEnabled: false,
+  zombieMinutes: 10,
 };
 
 export default function App() {

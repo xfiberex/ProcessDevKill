@@ -1,5 +1,7 @@
 //! Lectura y cierre de los procesos de desarrollo vigilados.
 
+use std::collections::HashMap;
+
 use serde::Serialize;
 use sysinfo::{CpuRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System};
 
@@ -43,6 +45,12 @@ pub struct ProcessInfo {
     pub run_time_secs: u64,
     /// Puertos TCP en los que el proceso esta escuchando, ordenados.
     pub ports: Vec<u16>,
+    /// Segundos que lleva seguidos sin actividad de CPU. 0 si acaba de moverse o
+    /// si el Zombie Finder esta apagado.
+    pub idle_secs: u64,
+    /// Ocioso desde hace mas del tiempo configurado y **ademas** ocupando un
+    /// puerto. Lo decide Rust y la UI solo lo pinta.
+    pub zombie: bool,
 }
 
 /// Que paso con cada PID de un intento de cierre en lote.
@@ -131,6 +139,10 @@ pub fn collect_processes(sys: &mut System, custom: &[String]) -> Vec<ProcessInfo
                 memory_mb: p.memory() as f64 / 1_048_576.0,
                 run_time_secs: p.run_time(),
                 ports: ports.remove(&pid).unwrap_or_default(),
+                // Los rellena `ZombieWatch`, que es quien tiene memoria de los
+                // refrescos anteriores; aqui cada lectura es una foto sin pasado.
+                idle_secs: 0,
+                zombie: false,
             })
         })
         .collect();
@@ -152,6 +164,79 @@ pub fn warm_up_cpu(sys: &mut System, custom: &[String]) {
     for _ in 0..2 {
         collect_processes(sys, custom);
         std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    }
+}
+
+/// Los procesos de la lista que se pasan del umbral de RAM, en MB.
+///
+/// Funcion aparte, y pura, a proposito: es la que decide a quien mata el Auto-Kill
+/// sin preguntar a nadie. Un `>=` de mas aqui cerraria procesos que estan justo en
+/// el limite, asi que conviene poder probarla sin montar una `App` ni el sistema.
+/// La comparacion es **estricta**: el umbral hay que superarlo, no alcanzarlo.
+pub fn over_memory_limit(list: &[ProcessInfo], limit_mb: u64) -> Vec<&ProcessInfo> {
+    list.iter()
+        .filter(|p| p.memory_mb > limit_mb as f64)
+        .collect()
+}
+
+/// Por debajo de este porcentaje se considera que un proceso no esta haciendo
+/// nada. No se compara contra 0 exacto: un servidor parado sigue despertando por
+/// sus temporizadores y el recolector de basura, y marca decimas sueltas.
+pub const ZOMBIE_CPU_MAX: f32 = 0.5;
+
+/// Memoria de los refrescos anteriores para saber cuanto lleva parado cada proceso.
+///
+/// Hace falta porque `collect_processes` devuelve una foto sin pasado: con una sola
+/// lectura no hay forma de distinguir el proceso que lleva diez minutos muerto de
+/// aburrimiento del que acaba de terminar una compilacion.
+#[derive(Default)]
+pub struct ZombieWatch {
+    /// PID -> epoch en ms en que empezo la racha sin CPU.
+    idle_since: HashMap<u32, u64>,
+}
+
+impl ZombieWatch {
+    /// Actualiza el seguimiento con la lista recien leida y marca los zombis.
+    ///
+    /// `minutes` a `None` apaga la funcion: se olvida lo seguido hasta ahora, de
+    /// modo que al reactivarla las rachas empiezan de cero. Es lo honesto, porque
+    /// mientras estuvo apagada nadie miraba.
+    ///
+    /// Un proceso solo es zombi si ademas **ocupa algun puerto**: sin esa
+    /// condicion casi cualquier proceso de desarrollo en reposo marca 0 % de CPU y
+    /// la tabla entera acabaria resaltada, que es lo mismo que no resaltar nada.
+    pub fn track(&mut self, list: &mut [ProcessInfo], now_ms: u64, minutes: Option<u64>) {
+        // Se parte siempre de "no es zombi". La marca es un dato calculado, no
+        // acumulado: si la lista llega con una marca de la pasada anterior y el
+        // proceso ya se ha movido, dejarla puesta seria mentir.
+        for p in list.iter_mut() {
+            p.idle_secs = 0;
+            p.zombie = false;
+        }
+
+        let Some(minutes) = minutes else {
+            self.idle_since.clear();
+            return;
+        };
+
+        // Olvidar los PIDs que ya no estan, o el mapa creceria sin fin en una app
+        // que vive en la bandeja durante dias.
+        let vivos: Vec<u32> = list.iter().map(|p| p.pid).collect();
+        self.idle_since.retain(|pid, _| vivos.contains(pid));
+
+        let umbral_secs = minutes.saturating_mul(60);
+
+        for p in list.iter_mut() {
+            if p.cpu > ZOMBIE_CPU_MAX {
+                // Se ha movido: la racha se rompe.
+                self.idle_since.remove(&p.pid);
+                continue;
+            }
+
+            let desde = *self.idle_since.entry(p.pid).or_insert(now_ms);
+            p.idle_secs = now_ms.saturating_sub(desde) / 1000;
+            p.zombie = p.idle_secs >= umbral_secs && !p.ports.is_empty();
+        }
     }
 }
 
@@ -266,6 +351,147 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// El Auto-Kill cierra sin confirmacion, asi que su criterio se prueba con
+    /// numeros exactos: quien esta justo en el umbral **no** muere, y quien no
+    /// llega tampoco. Un `>=` por descuido aqui cerraria procesos sanos.
+    #[test]
+    fn el_auto_kill_solo_elige_a_quien_pasa_del_umbral() {
+        fn falso(pid: u32, memory_mb: f64) -> ProcessInfo {
+            ProcessInfo {
+                pid,
+                name: "node.exe".into(),
+                runtime: Runtime::Node,
+                cpu: 0.0,
+                memory_mb,
+                run_time_secs: 0,
+                ports: Vec::new(),
+                idle_secs: 0,
+                zombie: false,
+            }
+        }
+
+        let lista = vec![
+            falso(1, 2048.5), // pasado
+            falso(2, 2048.0), // justo en el limite
+            falso(3, 300.0),  // muy por debajo
+            falso(4, 9000.0), // pasadisimo
+        ];
+
+        let elegidos: Vec<u32> = over_memory_limit(&lista, 2048)
+            .iter()
+            .map(|p| p.pid)
+            .collect();
+        assert_eq!(elegidos, vec![1, 4]);
+
+        // Sin nadie por encima, no se toca a nadie.
+        assert!(over_memory_limit(&lista, 16_384).is_empty());
+    }
+
+    /// Proceso de mentira para los tests del Zombie Finder.
+    fn parado(pid: u32, cpu: f32, ports: Vec<u16>) -> ProcessInfo {
+        ProcessInfo {
+            pid,
+            name: "node.exe".into(),
+            runtime: Runtime::Node,
+            cpu,
+            memory_mb: 300.0,
+            run_time_secs: 3600,
+            ports,
+            idle_secs: 0,
+            zombie: false,
+        }
+    }
+
+    const MINUTO: u64 = 60_000;
+
+    #[test]
+    fn marca_zombi_solo_tras_el_tiempo_configurado() {
+        let mut watch = ZombieWatch::default();
+        let mut lista = vec![parado(1, 0.0, vec![3000])];
+
+        watch.track(&mut lista, 0, Some(10));
+        assert_eq!(lista[0].idle_secs, 0);
+        assert!(!lista[0].zombie, "acaba de empezar la racha");
+
+        watch.track(&mut lista, 9 * MINUTO, Some(10));
+        assert_eq!(lista[0].idle_secs, 540);
+        assert!(!lista[0].zombie, "aun no llega al umbral");
+
+        watch.track(&mut lista, 10 * MINUTO, Some(10));
+        assert!(lista[0].zombie, "10 minutos parado y con el puerto ocupado");
+    }
+
+    #[test]
+    fn moverse_rompe_la_racha() {
+        let mut watch = ZombieWatch::default();
+        let mut lista = vec![parado(1, 0.0, vec![3000])];
+
+        watch.track(&mut lista, 0, Some(5));
+        watch.track(&mut lista, 10 * MINUTO, Some(5));
+        assert!(lista[0].zombie);
+
+        // Vuelve a trabajar: deja de ser zombi al instante.
+        lista[0].cpu = 12.0;
+        watch.track(&mut lista, 11 * MINUTO, Some(5));
+        assert!(!lista[0].zombie);
+
+        // Y cuando se para otra vez, la cuenta arranca de cero.
+        lista[0].cpu = 0.0;
+        watch.track(&mut lista, 12 * MINUTO, Some(5));
+        assert_eq!(lista[0].idle_secs, 0);
+        assert!(!lista[0].zombie);
+    }
+
+    /// Sin esta condicion la funcion no sirve de nada: casi todo proceso de
+    /// desarrollo en reposo marca 0 % de CPU, asi que la tabla entera saldria
+    /// resaltada y el aviso dejaria de significar algo.
+    #[test]
+    fn un_proceso_parado_sin_puerto_no_es_zombi() {
+        let mut watch = ZombieWatch::default();
+        let mut lista = vec![parado(1, 0.0, vec![])];
+
+        watch.track(&mut lista, 0, Some(1));
+        watch.track(&mut lista, 60 * MINUTO, Some(1));
+
+        assert_eq!(lista[0].idle_secs, 3600, "el tiempo si se cuenta");
+        assert!(!lista[0].zombie, "pero sin puerto no molesta a nadie");
+    }
+
+    #[test]
+    fn apagado_no_marca_nada_y_olvida_las_rachas() {
+        let mut watch = ZombieWatch::default();
+        let mut lista = vec![parado(1, 0.0, vec![3000])];
+
+        watch.track(&mut lista, 0, Some(5));
+        watch.track(&mut lista, 30 * MINUTO, None);
+        assert!(!lista[0].zombie);
+        assert_eq!(lista[0].idle_secs, 0);
+
+        // Al reactivarlo, la racha empieza de nuevo: mientras estuvo apagado no
+        // habia nadie mirando y contar ese rato seria inventarselo.
+        watch.track(&mut lista, 31 * MINUTO, Some(5));
+        assert_eq!(lista[0].idle_secs, 0);
+    }
+
+    /// La app vive dias en la bandeja: si el seguimiento no soltara los PIDs
+    /// muertos, el mapa creceria sin fin y un PID reciclado por Windows heredaria
+    /// la racha del proceso anterior.
+    #[test]
+    fn olvida_los_pids_que_desaparecen() {
+        let mut watch = ZombieWatch::default();
+        let mut lista = vec![parado(1, 0.0, vec![3000])];
+        watch.track(&mut lista, 0, Some(5));
+
+        let mut sin_el = vec![parado(2, 0.0, vec![4000])];
+        watch.track(&mut sin_el, 10 * MINUTO, Some(5));
+
+        // El 1 vuelve (mismo PID, proceso nuevo): no debe heredar nada.
+        let mut vuelve = vec![parado(1, 0.0, vec![3000])];
+        watch.track(&mut vuelve, 20 * MINUTO, Some(5));
+        assert_eq!(vuelve[0].idle_secs, 0);
+        assert!(!vuelve[0].zombie);
     }
 
     #[test]

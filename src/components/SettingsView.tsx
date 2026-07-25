@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MonitorIcon, MoonIcon, SunIcon, XIcon } from "lucide-react";
-import { THEMES } from "../types";
+import {
+  AUTO_KILL_MIN_MB,
+  THEMES,
+  ZOMBIE_MIN_MINUTES,
+  formatMemory,
+} from "../types";
 import type { Settings, Theme } from "../types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +24,50 @@ const THEME_ICONS: Record<Theme, typeof SunIcon> = {
 
 export function SettingsView({ settings, onChange }: SettingsViewProps) {
   const [draft, setDraft] = useState("");
+  const [mbDraft, setMbDraft] = useState(String(settings.autoKillMb));
+
+  // Los ajustes tambien llegan de Rust (carga inicial, o el valor ya corregido si
+  // se escribio uno por debajo del minimo): el campo tiene que seguirlos.
+  useEffect(() => setMbDraft(String(settings.autoKillMb)), [settings.autoKillMb]);
+
+  /** Guarda el umbral al salir del campo, con el mismo suelo que aplica Rust. */
+  function commitMb() {
+    const escrito = Number.parseInt(mbDraft, 10);
+    if (!Number.isFinite(escrito)) {
+      setMbDraft(String(settings.autoKillMb));
+      return;
+    }
+
+    const limpio = Math.max(AUTO_KILL_MIN_MB, escrito);
+    setMbDraft(String(limpio));
+    if (limpio !== settings.autoKillMb) {
+      onChange({ ...settings, autoKillMb: limpio });
+    }
+  }
+
+  const equivalencia =
+    settings.autoKillMb >= 1024 ? formatMemory(settings.autoKillMb) : null;
+
+  const [minutosDraft, setMinutosDraft] = useState(String(settings.zombieMinutes));
+  useEffect(
+    () => setMinutosDraft(String(settings.zombieMinutes)),
+    [settings.zombieMinutes],
+  );
+
+  /** Mismo criterio que el umbral del Auto-Kill: se guarda al salir del campo. */
+  function commitMinutos() {
+    const escrito = Number.parseInt(minutosDraft, 10);
+    if (!Number.isFinite(escrito)) {
+      setMinutosDraft(String(settings.zombieMinutes));
+      return;
+    }
+
+    const limpio = Math.max(ZOMBIE_MIN_MINUTES, escrito);
+    setMinutosDraft(String(limpio));
+    if (limpio !== settings.zombieMinutes) {
+      onChange({ ...settings, zombieMinutes: limpio });
+    }
+  }
 
   function addName() {
     const name = draft.trim();
@@ -112,6 +161,110 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
             ))}
           </ul>
         )}
+      </section>
+
+      <section>
+        <h2 className="font-heading text-sm font-semibold">Auto-Kill por memoria</h2>
+        <div className="mt-3 flex items-start gap-3">
+          <Switch
+            id="auto-kill"
+            checked={settings.autoKillEnabled}
+            onCheckedChange={(checked) =>
+              onChange({ ...settings, autoKillEnabled: checked })
+            }
+            className="mt-0.5"
+          />
+          <label htmlFor="auto-kill" className="cursor-pointer text-sm">
+            <span>Cerrar solos los procesos que se pasen de RAM</span>
+            <span className="mt-1 block text-muted-foreground">
+              Vigila los procesos de la lista y cierra{" "}
+              <strong className="font-medium text-foreground">
+                sin pedir confirmación
+              </strong>{" "}
+              el que supere el umbral. Pensado para fugas de memoria y watchers
+              desbocados. Avisa por notificación y queda en el historial como{" "}
+              <span className="font-medium text-foreground">Auto-Kill</span>.
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2 pl-11">
+          <Input
+            id="auto-kill-mb"
+            type="number"
+            inputMode="numeric"
+            min={AUTO_KILL_MIN_MB}
+            step={256}
+            value={mbDraft}
+            // El campo se deja editable aunque el Auto-Kill este apagado: si no,
+            // habria que armarlo con el umbral por defecto para poder cambiarlo,
+            // y ese rato con 2 GB puede llevarse por delante algo legitimo.
+            onChange={(e) => setMbDraft(e.target.value)}
+            // Se guarda al salir del campo, no en cada tecla: escribir "2048"
+            // pasa por "2", y guardar eso con el Auto-Kill encendido bajaria el
+            // umbral al minimo durante un instante, con el vigilante mirando.
+            onBlur={commitMb}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            aria-describedby="auto-kill-equivalencia"
+            className="w-28 tabular-nums"
+          />
+          <span
+            id="auto-kill-equivalencia"
+            className="text-sm text-muted-foreground"
+          >
+            MB por proceso
+            {equivalencia && ` (${equivalencia})`}. Mínimo{" "}
+            {AUTO_KILL_MIN_MB} MB.
+          </span>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-heading text-sm font-semibold">Zombie Finder</h2>
+        <div className="mt-3 flex items-start gap-3">
+          <Switch
+            id="zombie"
+            checked={settings.zombieEnabled}
+            onCheckedChange={(checked) =>
+              onChange({ ...settings, zombieEnabled: checked })
+            }
+            className="mt-0.5"
+          />
+          <label htmlFor="zombie" className="cursor-pointer text-sm">
+            <span>Resaltar los procesos olvidados</span>
+            <span className="mt-1 block text-muted-foreground">
+              Marca en la tabla los que llevan un rato sin consumir CPU{" "}
+              <strong className="font-medium text-foreground">
+                y siguen ocupando un puerto
+              </strong>
+              : el servidor de la semana pasada que aún tiene cogido el 3000. No
+              cierra nada, solo lo señala.
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2 pl-11">
+          <Input
+            id="zombie-minutos"
+            type="number"
+            inputMode="numeric"
+            min={ZOMBIE_MIN_MINUTES}
+            step={5}
+            value={minutosDraft}
+            onChange={(e) => setMinutosDraft(e.target.value)}
+            onBlur={commitMinutos}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            aria-describedby="zombie-explicacion"
+            className="w-28 tabular-nums"
+          />
+          <span id="zombie-explicacion" className="text-sm text-muted-foreground">
+            minutos parado. Mínimo {ZOMBIE_MIN_MINUTES}.
+          </span>
+        </div>
       </section>
 
       <section>

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { CopyIcon, SkullIcon } from "lucide-react";
+import { CopyIcon, GhostIcon, SkullIcon } from "lucide-react";
 import { RUNTIME_ICONS } from "../icons";
 import { RUNTIMES, formatMemory, formatUptime } from "../types";
 import type { ProcessInfo } from "../types";
@@ -85,7 +85,13 @@ export function ProcessTable({
                         backgroundColor: "rgba(220,38,38,0.25)",
                       }}
                       transition={{ duration: 0.18 }}
-                      className="border-t border-border hover:bg-muted/60 data-popup-open:bg-muted/60"
+                      // El zombi se tiñe de ambar en toda la fila: la insignia
+                      // sola se pierde en una tabla de veinte lineas.
+                      className={`border-t border-border data-popup-open:bg-muted/60 ${
+                        p.zombie
+                          ? "bg-amber-500/8 hover:bg-amber-500/15"
+                          : "hover:bg-muted/60"
+                      }`}
                     />
                   }
                 >
@@ -102,6 +108,15 @@ export function ProcessTable({
                       <Icon className="size-4 shrink-0" style={{ color }} />
                       <span className="truncate">{p.name}</span>
                       <span className="sr-only">{label}</span>
+                      {p.zombie && (
+                        <span
+                          className="flex shrink-0 items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
+                          title={`Sin actividad desde hace ${formatUptime(p.idleSecs)}, y sigue ocupando ${p.ports.length === 1 ? "el puerto" : "los puertos"} ${p.ports.join(", ")}`}
+                        >
+                          <GhostIcon className="size-3.5" aria-hidden />
+                          Zombi
+                        </span>
+                      )}
                     </span>
                   </td>
 

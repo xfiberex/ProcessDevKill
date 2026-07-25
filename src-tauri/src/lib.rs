@@ -12,9 +12,12 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 use tauri_plugin_notification::NotificationExt;
 
 use processes::{
-    collect_processes, kill_one, new_system, warm_up_cpu, KillOutcome, ProcessInfo,
+    collect_processes, kill_one, new_system, over_memory_limit, warm_up_cpu, KillOutcome,
+    ProcessInfo,
 };
-use storage::{now_millis, HistoryEntry, KillSource, Settings, Storage};
+use storage::{
+    now_millis, HistoryEntry, KillSource, Settings, Storage, MIN_AUTO_KILL_MB, MIN_ZOMBIE_MINUTES,
+};
 
 /// Evento que recibe el frontend cada vez que hay una lista nueva de procesos.
 const PROCESSES_UPDATED: &str = "processes-updated";
@@ -24,10 +27,18 @@ const PROCESSES_UPDATED: &str = "processes-updated";
 const MIN_REFRESH_MS: u64 = 500;
 const MAX_REFRESH_MS: u64 = 60_000;
 
+/// Cada cuanto mira la RAM el Auto-Kill cuando el refresco automatico esta en
+/// "Off". Una red de seguridad que deja de vigilar porque la ventana no se
+/// refresca no es una red de seguridad.
+const AUTO_KILL_IDLE_MS: u64 = 2000;
+
 pub struct AppState {
     sys: Mutex<System>,
     settings: Mutex<Settings>,
     storage: Storage,
+    /// Memoria de refrescos anteriores para el Zombie Finder. Se bloquea siempre
+    /// **despues** de soltar `sys`, nunca dentro.
+    zombies: Mutex<processes::ZombieWatch>,
 }
 
 impl AppState {
@@ -45,24 +56,150 @@ impl AppState {
     fn refresh_ms(&self) -> u64 {
         self.settings.lock().map(|s| s.refresh_ms).unwrap_or(2000)
     }
+
+    /// Configuracion del Auto-Kill: si esta activo y con que umbral (ya con suelo).
+    ///
+    /// Si el candado estuviera envenenado devuelve "apagado": ante la duda, esta
+    /// funcion no mata a nadie.
+    fn auto_kill(&self) -> (bool, u64) {
+        self.settings
+            .lock()
+            .map(|s| (s.auto_kill_enabled, s.auto_kill_limit_mb()))
+            .unwrap_or((false, u64::MAX))
+    }
+
+    /// Minutos tras los que marcar zombi, o `None` si la funcion esta apagada.
+    fn zombie_after(&self) -> Option<u64> {
+        self.settings
+            .lock()
+            .ok()
+            .filter(|s| s.zombie_enabled)
+            .map(|s| s.zombie_after_minutes())
+    }
+}
+
+/// Lee la lista de procesos y le pega la marca del Zombie Finder.
+///
+/// Unico sitio donde se combinan las dos cosas: si el refresco manual, el hilo y
+/// el evento de cierre no pasaran todos por aqui, la marca aparecerian y
+/// desaparecerian segun de donde viniera la lista.
+fn read_list(state: &AppState) -> Result<Vec<ProcessInfo>, String> {
+    let custom = state.custom_names();
+    let zombie_after = state.zombie_after();
+
+    let mut list = {
+        let mut sys = state
+            .sys
+            .lock()
+            .map_err(|_| "Estado del sistema corrupto".to_string())?;
+        collect_processes(&mut sys, &custom)
+    };
+
+    if let Ok(mut watch) = state.zombies.lock() {
+        watch.track(&mut list, now_millis(), zombie_after);
+    }
+
+    Ok(list)
 }
 
 fn atajo_nuke() -> Shortcut {
     Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyK)
 }
 
-/// Lee la lista actual y se la manda al frontend.
-fn emit_processes(app: &AppHandle) {
-    let state = app.state::<AppState>();
-    let custom = state.custom_names();
-
-    let list = {
-        let Ok(mut sys) = state.sys.lock() else { return };
-        collect_processes(&mut sys, &custom)
-    };
-
+fn publish(app: &AppHandle, list: Vec<ProcessInfo>) {
     if let Err(e) = app.emit(PROCESSES_UPDATED, list) {
         eprintln!("No se pudo emitir {PROCESSES_UPDATED}: {e}");
+    }
+}
+
+/// Lee la lista actual y se la manda al frontend.
+///
+/// No aplica el Auto-Kill a proposito: `kill_and_record` llama aqui al terminar, y
+/// vigilar tambien desde este camino encadenaria cierre → refresco → cierre.
+fn emit_processes(app: &AppHandle) {
+    if let Ok(list) = read_list(&app.state::<AppState>()) {
+        publish(app, list);
+    }
+}
+
+/// Un ciclo del vigilante: lee la lista **una sola vez**, deja que el Auto-Kill
+/// actue si toca y publica el resultado.
+///
+/// `publish_list` separa el ciclo normal del que corre con el refresco en "Off":
+/// alli se sigue mirando la RAM, pero no se emite nada, que es justo lo que pidio
+/// el usuario al apagarlo.
+fn watch_cycle(app: &AppHandle, publish_list: bool) {
+    let state = app.state::<AppState>();
+    let (auto_enabled, limit_mb) = state.auto_kill();
+    let Ok(list) = read_list(&state) else { return };
+
+    if auto_enabled {
+        let excedidos: Vec<(u32, String, f64)> = over_memory_limit(&list, limit_mb)
+            .into_iter()
+            .map(|p| (p.pid, p.name.clone(), p.memory_mb))
+            .collect();
+
+        if !excedidos.is_empty() {
+            // `kill_and_record` publica la lista ya sin ellos; publicar antes la
+            // vieja solo haria parpadear filas que estan a punto de desaparecer.
+            auto_kill(app, excedidos, limit_mb);
+            return;
+        }
+    }
+
+    if publish_list {
+        publish(app, list);
+    }
+}
+
+/// Cierra los procesos que se pasaron del umbral y lo cuenta por notificacion.
+///
+/// El aviso no es un adorno: es la unica forma de enterarse de que la app ha
+/// matado algo por su cuenta, y puede ocurrir con la ventana oculta en la bandeja.
+fn auto_kill(app: &AppHandle, excedidos: Vec<(u32, String, f64)>, limit_mb: u64) {
+    let pids: Vec<u32> = excedidos.iter().map(|(pid, _, _)| *pid).collect();
+    let outcomes = kill_and_record(app, pids, KillSource::Auto);
+
+    let cerrados: Vec<&KillOutcome> = outcomes.iter().filter(|o| o.killed).collect();
+    if cerrados.is_empty() {
+        return;
+    }
+
+    let limite = format_mb(limit_mb as f64);
+    let mut body = if cerrados.len() == 1 {
+        let (_, name, mb) = excedidos
+            .iter()
+            .find(|(pid, _, _)| *pid == cerrados[0].pid)
+            .expect("el cierre viene de esta misma lista");
+        format!(
+            "{name} (PID {}) usaba {}, por encima del limite de {limite}. Cerrado automaticamente.",
+            cerrados[0].pid,
+            format_mb(*mb)
+        )
+    } else {
+        format!(
+            "{} procesos cerrados automaticamente por pasar de {limite}.",
+            cerrados.len()
+        )
+    };
+
+    let mut freed: Vec<u16> = cerrados.iter().flat_map(|o| o.freed_ports.clone()).collect();
+    freed.sort_unstable();
+    freed.dedup();
+    if let Some(frase) = freed_ports_sentence(&freed) {
+        body.push(' ');
+        body.push_str(&frase);
+    }
+
+    notify(app, body);
+}
+
+/// Memoria legible, con el mismo criterio que `formatMemory` en `src/types.ts`.
+fn format_mb(mb: f64) -> String {
+    if mb >= 1024.0 {
+        format!("{:.1} GB", mb / 1024.0)
+    } else {
+        format!("{mb:.0} MB")
     }
 }
 
@@ -115,10 +252,14 @@ fn kill_and_record(app: &AppHandle, pids: Vec<u32>, source: KillSource) -> Vec<K
         eprintln!("No se pudo guardar el historial: {e}");
     }
 
-    let mut freed: Vec<u16> = outcomes.iter().flat_map(|o| o.freed_ports.clone()).collect();
-    freed.sort_unstable();
-    freed.dedup();
-    notify_freed_ports(app, &freed);
+    // El Auto-Kill compone su propio aviso, que ya incluye los puertos ademas del
+    // motivo del cierre; sin esta guarda soltaria dos notificaciones seguidas.
+    if source != KillSource::Auto {
+        let mut freed: Vec<u16> = outcomes.iter().flat_map(|o| o.freed_ports.clone()).collect();
+        freed.sort_unstable();
+        freed.dedup();
+        notify_freed_ports(app, &freed);
+    }
 
     // La lista cambio: que la ventana lo refleje sin esperar al siguiente ciclo.
     emit_processes(app);
@@ -130,8 +271,16 @@ fn kill_and_record(app: &AppHandle, pids: Vec<u32>, source: KillSource) -> Vec<K
 /// Vive en Rust y no en el frontend porque la bandeja y el atajo global tambien
 /// matan procesos sin que la ventana intervenga (e incluso estando oculta).
 fn notify_freed_ports(app: &AppHandle, ports: &[u16]) {
+    if let Some(body) = freed_ports_sentence(ports) {
+        notify(app, body);
+    }
+}
+
+/// Frase sobre los puertos liberados, o `None` si no se libero ninguno. Aparte
+/// para que el Auto-Kill pueda pegarla a su propio mensaje.
+fn freed_ports_sentence(ports: &[u16]) -> Option<String> {
     if ports.is_empty() {
-        return;
+        return None;
     }
 
     let list = ports
@@ -139,13 +288,11 @@ fn notify_freed_ports(app: &AppHandle, ports: &[u16]) {
         .map(|p| p.to_string())
         .collect::<Vec<_>>()
         .join(", ");
-    let body = if ports.len() == 1 {
+    Some(if ports.len() == 1 {
         format!("El puerto {list} ha quedado libre.")
     } else {
         format!("Los puertos {list} han quedado libres.")
-    };
-
-    notify(app, body);
+    })
 }
 
 fn notify(app: &AppHandle, body: String) {
@@ -164,9 +311,7 @@ fn notify(app: &AppHandle, body: String) {
 
 #[tauri::command]
 fn get_processes(state: State<'_, AppState>) -> Result<Vec<ProcessInfo>, String> {
-    let custom = state.custom_names();
-    let mut sys = state.sys.lock().map_err(|_| "Estado del sistema corrupto")?;
-    Ok(collect_processes(&mut sys, &custom))
+    read_list(&state)
 }
 
 #[tauri::command]
@@ -210,6 +355,10 @@ fn save_settings(
         } else {
             settings.refresh_ms.clamp(MIN_REFRESH_MS, MAX_REFRESH_MS)
         },
+        // Se corrige aqui, y no solo al usarlo, para que la UI muestre el valor
+        // que de verdad va a aplicarse en vez de mentirle al usuario.
+        auto_kill_mb: settings.auto_kill_mb.max(MIN_AUTO_KILL_MB),
+        zombie_minutes: settings.zombie_minutes.max(MIN_ZOMBIE_MINUTES),
         ..settings
     };
 
@@ -280,16 +429,27 @@ fn nuke_everything(app: &AppHandle) {
 /// sockets) ocurre en Rust y la ventana solo recibe el resultado ya hecho.
 fn spawn_poller(app: AppHandle) {
     std::thread::spawn(move || loop {
-        let ms = app.state::<AppState>().refresh_ms();
+        let (ms, auto_enabled) = {
+            let state = app.state::<AppState>();
+            (state.refresh_ms(), state.auto_kill().0)
+        };
 
         if ms == 0 {
-            // Pausado: dormir poco para reaccionar rapido si vuelven a activarlo.
-            std::thread::sleep(Duration::from_millis(300));
+            if !auto_enabled {
+                // Pausado: dormir poco para reaccionar rapido si vuelven a activarlo.
+                std::thread::sleep(Duration::from_millis(300));
+                continue;
+            }
+
+            // Refresco apagado pero Auto-Kill encendido: se sigue vigilando la RAM
+            // a ritmo fijo, sin publicar la lista.
+            std::thread::sleep(Duration::from_millis(AUTO_KILL_IDLE_MS));
+            watch_cycle(&app, false);
             continue;
         }
 
         std::thread::sleep(Duration::from_millis(ms.clamp(MIN_REFRESH_MS, MAX_REFRESH_MS)));
-        emit_processes(&app);
+        watch_cycle(&app, true);
     });
 }
 
@@ -327,6 +487,7 @@ pub fn run() {
                 sys: Mutex::new(new_system()),
                 settings: Mutex::new(settings.clone()),
                 storage,
+                zombies: Mutex::new(processes::ZombieWatch::default()),
             });
 
             tray::build(&handle)?;
@@ -388,10 +549,20 @@ mod tests {
             memory_mb: 128.0,
             run_time_secs: 900,
             ports: vec![5173],
+            idle_secs: 0,
+            zombie: false,
         };
         let json = serde_json::to_value(&info).expect("ProcessInfo deberia serializar");
         for clave in [
-            "pid", "name", "runtime", "cpu", "memoryMb", "runTimeSecs", "ports",
+            "pid",
+            "name",
+            "runtime",
+            "cpu",
+            "memoryMb",
+            "runTimeSecs",
+            "ports",
+            "idleSecs",
+            "zombie",
         ] {
             assert!(json.get(clave).is_some(), "falta '{clave}' en ProcessInfo");
         }
@@ -423,9 +594,37 @@ mod tests {
         assert_eq!(entry["source"], "hotkey");
 
         let settings = serde_json::to_value(Settings::default()).expect("Settings deberia serializar");
-        for clave in ["customNames", "hotkeyEnabled", "refreshMs", "theme"] {
+        for clave in [
+            "customNames",
+            "hotkeyEnabled",
+            "refreshMs",
+            "theme",
+            "autoKillEnabled",
+            "autoKillMb",
+            "zombieEnabled",
+            "zombieMinutes",
+        ] {
             assert!(settings.get(clave).is_some(), "falta '{clave}' en Settings");
         }
         assert_eq!(settings["theme"], "system");
+        assert_eq!(
+            settings["autoKillEnabled"], false,
+            "el Auto-Kill mata sin preguntar: tiene que venir apagado de fabrica"
+        );
+
+        // El historial distingue el cierre automatico del manual, y el frontend
+        // traduce esa cadena literal en KILL_SOURCES.
+        let auto = serde_json::to_value(KillSource::Auto).expect("KillSource deberia serializar");
+        assert_eq!(auto, "auto");
+    }
+
+    /// La notificacion del Auto-Kill dice cuanta memoria usaba el proceso; si el
+    /// formato no coincide con el de la tabla, el usuario lee dos cifras distintas
+    /// para lo mismo.
+    #[test]
+    fn la_memoria_se_formatea_como_en_la_tabla() {
+        assert_eq!(format_mb(512.0), "512 MB");
+        assert_eq!(format_mb(1024.0), "1.0 GB");
+        assert_eq!(format_mb(2457.6), "2.4 GB");
     }
 }

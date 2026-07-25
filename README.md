@@ -12,7 +12,9 @@ Lista los runtimes de desarrollo activos con su consumo de CPU y RAM, **qué pue
 - Mata procesos de uno en uno, por selección o de golpe ("Nuke All"), siempre con confirmación.
 - Menú contextual en cada fila: matar, o copiar el PID, el nombre, el puerto o `http://localhost:PUERTO`.
 - Icono en la bandeja con acciones rápidas, y atajo global `Ctrl+Alt+K` (desactivable) que cierra todo lo vigilado.
-- Historial de cierres con el origen de cada uno (ventana, bandeja o atajo).
+- **Auto-Kill** (opcional, apagado por defecto): cierra solo los procesos que pasen de un umbral de RAM configurable, avisa y lo registra.
+- **Zombie Finder** (opcional, apagado por defecto): resalta los procesos que llevan minutos sin hacer nada y siguen ocupando un puerto.
+- Historial de cierres con el origen de cada uno (ventana, bandeja, atajo o Auto-Kill).
 - Tema claro/oscuro que sigue al de Windows, o fijo si lo prefieres.
 
 ## Prerequisitos

@@ -11,6 +11,10 @@ export type ProcessInfo = {
   runTimeSecs: number;
   /** Puertos TCP en escucha; vacio si el proceso no sirve en ninguno. */
   ports: number[];
+  /** Segundos seguidos sin actividad de CPU. 0 con el Zombie Finder apagado. */
+  idleSecs: number;
+  /** Parado desde hace mas del tiempo configurado y ocupando algun puerto. */
+  zombie: boolean;
 };
 
 /** Espejo de `KillOutcome` en src-tauri/src/processes.rs. */
@@ -23,7 +27,7 @@ export type KillOutcome = {
 };
 
 /** Espejo de `KillSource` en src-tauri/src/storage.rs. */
-export type KillSource = "window" | "tray" | "hotkey";
+export type KillSource = "window" | "tray" | "hotkey" | "auto";
 
 /** Espejo de `HistoryEntry` en src-tauri/src/storage.rs. */
 export type HistoryEntry = {
@@ -43,7 +47,18 @@ export type Settings = {
   hotkeyEnabled: boolean;
   refreshMs: number;
   theme: Theme;
+  autoKillEnabled: boolean;
+  autoKillMb: number;
+  zombieEnabled: boolean;
+  zombieMinutes: number;
 };
+
+/** Espejo de `MIN_AUTO_KILL_MB` en src-tauri/src/storage.rs. Rust lo impone; aqui
+ *  solo sirve para que el campo no deje escribir algo que va a corregirse solo. */
+export const AUTO_KILL_MIN_MB = 256;
+
+/** Espejo de `MIN_ZOMBIE_MINUTES` en src-tauri/src/storage.rs. */
+export const ZOMBIE_MIN_MINUTES = 1;
 
 /** Evento que emite Rust con cada lista nueva de procesos. */
 export const PROCESSES_UPDATED = "processes-updated";
@@ -59,6 +74,7 @@ export const KILL_SOURCES: Record<KillSource, string> = {
   window: "Ventana",
   tray: "Bandeja",
   hotkey: "Ctrl+Alt+K",
+  auto: "Auto-Kill",
 };
 
 export const THEMES: { value: Theme; label: string }[] = [
