@@ -16,7 +16,8 @@
         "width": 1000,
         "height": 680,
         "minWidth": 720,
-        "minHeight": 480
+        "minHeight": 480,
+        "center": true
       }
     ],
     "security": {
@@ -26,12 +27,24 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Ricky Angel Jiménez Bueno",
+    "copyright": "© 2026 Ricky Angel Jiménez Bueno",
+    "category": "DeveloperTool",
+    "shortDescription": "Gestor de procesos de desarrollo",
+    "longDescription": "Lista los procesos de desarrollo activos (node, python, dotnet…) con su consumo de CPU y RAM y el puerto local que ocupa cada uno, y permite cerrarlos de uno en uno o en lote.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "languages": ["Spanish", "English"],
+        "displayLanguageSelector": false,
+        "installMode": "currentUser"
+      }
+    }
   }
 }

@@ -26,7 +26,7 @@
 
 ## 3. Estado actual
 
-**Fase actual:** ✅ Tiers 1 a 4 completados; Tier 5 hecho hasta el icono (puntos 1-3), pendientes las ideas "Salsa Secreta" y los instaladores.
+**Fase actual:** ✅ Tiers 1 a 4 completados; del Tier 5 solo queda el punto 6, la publicación de releases.
 
 | Tier | Descripción | Estado |
 |---|---|---|
@@ -36,17 +36,24 @@
 | 4 | Power user y optimización | ✅ Completado y verificado |
 | 5 | Estética (tema, shadcn/ui, icono) | ✅ Puntos 1-3 completados y verificados |
 | 5 | Salsa Secreta: Auto-Kill y Zombie Finder | ✅ Punto 4 completado y verificado |
-| 5 | Instaladores y publicación de releases | ⬜ Puntos 5 y 6 pendientes |
+| 5 | Instaladores (NSIS + MSI) | ✅ Punto 5 completado |
+| 5 | Publicación de releases (`release.ps1`) | ⬜ Punto 6 pendiente |
 
 Verificado el 2026-07-23 con la app corriendo: la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; la lista se actualiza sola por eventos desde Rust; ajustes e historial sobreviven al reinicio; cerrar la ventana la esconde en la bandeja sin terminar la app.
 
 Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el tema de Windows y obedece al selector de Ajustes (que persiste en disco), el menú contextual de cada fila copia PID/nombre/puerto al portapapeles real de Windows con su toast, y el diálogo destructivo —ahora el AlertDialog de shadcn— sigue cancelándose con Escape sin matar nada. El Auto-Kill, con un umbral de prueba, cierra solo un proceso de 651 MB y deja intactos los 7 `node` reales de la máquina. 16 tests de `cargo test` en verde.
 
-**Salvedad honesta sobre el atajo global:** se comprobó que `Ctrl+Alt+K` se registra y se libera correctamente (con él activo ningún otro proceso puede tomarlo), pero **no se llegó a pulsar**: dispararlo habría cerrado los ~13 procesos `node` reales del equipo. La ruta de cierre que ejecuta es la misma `kill_and_record` que usan la ventana y la bandeja, ambas verificadas end-to-end.
+**Atajo global: salvedad cerrada el 2026-07-24.** Se pulsó `Ctrl+Alt+K` de verdad sobre la app **instalada**, con la entrada sintetizada por `keybd_event` (`SendKeys` no vale: no llega a un atajo de `RegisterHotKey`). Cerró los 4 procesos `node` vivos, liberó el puerto 4321 y registró las 4 entradas con origen `hotkey`. Antes de pulsar se comprobó que ninguno de esos procesos era trabajo del usuario. Queda el texto original abajo como registro de por qué estuvo tanto tiempo sin comprobarse.
 
-**Salvedad honesta sobre las notificaciones:** se comprobó que `notification().show()` devuelve `Ok` (stderr de la app limpio), pero **no** que el toast aparezca en pantalla. En Windows, una build de desarrollo sin instalar puede no renderizar el toast, y el Asistente de concentración puede suprimirlo. Conviene confirmarlo a ojo tras generar el instalador en el Tier 5.
+**Salvedad histórica sobre el atajo global (ya cerrada; se conserva como registro):** se comprobó que `Ctrl+Alt+K` se registra y se libera correctamente (con él activo ningún otro proceso puede tomarlo), pero **no se llegó a pulsar**: dispararlo habría cerrado los ~13 procesos `node` reales del equipo. La ruta de cierre que ejecuta es la misma `kill_and_record` que usan la ventana y la bandeja, ambas verificadas end-to-end.
 
-**Próximo paso concreto:** Tier 5.5 → generar los instaladores con `npm run tauri build` y comprobar sobre la app instalada las dos salvedades de abajo. Después, el `release.ps1` (5.6).
+**Notificaciones: salvedad cerrada el 2026-07-24.** Con la app **instalada**, el toast aparece en pantalla con su icono, su título y el cuerpo correcto (confirmado a ojo por el usuario). Se acabó la duda que arrastraba desde el Tier 3.
+
+> ⚠️ **Cómo NO comprobarlo.** Se intentó verificar con capturas de pantalla por código (`Graphics.CopyFromScreen`) y salían vacías, lo que llevó a concluir en falso que el banner no se pintaba. `CopyFromScreen` copia el escritorio con BitBlt y **los toast de Windows los compone DWM en una capa que ese método no recoge**. Para esto no hay atajo: o lo mira una persona, o se consulta el centro de notificaciones por la API de WinRT.
+>
+> Lo que sí sirve como prueba indirecta de que la petición llega a Windows: la clave `HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.processdevkill.app` solo se crea cuando una app envía su primer toast.
+
+**Próximo paso concreto:** Tier 5.6 → adaptar `release.ps1` (bump de versión en los **tres** sitios, build, tag y GitHub Release con `gh`).
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -128,6 +135,7 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-24 | Un zombi tiene que ocupar un **puerto**, no solo estar parado | Casi todo proceso de desarrollo en reposo marca 0 % de CPU (7 de 10 en la máquina de pruebas). Sin esa condición se resaltaría la tabla entera, que es igual que no resaltar nada |
 | 2026-07-24 | El corte de "sin actividad" es 0,5 % de CPU, no 0 | Un servidor parado sigue despertando por sus temporizadores y el recolector de basura, y marca décimas sueltas |
 | 2026-07-24 | Apagar el Zombie Finder borra las rachas acumuladas | Mientras estuvo apagado nadie miraba; contar ese rato al reactivarlo sería inventárselo |
+| 2026-07-24 | `"center": true` en la ventana | Sin ello Windows coloca la ventana donde le parece y cada arranque aparecía en un sitio distinto. Tauri centra sobre el **área de trabajo**, no sobre la pantalla completa: el centro vertical queda unos píxeles más arriba, que es lo correcto para no quedar bajo la barra de tareas |
 | 2026-07-24 | `ZombieWatch` olvida los PIDs que desaparecen | La app vive días en la bandeja: el mapa crecería sin fin, y un PID reciclado por Windows heredaría la racha del proceso anterior |
 
 ## 5. Decisiones pendientes
@@ -156,6 +164,16 @@ Dos cosas que cuestan una sesión si no se saben:
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-24 (noche) — Tier 5.5: instaladores
+
+- Metadatos de paquete en `tauri.conf.json` (`publisher`, `copyright`, `category`, descripciones) y autor real en `Cargo.toml`: **Ricky Angel Jiménez Bueno**. Sin esto el instalador sale sin autor.
+- NSIS en modo `currentUser`: instala en `%LOCALAPPDATA%\ProcessDevKill` sin UAC. `npm run tauri build` produce el `.exe` de NSIS (2,44 MB) y el `.msi` de WiX (3,54 MB).
+- Instalada y probada de verdad: arranca con su icono, lista procesos y responde.
+- **Cerrada la salvedad del atajo global** pulsándolo de verdad (ver §3). El detalle que costó descubrirlo: `SendKeys` no dispara un atajo de `RegisterHotKey`, hace falta `keybd_event`.
+- **Cerrada también la salvedad de las notificaciones**: el toast se ve, con icono y texto correctos. Antes se concluyó en falso que no salía, por comprobarlo con capturas por código; BitBlt no recoge los toast (ver §3).
+- Aviso para futuras sesiones: **no reescribir estos `.md` con PowerShell 5.1**. `Get-Content -Raw` los lee con la página de códigos ANSI y, al guardarlos como UTF-8, deja todos los acentos y emojis destrozados. Pasó en esta sesión y hubo que revertir el doble encoding a mano. Para editarlos, herramientas que respeten UTF-8.
+- La app quedó **instalada** en el equipo. Para quitarla: *Configuración → Aplicaciones → ProcessDevKill*, o el `uninstall.exe` de `%LOCALAPPDATA%\ProcessDevKill`.
 
 ### 2026-07-24 (noche) — Tier 5.4: Zombie Finder
 

@@ -195,9 +195,21 @@
 
 > ⚠️ Limitación asumida: un servidor de desarrollo que está en uso pero ocioso —el propio Vite, sin ir más lejos— también sale marcado. La insignia dice cuánto lleva parado y qué puerto ocupa; la decisión de cerrarlo sigue siendo del usuario.
 
-### 5. Instaladores — ⬜ aplazado
-- [ ] Instaladores con el bundler de Tauri: Windows genera **NSIS (`.exe`) y/o WiX (`.msi`)**; macOS genera `.dmg`.
-- [ ] Confirmar a ojo que las notificaciones nativas se ven una vez instalada (ver la salvedad en CONTEXT.md §3).
+### 5. Instaladores — ✅ **completado**
+
+- [x] Metadatos de paquete: `publisher`, `copyright`, `category` y descripciones. Sin ellos, el instalador y las propiedades del `.exe` salen sin autor.
+- [x] NSIS en modo **`currentUser`**: instala en `%LOCALAPPDATA%\ProcessDevKill` sin pedir UAC, que es lo razonable para una herramienta de desarrollo.
+- [x] `npm run tauri build` genera los dos instaladores de Windows:
+  - `bundle/nsis/ProcessDevKill_0.1.0_x64-setup.exe` — 2,44 MB
+  - `bundle/msi/ProcessDevKill_0.1.0_x64_en-US.msi` — 3,54 MB
+  - El ejecutable (10,3 MB) lleva producto, versión, empresa y copyright correctos.
+  > macOS (`.dmg`) no se puede generar desde Windows: queda para cuando haya máquina o CI de macOS.
+- [x] **Verificado sobre la app instalada**, no sobre la de desarrollo: arranca con su icono propio en la barra de título, lista los procesos y responde.
+- [x] **Salvedad del atajo global, cerrada.** Se pulsó `Ctrl+Alt+K` de verdad, con entrada sintetizada por `keybd_event`.
+  > ⚠️ `SendKeys` **no** sirve para esto: manda mensajes a la ventana con el foco y un atajo registrado con `RegisterHotKey` no se entera. Hace falta entrada real a nivel de sistema.
+  > Cerró los 4 procesos `node` vivos, liberó el puerto 4321 y dejó las 4 entradas en el historial con origen `hotkey`. El riesgo se acotó antes de pulsar: los únicos procesos vigilados eran auxiliares de la propia sesión de trabajo más un servidor de pruebas lanzado para esto.
+- [x] **Salvedad de las notificaciones, cerrada.** El toast sale en pantalla con su icono, su título y el cuerpo correcto, confirmado a ojo sobre la app instalada. Windows la registra en *Configuración → Notificaciones* con Banners y Sonidos.
+  > ⚠️ Se intentó automatizar la comprobación con capturas por código (`Graphics.CopyFromScreen`) y salían vacías, lo que llevó a concluir en falso que el banner no se pintaba: **BitBlt no recoge los toast**, que DWM compone en otra capa. Para esto o mira una persona, o se consulta el centro de notificaciones por WinRT.
 
 ### 6. Publicación de releases — ⬜ aplazado
 - [ ] Script `release.ps1` propio (bump de versión + build + tag + GitHub Release con `gh`), adaptado del de FormatDiskPro.
