@@ -3,6 +3,7 @@ name = "processdevkill"
 version = "1.0.0"
 description = "Gestor de procesos de desarrollo para Windows"
 authors = ["Ricky Angel Jiménez Bueno"]
+license = "GPL-3.0-only"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

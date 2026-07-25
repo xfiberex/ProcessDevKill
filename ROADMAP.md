@@ -211,10 +211,16 @@
 - [x] **Salvedad de las notificaciones, cerrada.** El toast sale en pantalla con su icono, su título y el cuerpo correcto, confirmado a ojo sobre la app instalada. Windows la registra en *Configuración → Notificaciones* con Banners y Sonidos.
   > ⚠️ Se intentó automatizar la comprobación con capturas por código (`Graphics.CopyFromScreen`) y salían vacías, lo que llevó a concluir en falso que el banner no se pintaba: **BitBlt no recoge los toast**, que DWM compone en otra capa. Para esto o mira una persona, o se consulta el centro de notificaciones por WinRT.
 
-### 6. Publicación de releases — ⬜ aplazado
-- [ ] Script `release.ps1` propio (bump de versión + build + tag + GitHub Release con `gh`), adaptado del de FormatDiskPro.
+### 6. Publicación de releases — ✅ **completado; v1.0.0 publicada**
+
+- [x] Script `release.ps1` propio (pruebas + bump + build + tag + GitHub Release con `gh`), adaptado del de FormatDiskPro.
   > Decidido el 2026-07-24: se descarta GitHub Actions mientras el objetivo sea Windows. Ver CONTEXT.md §4.
-  > ⚠️ Adaptación pendiente: la versión vive en **tres** sitios (`package.json`, `tauri.conf.json` y `Cargo.toml`+`Cargo.lock`), la build es `npm run tauri build` y los artefactos salen en `src-tauri/target/release/bundle/`.
+  > Se conserva del original: `Invoke-Git` (la lección del `NativeCommandError` al capturar la salida), validación de tags local y remoto, rechazo de archivos sin rastrear, `-DryRun` y reutilización de la credencial cacheada de `gh`.
+- [x] La versión se pone en los **tres** sitios de golpe y se corre `cargo check` para que `Cargo.lock` no deje el árbol sucio justo después del commit de release.
+- [x] Los `.sha256` los genera el propio script: en Tauri no hay ningún paso de build que los produzca.
+  > ⚠️ Y aquí son **cortesía**, no un requisito como en FormatDiskPro: sin auto-actualización nadie los verifica automáticamente. Si algún día se añade `tauri-plugin-updater`, ese usa firmas minisign, no SHA-256.
+- [x] **v1.0.0 publicada** (subida desde 0.1.0: primera versión pública de una app completa). Cuatro assets, sin firmar.
+  > ⚠️ Tres tropiezos de PowerShell 5.1 que cuestan una tarde: escapar comillas con `\"` **cierra la cadena**; las comillas tipográficas `“ ”` **también** cuentan como delimitador; y un `.ps1` sin BOM se lee como ANSI y rompe los acentos, pero añadir el BOM dos veces deja un `U+FEFF` suelto que atraganta al parser antes del primer bloque de comentarios.
 
 ### 7. Verificación end-to-end (2026-07-24, sobre la app en ejecución)
 - [x] La ventana arranca con el tema del sistema (Windows en oscuro → `<html class="dark">`, fondo `oklch(0.175 0.009 265)`).
@@ -235,6 +241,68 @@
 - [x] Confirmar sí mata: el proceso deja de existir, el 4321 queda libre, sale el toast "node.exe cerrado / Puerto 4321 liberado" y el historial registra `pid 11664, freedPorts [4321], source "window"`.
 - [x] Textos en singular cuando se cierra un solo proceso ("Se terminará el proceso seleccionado", botón "Cerrar proceso").
 - [x] `cargo build` sin avisos de código muerto y 13 tests en verde tras hacer que la bandeja use `pids_of_runtime`.
+
+---
+
+## 🏗 Tier 6: Infraestructura de proyecto publicado
+*Objetivo: que el repositorio aguante a alguien que no seas tú, ahora que el instalador está en la calle.*
+
+Sale de comparar este repo con **FormatDiskPro** (2026-07-24), que lleva 15 versiones publicadas. Aquí solo están los huecos que aplican; lo que se descartó a propósito está anotado en CONTEXT.md §4.
+
+### 1. Licencia y avisos legales — ✅ **completado**
+
+- [x] `LICENSE` en la raíz: **GPL-3.0** (elegida el 2026-07-24, misma que FormatDiskPro).
+  > ⚠️ No era burocracia: un repositorio público **sin licencia** es "todos los derechos reservados" por defecto. Con la v1.0.0 ya publicada, nadie tenía derecho legal a usar lo que se estaba descargando.
+- [x] `THIRD-PARTY-NOTICES.txt` con lo que **el instalador empaqueta y distribuye**, no con todo lo que hay en `node_modules`: las herramientas de compilación no viajan dentro del binario.
+  > ⚠️ Hallazgo al montarlo: la tipografía **Geist va embebida** en la app (`.woff2` dentro del bundle) y su licencia **OFL-1.1 obliga** a distribuir el aviso de copyright junto a ella. Es la única dependencia con una obligación que no se cubre sola.
+  > ⚠️ De los 515 crates del árbol de Rust, **5 son MPL-2.0**: compatible con GPLv3 y con copyleft por archivo. Se usan sin modificar, así que no arrastran obligaciones; si algún día se parchea uno de esos archivos, hay que publicarlo bajo MPL-2.0.
+  > ⚠️ Ninguna licencia del árbol es incompatible con la GPLv3 — todo es MIT, Apache-2.0, BSD, Zlib, ISC, Unicode-3.0, MPL-2.0 o equivalente. Apache-2.0 solo es compatible con GPL**v3**, no con la v2, lo que confirma la elección.
+  > El archivo declara su propio alcance: se construyó con el campo `license` de cada paquete y no sustituye a una revisión legal.
+- [x] `license` en `package.json` y `Cargo.toml` (`GPL-3.0-only`), y sección de licencia en el README.
+- [x] Los avisos **viajan dentro del instalador**: `LICENSE` y `THIRD-PARTY-NOTICES.txt` van como `bundle.resources`, y una sección **Acerca de** en Ajustes los abre, junto al enlace al repositorio y la versión.
+  > ⚠️ La licencia se empaqueta renombrada a **`LICENSE.txt`** aunque en el repositorio se llame `LICENSE` (que es lo que espera GitHub). Un archivo **sin extensión no tiene asociación en Windows**: al pulsar el botón no pasaba nada visible. El formato de mapa de `resources` permite renombrar al copiar.
+  > ⚠️ `opener:default` **no incluye** `open_path`, solo `open_url`. Hay que concederlo aparte y con ámbito; aquí se limita a esos dos archivos concretos, no a una carpeta.
+  > La versión que muestra la sección la da `getVersion()` de Tauri, que la lee de `tauri.conf.json`: así no hay una segunda copia del número en el frontend que se quede vieja al cortar un release.
+- [x] **Verificado sobre la app**: los dos archivos aparecen en el directorio de recursos y los dos botones abren de verdad (`LICENSE.txt: Bloc de notas` y `THIRD-PARTY-NOTICES.txt: Bloc de notas`).
+
+### 2. Nombre del repositorio — ✅ **completado**
+
+- [x] Renombrado a `ProcessDevKill` en GitHub y remoto local apuntando a la URL nueva.
+  > Comprobado tras el cambio: el tag `v1.0.0` responde desde `xfiberex/ProcessDevKill` y el release conserva sus 4 assets. GitHub redirige la URL vieja, así que los enlaces ya publicados no se rompen.
+  > La **carpeta local** sigue llamándose `ProcessVisorDev`. Es cosmético y renombrarla obliga a reabrir el proyecto en el editor, así que se deja para cuando toque.
+
+### 3. README de producto
+
+Hoy tiene 5 secciones; el de FormatDiskPro, 15. Falta lo que mira quien llega de fuera:
+
+- [ ] **Descarga e instalación** apuntando a Releases, con el aviso de SmartScreen y cómo verificar el `.sha256`.
+- [ ] **Capturas** de la app (tema claro y oscuro, menú contextual, Ajustes).
+- [ ] `tools/capture-screenshots.ps1` para regenerarlas sin trabajo manual.
+  > Aquí es más fácil que en FormatDiskPro: ya está resuelto cómo pilotar la ventana por CDP (ver CONTEXT.md §3). Lo que **no** sirve es `CopyFromScreen` para nada que dibuje el sistema por encima (toasts, menús nativos).
+- [ ] Secciones de **arquitectura**, **stack**, **privacidad** (esta app lee la lista de procesos: conviene decir en voz alta que no manda nada a ninguna parte) y licencia.
+- [ ] `.github/FUNDING.yml`.
+
+### 4. Pruebas del frontend
+
+- [ ] Montar pruebas automáticas de la UI. Hoy son **cero**.
+  > ⚠️ Es el hueco de calidad más serio. Los 22 tests de Rust cubren bien el backend, pero todo lo que se verificó de React —menú contextual, Escape en el diálogo destructivo, cambio de tema, insignia de zombi— fueron scripts CDP a mano en una carpeta temporal que ya no existe. Cualquiera puede romper `App.tsx` mañana y la suite seguirá en verde.
+  > Dos niveles, y conviene no confundirlos: **Vitest + Testing Library** para la lógica de los componentes (rápido, sin app real), y un puñado de pruebas end-to-end sobre la ventana de Tauri para lo que solo se puede comprobar ahí: que Escape cancela sin matar nada, que el menú contextual copia de verdad al portapapeles.
+- [ ] Que `release.ps1` las ejecute junto a `cargo test`.
+
+### 5. Auto-actualización
+
+- [ ] Avisar de nuevas versiones y poder instalarlas desde la app.
+  > Es la diferencia más grande con FormatDiskPro, que lo comprueba al arrancar y desde *Ayuda → Buscar actualizaciones*. Hoy, quien instale la v1.0.0 no se enterará nunca de que existe una v1.1.0.
+  > ⚠️ **No se hace con el `.sha256` que ya publicamos.** `tauri-plugin-updater` verifica con **firmas minisign** y un `latest.json`: hay que generar un par de claves, firmar en el build (`TAURI_SIGNING_PRIVATE_KEY`) y que `release.ps1` publique la firma y el JSON. El hash actual seguiría siendo solo cortesía para verificación manual.
+  > ⚠️ La clave privada de firma **no puede acabar en el repositorio**. Sin CI, vive en la máquina que corta releases, y perderla significa que los usuarios instalados dejan de poder actualizarse.
+- [ ] Documentar el modelo de confianza en el README, como hace FormatDiskPro, incluyendo qué **no** protege.
+
+### 6. Herramientas del repositorio
+
+- [ ] `.claude/CLAUDE.md` con las convenciones del proyecto.
+  > Ya están escritas en CONTEXT.md §7 (comandos en `snake_case`, commits en español, marcar `[x]` solo con la funcionalidad probada), pero nada se las da al agente automáticamente. Añadir también la lección de esta sesión: **una sola sesión por repositorio**.
+- [ ] `.mcp.json` enganchando el servidor `codegraph`.
+  > La carpeta `.codegraph/` ya existe en el repo, pero sin el `.mcp.json` que la conecta ese índice no lo usa nadie. FormatDiskPro sí lo tiene.
 
 ---
 

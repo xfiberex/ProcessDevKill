@@ -1,5 +1,17 @@
 import { useEffect, useState } from "react";
-import { MonitorIcon, MoonIcon, SunIcon, XIcon } from "lucide-react";
+import { getVersion } from "@tauri-apps/api/app";
+import { resolveResource } from "@tauri-apps/api/path";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { toast } from "sonner";
+import {
+  ExternalLinkIcon,
+  FileTextIcon,
+  MonitorIcon,
+  MoonIcon,
+  ScaleIcon,
+  SunIcon,
+  XIcon,
+} from "lucide-react";
 import {
   AUTO_KILL_MIN_MB,
   THEMES,
@@ -47,6 +59,42 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
 
   const equivalencia =
     settings.autoKillMb >= 1024 ? formatMemory(settings.autoKillMb) : null;
+
+  // La version la da Tauri, que la lee de tauri.conf.json: asi no hay una segunda
+  // copia del numero en el frontend que se quede vieja al cortar un release.
+  const [version, setVersion] = useState<string | null>(null);
+  useEffect(() => {
+    getVersion()
+      .then((v) => setVersion(`v${v}`))
+      .catch(() => {});
+  }, []);
+
+  /**
+   * Abre uno de los archivos legales que el instalador empaqueta.
+   *
+   * Van como `resources` del bundle, asi que viajan dentro del instalador y no
+   * solo en el repositorio: la GPL exige que la licencia acompane al binario, y
+   * la OFL-1.1 de la tipografia Geist, que su aviso viaje con la fuente.
+   *
+   * El de la licencia se empaqueta como `LICENSE.txt` aunque en el repositorio se
+   * llame `LICENSE` (lo que espera GitHub): un archivo sin extension no tiene
+   * asociacion en Windows y abrirlo saca el dialogo de "como quieres abrir esto".
+   */
+  async function abrirRecurso(nombre: string) {
+    try {
+      await openPath(await resolveResource(nombre));
+    } catch (e) {
+      toast.error(`No se pudo abrir ${nombre}`, { description: String(e) });
+    }
+  }
+
+  async function abrirRepositorio() {
+    try {
+      await openUrl("https://github.com/xfiberex/ProcessDevKill");
+    } catch (e) {
+      toast.error("No se pudo abrir el navegador", { description: String(e) });
+    }
+  }
 
   const [minutosDraft, setMinutosDraft] = useState(String(settings.zombieMinutes));
   useEffect(
@@ -264,6 +312,33 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
           <span id="zombie-explicacion" className="text-sm text-muted-foreground">
             minutos parado. Mínimo {ZOMBIE_MIN_MINUTES}.
           </span>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-heading text-sm font-semibold">Acerca de</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          ProcessDevKill{version && ` ${version}`} — software libre bajo{" "}
+          <strong className="font-medium text-foreground">GPL-3.0</strong>. Los
+          componentes de terceros que la app empaqueta, con sus licencias, están
+          en los avisos.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => abrirRecurso("LICENSE.txt")}>
+            <ScaleIcon />
+            Licencia
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => abrirRecurso("THIRD-PARTY-NOTICES.txt")}
+          >
+            <FileTextIcon />
+            Avisos de terceros
+          </Button>
+          <Button variant="ghost" onClick={abrirRepositorio}>
+            <ExternalLinkIcon />
+            Repositorio
+          </Button>
         </div>
       </section>
 

@@ -37,7 +37,8 @@
 | 5 | Estética (tema, shadcn/ui, icono) | ✅ Puntos 1-3 completados y verificados |
 | 5 | Salsa Secreta: Auto-Kill y Zombie Finder | ✅ Punto 4 completado y verificado |
 | 5 | Instaladores (NSIS + MSI) | ✅ Punto 5 completado |
-| 5 | Publicación de releases (`release.ps1`) | ⬜ Punto 6 pendiente |
+| 5 | Publicación de releases (`release.ps1`) | ✅ Punto 6 completado — **v1.0.0 publicada** |
+| 6 | Infraestructura de proyecto publicado | ⬜ Sin empezar |
 
 Verificado el 2026-07-23 con la app corriendo: la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; la lista se actualiza sola por eventos desde Rust; ajustes e historial sobreviven al reinicio; cerrar la ventana la esconde en la bandeja sin terminar la app.
 
@@ -53,7 +54,9 @@ Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el
 >
 > Lo que sí sirve como prueba indirecta de que la petición llega a Windows: la clave `HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.processdevkill.app` solo se crea cuando una app envía su primer toast.
 
-**Próximo paso concreto:** Tier 5.6 → adaptar `release.ps1` (bump de versión en los **tres** sitios, build, tag y GitHub Release con `gh`).
+**Próximo paso concreto:** Tier 6.2 → renombrar el repositorio a `ProcessDevKill` en GitHub y actualizar el remoto local, antes de que la URL vieja circule más.
+
+**Publicado:** <https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.0.0> — instaladores NSIS (2,44 MB) y MSI (3,54 MB) con sus `.sha256`, sin firmar.
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -126,6 +129,7 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-24 | Rojo sólido para la acción destructiva principal | El `variant="destructive"` de este estilo de shadcn es un rojo tenue, pensado para acciones secundarias; el botón que cierra toda la lista tiene que verse que quema |
 | 2026-07-24 | **Releases con `release.ps1` local, sin GitHub Actions** | La app es solo Windows por ahora y la build de Tauri en CI tarda minutos por plataforma. Se compila en la misma máquina donde se prueba, sin secretos en la nube ni minutos de CI. Si algún día se publica para macOS, entonces sí hará falta CI (no se puede compilar `.dmg` desde Windows) |
 | 2026-07-24 | Se descarta `navigator.clipboard.readText()` incluso para depurar | Abre un diálogo de permiso **dentro** de la ventana de WebView2 que bloquea la evaluación por CDP; la app solo necesita escribir |
+| 2026-07-24 | Tier 6 recoge solo parte de lo que tiene FormatDiskPro | De la comparación se descartan tres cosas a propósito: **CI** (ya decidido, `release.ps1` local), los **UI tests con FlaUI** (es una app WinForms; aquí el equivalente es Vitest + pruebas por CDP) y el **modelo de confianza basado en SHA-256** del updater (Tauri firma con minisign, el hash no vale para eso) |
 | 2026-07-24 | El menú de la bandeja llama a `pids_of_runtime` en vez de repetir el filtro | El test `selecciona_solo_los_pids_del_runtime_pedido` decía cubrir la bandeja, pero la bandeja tenía su propia copia del filtro: el test protegía código que nadie usaba |
 | 2026-07-24 | Una sola sesión de Claude Code por repositorio | Dos trabajando a la vez se sobrescriben los archivos, y el `tauri dev` de una reinicia la app que la otra está inspeccionando por CDP |
 | 2026-07-24 | El Auto-Kill nace apagado y con suelo de 256 MB en el umbral | Es lo único de la app que mata sin que nadie se lo pida. Un umbral bajo por descuido (o heredado de un `settings.json` editado a mano) cerraría el entorno de desarrollo entero, así que el suelo se aplica también al leer del disco |
@@ -141,14 +145,14 @@ Dos cosas que cuestan una sesión si no se saben:
 ## 5. Decisiones pendientes
 
 - [x] ~~**Nombre definitivo**~~ → **ProcessDevKill** (2026-07-24).
-- [x] ~~Repositorio remoto~~ → <https://github.com/xfiberex/ProcessVisorDev> (rama `main`).
-- [ ] **El repositorio sigue llamándose `ProcessVisorDev`.** Renombrarlo en GitHub es opcional: el servicio deja una redirección automática, pero conviene actualizar el remoto local después (`git remote set-url origin https://github.com/xfiberex/ProcessDevKill.git`).
+- [x] ~~Repositorio remoto~~ → <https://github.com/xfiberex/ProcessDevKill> (rama `main`).
+- [x] ~~Renombrar el repositorio~~ → hecho el 2026-07-24. GitHub redirige la URL vieja, así que los enlaces ya publicados de la v1.0.0 siguen funcionando. La **carpeta local** conserva el nombre `ProcessVisorDev`; es solo cosmético, pero renombrarla obliga a reabrir el proyecto en el editor.
 - [ ] Lista inicial de procesos vigilados por defecto (¿incluir `java`, `deno`, `bun` desde el inicio?).
 - [ ] Firma de código: sin ella, Windows enseñará el aviso de SmartScreen ("editor desconocido") al instalar. Decidir antes de publicar el primer release.
 
 ## 6. Cómo retomar el proyecto en otro equipo
 
-1. Clonar el repositorio: `git clone https://github.com/xfiberex/ProcessVisorDev.git` (el repo conserva el nombre antiguo; la app se llama ProcessDevKill).
+1. Clonar el repositorio: `git clone https://github.com/xfiberex/ProcessDevKill.git`
 2. Instalar prerequisitos: [Rust](https://rustup.rs) (`rustup`), Node.js LTS, y en Windows los **Microsoft C++ Build Tools**. WebView2 ya viene en Windows 11.
 3. `npm install` en la raíz.
 4. `npm run tauri dev` para desarrollo; `npm run tauri build` para generar el instalador.
@@ -164,6 +168,26 @@ Dos cosas que cuestan una sesión si no se saben:
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-24 (noche) — Tier 6.1: licencia GPL-3.0 y avisos de terceros
+
+- **GPL-3.0** elegida por el usuario, la misma que FormatDiskPro. `LICENSE` en la raíz, `license = "GPL-3.0-only"` en `package.json` y `Cargo.toml`, y sección de licencia en el README.
+- `THIRD-PARTY-NOTICES.txt` con lo que el instalador **empaqueta**, no con todo `node_modules`: las herramientas de compilación no viajan dentro del binario y meterlas solo habría inflado el archivo.
+- Dos cosas que salieron al reunir los datos y que no se sabían:
+  - La tipografía **Geist va embebida** en la app y su **OFL-1.1 obliga** a distribuir el aviso de copyright con ella. Es la única dependencia con una obligación que no se cumple sola.
+  - De los **515 crates** del árbol, **5 son MPL-2.0**. Es compatible con GPLv3 y su copyleft es por archivo; se usan sin modificar, así que no arrastran nada. Ninguna licencia del árbol es incompatible con la GPLv3, y como Apache-2.0 solo es compatible con la **v3** (no con la v2), la elección queda confirmada.
+- **Los avisos viajan ya dentro del instalador**: `LICENSE` y `THIRD-PARTY-NOTICES.txt` como `bundle.resources`, más una sección **Acerca de** en Ajustes que los abre y enlaza al repositorio. Dos cosas que costaron encontrarlas:
+  - La licencia se empaqueta renombrada a **`LICENSE.txt`**. Sin extensión, Windows no tiene asociación y pulsar el botón no hacía nada visible; el formato de mapa de `resources` permite renombrar al copiar, y el repositorio conserva `LICENSE` como espera GitHub.
+  - **`opener:default` no incluye `open_path`**, solo `open_url`. Se concede aparte y con ámbito acotado a esos dos archivos.
+- Aviso para verificar por CDP: la sección quedaba **por debajo del área visible** y los clics sintéticos no llegaban al botón. Hay que hacer `scrollIntoView` antes de calcular las coordenadas; si no, parece que la app no responde cuando el problema es la prueba.
+
+### 2026-07-24 (noche) — Tier 5.6: v1.0.0 publicada, y Tier 6 abierto
+
+- **`release.ps1` reescrito para este proyecto.** Se conserva del de FormatDiskPro lo que valía —`Invoke-Git` con su lección del `NativeCommandError`, validación de tags, rechazo de archivos sin rastrear, `-DryRun`, reutilización de la credencial de `gh`— y se cambia lo propio de Tauri: bump en los **tres** sitios más `cargo check` para que `Cargo.lock` no ensucie el árbol, `cargo test` + `npm run build` en vez de `dotnet test`, `npm run tauri build` en lugar del `build-installer.ps1` y los `.sha256` generados por el propio script. Fuera el bloque de `-UiTests`, la elevación y la USB.
+- Corregido el texto heredado: aquí el `.sha256` es **cortesía**, no un requisito, porque no hay auto-actualización que lo verifique.
+- **v1.0.0 publicada** (0.1.0 → 1.0.0: primera versión pública de una app completa y verificada en Windows). Commit `073209b`, tag `v1.0.0`, cuatro assets.
+- Tres tropiezos, todos de PowerShell 5.1, anotados en el propio script: escapar comillas con `\"` cierra la cadena; las comillas tipográficas `“ ”` **también** las trata como delimitador; y un `.ps1` sin BOM se lee como ANSI, pero añadir el BOM dos veces deja un `U+FEFF` suelto que rompe el parser.
+- **Tier 6 creado** tras comparar el repo con FormatDiskPro. Lo que falta, por orden: licencia y avisos de terceros (bloqueante), renombrar el repositorio, README de producto con capturas, pruebas del frontend, auto-actualización y herramientas del repo.
 
 ### 2026-07-24 (noche) — Tier 5.5: instaladores
 

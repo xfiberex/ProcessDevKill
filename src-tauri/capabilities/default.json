@@ -8,6 +8,13 @@
     "opener:default",
     "notification:default",
     "global-shortcut:default",
-    "clipboard-manager:allow-write-text"
+    "clipboard-manager:allow-write-text",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        { "path": "$RESOURCE/LICENSE.txt" },
+        { "path": "$RESOURCE/THIRD-PARTY-NOTICES.txt" }
+      ]
+    }
   ]
 }

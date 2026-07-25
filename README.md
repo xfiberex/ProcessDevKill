@@ -4,8 +4,6 @@ Gestor de procesos de desarrollo (`node`, `python`, `dotnet`, …) para escritor
 
 Lista los runtimes de desarrollo activos con su consumo de CPU y RAM, **qué puerto local ocupa cada uno**, y permite terminarlos sin pasar por el Administrador de tareas. Resuelve el clásico "el puerto 3000 está ocupado y no sé por quién".
 
-> El repositorio se llama todavía `ProcessVisorDev`, que era el nombre provisional del proyecto.
-
 ## Qué hace
 
 - Lista Node, Python y .NET (más los ejecutables que añadas) con CPU, RAM, tiempo activo y puertos TCP en escucha.
@@ -57,3 +55,9 @@ npm run tauri icon app-icon.svg
 | [CONTEXT.md](CONTEXT.md) | Estado actual, decisiones y registro de sesiones |
 
 Los ajustes y el historial se guardan en `%APPDATA%\com.processdevkill.app\`.
+
+## Licencia
+
+Software libre bajo la **[GNU General Public License v3.0](LICENSE)** (GPLv3): puedes usarlo, estudiarlo, modificarlo y redistribuirlo, **siempre que los derivados conserven la misma licencia y publiquen su código fuente**. Se ofrece **sin ninguna garantía**.
+
+Las licencias de los componentes de terceros que el instalador empaqueta —incluida la tipografía Geist, con su licencia OFL-1.1— están en [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Todas son permisivas y compatibles con la GPLv3.

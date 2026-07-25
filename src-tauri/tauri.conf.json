@@ -32,6 +32,10 @@
     "category": "DeveloperTool",
     "shortDescription": "Gestor de procesos de desarrollo",
     "longDescription": "Lista los procesos de desarrollo activos (node, python, dotnet…) con su consumo de CPU y RAM y el puerto local que ocupa cada uno, y permite cerrarlos de uno en uno o en lote.",
+    "resources": {
+      "../LICENSE": "LICENSE.txt",
+      "../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
