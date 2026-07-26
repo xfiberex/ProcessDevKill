@@ -110,6 +110,42 @@ function Invoke-Git {
 
 <#
 .SYNOPSIS
+    Ejecuta un comando externo y devuelve su código de salida, sin morir por su stderr.
+
+.DESCRIPTION
+    Lo mismo que Invoke-Git, pero para cargo y npm, que también escriben por stderr sin que
+    nada haya fallado. `cargo test` emite un "warning: linker stdout: Creando biblioteca..."
+    en cada ejecución; `npm` avisa de vulnerabilidades y de funding.
+
+    Ejecutando el script normalmente eso es inocuo. PERO si alguien captura la salida
+    —`.\release.ps1 ... | Tee-Object release.log`, un `2>&1 |`, o un wrapper que la recoja—,
+    Windows PowerShell 5.1 convierte cada línea de stderr de un exe nativo en un
+    NativeCommandError y, con $ErrorActionPreference = "Stop", ABORTA el script aunque el
+    comando haya devuelto 0.
+
+    Pasó de verdad el 2026-07-26 cortando la v1.1.1: el release murió en `cargo test` con
+    los 35 tests en verde, solo porque la salida estaba redirigida.
+
+    OJO CON EL PRIMER INTENTO DE ARREGLARLO, que no funciona: pasar un scriptblock y bajar
+    la preferencia dentro de la función NO sirve. Un scriptblock se evalúa con las variables
+    de preferencia del ámbito donde se DEFINIÓ —el de quien llama, con "Stop"— y no con las
+    del ámbito donde se invoca. Hay que ejecutar el comando aquí dentro, como hace
+    Invoke-Git, y consumir su stderr en esta misma función.
+#>
+function Invoke-Nativo {
+    param([string]$exe, [string[]]$argumentos = @())
+
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $exe @argumentos 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        return $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $eap }
+}
+
+<#
+.SYNOPSIS
     Lee un archivo de texto respetando su codificación.
 
 .DESCRIPTION
@@ -202,8 +238,7 @@ try {
         Info "Ejecutando los tests de Rust..."
         Push-Location (Join-Path $root "src-tauri")
         try {
-            & cargo test --quiet
-            if ($LASTEXITCODE -ne 0) { Die "Los tests de Rust fallaron. Release abortado." }
+            if ((Invoke-Nativo cargo @('test','--quiet')) -ne 0) { Die "Los tests de Rust fallaron. Release abortado." }
         } finally { Pop-Location }
         Ok "Tests de Rust correctos."
 
@@ -211,15 +246,13 @@ try {
         # modulos de Tauri doblados, asi que no tocan procesos reales ni necesitan la ventana:
         # son seguras dentro de un corte de release, igual que las de Rust.
         Info "Ejecutando los tests del frontend..."
-        & npm test
-        if ($LASTEXITCODE -ne 0) { Die "Los tests del frontend fallaron. Release abortado." }
+        if ((Invoke-Nativo npm @('test')) -ne 0) { Die "Los tests del frontend fallaron. Release abortado." }
         Ok "Tests del frontend correctos."
 
         # `npm run build` es `tsc && vite build`: comprueba los tipos del frontend. Vale la pena
         # aparte, aunque `tauri build` lo repita, para fallar antes de empezar a compilar Rust.
         Info "Comprobando tipos y compilando el frontend..."
-        & npm run build
-        if ($LASTEXITCODE -ne 0) { Die "El build del frontend falló. Release abortado." }
+        if ((Invoke-Nativo npm @('run','build')) -ne 0) { Die "El build del frontend falló. Release abortado." }
         Ok "Frontend correcto."
     }
 
@@ -298,16 +331,14 @@ try {
         Info "Actualizando Cargo.lock..."
         Push-Location (Join-Path $root "src-tauri")
         try {
-            & cargo check --quiet 2>&1 | Out-Null
-            if ($LASTEXITCODE -ne 0) { Die "'cargo check' falló tras el bump de versión." }
+            if ((Invoke-Nativo cargo @('check','--quiet')) -ne 0) { Die "'cargo check' falló tras el bump de versión." }
         } finally { Pop-Location }
         Ok "Versión $Version puesta en los tres archivos."
     }
 
     # ── 2. Compilar los instaladores ─────────────────────────────────────────
     Info "Compilando los instaladores (esto tarda varios minutos)..."
-    & npm run tauri build
-    if ($LASTEXITCODE -ne 0) { Die "La compilación de los instaladores falló." }
+    if ((Invoke-Nativo npm @('run','tauri','build')) -ne 0) { Die "La compilación de los instaladores falló." }
 
     if (-not (Test-Path $setup)) { Die "No se encontró el instalador NSIS esperado: $setup" }
     if (-not (Test-Path $msi))   { Die "No se encontró el MSI esperado: $msi" }
