@@ -179,8 +179,9 @@ function Get-PasswordDeFirma {
     # Get-Credential puede caer a prompt de consola si la política del equipo lo fuerza
     # (HKLM\...\PowerShell\ConsolePrompting a true); por eso queda el Read-Host debajo.
     try {
-        $cred = Get-Credential -UserName "(da igual, minisign solo usa contraseña)" `
-                               -Message "Contraseña de la clave de firma de ProcessDevKill"
+        # El usuario da igual y Windows lo rellena solo; minisign no tiene usuarios.
+        $cred = Get-Credential -UserName "firma" `
+                               -Message "Contraseña de la clave de firma de ProcessDevKill (el usuario se ignora)"
         if ($cred) { return $cred.GetNetworkCredential().Password }
         Die "No se introdujo la contraseña. Release abortado."
     }
@@ -341,17 +342,33 @@ y pon la clave pública resultante en plugins.updater.pubkey de src-tauri/tauri.
     # prueba, que es la única forma de saber que abre la clave sin esperar al build entero.
     $firmaPassword = Get-PasswordDeFirma
     $pruebaFirma = Join-Path $env:TEMP "pdk_prueba_firma_$Version.txt"
+    $logFirma    = Join-Path $env:TEMP "pdk_prueba_firma_$Version.log"
     Write-Texto $pruebaFirma "comprobacion de la clave de firma`n"
     try {
         Info "Comprobando que la contraseña abre la clave..."
-        $r = Invoke-ConClaveDeFirma $SigningKey $firmaPassword "npx tauri signer sign `"$pruebaFirma`" > nul 2>&1"
+        # La salida se guarda y se ENSEÑA si falla. Antes iba a `> nul 2>&1` y el resultado
+        # era un "contraseña incorrecta" a secas que no distinguía una contraseña mal tecleada
+        # de una invocación mal montada; el firmador dice exactamente cuál de las dos es
+        # ("Wrong password for that key" frente a un error de argumentos). Tragarse esa línea
+        # costó una vuelta entera al cortar la v1.1.1.
+        $r = Invoke-ConClaveDeFirma $SigningKey $firmaPassword `
+             "npx tauri signer sign `"$pruebaFirma`" > `"$logFirma`" 2>&1"
         if ($r -ne 0) {
-            Die "La contraseña no abre la clave de firma (o la clave no es válida). Release abortado antes de compilar."
+            if (Test-Path $logFirma) {
+                Warn "Salida del firmador:"
+                Get-Content $logFirma | Select-Object -Last 8 |
+                    ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+            }
+            Die @"
+No se pudo firmar con esa clave y esa contraseña. Release abortado antes de compilar.
+Si arriba pone 'Wrong password for that key', la contraseña no es la que se usó al generar
+la clave. Ojo con los espacios o el salto de línea que algunos gestores añaden al copiar.
+"@
         }
         Ok "La contraseña abre la clave."
     }
     finally {
-        Remove-Item $pruebaFirma, "$pruebaFirma.sig" -Force -ErrorAction SilentlyContinue
+        Remove-Item $pruebaFirma, "$pruebaFirma.sig", $logFirma -Force -ErrorAction SilentlyContinue
     }
 
     # ── Pruebas ──────────────────────────────────────────────────────────────
