@@ -343,7 +343,7 @@ pero no nombra. Un lector de pantalla los anunciaba sin decir qué eran. Se les 
 - [x] **Descargar e instalar no ocurre solo**: hace falta pulsarlo en *Ajustes → Actualizaciones*, con la versión y las notas delante. La app se cierra al lanzar el instalador para que pueda reemplazar sus archivos.
 - [x] `install_update` **solo acepta rutas dentro de su carpeta de descargas**.
   > ⚠️ El comando queda expuesto al frontend; sin esa guardia sería un "ejecuta lo que quieras". Mismo criterio que la guardia de PID de `kill_process`.
-- [x] Documentado el modelo de confianza en el README, incluyendo qué **no** protege: no demuestra quién publicó el archivo, no sustituye a la firma de código y no alcanza a quien tenga la v1.0.0.
+- [x] Documentado el modelo de confianza en el README, incluyendo qué **no** protege: no demuestra quién publicó el archivo ni sustituye a la firma de código.
 - [x] **Corregida la sección de privacidad del README**, que decía que la app no tiene concedido ningún permiso de red. Con el actualizador eso pasó a ser falso.
   > No es un detalle menor: era una afirmación comprobable enlazando al `capabilities/default.json`, y habría quedado desmentida por el propio archivo.
 

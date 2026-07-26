@@ -99,7 +99,7 @@ que cuesta dinero y todavía no lo tiene este proyecto.
 ### Verificar la descarga (opcional)
 
 ```powershell
-Get-FileHash .\ProcessDevKill_1.0.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\ProcessDevKill_1.1.1_x64-setup.exe -Algorithm SHA256
 ```
 
 El resultado tiene que coincidir con el contenido del `.sha256` que acompaña al archivo (formato de
@@ -130,8 +130,6 @@ Dicho claramente, esto **detecta una descarga corrupta o manipulada en tránsito
 - **No sustituye a la firma de código.** SmartScreen seguirá avisando la primera vez: eso requiere
   un certificado Authenticode de pago que el proyecto todavía no tiene. El día que lo haya, esa
   sería la comprobación fuerte y el hash pasaría a ser el respaldo.
-- **No cubre a quien tenga la v1.0.0.** Esa versión se publicó sin actualizador y no se enterará de
-  nada por su cuenta: hay que instalar la nueva a mano una vez.
 - **Si un release no publicara su `.sha256`, la app se negaría a actualizarse a él.** Es
   deliberado: sin nada con que verificar, no se ejecuta un binario descargado.
 
@@ -269,12 +267,12 @@ constantes espejo, para que el contrato entre los dos lados no se desincronice e
 
 ## Estado
 
-Publicada y verificada sobre la app instalada. Lo que todavía **no** hay, por si importa antes de
-instalarla: **firma de código** (de ahí el aviso de SmartScreen) y compilaciones para **macOS o
-Linux**. El plan está en el [ROADMAP](ROADMAP.md).
+La **v1.1.1 es la primera versión pública**: las anteriores se retiraron porque su mecanismo de
+actualización ya no existía, y dejarlas descargables solo habría servido para instalar algo que no
+podía actualizarse.
 
-Si tienes la **v1.0.0**, esa se publicó antes del actualizador y no avisa de nada: instala la
-versión nueva a mano una vez y a partir de ahí ya se avisa sola.
+Lo que todavía **no** hay, por si importa antes de instalarla: **firma de código** (de ahí el aviso
+de SmartScreen) y compilaciones para **macOS o Linux**. El plan está en el [ROADMAP](ROADMAP.md).
 
 ## Licencia
 

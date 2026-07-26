@@ -69,7 +69,7 @@ Añadido el 2026-07-25: **98 pruebas de frontend** (Vitest + Testing Library) do
 
 **Publicado:** v1.1.1 — 4 assets: instaladores NSIS y MSI con sus `.sha256`. Sin firma de código, así que SmartScreen sigue avisando.
 
-> ⚠️ **Ni la v1.0.0 ni la v1.1.0 se actualizan solas.** La v1.0.0 se publicó sin actualizador. La v1.1.0 llevaba el de minisign, que ya no existe. Quien tenga cualquiera de las dos debe instalar la v1.1.1 a mano una vez.
+> **La v1.1.1 es la primera versión pública.** Las anteriores (v1.0.0 y v1.1.0) se **retiraron el 2026-07-26**, releases y tags: ninguna podía actualizarse sola —la primera no llevaba actualizador y la segunda usaba el de minisign, ya inexistente— y dejarlas descargables solo habría servido para instalar algo condenado a quedarse atrás. Sus URLs de descarga devuelven 404; los commits siguen en el historial.
 >
 > El `.sha256` del instalador NSIS **ya no es cortesía**: es lo que la app compara antes de ejecutar una actualización. Un release sin él hace que la app se niegue a actualizarse a esa versión.
 
@@ -186,7 +186,7 @@ Dos cosas que cuestan una sesión si no se saben:
 - [x] ~~Repositorio remoto~~ → <https://github.com/xfiberex/ProcessDevKill> (rama `main`).
 - [x] ~~Renombrar el repositorio~~ → hecho el 2026-07-24. GitHub redirige la URL vieja, así que los enlaces ya publicados de la v1.0.0 siguen funcionando. La **carpeta local** conserva el nombre `ProcessVisorDev`; es solo cosmético, pero renombrarla obliga a reabrir el proyecto en el editor.
 - [ ] Lista inicial de procesos vigilados por defecto (¿incluir `java`, `deno`, `bun` desde el inicio?).
-- [ ] Firma de código (Authenticode): sin ella, Windows sigue enseñando el aviso de SmartScreen. **No confundirla con la firma minisign del actualizador**, que sí existe desde la v1.1.0 y resuelve un problema distinto: aquélla dice quién publica el instalador que te descargas, ésta valida las actualizaciones que la app se trae sola. Cuesta un certificado de pago.
+- [ ] Firma de código (Authenticode): sin ella, Windows sigue enseñando el aviso de SmartScreen, y el actualizador no puede comprobar **quién** publicó el instalador —solo que no se corrompió por el camino—. Cuesta un certificado de pago. El día que lo haya, pasa a ser la comprobación fuerte y el `.sha256` queda de respaldo, como en FormatDiskPro.
 - [ ] Construir el índice de `codegraph` (`codegraph init`) para que el `.mcp.json` sirva de algo.
 
 ## 6. Cómo retomar el proyecto en otro equipo
@@ -198,23 +198,17 @@ Dos cosas que cuestan una sesión si no se saben:
 5. `npm test` (frontend) y `cd src-tauri && cargo test` (backend) para comprobar que todo sigue en pie.
 6. Leer este archivo (estado y decisiones) y el [ROADMAP.md](ROADMAP.md) (siguiente checkbox pendiente).
 
-> ⚠️ **Para cortar un release desde otro equipo hacen falta la clave privada minisign y su contraseña.** No están en el repositorio: la clave vive en `%USERPROFILE%\.tauri\processdevkill.key` de la máquina donde se generó, y la contraseña, donde la haya guardado el usuario. Copiar el archivo al equipo nuevo, o pasar su ruta con `-SigningKey`; el script pide la contraseña por consola. **Generar una nueva no es una alternativa**: invalidaría las actualizaciones de todos los usuarios ya instalados.
+> **Cortar un release desde otro equipo no necesita ningún secreto.** Basta con `gh` autenticado y el entorno de compilación. Fue así hasta el 2026-07-25, dejó de serlo con la firma minisign, y volvió a serlo el 2026-07-26 al cambiar a verificación SHA-256 — que era buena parte del motivo del cambio.
 
-### La clave de firma, en detalle
+### Lo único delicado de un release: el `.sha256`
 
-| | Dónde | Tamaño | ¿Secreto? |
-|---|---|---|---|
-| Privada | `%USERPROFILE%\.tauri\processdevkill.key` | 348 B | **Sí, junto con su contraseña** |
-| Pública | `%USERPROFILE%\.tauri\processdevkill.key.pub` | 152 B | No |
-| Pública (la que importa) | `plugins.updater.pubkey` en `tauri.conf.json` | — | No, va en el repo a propósito |
+`release.ps1` genera el hash de cada instalador y lo publica como asset. **El del `-setup.exe` no es
+cortesía: es lo que la app compara antes de ejecutar una actualización.** Un release sin él hace que
+la app se niegue a actualizarse a esa versión — correcto, pero conviene saberlo.
 
-La copia pública **se compila dentro de cada binario**: toda instalación de la v1.1.0 en adelante lleva grabado que solo aceptará actualizaciones firmadas por esa clave concreta, y eso no se puede cambiar a distancia. La privada es, para siempre, lo único capaz de producir una actualización que esas instalaciones acepten. De ahí que `release.ps1` se pare si no la encuentra.
-
-**Copia de seguridad.** Son 348 bytes más una contraseña. Sitios razonables: gestor de contraseñas, disco cifrado, papel. Sitios que no: el repositorio, almacenamiento en la nube sin cifrar, y una conversación con un agente.
-
-> ⚠️ **No volcar nunca el archivo a la consola.** Es una sola línea de base64: `cat`, `head -1` o `Get-Content` imprimen el secreto completo. Para identificar la clave basta el `key id` de la **pública**.
-
-**Si se pierde el archivo o la contraseña,** se puede seguir publicando, pero hay que generar un par nuevo y cambiar el `pubkey`. Todo el que tuviera una versión anterior instalada deja de poder actualizarse **en silencio**: su binario rechaza la firma nueva. Tendría que reinstalar a mano. No hay recuperación.
+Lo que ese hash **sí** garantiza: que el instalador descargado es byte a byte el que se publicó.
+Lo que **no**: quién lo publicó, porque viaja en el mismo release. Para eso haría falta un
+certificado de firma de código, que está en las decisiones pendientes.
 
 ## 7. Convenciones
 
@@ -257,6 +251,7 @@ La copia pública **se compila dentro de cada binario**: toda instalación de la
 - **Fallo latente que salió al probarlo:** el dry run murió en `cargo test` **con los 35 tests en verde**. `cargo` emite un aviso del enlazador por stderr y PS 5.1 lo convierte en `NativeCommandError` cuando la salida está capturada. El script documentaba ese peligro desde el primer día y tenía `Invoke-Git` para git, pero cargo y npm estaban desprotegidos; ahora hay `Invoke-Nativo`.
   - ⚠️ El primer arreglo **no funcionaba**: pasar un scriptblock y bajar `$ErrorActionPreference` dentro de la función no sirve, porque un scriptblock se evalúa con las variables de preferencia del ámbito donde se **definió**, no donde se invoca. Hay que ejecutar el comando dentro de la función, como hace `Invoke-Git`.
 - **v1.1.1 publicada y verificada contra el release real**: 4 assets, la API responde 200, la elección de assets acierta el `-setup.exe` y su `.sha256` (no el del MSI), y el instalador descargado coincide con el hash publicado.
+- **Retiradas la v1.0.0 y la v1.1.0**, releases y tags, por decisión del usuario: **la v1.1.1 pasa a ser la primera versión pública**. Ninguna de las dos podía actualizarse sola —una sin actualizador, la otra con el de minisign ya inexistente—, así que dejarlas descargables solo habría servido para instalar algo condenado a quedarse atrás. Sus URLs devuelven 404; los commits siguen en el historial y las entradas de este registro se conservan como tal.
 
 ### 2026-07-26 — Rotación de la clave de firma (histórico, ya superado)
 
