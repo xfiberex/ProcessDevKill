@@ -74,6 +74,12 @@ cd src-tauri && cargo test    # backend: lee procesos reales del equipo
 
 - **PowerShell 5.1 destroza estos `.md`.** `Get-Content -Raw` los lee como ANSI y al guardarlos como
   UTF-8 deja todos los acentos rotos. Para editarlos, herramientas que respeten UTF-8.
+- **En PowerShell, `$env:VAR = ""` BORRA la variable**, no la deja vacía: `SetEnvironmentVariable`
+  trata la cadena vacía como `$null`. Compruébalo con `$env:X = ""; Test-Path Env:\X` → `False`. Si
+  un proceso hijo necesita una variable vacía —el `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` de una clave
+  sin contraseña—, hay que pasársela por `ProcessStartInfo.Environment`, que sí la admite. Con la
+  variable borrada, el CLI de Tauri decide preguntar por consola y **el build se cuelga para
+  siempre** sin dar error.
 - **Para inspeccionar la UI en marcha** hay que añadir `"additionalBrowserArgs":
   "--remote-debugging-port=9222"` a la ventana en `tauri.conf.json` y **quitarlo después**. La
   variable de entorno `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` no sirve: Tauri la sobrescribe.

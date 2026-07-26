@@ -140,6 +140,51 @@ function Write-Texto($ruta, $texto) {
     [System.IO.File]::WriteAllText($ruta, $texto, (New-Object System.Text.UTF8Encoding($false)))
 }
 
+<#
+.SYNOPSIS
+    Compila los instaladores con la clave de firma en el entorno del proceso hijo.
+
+.DESCRIPTION
+    Parece que sobra —bastaría con `$env:X = ...` y llamar a npm— pero NO se puede, y el
+    motivo cuesta una tarde encontrarlo:
+
+    EN POWERSHELL, `$env:VAR = ""` BORRA LA VARIABLE. No la deja vacía: la elimina. Es la
+    semántica de [Environment]::SetEnvironmentVariable, que trata la cadena vacía igual que
+    $null. Se comprueba en dos líneas:
+
+        $env:PRUEBA = ""; Test-Path Env:\PRUEBA   # -> False
+
+    Y la clave de este proyecto se generó SIN contraseña, así que hay que pasarle a Tauri
+    un TAURI_SIGNING_PRIVATE_KEY_PASSWORD vacío. Al borrarse la variable, el CLI no la
+    encuentra, decide preguntar por consola ("Decrypting updater signing key, expect a
+    prompt for password") y el build SE QUEDA COLGADO PARA SIEMPRE esperando una pulsación
+    que en un script automatizado no va a llegar. No falla: se queda ahí.
+
+    ProcessStartInfo.Environment es un diccionario de verdad y sí admite el valor vacío, que
+    llega intacto al hijo. Sin redirigir la salida, el proceso hereda la consola y el
+    progreso de la compilación se sigue viendo en vivo.
+
+    Va por cmd.exe porque `npm` en Windows es `npm.cmd`, y CreateProcess no sabe ejecutar un
+    .cmd directamente cuando UseShellExecute es $false.
+
+    Las variables NO se tocan en la sesión del que ejecuta el script: viven y mueren con el
+    proceso hijo.
+#>
+function Invoke-BuildFirmado($rutaClave) {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName         = "$env:ComSpec"
+    $psi.Arguments        = "/c npm run tauri build"
+    $psi.WorkingDirectory = $root
+    $psi.UseShellExecute  = $false
+
+    $psi.Environment["TAURI_SIGNING_PRIVATE_KEY"] = (Read-Texto $rutaClave).Trim()
+    $psi.Environment["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"] = ""
+
+    $p = [System.Diagnostics.Process]::Start($psi)
+    $p.WaitForExit()
+    return $p.ExitCode
+}
+
 # ── Rutas ──────────────────────────────────────────────────────────────────
 $root       = $PSScriptRoot
 $tauriConf  = Join-Path $root "src-tauri\tauri.conf.json"
@@ -339,16 +384,10 @@ O indica la ruta de la existente con -SigningKey.
     # entorno. Se pasa el CONTENIDO, no la ruta: es la forma documentada y la misma que
     # se usaria en CI. La variable se limpia en el finally para no dejarla colgando en
     # la sesión de quien ejecute el script a mano.
-    Info "Cargando la clave de firma..."
-    $env:TAURI_SIGNING_PRIVATE_KEY = (Read-Texto $SigningKey).Trim()
-    # Cadena vacía a propósito: la clave se generó sin contraseña. Sin esta variable,
-    # Tauri se queda esperando a que alguien la teclee y el build no termina nunca.
-    $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
-    Ok "Clave cargada (no se muestra)."
-
-    Info "Compilando los instaladores (esto tarda varios minutos)..."
-    & npm run tauri build
-    if ($LASTEXITCODE -ne 0) { Die "La compilación de los instaladores falló." }
+    Info "Compilando los instaladores, firmados (esto tarda varios minutos)..."
+    # La clave se le pasa al proceso hijo, no a esta sesión. Ver Invoke-BuildFirmado: el
+    # motivo no es estético, es que $env:VAR = "" borra la variable y cuelga el build.
+    if ((Invoke-BuildFirmado $SigningKey) -ne 0) { Die "La compilación de los instaladores falló." }
 
     if (-not (Test-Path $setup)) { Die "No se encontró el instalador NSIS esperado: $setup" }
     if (-not (Test-Path $msi))   { Die "No se encontró el MSI esperado: $msi" }
@@ -453,8 +492,7 @@ O indica la ruta de la existente con -SigningKey.
     Ok "Release $tag publicado: $repo/releases/tag/$tag"
 }
 finally {
-    # La clave no se queda en la sesión de quien ejecutó el script.
-    Remove-Item Env:\TAURI_SIGNING_PRIVATE_KEY -ErrorAction SilentlyContinue
-    Remove-Item Env:\TAURI_SIGNING_PRIVATE_KEY_PASSWORD -ErrorAction SilentlyContinue
+    # No hay variables de entorno que limpiar: la clave vive solo dentro del proceso hijo
+    # que lanza Invoke-BuildFirmado y muere con él.
     Pop-Location
 }

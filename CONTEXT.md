@@ -166,6 +166,8 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-25 | `process:allow-restart`, no `process:default` | `default` incluye además `allow-exit`. La app no necesita poder cerrarse a sí misma desde JS, igual que en el Tier 3 no se le concedió `core:window:allow-close` |
 | 2026-07-25 | `release.ps1` valida la clave **antes** de compilar | Enterarse de que falta después de veinte minutos de build es la peor forma de saberlo. Y si tras el build no aparece el `.sig`, el script para: publicar sin firma deja a todos los instalados sin poder actualizarse y no se nota hasta que alguien lo intenta |
 | 2026-07-25 | El endpoint es `releases/latest/download/latest.json` | GitHub lo resuelve siempre al último release no-prerelease, así que no hay que hospedar nada aparte ni tocar una URL en cada versión |
+| 2026-07-25 | `"createUpdaterArtifacts": true` en `bundle` | **Sin ella no se firma nada y Tauri no avisa.** Viene a `false` de fábrica; con la clave puesta en el entorno y el plugin configurado, el build salió igual de contento produciendo los dos instaladores sin `.sig`. Lo cazó la comprobación de `release.ps1`, con el release ya a medio camino |
+| 2026-07-25 | El build se lanza con `ProcessStartInfo`, no con `& npm` | **En PowerShell `$env:VAR = ""` borra la variable en vez de dejarla vacía.** Con la clave sin contraseña hay que pasar un `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` vacío; al desaparecer, Tauri decide preguntar por consola y el build **se cuelga indefinidamente sin dar error**. `ProcessStartInfo.Environment` sí admite el valor vacío, y de paso la clave no toca la sesión de quien ejecuta el script |
 
 ## 5. Decisiones pendientes
 
