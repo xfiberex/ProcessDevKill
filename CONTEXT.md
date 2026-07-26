@@ -61,11 +61,13 @@ Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el
 
 Añadido el 2026-07-25: **98 pruebas de frontend** (Vitest + Testing Library) donde antes había cero, y **auto-actualización** con firma minisign. El remoto local ya apunta a la URL nueva.
 
-> ⚠️ **Salvedad abierta: el ciclo completo de actualización no está probado, y no puede estarlo todavía.** Hacen falta **dos** releases con actualizador para verificar encontrar → descargar → instalar → reiniciar. Al publicar la v1.1.0 se verifica todo menos la descarga: que el `latest.json` está entre los assets, que responde por la URL del endpoint y que la app instalada contesta «ya tienes la última versión» —lo que demuestra que la petición sale, llega, se parsea y se compara la versión—. La descarga real se comprueba en el siguiente corte.
+> ⚠️ **Salvedad abierta: la descarga e instalación de una actualización no está probada, y no puede estarlo todavía.** Hacen falta **dos** releases con actualizador para que una encuentre a la otra; se cierra en el próximo corte. Todo lo demás **sí** quedó verificado el 2026-07-26 tras publicar la v1.1.0: el endpoint responde 200 con la versión correcta, la firma del `latest.json` coincide con el `.sig` publicado, su `key id` (`366b8be5e0fef6cf`) es el de la clave pública compilada en el binario, y la app en ejecución contesta «Ya tienes la última versión» al buscar. Detalle en ROADMAP §Tier 6.5.
 
 > ⚠️ **`codegraph` está conectado pero sin índice.** El `.mcp.json` ya engancha el servidor, pero `.codegraph/` contiene solo su `.gitignore`: la base de datos nunca se construyó. Para que sirva de algo hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva. Se deja al usuario a propósito.
 
-**Publicado:** <https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.0.0> — instaladores NSIS (2,44 MB) y MSI (3,54 MB) con sus `.sha256`, sin firmar. **Esa versión no tiene actualizador**, así que quien la tenga instalada no se enterará de las siguientes por su cuenta.
+**Publicado:** <https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.1.0> — 6 assets: instaladores NSIS (3,61 MB) y MSI (5,12 MB), sus `.sha256`, el `.sig` del NSIS y el `latest.json` del actualizador. Sin firma de código (SmartScreen sigue avisando); **sí** con firma minisign para las actualizaciones.
+
+> La <https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.0.0> sigue publicada, pero **no tiene actualizador**: quien la tenga instalada no se enterará de las siguientes por su cuenta y debe instalar la v1.1.0 a mano una vez.
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -215,6 +217,15 @@ Dos cosas que cuestan una sesión si no se saben:
 - **Tier 6.6 — `.claude/CLAUDE.md` y `.mcp.json`.** El CLAUDE.md recoge las convenciones y, sobre todo, las cinco cosas que cuestan una sesión si no se saben (PowerShell y el UTF-8, CDP, `SendKeys`, los toast y BitBlt, una sesión por repositorio).
   - **La suposición del roadmap sobre codegraph era incorrecta:** daba por hecho que el índice existía y solo faltaba conectarlo. `.codegraph/` contiene únicamente su `.gitignore`. El `.mcp.json` queda puesto, pero el índice hay que construirlo con `codegraph init`, y eso se deja al usuario.
 - Verificado antes de cortar: 98 pruebas de frontend, 22 de `cargo test`, `tsc` sin errores y `release.ps1` sin errores de sintaxis.
+
+### 2026-07-26 — v1.1.0 publicada, con dos tropiezos que casi la estropean
+
+- **v1.1.0 publicada** con 6 assets. El corte falló **dos veces** antes de salir, y las dos merecen quedar escritas porque ninguna daba un error claro:
+  - **`createUpdaterArtifacts` viene a `false` de fábrica.** Con el plugin configurado y la clave en el entorno, `tauri build` compiló los dos instaladores **sin firmar y sin quejarse**. Lo cazó la comprobación de `release.ps1` («si no aparece el `.sig`, para»), con el release ya a medio camino. Sin esa guardia se habría publicado un `latest.json` cuya firma no existía, y no se habría notado hasta que alguien intentara actualizarse.
+  - **En PowerShell, `$env:VAR = ""` borra la variable.** No la deja vacía: la elimina, porque `SetEnvironmentVariable` trata la cadena vacía como `$null`. Como la clave se generó sin contraseña, Tauri necesitaba un `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` vacío; al desaparecer, el CLI decidió preguntar por consola y **el build se quedó colgado indefinidamente**, sin error y sin salir. Se arregla lanzando el build con `ProcessStartInfo.Environment`, que sí admite el valor vacío; de paso la clave ya no toca la sesión de quien ejecuta el script.
+- Antes de reintentar se **borró a mano el `.sig`** creado durante el diagnóstico: dejarlo habría hecho pasar la comprobación sobre un artefacto viejo, que es una verificación falsa.
+- **Verificación posterior a la publicación** (detalle en ROADMAP §Tier 6.5): endpoint 200 con la versión correcta, URL del instalador 200 con el tamaño exacto, las tres copias de la firma idénticas, el `key id` de la firma igual al de la clave pública compilada en el binario, y la app en ejecución contestando «Ya tienes la última versión».
+- Para esa última prueba se abrió el puerto de depuración en `tauri.conf.json`, y se restauró después **cerrando antes la app**: al revés, Tauri detecta el cambio y la reinicia en mitad de la limpieza. `git status` quedó limpio.
 
 ### 2026-07-25 — Tier 6.3: README de producto, capturas y FUNDING
 

@@ -347,7 +347,17 @@ pero no nombra. Un lector de pantalla los anunciaba sin decir qué eran. Se les 
 - [x] **Corregida la sección de privacidad del README**, que decía que la app no tiene concedido ningún permiso de red. Con el actualizador eso pasó a ser falso.
   > No es un detalle menor: era una afirmación comprobable enlazando al `capabilities/default.json`, y habría quedado desmentida por el propio archivo.
 
-> ⚠️ **Verificación pendiente por naturaleza.** El ciclo completo —encontrar una versión, descargarla, instalarla y reiniciar— no se puede probar hasta que existan **dos** releases con actualizador. Lo que sí se verifica al publicar esta: que el `latest.json` está en el release, que responde por la URL del endpoint y que la app instalada dice «ya tienes la última versión», lo que recorre toda la cadena menos la descarga.
+**Verificación** (2026-07-26, tras publicar la v1.1.0):
+
+- [x] El release lleva sus **6 assets**: los dos instaladores, sus dos `.sha256`, el `.sig` del NSIS y el `latest.json`.
+- [x] El `.sig` lo generó **el propio build**: se borró a mano el que se había creado durante el diagnóstico, y el que se publicó lleva la marca de tiempo de la compilación posterior.
+- [x] `GET` a `https://github.com/xfiberex/ProcessDevKill/releases/latest/download/latest.json` —la URL exacta que lleva compilada el binario— responde **200**, con `version: 1.1.0` y la plataforma `windows-x86_64`.
+- [x] La URL del instalador que anuncia ese JSON responde **200**, con un `content-length` idéntico al tamaño del asset publicado.
+- [x] La firma del `latest.json`, la del `.sig` publicado y la del `.sig` local **son la misma cadena**.
+- [x] **El `key id` de la firma coincide con el de la clave pública compilada en el binario** (`366b8be5e0fef6cf`). Es la comprobación que de verdad importa: demuestra que la firma la hizo la clave que la app lleva dentro, no otra.
+- [x] **Sobre la app en ejecución**: en *Ajustes → Actualizaciones*, «Buscar actualizaciones» contesta **«Ya tienes la última versión»**. Recorre la cadena entera del lado cliente —petición de red, descarga del `latest.json`, parseo y comparación de versiones— sobre el endpoint real.
+
+> ⚠️ **Lo único que queda sin probar es la descarga e instalación**, y no puede probarse hasta que exista un release **posterior** a éste: hacen falta dos versiones con actualizador para que una encuentre a la otra. Se cierra en el próximo corte.
 
 ### 6. Herramientas del repositorio — ✅ **completado**
 
