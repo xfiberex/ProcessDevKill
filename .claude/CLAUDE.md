@@ -98,5 +98,15 @@ La versión vive en **tres** sitios que tienen que ir a la vez: `tauri.conf.json
 `package.json` y `Cargo.toml`. El script los toca los tres.
 
 **La clave privada minisign que firma las actualizaciones NO puede entrar en el repositorio.** Vive
-en `%USERPROFILE%\.tauri\processdevkill.key`. Generar una nueva invalida a todos los usuarios ya
-instalados: no se hace salvo que no exista ninguna.
+en `%USERPROFILE%\.tauri\processdevkill.key` y lleva **contraseña**; el script la pide por consola.
+Generar una nueva invalida a todos los usuarios ya instalados —su binario lleva grabada la pública
+vieja—, así que no se hace salvo que no exista ninguna o esté comprometida.
+
+**Nunca vuelques el archivo de la clave a la consola.** Es una sola línea de base64, así que
+`cat`, `head -1` o `Get-Content` imprimen el secreto entero. Pasó el 2026-07-26 con un `head -1`
+que pretendía leer solo el comentario, y obligó a rotar la clave. Si necesitas identificarla, usa
+el `key id` de la **pública**:
+
+```bash
+node -e "const c=require('./src-tauri/tauri.conf.json');console.log(Buffer.from(Buffer.from(c.plugins.updater.pubkey,'base64').toString().split('\n')[1],'base64').subarray(2,10).toString('hex'))"
+```

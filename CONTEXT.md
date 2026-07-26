@@ -65,9 +65,11 @@ Añadido el 2026-07-25: **98 pruebas de frontend** (Vitest + Testing Library) do
 
 > ⚠️ **`codegraph` está conectado pero sin índice.** El `.mcp.json` ya engancha el servidor, pero `.codegraph/` contiene solo su `.gitignore`: la base de datos nunca se construyó. Para que sirva de algo hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva. Se deja al usuario a propósito.
 
-**Publicado:** <https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.1.0> — 6 assets: instaladores NSIS (3,61 MB) y MSI (5,12 MB), sus `.sha256`, el `.sig` del NSIS y el `latest.json` del actualizador. Sin firma de código (SmartScreen sigue avisando); **sí** con firma minisign para las actualizaciones.
+**Publicado:** v1.1.1 — 6 assets: instaladores NSIS y MSI, sus `.sha256`, el `.sig` del NSIS y el `latest.json` del actualizador. Sin firma de código (SmartScreen sigue avisando); **sí** con firma minisign para las actualizaciones.
 
-> La <https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.0.0> sigue publicada, pero **no tiene actualizador**: quien la tenga instalada no se enterará de las siguientes por su cuenta y debe instalar la v1.1.0 a mano una vez.
+> ⚠️ **Ni la v1.0.0 ni la v1.1.0 pueden actualizarse solas.** La v1.0.0 se publicó sin actualizador. La v1.1.0 lo tenía, pero su clave se rotó el 2026-07-26 (ver el registro de sesiones), y una instalación solo acepta lo firmado por la clave con la que nació. Quien tenga cualquiera de las dos debe instalar la v1.1.1 a mano una vez; a partir de ahí ya se actualiza sola.
+>
+> **`key id` vigente: `3a5280711502b80c`.** El comprometido y retirado es `366b8be5e0fef6cf`.
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -162,7 +164,8 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-25 | `types.test.ts` lee el fuente de Rust y compara | `types.ts` se declaraba "espejo" de los tipos de Rust, pero nada lo obligaba: cambiar `MIN_AUTO_KILL_MB` en `storage.rs` y olvidarse aquí no rompía ni el build ni `cargo test`. Ahora falla una prueba |
 | 2026-07-25 | `aria-label` en los dos campos numéricos de Ajustes | Lo encontraron las pruebas al no poder pedirlos por nombre: solo tenían `aria-describedby`, que **describe pero no nombra**. Un lector de pantalla los anunciaba sin decir qué eran |
 | 2026-07-25 | **Auto-actualización con minisign, no con el `.sha256`** | Son cosas distintas y confundirlas es peligroso: el hash viaja por el mismo sitio que el archivo y no prueba origen. La clave pública va compilada en el binario, así que un `latest.json` manipulado no basta para instalar nada |
-| 2026-07-25 | La clave privada, sin contraseña y fuera del repo | Decisión del usuario. `release.ps1` queda no interactivo y con una variable menos que puede faltar; el secreto es el archivo, en `%USERPROFILE%\.tauri\`. Con contraseña, la contraseña acabaría en una variable de entorno de la misma máquina: la ganancia real era pequeña frente a la fricción en cada corte |
+| 2026-07-25 | ~~La clave privada, sin contraseña~~ | Se razonó que el secreto era el archivo y que una contraseña añadía fricción sin ganancia real. **Superada el 2026-07-26**: el archivo se filtró y sin contraseña eso basta para firmar. Ver la fila siguiente |
+| 2026-07-26 | **La clave privada, con contraseña** | Al día siguiente de generarla, un `head -1` que pretendía leer solo la línea de comentario volcó el archivo entero —es una sola línea de base64— a una conversación. Sin contraseña, quien tenga esos 348 bytes puede firmar: hubo que rotar. Con contraseña, una filtración del archivo ya no basta. La fricción que se quiso evitar era un `Read-Host` por release |
 | 2026-07-25 | La comprobación al arrancar va **en silencio** | Un equipo sin red o una VPN levantándose es lo normal, y un error nada más abrir la app parecería un fallo de la app. Solo se habla cuando de verdad hay versión nueva |
 | 2026-07-25 | Descargar e instalar **solo a petición** | Es lo único que la app puede traerse de internet y ejecutar. Que ocurra sin pedirlo convertiría una herramienta local en algo que se modifica solo, y eso hay que pedirlo |
 | 2026-07-25 | `process:allow-restart`, no `process:default` | `default` incluye además `allow-exit`. La app no necesita poder cerrarse a sí misma desde JS, igual que en el Tier 3 no se le concedió `core:window:allow-close` |
@@ -189,7 +192,23 @@ Dos cosas que cuestan una sesión si no se saben:
 5. `npm test` (frontend) y `cd src-tauri && cargo test` (backend) para comprobar que todo sigue en pie.
 6. Leer este archivo (estado y decisiones) y el [ROADMAP.md](ROADMAP.md) (siguiente checkbox pendiente).
 
-> ⚠️ **Para cortar un release desde otro equipo hace falta la clave privada minisign**, que no está en el repositorio: vive en `%USERPROFILE%\.tauri\processdevkill.key` de la máquina donde se generó. Copiarla a mano al equipo nuevo, o pasar su ruta con `-SigningKey`. **Generar una nueva no es una alternativa**: invalidaría las actualizaciones de todos los usuarios ya instalados.
+> ⚠️ **Para cortar un release desde otro equipo hacen falta la clave privada minisign y su contraseña.** No están en el repositorio: la clave vive en `%USERPROFILE%\.tauri\processdevkill.key` de la máquina donde se generó, y la contraseña, donde la haya guardado el usuario. Copiar el archivo al equipo nuevo, o pasar su ruta con `-SigningKey`; el script pide la contraseña por consola. **Generar una nueva no es una alternativa**: invalidaría las actualizaciones de todos los usuarios ya instalados.
+
+### La clave de firma, en detalle
+
+| | Dónde | Tamaño | ¿Secreto? |
+|---|---|---|---|
+| Privada | `%USERPROFILE%\.tauri\processdevkill.key` | 348 B | **Sí, junto con su contraseña** |
+| Pública | `%USERPROFILE%\.tauri\processdevkill.key.pub` | 152 B | No |
+| Pública (la que importa) | `plugins.updater.pubkey` en `tauri.conf.json` | — | No, va en el repo a propósito |
+
+La copia pública **se compila dentro de cada binario**: toda instalación de la v1.1.0 en adelante lleva grabado que solo aceptará actualizaciones firmadas por esa clave concreta, y eso no se puede cambiar a distancia. La privada es, para siempre, lo único capaz de producir una actualización que esas instalaciones acepten. De ahí que `release.ps1` se pare si no la encuentra.
+
+**Copia de seguridad.** Son 348 bytes más una contraseña. Sitios razonables: gestor de contraseñas, disco cifrado, papel. Sitios que no: el repositorio, almacenamiento en la nube sin cifrar, y una conversación con un agente.
+
+> ⚠️ **No volcar nunca el archivo a la consola.** Es una sola línea de base64: `cat`, `head -1` o `Get-Content` imprimen el secreto completo. Para identificar la clave basta el `key id` de la **pública**.
+
+**Si se pierde el archivo o la contraseña,** se puede seguir publicando, pero hay que generar un par nuevo y cambiar el `pubkey`. Todo el que tuviera una versión anterior instalada deja de poder actualizarse **en silencio**: su binario rechaza la firma nueva. Tendría que reinstalar a mano. No hay recuperación.
 
 ## 7. Convenciones
 
@@ -217,6 +236,18 @@ Dos cosas que cuestan una sesión si no se saben:
 - **Tier 6.6 — `.claude/CLAUDE.md` y `.mcp.json`.** El CLAUDE.md recoge las convenciones y, sobre todo, las cinco cosas que cuestan una sesión si no se saben (PowerShell y el UTF-8, CDP, `SendKeys`, los toast y BitBlt, una sesión por repositorio).
   - **La suposición del roadmap sobre codegraph era incorrecta:** daba por hecho que el índice existía y solo faltaba conectarlo. `.codegraph/` contiene únicamente su `.gitignore`. El `.mcp.json` queda puesto, pero el índice hay que construirlo con `codegraph init`, y eso se deja al usuario.
 - Verificado antes de cortar: 98 pruebas de frontend, 22 de `cargo test`, `tsc` sin errores y `release.ps1` sin errores de sintaxis.
+
+### 2026-07-26 — Rotación de la clave de firma y v1.1.1
+
+- **La clave privada de la v1.1.0 quedó expuesta y hubo que rotarla.** El agente ejecutó `head -1` sobre el archivo creyendo que leería solo la línea de comentario; el archivo es **una sola línea de base64**, así que volcó el secreto entero a la conversación. Sin contraseña —como se había decidido el día anterior— tener el archivo es poder firmar.
+  - **Riesgo real, medido:** para empujar una actualización maliciosa hacía falta *además* poder publicar assets en el repo de GitHub, porque el endpoint va por HTTPS contra `github.com`. La clave sola no bastaba. Pero la firma existe justo para el caso en que los archivos de GitHub sí se manipulen, y esa capa dejó de valer.
+  - **Se rotó de inmediato** porque el coste crece con el tiempo: cada instalación lleva grabada la pública con la que nació, así que rotar obliga a reinstalar a mano. Con la v1.1.0 recién publicada, eso era casi nadie.
+- **La clave nueva lleva contraseña**, que es la lección: el esquema anterior confiaba todo a que el archivo no se filtrara, y se filtró. `release.ps1` la pide por consola sin eco y la valida firmando un archivo de prueba antes de compilar.
+- **Tres cosas que costaron encontrarse durante la rotación**, y que no eran lo que parecían:
+  - El primer intento de regenerar **no llegó a ejecutarse**: la terminal estaba en `C:\WINDOWS\system32` y `npm run` no encontró el `package.json`. El error de npm es de ruta, no de la clave, y despista.
+  - Aun así el archivo de la clave **había cambiado y contenía 500 bytes que no eran una clave válida** (no empezaba por el `untrusted comment:` que debe). Se detectó comparando el formato, no el tamaño.
+  - Y sobre todo: la **`.pub` conservaba la fecha vieja**. Comprobar eso fue lo que evitó escribir en `tauri.conf.json` la clave pública del par comprometido, que habría dejado a la app rechazando sus propias actualizaciones. Se verificó en un directorio temporal que `-f` sí regenera la pública, así que la causa era el intento fallido, no el flag.
+- **Regla nueva, en CLAUDE.md:** nunca volcar el archivo de la clave a la consola. Para identificarla está el `key id` de la **pública**, que no es secreto.
 
 ### 2026-07-26 — v1.1.0 publicada, con dos tropiezos que casi la estropean
 

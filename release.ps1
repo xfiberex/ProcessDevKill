@@ -28,9 +28,10 @@
 
       - minisign (SÍ la hay, desde el Tier 6.5). Es lo que verifica el actualizador: la
         clave pública va compilada en el binario y la privada vive FUERA del repositorio,
-        en la máquina que corta releases. Firma los bundles y produce los .sig. Perderla
-        significa que los usuarios ya instalados no podrán volver a actualizarse nunca,
-        porque una clave nueva no valida lo que firmó la vieja.
+        en la máquina que corta releases, PROTEGIDA CON CONTRASEÑA. Firma los bundles y
+        produce los .sig. Perderla —el archivo o la contraseña— significa que los usuarios
+        ya instalados no podrán volver a actualizarse nunca, porque una clave nueva no
+        valida lo que firmó la vieja. Hacer copia de seguridad de las dos cosas.
 
       - firma de código Authenticode (NO la hay). Es la que quita el aviso de SmartScreen
         ("editor desconocido"). Requiere un certificado de pago; en Tauri se configuraría
@@ -52,6 +53,10 @@
 .PARAMETER SigningKey
     Ruta a la clave privada minisign que firma la actualización. Por defecto
     %USERPROFILE%\.tauri\processdevkill.key, o TAURI_SIGNING_PRIVATE_KEY_PATH si está puesta.
+
+    La clave lleva CONTRASEÑA. El script la pide por consola, sin eco, salvo que ya venga en
+    TAURI_SIGNING_PRIVATE_KEY_PASSWORD. Se comprueba nada más empezar, firmando un archivo de
+    prueba: teclearla mal aborta en el primer minuto, no después de compilar.
 
 .PARAMETER SkipTests
     Omite `cargo test`, `npm test` y `npm run build`.
@@ -142,43 +147,78 @@ function Write-Texto($ruta, $texto) {
 
 <#
 .SYNOPSIS
-    Compila los instaladores con la clave de firma en el entorno del proceso hijo.
+    Obtiene la contraseña de la clave de firma, sin dejarla escrita en ningún sitio.
 
 .DESCRIPTION
-    Parece que sobra —bastaría con `$env:X = ...` y llamar a npm— pero NO se puede, y el
-    motivo cuesta una tarde encontrarlo:
+    Dos vías, por ese orden:
+      1. La variable TAURI_SIGNING_PRIVATE_KEY_PASSWORD, si ya viene puesta. Es la que se
+         usaría desde un script que llame a este, o desde CI el día que lo haya.
+      2. Preguntar por consola sin eco (Read-Host -AsSecureString), que es lo normal al
+         cortar un release a mano.
 
-    EN POWERSHELL, `$env:VAR = ""` BORRA LA VARIABLE. No la deja vacía: la elimina. Es la
-    semántica de [Environment]::SetEnvironmentVariable, que trata la cadena vacía igual que
-    $null. Se comprueba en dos líneas:
-
-        $env:PRUEBA = ""; Test-Path Env:\PRUEBA   # -> False
-
-    Y la clave de este proyecto se generó SIN contraseña, así que hay que pasarle a Tauri
-    un TAURI_SIGNING_PRIVATE_KEY_PASSWORD vacío. Al borrarse la variable, el CLI no la
-    encuentra, decide preguntar por consola ("Decrypting updater signing key, expect a
-    prompt for password") y el build SE QUEDA COLGADO PARA SIEMPRE esperando una pulsación
-    que en un script automatizado no va a llegar. No falla: se queda ahí.
-
-    ProcessStartInfo.Environment es un diccionario de verdad y sí admite el valor vacío, que
-    llega intacto al hijo. Sin redirigir la salida, el proceso hereda la consola y el
-    progreso de la compilación se sigue viendo en vivo.
-
-    Va por cmd.exe porque `npm` en Windows es `npm.cmd`, y CreateProcess no sabe ejecutar un
-    .cmd directamente cuando UseShellExecute es $false.
-
-    Las variables NO se tocan en la sesión del que ejecuta el script: viven y mueren con el
-    proceso hijo.
+    La SecureString hay que convertirla a texto plano porque es lo que espera Tauri en la
+    variable de entorno; se libera el BSTR en el finally para no dejar la copia en memoria
+    más de lo imprescindible. No es una garantía fuerte —el proceso hijo la recibe en claro
+    de todos modos—, pero evita que quede en el historial de la consola.
 #>
-function Invoke-BuildFirmado($rutaClave) {
+function Get-PasswordDeFirma {
+    if ($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
+        Info "Contraseña de firma tomada de TAURI_SIGNING_PRIVATE_KEY_PASSWORD."
+        return $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+    }
+
+    $segura = Read-Host "Contraseña de la clave de firma" -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($segura)
+    try   { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
+
+<#
+.SYNOPSIS
+    Ejecuta un comando con la clave de firma en el entorno del PROCESO HIJO, no en esta sesión.
+
+.DESCRIPTION
+    Dos razones para no hacer simplemente `$env:X = ...` y llamar a npm:
+
+    1. LA CLAVE NO DEBE QUEDARSE EN LA SESIÓN de quien ejecuta el script. Aquí vive y muere
+       con el proceso hijo.
+
+    2. EN POWERSHELL, `$env:VAR = ""` BORRA LA VARIABLE. No la deja vacía: la elimina, porque
+       [Environment]::SetEnvironmentVariable trata la cadena vacía igual que $null. Se
+       comprueba en dos líneas:
+
+           $env:PRUEBA = ""; Test-Path Env:\PRUEBA   # -> False
+
+       Con una clave SIN contraseña hay que pasar un TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+       vacío; al desaparecer la variable, el CLI decide preguntar por consola ("Decrypting
+       updater signing key, expect a prompt for password") y el build SE QUEDA COLGADO PARA
+       SIEMPRE esperando una pulsación que en un script automatizado no llega. No falla: se
+       queda ahí. Pasó de verdad el 2026-07-25 cortando la v1.1.0.
+
+       Hoy la clave de este proyecto SÍ tiene contraseña, así que ese caso concreto ya no se
+       da; ProcessStartInfo.Environment se mantiene porque sigue siendo lo correcto por (1)
+       y porque el día que alguien vuelva a una clave sin contraseña, seguirá funcionando.
+
+    Sin redirigir la salida, el hijo hereda la consola y el progreso se ve en vivo. Va por
+    cmd.exe porque `npm` en Windows es `npm.cmd` y CreateProcess no sabe ejecutar un .cmd
+    directamente con UseShellExecute a $false.
+
+    NOTA sobre el aviso PSAvoidUsingPlainTextForPassword del analizador: $password entra como
+    String a propósito y no como SecureString. Tauri lee la contraseña de una VARIABLE DE
+    ENTORNO, que es texto plano por definición, así que la conversión hay que hacerla sí o sí;
+    lo único que se puede elegir es dónde. Se hace lo antes posible en Get-PasswordDeFirma
+    —que sí usa SecureString para leerla del teclado y libera el BSTR— y desde ahí viaja en
+    claro el trecho mínimo, sin tocar la sesión del usuario ni el historial de la consola.
+#>
+function Invoke-ConClaveDeFirma($rutaClave, $password, $comando) {
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName         = "$env:ComSpec"
-    $psi.Arguments        = "/c npm run tauri build"
+    $psi.Arguments        = "/c $comando"
     $psi.WorkingDirectory = $root
     $psi.UseShellExecute  = $false
 
     $psi.Environment["TAURI_SIGNING_PRIVATE_KEY"] = (Read-Texto $rutaClave).Trim()
-    $psi.Environment["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"] = ""
+    $psi.Environment["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"] = $password
 
     $p = [System.Diagnostics.Process]::Start($psi)
     $p.WaitForExit()
@@ -261,13 +301,35 @@ try {
         Die @"
 No se encontró la clave de firma de actualizaciones: $SigningKey
 Sin ella el instalador sale sin .sig y los usuarios ya instalados no podrían actualizarse.
-Genera un par nuevo SOLO si no existe ninguno (uno nuevo invalida a todos los instalados):
-    npm run tauri signer generate -- -w "`$env:USERPROFILE\.tauri\processdevkill.key" --password ""
-y pon la clave pública en plugins.updater.pubkey de src-tauri/tauri.conf.json.
-O indica la ruta de la existente con -SigningKey.
+Si la tienes en otro sitio, indícala con -SigningKey.
+
+Generar un par NUEVO deja tirados a todos los usuarios ya instalados: su binario lleva
+grabada la clave pública vieja y rechazará lo que firme la nueva. Hazlo solo si no existe
+ninguna clave, o si la actual está comprometida:
+    npm run tauri signer generate -- -w "`$env:USERPROFILE\.tauri\processdevkill.key" -f
+(pedirá una contraseña; guárdala junto a la clave)
+y pon la clave pública resultante en plugins.updater.pubkey de src-tauri/tauri.conf.json.
 "@
     }
     Ok "Clave de firma encontrada: $SigningKey"
+
+    # La contraseña se pide AQUÍ, no antes del build: así el fallo por teclearla mal aparece
+    # en el primer minuto y no después de compilar. Se comprueba firmando un archivo de
+    # prueba, que es la única forma de saber que abre la clave sin esperar al build entero.
+    $firmaPassword = Get-PasswordDeFirma
+    $pruebaFirma = Join-Path $env:TEMP "pdk_prueba_firma_$Version.txt"
+    Write-Texto $pruebaFirma "comprobacion de la clave de firma`n"
+    try {
+        Info "Comprobando que la contraseña abre la clave..."
+        $r = Invoke-ConClaveDeFirma $SigningKey $firmaPassword "npx tauri signer sign `"$pruebaFirma`" > nul 2>&1"
+        if ($r -ne 0) {
+            Die "La contraseña no abre la clave de firma (o la clave no es válida). Release abortado antes de compilar."
+        }
+        Ok "La contraseña abre la clave."
+    }
+    finally {
+        Remove-Item $pruebaFirma, "$pruebaFirma.sig" -Force -ErrorAction SilentlyContinue
+    }
 
     # ── Pruebas ──────────────────────────────────────────────────────────────
     if ($SkipTests) {
@@ -380,14 +442,15 @@ O indica la ruta de la existente con -SigningKey.
     }
 
     # ── 2. Compilar los instaladores, firmados ───────────────────────────────
-    # Tauri firma cada bundle y deja un .sig al lado cuando encuentra la clave en el
-    # entorno. Se pasa el CONTENIDO, no la ruta: es la forma documentada y la misma que
-    # se usaria en CI. La variable se limpia en el finally para no dejarla colgando en
-    # la sesión de quien ejecute el script a mano.
+    # Tauri firma cada bundle y deja un .sig al lado cuando encuentra la clave en el entorno,
+    # PERO solo si bundle.createUpdaterArtifacts está a true en tauri.conf.json: viene a false
+    # de fábrica y sin ella compila los instaladores sin firmar y sin quejarse. De ahí la
+    # comprobación del .sig unas líneas más abajo.
     Info "Compilando los instaladores, firmados (esto tarda varios minutos)..."
-    # La clave se le pasa al proceso hijo, no a esta sesión. Ver Invoke-BuildFirmado: el
-    # motivo no es estético, es que $env:VAR = "" borra la variable y cuelga el build.
-    if ((Invoke-BuildFirmado $SigningKey) -ne 0) { Die "La compilación de los instaladores falló." }
+    # La clave y su contraseña van al proceso hijo, no a esta sesión. Ver Invoke-ConClaveDeFirma.
+    if ((Invoke-ConClaveDeFirma $SigningKey $firmaPassword "npm run tauri build") -ne 0) {
+        Die "La compilación de los instaladores falló."
+    }
 
     if (-not (Test-Path $setup)) { Die "No se encontró el instalador NSIS esperado: $setup" }
     if (-not (Test-Path $msi))   { Die "No se encontró el MSI esperado: $msi" }
@@ -492,7 +555,7 @@ O indica la ruta de la existente con -SigningKey.
     Ok "Release $tag publicado: $repo/releases/tag/$tag"
 }
 finally {
-    # No hay variables de entorno que limpiar: la clave vive solo dentro del proceso hijo
-    # que lanza Invoke-BuildFirmado y muere con él.
+    # No hay variables de entorno que limpiar: la clave y su contraseña viven solo dentro de
+    # los procesos hijos que lanza Invoke-ConClaveDeFirma, y mueren con ellos.
     Pop-Location
 }

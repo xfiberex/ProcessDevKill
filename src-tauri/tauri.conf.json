@@ -26,7 +26,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENGRjZGRUUwRTU4QjZCMzYKUldRMmE0dmw0UDcyejJWd1FxT0JCeURzcVgwQ1lsdVF2NTRHaHVRZWZnYk0vcHhJazRleVFRUE4K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCODAyMTU3MTgwNTIzQQpSV1E2VW9CeEZRSzREQlpRRGtWUEFpcHJlZEFOdEZOQ2t6Y1BRMjBZOG1nNnNtUFRZaG9MQ0JMcwo=",
       "endpoints": [
         "https://github.com/xfiberex/ProcessDevKill/releases/latest/download/latest.json"
       ],

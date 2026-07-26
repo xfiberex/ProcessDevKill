@@ -134,8 +134,13 @@ Lo que este esquema **no** hace, dicho claramente:
   distintas y esa requiere un certificado de pago que el proyecto todavía no tiene.
 - **No protege a quien instale a mano.** Si te bajas el `.exe` de Releases y lo ejecutas, ahí no
   interviene ninguna verificación de firma; te queda el `.sha256` y confiar en GitHub.
-- **No cubre a quien tenga la v1.0.0.** Esa versión se publicó sin actualizador, así que no se
-  enterará de nada por su cuenta: hay que instalar la nueva a mano una vez.
+- **No cubre a quien tenga la v1.0.0 ni la v1.1.0.** La v1.0.0 se publicó sin actualizador. La
+  v1.1.0 lo tenía, pero su clave de firma **se rotó** (ver abajo), y una instalación solo acepta
+  actualizaciones de la clave con la que nació. En ambos casos hay que instalar a mano una vez.
+- **Una rotación de clave obliga a reinstalar a mano.** Ocurrió entre la v1.1.0 y la v1.1.1: la
+  clave original quedó expuesta y se sustituyó por otra, esta vez protegida con contraseña. No es
+  un fallo del esquema —es exactamente lo que debe pasar cuando una clave deja de ser fiable—,
+  pero conviene saber que el precio de rotar lo paga quien ya tenga la app instalada.
 - **Depende de que la clave privada siga existiendo.** Si se perdiera, habría que generar otra, y
   ninguna instalación anterior aceptaría ya las actualizaciones firmadas con ella.
 
