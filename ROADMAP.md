@@ -356,7 +356,14 @@ pero no nombra. Un lector de pantalla los anunciaba sin decir qué eran. Se les 
 - [x] Un `.sha256` que no contenga un hash de 64 caracteres hexadecimales **se rechaza** en vez de compararse. Un "404: Not Found" guardado como si fuera el hash daría "no coincide", pero por el motivo equivocado.
 - [x] **11 pruebas de frontend** sobre el hook: modo silencioso, reutilización de lo encontrado sin volver a consultar, cálculo del porcentaje, barra indeterminada sin tamaño total, y que un hash que no cuadra **se enseña como error y no llega a instalar nada**.
 
-> ⚠️ **Queda sin probar en vivo la descarga e instalación**, que necesita un release posterior a éste para que uno encuentre al otro. Lo demás —consulta, comparación y rechazo— está cubierto por pruebas.
+**Contra el release v1.1.1 ya publicado** (2026-07-26):
+
+- [x] El release lleva sus **4 assets**: los dos instaladores y sus dos `.sha256`.
+- [x] La API que consulta la app (`/repos/xfiberex/ProcessDevKill/releases/latest`) responde **200** con `tag_name: v1.1.1`.
+- [x] Aplicando la misma lógica de `pick_assets` sobre la respuesta real, se elige el **`-setup.exe`** y **su** `.sha256` — no el del MSI, que es el error fácil de cometer.
+- [x] **Descargado el instalador publicado y verificado contra el hash publicado: coinciden.** Es la cadena entera que recorrerá la app —API → elección de assets → descarga → hash → comparación—, hecha sobre los archivos reales, no sobre datos de prueba.
+
+> ⚠️ **Queda sin ejecutar en vivo el último paso**: lanzar el instalador y que reemplace la app. Necesita un release posterior a éste para que uno encuentre al otro; todo lo anterior está verificado.
 
 ### 6. Herramientas del repositorio — ✅ **completado**
 

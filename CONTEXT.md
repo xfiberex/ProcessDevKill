@@ -61,7 +61,7 @@ Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el
 
 Añadido el 2026-07-25: **98 pruebas de frontend** (Vitest + Testing Library) donde antes había cero, y **auto-actualización** con firma minisign. El remoto local ya apunta a la URL nueva.
 
-> ⚠️ **Salvedad abierta: la descarga e instalación de una actualización no está probada en vivo**, y no puede estarlo hasta que exista un release posterior al actual. Lo demás —consultar, comparar versiones y rechazar lo que no verifica— está cubierto por 13 pruebas de Rust y 11 de frontend. Detalle en ROADMAP §Tier 6.5.
+> ⚠️ **Salvedad abierta: falta ejecutar en vivo el último paso**, lanzar el instalador para que reemplace la app. Necesita un release posterior al actual. Todo lo anterior sí se verificó contra la v1.1.1 publicada: la API responde 200, la elección de assets acierta el `-setup.exe` y su `.sha256` (no el del MSI), y **el instalador descargado coincide con el hash publicado**. Detalle en ROADMAP §Tier 6.5.
 
 > **El actualizador se rehízo el 2026-07-26.** La primera versión usaba `tauri-plugin-updater` con firmas minisign; se descartó por decisión del usuario tras dos días de fricción con la clave, y se sustituyó por el modelo de FormatDiskPro: GitHub Releases + verificación **SHA-256** antes de ejecutar. Ya no hay claves que custodiar.
 
@@ -253,7 +253,10 @@ La copia pública **se compila dentro de cada binario**: toda instalación de la
 - **13 pruebas nuevas de Rust** (35 en total) sobre la lógica pura, y 11 de frontend reescritas (101 en total). Las que más valen: que `is_newer` no diga que sí ante una etiqueta ilegible, y que un `.sha256` que no sea un hash de 64 hexadecimales se rechace en vez de compararse —un "404: Not Found" guardado como hash daría "no coincide", pero por el motivo equivocado—.
 - **`sha2` 0.11 no vale**: es una preliberación cuya API ya no implementa `io::Write` ni `LowerHex` sobre la salida. Se fija la 0.10.
 - **El `.sha256` deja de ser cortesía y pasa a ser el mecanismo.** Anotado en `release.ps1`: un release sin él hace que la app se niegue a actualizarse a esa versión.
-- La clave minisign y su `.gitignore` quedan retirados: ya no hay nada que firmar.
+- La clave minisign queda borrada del disco: ya no hay nada que firmar ni que custodiar.
+- **Fallo latente que salió al probarlo:** el dry run murió en `cargo test` **con los 35 tests en verde**. `cargo` emite un aviso del enlazador por stderr y PS 5.1 lo convierte en `NativeCommandError` cuando la salida está capturada. El script documentaba ese peligro desde el primer día y tenía `Invoke-Git` para git, pero cargo y npm estaban desprotegidos; ahora hay `Invoke-Nativo`.
+  - ⚠️ El primer arreglo **no funcionaba**: pasar un scriptblock y bajar `$ErrorActionPreference` dentro de la función no sirve, porque un scriptblock se evalúa con las variables de preferencia del ámbito donde se **definió**, no donde se invoca. Hay que ejecutar el comando dentro de la función, como hace `Invoke-Git`.
+- **v1.1.1 publicada y verificada contra el release real**: 4 assets, la API responde 200, la elección de assets acierta el `-setup.exe` y su `.sha256` (no el del MSI), y el instalador descargado coincide con el hash publicado.
 
 ### 2026-07-26 — Rotación de la clave de firma (histórico, ya superado)
 
