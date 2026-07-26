@@ -5,7 +5,7 @@
 .DESCRIPTION
     Flujo completo en un paso:
       1. Valida la versión y el árbol de trabajo.
-      2. Ejecuta las pruebas (salvo -SkipTests): `cargo test` y `npm run build`.
+      2. Ejecuta las pruebas (salvo -SkipTests): `cargo test`, `npm test` y `npm run build`.
       3. Actualiza la versión en los TRES sitios donde vive.
       4. Compila los instaladores con `npm run tauri build` (NSIS + MSI).
       5. Genera el .sha256 de cada instalador.
@@ -44,7 +44,7 @@
     Ruta a un archivo Markdown con las notas del release. Si se omite, se genera una plantilla.
 
 .PARAMETER SkipTests
-    Omite `cargo test` y `npm run build`.
+    Omite `cargo test`, `npm test` y `npm run build`.
 
 .PARAMETER AllowDirty
     Permite continuar con archivos sin rastrear en el árbol de trabajo.
@@ -199,6 +199,14 @@ try {
         } finally { Pop-Location }
         Ok "Tests de Rust correctos."
 
+        # Pruebas del frontend (Vitest + Testing Library, Tier 6.4). Corren en jsdom con los
+        # modulos de Tauri doblados, asi que no tocan procesos reales ni necesitan la ventana:
+        # son seguras dentro de un corte de release, igual que las de Rust.
+        Info "Ejecutando los tests del frontend..."
+        & npm test
+        if ($LASTEXITCODE -ne 0) { Die "Los tests del frontend fallaron. Release abortado." }
+        Ok "Tests del frontend correctos."
+
         # `npm run build` es `tsc && vite build`: comprueba los tipos del frontend. Vale la pena
         # aparte, aunque `tauri build` lo repita, para fallar antes de empezar a compilar Rust.
         Info "Comprobando tipos y compilando el frontend..."
@@ -253,7 +261,7 @@ try {
         Write-Host "    6. gh release create $tag con 4 assets:" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256)" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
-        if (-not $SkipTests) { Write-Host "    Pruebas ya ejecutadas en este dry run: cargo test + npm run build" -ForegroundColor DarkGray }
+        if (-not $SkipTests) { Write-Host "    Pruebas ya ejecutadas en este dry run: cargo test + npm test + npm run build" -ForegroundColor DarkGray }
         if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
         Ok "Dry run completado."
         return

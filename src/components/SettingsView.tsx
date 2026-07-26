@@ -255,6 +255,9 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
             }}
+            // El texto de al lado va en aria-describedby, que es descripcion y no
+            // nombre: sin este aria-label el campo se anuncia sin decir que es.
+            aria-label="Umbral de RAM en MB"
             aria-describedby="auto-kill-equivalencia"
             className="w-28 tabular-nums"
           />
@@ -306,6 +309,7 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
             }}
+            aria-label="Minutos sin actividad"
             aria-describedby="zombie-explicacion"
             className="w-28 tabular-nums"
           />
