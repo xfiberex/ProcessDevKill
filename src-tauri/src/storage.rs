@@ -175,7 +175,10 @@ impl Storage {
             return T::default(); // Todavia no existe: primera ejecucion.
         };
         serde_json::from_str(&raw).unwrap_or_else(|e| {
-            eprintln!("{} esta corrupto ({e}); se usan los valores por defecto", path.display());
+            eprintln!(
+                "{} esta corrupto ({e}); se usan los valores por defecto",
+                path.display()
+            );
             T::default()
         })
     }
@@ -220,7 +223,8 @@ mod tests {
     use super::*;
 
     fn temp_storage(nombre: &str) -> Storage {
-        let dir = std::env::temp_dir().join(format!("processdevkill-test-{nombre}-{}", now_millis()));
+        let dir =
+            std::env::temp_dir().join(format!("processdevkill-test-{nombre}-{}", now_millis()));
         Storage::new(dir)
     }
 
@@ -316,7 +320,11 @@ mod tests {
         let settings = storage.load_settings();
         assert_eq!(settings.custom_names, vec!["php".to_string()]);
         assert!(!settings.hotkey_enabled);
-        assert_eq!(settings.theme, Theme::System, "el campo nuevo toma su valor por defecto");
+        assert_eq!(
+            settings.theme,
+            Theme::System,
+            "el campo nuevo toma su valor por defecto"
+        );
         assert!(
             !settings.auto_kill_enabled,
             "actualizar la app JAMAS debe encender solo el Auto-Kill"
@@ -335,7 +343,9 @@ mod tests {
             source: KillSource::Window,
         };
 
-        storage.append_history(vec![entrada(1), entrada(2)]).unwrap();
+        storage
+            .append_history(vec![entrada(1), entrada(2)])
+            .unwrap();
         storage.append_history(vec![entrada(3)]).unwrap();
 
         let history = storage.load_history();

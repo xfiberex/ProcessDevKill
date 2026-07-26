@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Clave privada de firma del actualizador. Nunca debe entrar en el repositorio:
+# vive en %USERPROFILE%\.tauri\. Esta regla es solo una red por si alguien la copia aqui.
+*.key
+*.key.pub

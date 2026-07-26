@@ -249,7 +249,11 @@ pub fn pids_of_runtime(sys: &mut System, custom: &[String], runtime: Runtime) ->
 }
 
 /// Termina un unico proceso vigilado. Devuelve su nombre y los puertos liberados.
-pub fn kill_one(sys: &mut System, custom: &[String], pid: u32) -> Result<(String, Vec<u16>), String> {
+pub fn kill_one(
+    sys: &mut System,
+    custom: &[String],
+    pid: u32,
+) -> Result<(String, Vec<u16>), String> {
     let target = Pid::from_u32(pid);
 
     // Releer solo este PID antes de matarlo: si el sistema lo reciclo desde el
@@ -512,7 +516,11 @@ mod tests {
             assert!(p.pid > 0, "PID invalido");
             assert!(!p.name.is_empty(), "nombre vacio");
             assert!(p.memory_mb > 0.0, "{} sin memoria residente", p.name);
-            assert!(p.cpu >= 0.0 && p.cpu <= 100.0, "CPU fuera de rango: {}", p.cpu);
+            assert!(
+                p.cpu >= 0.0 && p.cpu <= 100.0,
+                "CPU fuera de rango: {}",
+                p.cpu
+            );
         }
 
         for pair in processes.windows(2) {

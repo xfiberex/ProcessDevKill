@@ -4,14 +4,19 @@ import { resolveResource } from "@tauri-apps/api/path";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import {
+  CheckIcon,
+  DownloadIcon,
   ExternalLinkIcon,
   FileTextIcon,
   MonitorIcon,
   MoonIcon,
+  RefreshCwIcon,
   ScaleIcon,
   SunIcon,
+  TriangleAlertIcon,
   XIcon,
 } from "lucide-react";
+import { useUpdater } from "../update";
 import {
   AUTO_KILL_MIN_MB,
   THEMES,
@@ -26,6 +31,15 @@ import { Switch } from "@/components/ui/switch";
 type SettingsViewProps = {
   settings: Settings;
   onChange: (settings: Settings) => void;
+  /**
+   * El estado del actualizador vive en App, no aqui.
+   *
+   * `useUpdater` guarda en una ref la actualizacion encontrada para no repetir
+   * la consulta al pulsar "Instalar". Si el hook viviera en esta vista, cambiar
+   * a Procesos y volver la perderia, y el aviso del arranque —que sale con
+   * Ajustes sin montar— no tendria donde apuntarse lo que encontro.
+   */
+  updater: ReturnType<typeof useUpdater>;
 };
 
 const THEME_ICONS: Record<Theme, typeof SunIcon> = {
@@ -34,7 +48,7 @@ const THEME_ICONS: Record<Theme, typeof SunIcon> = {
   dark: MoonIcon,
 };
 
-export function SettingsView({ settings, onChange }: SettingsViewProps) {
+export function SettingsView({ settings, onChange, updater }: SettingsViewProps) {
   const [draft, setDraft] = useState("");
   const [mbDraft, setMbDraft] = useState(String(settings.autoKillMb));
 
@@ -320,6 +334,16 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
       </section>
 
       <section>
+        <h2 className="font-heading text-sm font-semibold">Actualizaciones</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          La app comprueba al arrancar si hay una versión nueva en GitHub. Es lo{" "}
+          <strong className="font-medium text-foreground">único</strong> que
+          consulta en la red, y solo descarga si lo confirmas.
+        </p>
+        <Actualizaciones updater={updater} />
+      </section>
+
+      <section>
         <h2 className="font-heading text-sm font-semibold">Acerca de</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           ProcessDevKill{version && ` ${version}`} — software libre bajo{" "}
@@ -375,6 +399,91 @@ export function SettingsView({ settings, onChange }: SettingsViewProps) {
           </label>
         </div>
       </section>
+    </div>
+  );
+}
+
+/** Buscar e instalar actualizaciones. El estado lo pone App (ver la prop). */
+function Actualizaciones({ updater }: { updater: SettingsViewProps["updater"] }) {
+  const { state, buscar, instalar } = updater;
+
+  const ocupado =
+    state.fase === "buscando" ||
+    state.fase === "descargando" ||
+    state.fase === "instalando";
+
+  return (
+    <div className="mt-3 space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="outline" onClick={() => buscar()} disabled={ocupado}>
+          <RefreshCwIcon className={state.fase === "buscando" ? "animate-spin" : ""} />
+          Buscar actualizaciones
+        </Button>
+
+        {state.fase === "al-dia" && (
+          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <CheckIcon className="size-4 text-emerald-600 dark:text-emerald-500" />
+            Ya tienes la última versión.
+          </span>
+        )}
+
+        {state.fase === "error" && (
+          <span className="flex items-start gap-1.5 text-sm text-destructive">
+            <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+            No se pudo comprobar: {state.mensaje}
+          </span>
+        )}
+      </div>
+
+      {state.fase === "disponible" && (
+        <div className="rounded-lg border border-border bg-muted/40 p-3">
+          <p className="text-sm">
+            Hay una versión nueva:{" "}
+            <strong className="font-medium">v{state.version}</strong>
+          </p>
+          {state.notas && (
+            <p className="mt-1 max-h-32 overflow-y-auto text-sm whitespace-pre-line text-muted-foreground">
+              {state.notas}
+            </p>
+          )}
+          <Button className="mt-3" onClick={instalar}>
+            <DownloadIcon />
+            Descargar e instalar
+          </Button>
+          <p className="mt-2 text-xs text-muted-foreground">
+            La app se cerrará para instalar y volverá a abrirse sola.
+          </p>
+        </div>
+      )}
+
+      {state.fase === "descargando" && (
+        <div className="rounded-lg border border-border bg-muted/40 p-3">
+          <p className="text-sm">
+            Descargando…
+            {state.porcentaje !== null && ` ${state.porcentaje} %`}
+          </p>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full bg-primary transition-[width] ${
+                // Sin Content-Length no hay porcentaje: barra al 100 % y a media
+                // opacidad, para que se vea que avanza sin mentir con un numero.
+                state.porcentaje === null ? "w-full opacity-50" : ""
+              }`}
+              style={
+                state.porcentaje === null
+                  ? undefined
+                  : { width: `${state.porcentaje}%` }
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      {state.fase === "instalando" && (
+        <p className="text-sm text-muted-foreground">
+          Instalando y reiniciando…
+        </p>
+      )}
     </div>
   );
 }

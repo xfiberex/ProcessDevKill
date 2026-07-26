@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import type { ProcessInfo, Runtime } from "../types";
+import type { UpdateState } from "../update";
 
 /**
  * Dobles de todo lo que el frontend le pide a Tauri.
@@ -28,6 +29,21 @@ export const openUrl = vi.fn(async () => {});
 export const getVersion = vi.fn(async () => "0.0.0-test");
 export const resolveResource = vi.fn(async (nombre: string) => `/recursos/${nombre}`);
 
+/** Plugin de actualizacion: por defecto, no hay version nueva. */
+export const check = vi.fn(async (): Promise<unknown> => null);
+export const relaunch = vi.fn(async () => {});
+
+/**
+ * Doble del hook `useUpdater` para las pruebas de SettingsView.
+ *
+ * La vista solo pinta el estado y llama a las dos acciones; probar el hook de
+ * verdad ahi mezclaria dos cosas. La logica del hook se prueba aparte contra
+ * `check`, en update.test.ts.
+ */
+export function updaterFalso(state: UpdateState = { fase: "reposo" }) {
+  return { state, buscar: vi.fn(async () => null), instalar: vi.fn(async () => {}) };
+}
+
 export function resetTauriMocks() {
   for (const fn of [
     invoke,
@@ -38,9 +54,12 @@ export function resetTauriMocks() {
     openUrl,
     getVersion,
     resolveResource,
+    check,
+    relaunch,
   ]) {
     fn.mockClear();
   }
+  check.mockImplementation(async () => null);
 
   // Valores por defecto sanos: `invoke` responde a cada comando lo que responde
   // Rust en el caso normal. Una prueba que necesite otra cosa lo sobreescribe.

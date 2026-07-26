@@ -13,6 +13,7 @@ import type {
 } from "./types";
 import { RUNTIME_ICONS } from "./icons";
 import { ThemeProvider } from "./theme";
+import { useUpdater } from "./update";
 import { ProcessTable } from "./components/ProcessTable";
 import { HistoryView } from "./components/HistoryView";
 import { SettingsView } from "./components/SettingsView";
@@ -57,6 +58,7 @@ export default function App() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [killing, setKilling] = useState<Set<number>>(new Set());
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const updater = useUpdater();
 
   const applyList = useCallback((list: ProcessInfo[]) => {
     setProcesses(list);
@@ -107,6 +109,32 @@ export default function App() {
   useEffect(() => {
     if (view === "history") loadHistory();
   }, [view, loadHistory]);
+
+  /**
+   * Comprobacion de actualizaciones al arrancar, en silencio.
+   *
+   * En silencio porque un fallo aqui es de lo mas normal —equipo sin red, VPN
+   * levantandose— y no merece un error en la cara nada mas abrir la app. Si hay
+   * version nueva se avisa con un toast que lleva a Ajustes, donde esta el boton
+   * de instalar: descargar y reiniciar no puede pasar sin que el usuario lo pida.
+   */
+  const { buscar: buscarActualizacion } = updater;
+  useEffect(() => {
+    let cancelado = false;
+
+    buscarActualizacion(true).then((version) => {
+      if (cancelado || !version) return;
+      toast.info(`ProcessDevKill v${version} disponible`, {
+        description: "Ábrelo en Ajustes para descargarlo e instalarlo.",
+        action: { label: "Ajustes", onClick: () => setView("settings") },
+        duration: 12_000,
+      });
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [buscarActualizacion]);
 
   async function saveSettings(next: Settings) {
     setSettings(next); // Optimista: la UI responde al instante.
@@ -353,7 +381,11 @@ export default function App() {
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             {view === "settings" && (
-              <SettingsView settings={settings} onChange={saveSettings} />
+              <SettingsView
+                settings={settings}
+                onChange={saveSettings}
+                updater={updater}
+              />
             )}
 
             {view === "history" && (

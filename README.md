@@ -48,6 +48,7 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
   solo lo señala.
 - **Historial** de cierres con el origen de cada uno: ventana, bandeja, atajo o Auto-Kill.
 - Tema claro/oscuro que sigue al de Windows, o fijo si lo prefieres.
+- **Avisa de versiones nuevas** al arrancar y las instala desde Ajustes, verificando la firma.
 
 ## Capturas
 
@@ -79,6 +80,7 @@ Desde la **[página de releases](https://github.com/xfiberex/ProcessDevKill/rele
 | `ProcessDevKill_X.Y.Z_x64-setup.exe` | **Recomendado** (NSIS). Instala en `%LOCALAPPDATA%\ProcessDevKill` para el usuario actual, sin pedir permisos de administrador. | ~2,4 MB |
 | `ProcessDevKill_X.Y.Z_x64_en-US.msi` | MSI, para despliegue por directiva de grupo o quien lo prefiera. | ~3,5 MB |
 | `*.sha256` | El hash de cada instalador, por si quieres verificar la descarga. | — |
+| `latest.json`, `*.sig` | Los usa el actualizador de la app; no hay que descargarlos a mano. | — |
 
 Requiere **Windows 10 o 11 (x64)** con **WebView2**, que viene de serie en Windows 11 y en Windows
 10 actualizado. No hay versión de macOS ni de Linux: la app usa `sysinfo` y `listeners`, que sí son
@@ -104,22 +106,59 @@ El resultado tiene que coincidir con el contenido del `.sha256` que acompaña al
 `sha256sum`: el hash y el nombre del archivo).
 
 > **Qué protege y qué no.** El hash viaja por el mismo sitio que el instalador, así que sirve para
-> detectar una descarga corrupta o a medias, no para demostrar quién publicó el archivo. Para eso
-> haría falta una firma, y la app tampoco tiene auto-actualización que verifique nada por su cuenta.
-> Está en el [roadmap](ROADMAP.md#5-auto-actualización).
+> detectar una descarga corrupta o a medias, **no** para demostrar quién publicó el archivo. Es
+> cortesía para la primera instalación, y el actualizador **no lo usa**: ese verifica firmas, como
+> se explica abajo.
+
+## Actualizaciones
+
+Desde la v1.1.0, la app comprueba al arrancar si hay una versión nueva y avisa con un toast. La
+descarga y la instalación **no ocurren solas**: se lanzan desde *Ajustes → Actualizaciones*, con el
+número de versión y las notas delante. Al terminar, la app se reinicia sola.
+
+### El modelo de confianza, y qué no cubre
+
+Lo que autoriza una actualización es una firma **minisign**, no el `.sha256`:
+
+- Cada release publica un `latest.json` y un `.sig` del instalador. La app trae **compilada dentro
+  del binario** la clave pública (`plugins.updater.pubkey` en
+  [`tauri.conf.json`](src-tauri/tauri.conf.json)), y rechaza cualquier descarga cuya firma no
+  valide contra ella.
+- Por eso **no basta con manipular el `latest.json`**: sin la clave privada correspondiente, un
+  instalador sustituido no llega a ejecutarse. La clave privada no está en este repositorio; vive
+  en la máquina desde la que se cortan los releases.
+
+Lo que este esquema **no** hace, dicho claramente:
+
+- **No sustituye a la firma de código.** SmartScreen seguirá avisando la primera vez: son cosas
+  distintas y esa requiere un certificado de pago que el proyecto todavía no tiene.
+- **No protege a quien instale a mano.** Si te bajas el `.exe` de Releases y lo ejecutas, ahí no
+  interviene ninguna verificación de firma; te queda el `.sha256` y confiar en GitHub.
+- **No cubre a quien tenga la v1.0.0.** Esa versión se publicó sin actualizador, así que no se
+  enterará de nada por su cuenta: hay que instalar la nueva a mano una vez.
+- **Depende de que la clave privada siga existiendo.** Si se perdiera, habría que generar otra, y
+  ninguna instalación anterior aceptaría ya las actualizaciones firmadas con ella.
 
 ## Privacidad
 
 Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz alta qué hace con ella:
 
-- **No sale nada de tu máquina.** No hay telemetría, ni analítica, ni comprobación de versiones. La
-  app no tiene concedido ningún permiso de red en sus [capabilities](src-tauri/capabilities/default.json).
+- **Nada de lo que lee sale de tu máquina.** No hay telemetría ni analítica: ni la lista de
+  procesos, ni los puertos, ni el historial se envían a ningún sitio.
 - Lee **nombre, PID, CPU, RAM, tiempo activo y puertos TCP en escucha** de los procesos vigilados.
   No lee la línea de comandos, ni variables de entorno, ni el contenido de nada.
 - Los ajustes y el historial se guardan **en tu equipo**, en `%APPDATA%\com.processdevkill.app\`
   (`settings.json` e `history.json`). Se pueden abrir, copiar entre equipos o borrar; el historial
   se puede vaciar desde la propia app y tiene un tope de 200 entradas.
-- Lo único que sale al exterior es el navegador que abres tú al pulsar **Repositorio** en Ajustes.
+- **La única petición de red que hace la app** es la comprobación de actualizaciones: al arrancar
+  pide un archivo `latest.json` a `github.com` para comparar versiones. Es una descarga normal, sin
+  identificador ni cuenta; GitHub verá tu IP como la vería si abrieras la página. No se descarga
+  nada más sin que lo confirmes tú.
+- Lo demás que sale al exterior lo abres tú: el navegador al pulsar **Repositorio** en Ajustes.
+
+Los permisos concedidos a la ventana son comprobables, y son los mínimos para lo anterior:
+[`capabilities/default.json`](src-tauri/capabilities/default.json). El del portapapeles es de
+**escritura únicamente** y el de reinicio no permite a la app cerrarse sola por su cuenta.
 
 ## Cómo funciona
 
@@ -174,7 +213,8 @@ Cuatro decisiones explican casi todo el diseño; el resto están en
 | Animaciones | **Motion** (`motion/react`) |
 | Procesos | crate **`sysinfo`** |
 | Puertos por PID | crate **`listeners`** — `sysinfo` no los expone |
-| Plugins Tauri | `notification`, `global-shortcut`, `clipboard-manager`, `opener` + `tray-icon` |
+| Pruebas | **Vitest + Testing Library** (frontend) y `cargo test` (backend) |
+| Plugins Tauri | `notification`, `global-shortcut`, `clipboard-manager`, `opener`, `updater`, `process` + `tray-icon` |
 
 ## Desarrollo
 
@@ -191,16 +231,24 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
+npm test                      # 98 pruebas del frontend (Vitest + Testing Library)
+npm run test:watch            # las mismas, en modo vigilancia
 cd src-tauri && cargo test    # 22 pruebas del backend
 ```
 
 Las pruebas de Rust leen los procesos reales del equipo y **solo matan procesos que lanzan ellas
-mismas**; ninguna toca los tuyos.
+mismas**; ninguna toca los tuyos. Las del frontend corren en jsdom con los módulos de Tauri
+doblados, así que no abren ninguna ventana ni tocan procesos.
+
+Cubren lo que más caro sale romper: que <kbd>Escape</kbd> cancela el diálogo destructivo sin matar
+nada, la búsqueda por puerto, el suelo de 256 MB del Auto-Kill y que el portapapeles va por el
+plugin de Tauri. [`src/types.test.ts`](src/types.test.ts) además lee el fuente de Rust y compara las
+constantes espejo, para que el contrato entre los dos lados no se desincronice en silencio.
 
 | Herramienta | Para qué |
 |---|---|
 | [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1) | Regenera las capturas del README conduciendo la app por CDP. |
-| [`release.ps1`](release.ps1) | Corta una versión entera: pruebas, bump en los tres sitios, build, tag y GitHub Release. Admite `-DryRun`. |
+| [`release.ps1`](release.ps1) | Corta una versión entera: pruebas, bump en los tres sitios, build firmado, `latest.json`, tag y GitHub Release. Admite `-DryRun`. |
 | `npm run tauri icon app-icon.svg` | Regenera todos los tamaños de icono tras editar `app-icon.svg`. |
 
 ## Estructura
@@ -219,10 +267,12 @@ mismas**; ninguna toca los tuyos.
 
 ## Estado
 
-La v1.0.0 está publicada y verificada sobre la app instalada. Lo que todavía **no** hay, por si
-importa antes de instalarla: firma de código (de ahí el aviso de SmartScreen), auto-actualización,
-pruebas automáticas del frontend y compilaciones para macOS o Linux. El plan está en el
-[ROADMAP](ROADMAP.md).
+Publicada y verificada sobre la app instalada. Lo que todavía **no** hay, por si importa antes de
+instalarla: **firma de código** (de ahí el aviso de SmartScreen) y compilaciones para **macOS o
+Linux**. El plan está en el [ROADMAP](ROADMAP.md).
+
+Si tienes la **v1.0.0**, esa se publicó antes del actualizador y no avisa de nada: instala la
+versión nueva a mano una vez y a partir de ahí ya se avisa sola.
 
 ## Licencia
 

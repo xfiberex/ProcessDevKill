@@ -7,11 +7,11 @@
       1. Valida la versión y el árbol de trabajo.
       2. Ejecuta las pruebas (salvo -SkipTests): `cargo test`, `npm test` y `npm run build`.
       3. Actualiza la versión en los TRES sitios donde vive.
-      4. Compila los instaladores con `npm run tauri build` (NSIS + MSI).
-      5. Genera el .sha256 de cada instalador.
+      4. Compila los instaladores con `npm run tauri build` (NSIS + MSI), firmados.
+      5. Genera el .sha256 de cada instalador y el latest.json del actualizador.
       6. Commit del bump de versión + tag anotado vX.Y.Z.
       7. Push de la rama y el tag a origin.
-      8. Crea el GitHub Release adjuntando los dos instaladores y sus .sha256.
+      8. Crea el GitHub Release adjuntando instaladores, .sha256, .sig y latest.json.
 
     Para 'gh' reutiliza la credencial de GitHub ya cacheada (la del push) si no
     estuviera autenticado; nunca se imprime el token.
@@ -24,15 +24,21 @@
     cambiar Cargo.toml se corre `cargo check` para que Cargo.lock quede al día; si no, el
     commit del release deja el árbol sucio justo después de haberlo commiteado.
 
-    SOBRE EL .sha256: aquí es cortesía para quien quiera verificar la descarga, NO un requisito.
-    ProcessDevKill no tiene auto-actualización, así que nadie lo comprueba de forma automática
-    (a diferencia de FormatDiskPro, de donde viene este script). Si algún día se añade
-    `tauri-plugin-updater`, ese verifica con firmas minisign y un latest.json, no con SHA-256:
-    habrá que añadir la firma, no reutilizar el hash.
+    DOS FIRMAS DISTINTAS, NO CONFUNDIRLAS:
 
-    SIN FIRMAR: Windows enseñará el aviso de SmartScreen ("editor desconocido") al instalar.
-    Firmar es lo deseable; en Tauri se configura con `bundle.windows.certificateThumbprint`
-    en tauri.conf.json (o variables de entorno), no llamando a signtool a mano.
+      - minisign (SÍ la hay, desde el Tier 6.5). Es lo que verifica el actualizador: la
+        clave pública va compilada en el binario y la privada vive FUERA del repositorio,
+        en la máquina que corta releases. Firma los bundles y produce los .sig. Perderla
+        significa que los usuarios ya instalados no podrán volver a actualizarse nunca,
+        porque una clave nueva no valida lo que firmó la vieja.
+
+      - firma de código Authenticode (NO la hay). Es la que quita el aviso de SmartScreen
+        ("editor desconocido"). Requiere un certificado de pago; en Tauri se configuraría
+        con `bundle.windows.certificateThumbprint`, no llamando a signtool a mano.
+
+    Y EL .sha256 no es ninguna de las dos: es cortesía para verificar a mano una descarga
+    corrupta. El actualizador NO lo mira; viaja por el mismo sitio que el instalador, así
+    que no demuestra quién publicó el archivo.
 
     Las pruebas de Rust son seguras para un corte de release: leen los procesos del sistema y
     solo matan procesos que ellas mismas lanzan. Ninguna toca los del usuario.
@@ -42,6 +48,10 @@
 
 .PARAMETER NotesFile
     Ruta a un archivo Markdown con las notas del release. Si se omite, se genera una plantilla.
+
+.PARAMETER SigningKey
+    Ruta a la clave privada minisign que firma la actualización. Por defecto
+    %USERPROFILE%\.tauri\processdevkill.key, o TAURI_SIGNING_PRIVATE_KEY_PATH si está puesta.
 
 .PARAMETER SkipTests
     Omite `cargo test`, `npm test` y `npm run build`.
@@ -60,6 +70,7 @@
 param(
     [string]$Version,
     [string]$NotesFile,
+    [string]$SigningKey,
     [switch]$SkipTests,
     [switch]$AllowDirty,
     [switch]$DryRun
@@ -161,6 +172,18 @@ if ($currentVersion -and $currentVersion -ne $Version) {
 $setup = Join-Path $bundleDir "nsis\ProcessDevKill_${Version}_x64-setup.exe"
 $msi   = Join-Path $bundleDir "msi\ProcessDevKill_${Version}_x64_en-US.msi"
 
+# ── Firma de actualizacion (minisign) ────────────────────────────────────────
+# La clave privada NO vive en el repositorio: sin CI, vive en la maquina que corta
+# releases. Si falta, se para aqui en vez de compilar sin firmar: un release sin .sig
+# deja a todos los usuarios instalados sin poder actualizarse, y no se nota hasta que
+# alguien lo intenta.
+if (-not $SigningKey) {
+    $SigningKey = if ($env:TAURI_SIGNING_PRIVATE_KEY_PATH) { $env:TAURI_SIGNING_PRIVATE_KEY_PATH }
+                  else { Join-Path $env:USERPROFILE ".tauri\processdevkill.key" }
+}
+$sigSetup   = "$setup.sig"
+$latestJson = Join-Path $bundleDir "latest.json"
+
 # ── Validaciones de git ──────────────────────────────────────────────────────
 Push-Location $root
 try {
@@ -186,6 +209,20 @@ try {
         Warn "Archivos sin rastrear ignorados (-AllowDirty):"
         $untracked | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
     }
+
+    # Se comprueba ANTES de las pruebas y del build: descubrir que falta la clave
+    # después de veinte minutos compilando es la peor forma de enterarse.
+    if (-not (Test-Path $SigningKey)) {
+        Die @"
+No se encontró la clave de firma de actualizaciones: $SigningKey
+Sin ella el instalador sale sin .sig y los usuarios ya instalados no podrían actualizarse.
+Genera un par nuevo SOLO si no existe ninguno (uno nuevo invalida a todos los instalados):
+    npm run tauri signer generate -- -w "`$env:USERPROFILE\.tauri\processdevkill.key" --password ""
+y pon la clave pública en plugins.updater.pubkey de src-tauri/tauri.conf.json.
+O indica la ruta de la existente con -SigningKey.
+"@
+    }
+    Ok "Clave de firma encontrada: $SigningKey"
 
     # ── Pruebas ──────────────────────────────────────────────────────────────
     if ($SkipTests) {
@@ -254,13 +291,15 @@ try {
         Warn "DRY RUN — no se modificará nada. Plan:"
         Write-Host "    1. Poner la versión $Version en tauri.conf.json, package.json y Cargo.toml" -ForegroundColor DarkGray
         Write-Host "       + 'cargo check' para actualizar Cargo.lock" -ForegroundColor DarkGray
-        Write-Host "    2. npm run tauri build  (NSIS + MSI, SIN firmar)" -ForegroundColor DarkGray
-        Write-Host "    3. Generar los .sha256 de los dos instaladores" -ForegroundColor DarkGray
+        Write-Host "    2. npm run tauri build  (NSIS + MSI; firmados con minisign para el updater," -ForegroundColor DarkGray
+        Write-Host "       pero SIN firma de código: SmartScreen seguirá avisando)" -ForegroundColor DarkGray
+        Write-Host "    3. Generar los .sha256 y el latest.json del actualizador" -ForegroundColor DarkGray
         Write-Host "    4. git add -u ; git commit -m 'release: v$Version' ; git tag -a $tag" -ForegroundColor DarkGray
         Write-Host "    5. git push origin $branch ; git push origin $tag" -ForegroundColor DarkGray
-        Write-Host "    6. gh release create $tag con 4 assets:" -ForegroundColor DarkGray
-        Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256)" -ForegroundColor DarkGray
+        Write-Host "    6. gh release create $tag con 6 assets:" -ForegroundColor DarkGray
+        Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256 + .sig)" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
+        Write-Host "         latest.json" -ForegroundColor DarkGray
         if (-not $SkipTests) { Write-Host "    Pruebas ya ejecutadas en este dry run: cargo test + npm test + npm run build" -ForegroundColor DarkGray }
         if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
         Ok "Dry run completado."
@@ -295,13 +334,27 @@ try {
         Ok "Versión $Version puesta en los tres archivos."
     }
 
-    # ── 2. Compilar los instaladores ─────────────────────────────────────────
+    # ── 2. Compilar los instaladores, firmados ───────────────────────────────
+    # Tauri firma cada bundle y deja un .sig al lado cuando encuentra la clave en el
+    # entorno. Se pasa el CONTENIDO, no la ruta: es la forma documentada y la misma que
+    # se usaria en CI. La variable se limpia en el finally para no dejarla colgando en
+    # la sesión de quien ejecute el script a mano.
+    Info "Cargando la clave de firma..."
+    $env:TAURI_SIGNING_PRIVATE_KEY = (Read-Texto $SigningKey).Trim()
+    # Cadena vacía a propósito: la clave se generó sin contraseña. Sin esta variable,
+    # Tauri se queda esperando a que alguien la teclee y el build no termina nunca.
+    $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+    Ok "Clave cargada (no se muestra)."
+
     Info "Compilando los instaladores (esto tarda varios minutos)..."
     & npm run tauri build
     if ($LASTEXITCODE -ne 0) { Die "La compilación de los instaladores falló." }
 
     if (-not (Test-Path $setup)) { Die "No se encontró el instalador NSIS esperado: $setup" }
     if (-not (Test-Path $msi))   { Die "No se encontró el MSI esperado: $msi" }
+    if (-not (Test-Path $sigSetup)) {
+        Die "No se generó la firma $sigSetup. Sin ella el latest.json no vale y nadie podría actualizarse."
+    }
     Ok ("NSIS: {0} ({1} MB)" -f (Split-Path $setup -Leaf), [math]::Round((Get-Item $setup).Length / 1MB, 2))
     Ok ("MSI:  {0} ({1} MB)" -f (Split-Path $msi -Leaf),   [math]::Round((Get-Item $msi).Length / 1MB, 2))
 
@@ -316,6 +369,27 @@ try {
         $hashes += $destino
         Ok "SHA-256 de $(Split-Path $archivo -Leaf): $h"
     }
+
+    # ── 3b. latest.json para el actualizador ─────────────────────────────────
+    # Es lo que consulta la app instalada. Va como asset del release y se descarga por
+    # la URL .../releases/latest/download/latest.json, que GitHub resuelve siempre al
+    # último release no-prerelease. El campo `signature` es el CONTENIDO del .sig, no
+    # su ruta; el plugin lo verifica contra la clave pública compilada en el binario.
+    Info "Generando latest.json..."
+    $repoUrl = ((& git remote get-url origin) -replace '\.git$', '').Trim()
+    $manifest = [ordered]@{
+        version   = $Version
+        notes     = "ProcessDevKill v$Version. Las notas completas están en $repoUrl/releases/tag/$tag"
+        pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        platforms = [ordered]@{
+            "windows-x86_64" = [ordered]@{
+                signature = (Read-Texto $sigSetup).Trim()
+                url       = "$repoUrl/releases/download/$tag/$(Split-Path $setup -Leaf)"
+            }
+        }
+    }
+    Write-Texto $latestJson ($manifest | ConvertTo-Json -Depth 5)
+    Ok "latest.json generado apuntando a $(Split-Path $setup -Leaf)."
 
     # ── 4. Commit + tag ──────────────────────────────────────────────────────
     Info "Preparando commit de release..."
@@ -370,7 +444,7 @@ try {
     }
 
     Info "Creando el GitHub Release..."
-    & $gh release create $tag --title "ProcessDevKill $tag" --notes-file $notesPath $setup $msi @hashes
+    & $gh release create $tag --title "ProcessDevKill $tag" --notes-file $notesPath $setup $msi $sigSetup $latestJson @hashes
     if ($LASTEXITCODE -ne 0) { Die "gh release create falló (el tag ya está publicado; puedes reintentar el release)." }
 
     if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
@@ -379,5 +453,8 @@ try {
     Ok "Release $tag publicado: $repo/releases/tag/$tag"
 }
 finally {
+    # La clave no se queda en la sesión de quien ejecutó el script.
+    Remove-Item Env:\TAURI_SIGNING_PRIVATE_KEY -ErrorAction SilentlyContinue
+    Remove-Item Env:\TAURI_SIGNING_PRIVATE_KEY_PASSWORD -ErrorAction SilentlyContinue
     Pop-Location
 }

@@ -183,7 +183,10 @@ fn auto_kill(app: &AppHandle, excedidos: Vec<(u32, String, f64)>, limit_mb: u64)
         )
     };
 
-    let mut freed: Vec<u16> = cerrados.iter().flat_map(|o| o.freed_ports.clone()).collect();
+    let mut freed: Vec<u16> = cerrados
+        .iter()
+        .flat_map(|o| o.freed_ports.clone())
+        .collect();
     freed.sort_unstable();
     freed.dedup();
     if let Some(frase) = freed_ports_sentence(&freed) {
@@ -255,7 +258,10 @@ fn kill_and_record(app: &AppHandle, pids: Vec<u32>, source: KillSource) -> Vec<K
     // El Auto-Kill compone su propio aviso, que ya incluye los puertos ademas del
     // motivo del cierre; sin esta guarda soltaria dos notificaciones seguidas.
     if source != KillSource::Auto {
-        let mut freed: Vec<u16> = outcomes.iter().flat_map(|o| o.freed_ports.clone()).collect();
+        let mut freed: Vec<u16> = outcomes
+            .iter()
+            .flat_map(|o| o.freed_ports.clone())
+            .collect();
         freed.sort_unstable();
         freed.dedup();
         notify_freed_ports(app, &freed);
@@ -406,7 +412,9 @@ fn nuke_everything(app: &AppHandle) {
     let custom = state.custom_names();
 
     let pids: Vec<u32> = {
-        let Ok(mut sys) = state.sys.lock() else { return };
+        let Ok(mut sys) = state.sys.lock() else {
+            return;
+        };
         collect_processes(&mut sys, &custom)
             .into_iter()
             .map(|p| p.pid)
@@ -448,7 +456,9 @@ fn spawn_poller(app: AppHandle) {
             continue;
         }
 
-        std::thread::sleep(Duration::from_millis(ms.clamp(MIN_REFRESH_MS, MAX_REFRESH_MS)));
+        std::thread::sleep(Duration::from_millis(
+            ms.clamp(MIN_REFRESH_MS, MAX_REFRESH_MS),
+        ));
         watch_cycle(&app, true);
     });
 }
@@ -456,6 +466,8 @@ fn spawn_poller(app: AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         // Copiar PID/puertos desde el menu contextual. Va por el portapapeles del
@@ -577,7 +589,10 @@ mod tests {
         })
         .expect("KillOutcome deberia serializar");
         for clave in ["pid", "killed", "error", "freedPorts", "name"] {
-            assert!(outcome.get(clave).is_some(), "falta '{clave}' en KillOutcome");
+            assert!(
+                outcome.get(clave).is_some(),
+                "falta '{clave}' en KillOutcome"
+            );
         }
 
         let entry = serde_json::to_value(HistoryEntry {
@@ -589,11 +604,15 @@ mod tests {
         })
         .expect("HistoryEntry deberia serializar");
         for clave in ["pid", "name", "freedPorts", "killedAt", "source"] {
-            assert!(entry.get(clave).is_some(), "falta '{clave}' en HistoryEntry");
+            assert!(
+                entry.get(clave).is_some(),
+                "falta '{clave}' en HistoryEntry"
+            );
         }
         assert_eq!(entry["source"], "hotkey");
 
-        let settings = serde_json::to_value(Settings::default()).expect("Settings deberia serializar");
+        let settings =
+            serde_json::to_value(Settings::default()).expect("Settings deberia serializar");
         for clave in [
             "customNames",
             "hotkeyEnabled",

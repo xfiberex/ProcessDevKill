@@ -30,7 +30,9 @@ fn kill_all_of(app: &AppHandle, runtime: Runtime) {
     // cubre el test `selecciona_solo_los_pids_del_runtime_pedido`, y este menu
     // mata procesos sin ventana delante que ensene el error.
     let targets: Vec<u32> = {
-        let Ok(mut sys) = state.sys.lock() else { return };
+        let Ok(mut sys) = state.sys.lock() else {
+            return;
+        };
         pids_of_runtime(&mut sys, &custom, runtime)
     };
 
@@ -50,8 +52,10 @@ fn kill_all_of(app: &AppHandle, runtime: Runtime) {
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItemBuilder::with_id("show", "Mostrar ProcessDevKill").build(app)?;
     let kill_node = MenuItemBuilder::with_id("kill_node", "Cerrar todos los Node").build(app)?;
-    let kill_python = MenuItemBuilder::with_id("kill_python", "Cerrar todos los Python").build(app)?;
-    let kill_dotnet = MenuItemBuilder::with_id("kill_dotnet", "Cerrar todos los .NET").build(app)?;
+    let kill_python =
+        MenuItemBuilder::with_id("kill_python", "Cerrar todos los Python").build(app)?;
+    let kill_dotnet =
+        MenuItemBuilder::with_id("kill_dotnet", "Cerrar todos los .NET").build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "Salir").build(app)?;
 
     let menu = MenuBuilder::new(app)

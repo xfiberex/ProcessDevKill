@@ -2,15 +2,19 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsView } from "./SettingsView";
-import { DEFAULT_TEST_SETTINGS } from "../test/tauri-mock";
+import { DEFAULT_TEST_SETTINGS, updaterFalso } from "../test/tauri-mock";
 import { AUTO_KILL_MIN_MB, ZOMBIE_MIN_MINUTES } from "../types";
 import type { Settings } from "../types";
+import type { UpdateState } from "../update";
 
-function pintar(parcial: Partial<Settings> = {}) {
+function pintar(parcial: Partial<Settings> = {}, estadoUpdater?: UpdateState) {
   const settings: Settings = { ...DEFAULT_TEST_SETTINGS, ...parcial };
   const onChange = vi.fn();
-  render(<SettingsView settings={settings} onChange={onChange} />);
-  return { onChange, user: userEvent.setup(), settings };
+  const updater = updaterFalso(estadoUpdater);
+  render(
+    <SettingsView settings={settings} onChange={onChange} updater={updater} />,
+  );
+  return { onChange, updater, user: userEvent.setup(), settings };
 }
 
 // Por nombre accesible: el texto de al lado ("MB por proceso…") es
@@ -217,6 +221,58 @@ describe("procesos vigilados", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ customNames: ["go"] }),
     );
+  });
+});
+
+describe("actualizaciones", () => {
+  it("el boton lanza la busqueda", async () => {
+    const { user, updater } = pintar();
+
+    await user.click(screen.getByRole("button", { name: /Buscar actualizaciones/ }));
+
+    expect(updater.buscar).toHaveBeenCalled();
+  });
+
+  it("dice que ya esta al dia", () => {
+    pintar({}, { fase: "al-dia" });
+    expect(screen.getByText("Ya tienes la última versión.")).toBeInTheDocument();
+  });
+
+  it("enseña la version nueva y sus notas, con el boton de instalar", () => {
+    pintar({}, { fase: "disponible", version: "1.2.0", notas: "Arregla cosas." });
+
+    expect(screen.getByText("v1.2.0")).toBeInTheDocument();
+    expect(screen.getByText("Arregla cosas.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Descargar e instalar/ }),
+    ).toBeInTheDocument();
+  });
+
+  /** Descargar y reiniciar no puede pasar sin que el usuario lo pida. */
+  it("no instala hasta que se pulsa el boton", async () => {
+    const { user, updater } = pintar({}, {
+      fase: "disponible",
+      version: "1.2.0",
+      notas: null,
+    });
+
+    expect(updater.instalar).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: /Descargar e instalar/ }));
+    expect(updater.instalar).toHaveBeenCalledTimes(1);
+  });
+
+  it("deshabilita el boton de buscar mientras descarga", () => {
+    pintar({}, { fase: "descargando", porcentaje: 42 });
+
+    expect(
+      screen.getByRole("button", { name: /Buscar actualizaciones/ }),
+    ).toBeDisabled();
+    expect(screen.getByText(/42 %/)).toBeInTheDocument();
+  });
+
+  it("enseña el error si la comprobacion falla", () => {
+    pintar({}, { fase: "error", mensaje: "sin conexion" });
+    expect(screen.getByText(/No se pudo comprobar: sin conexion/)).toBeInTheDocument();
   });
 });
 
