@@ -26,7 +26,7 @@
 
 ## 3. Estado actual
 
-**Fase actual:** ✅ Tiers 1 a 5 completados y v1.0.0 publicada. Del Tier 6 están hechos los puntos 1 a 3; quedan las pruebas del frontend, la auto-actualización y las herramientas del repositorio.
+**Fase actual:** ✅ **El ROADMAP.md está terminado.** Tiers 1 a 6 completos.
 
 | Tier | Descripción | Estado |
 |---|---|---|
@@ -41,9 +41,9 @@
 | 6 | Licencia y avisos de terceros | ✅ Punto 1 completado y verificado |
 | 6 | Nombre del repositorio | ✅ Punto 2 completado |
 | 6 | README de producto, capturas y `FUNDING.yml` | ✅ Punto 3 completado y verificado |
-| 6 | Pruebas del frontend | ⬜ Sin empezar |
-| 6 | Auto-actualización | ⬜ Sin empezar |
-| 6 | Herramientas del repositorio (`.claude/CLAUDE.md`, `.mcp.json`) | ⬜ Sin empezar |
+| 6 | Pruebas del frontend | ✅ Punto 4 completado y verificado — **98 pruebas** |
+| 6 | Auto-actualización | ✅ Punto 5 completado (ver la salvedad de abajo) |
+| 6 | Herramientas del repositorio (`.claude/CLAUDE.md`, `.mcp.json`) | ✅ Punto 6 completado |
 
 Verificado el 2026-07-23 con la app corriendo: la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; la lista se actualiza sola por eventos desde Rust; ajustes e historial sobreviven al reinicio; cerrar la ventana la esconde en la bandeja sin terminar la app.
 
@@ -59,15 +59,13 @@ Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el
 >
 > Lo que sí sirve como prueba indirecta de que la petición llega a Windows: la clave `HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.processdevkill.app` solo se crea cuando una app envía su primer toast.
 
-**Próximo paso concreto:** Tier 6.4 → montar las pruebas del frontend (Vitest + Testing Library para la lógica de los componentes, y un puñado de end-to-end sobre la ventana para lo que solo se ve ahí). Hoy son cero, y es el hueco de calidad más serio que queda.
+Añadido el 2026-07-25: **98 pruebas de frontend** (Vitest + Testing Library) donde antes había cero, y **auto-actualización** con firma minisign. El remoto local ya apunta a la URL nueva.
 
-> ⚠️ **Pendiente de una orden manual:** el remoto local de esta carpeta sigue apuntando a `https://github.com/xfiberex/ProcessVisorDev.git`. En GitHub el repositorio ya se llama `ProcessDevKill` y la URL vieja redirige, así que todo funciona, pero conviene arreglarlo:
->
-> ```powershell
-> git remote set-url origin https://github.com/xfiberex/ProcessDevKill.git
-> ```
+> ⚠️ **Salvedad abierta: el ciclo completo de actualización no está probado, y no puede estarlo todavía.** Hacen falta **dos** releases con actualizador para verificar encontrar → descargar → instalar → reiniciar. Al publicar la v1.1.0 se verifica todo menos la descarga: que el `latest.json` está entre los assets, que responde por la URL del endpoint y que la app instalada contesta «ya tienes la última versión» —lo que demuestra que la petición sale, llega, se parsea y se compara la versión—. La descarga real se comprueba en el siguiente corte.
 
-**Publicado:** <https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.0.0> — instaladores NSIS (2,44 MB) y MSI (3,54 MB) con sus `.sha256`, sin firmar.
+> ⚠️ **`codegraph` está conectado pero sin índice.** El `.mcp.json` ya engancha el servidor, pero `.codegraph/` contiene solo su `.gitignore`: la base de datos nunca se construyó. Para que sirva de algo hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva. Se deja al usuario a propósito.
+
+**Publicado:** <https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.0.0> — instaladores NSIS (2,44 MB) y MSI (3,54 MB) con sus `.sha256`, sin firmar. **Esa versión no tiene actualizador**, así que quien la tenga instalada no se enterará de las siguientes por su cuenta.
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -156,6 +154,18 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-25 | El script de capturas levanta **sus propios servidores Node** (3000 y 8080) | La columna de puertos es lo que justifica la app: una captura con la columna vacía no vale. Y sin nada consumiendo CPU las barras salen todas a cero, que parece un fallo. Son procesos reales escuchando de verdad, no datos inventados; se cierran al terminar |
 | 2026-07-25 | La captura de Ajustes usa una ventana más alta que la de por defecto, y va la última | En 640 px solo se ve hasta el Auto-Kill, y las dos funciones estrella quedarían fuera; la app es redimensionable, así que sigue siendo una ventana posible. Va la última porque `setDeviceMetricsOverride` **no encoge** el viewport si ya había uno mayor: así el resto se capturan siempre al tamaño por defecto |
 | 2026-07-25 | El README dice qué **no** protege el `.sha256` | Publicar un hash junto al archivo que valida invita a leerlo como una garantía de origen. Detecta una descarga corrupta y poco más; sin firma no demuestra quién publicó el instalador. Decirlo cuesta dos líneas y evita una falsa sensación de seguridad |
+| 2026-07-25 | Vitest + Testing Library, y **no** end-to-end sobre la ventana | El 80 % del valor está en las pruebas de componente: corren en dos segundos, se mantienen solas y no necesitan compilar Tauri. Montar la ventana en cada corte de release para repetir lo que ya se verificó por CDP no compensa hoy |
+| 2026-07-25 | Los dobles de Tauri viven en `tauri-mock.ts`, no en `setup.ts` | Las fábricas de `vi.mock` **se izan por encima de los imports** del archivo: unos `vi.fn()` declarados arriba del propio setup serían `undefined` al ejecutarse la fábrica. Con un `await import` dentro, el problema desaparece |
+| 2026-07-25 | Motion se dobla en las pruebas | `AnimatePresence` mantiene montada la fila que sale hasta que acaba su animación. Al filtrar la tabla seguían contándose las filas de antes: la aserción medía la animación, no el filtro. La animación es presentación pura y ya se verificó a ojo en el Tier 2 |
+| 2026-07-25 | `types.test.ts` lee el fuente de Rust y compara | `types.ts` se declaraba "espejo" de los tipos de Rust, pero nada lo obligaba: cambiar `MIN_AUTO_KILL_MB` en `storage.rs` y olvidarse aquí no rompía ni el build ni `cargo test`. Ahora falla una prueba |
+| 2026-07-25 | `aria-label` en los dos campos numéricos de Ajustes | Lo encontraron las pruebas al no poder pedirlos por nombre: solo tenían `aria-describedby`, que **describe pero no nombra**. Un lector de pantalla los anunciaba sin decir qué eran |
+| 2026-07-25 | **Auto-actualización con minisign, no con el `.sha256`** | Son cosas distintas y confundirlas es peligroso: el hash viaja por el mismo sitio que el archivo y no prueba origen. La clave pública va compilada en el binario, así que un `latest.json` manipulado no basta para instalar nada |
+| 2026-07-25 | La clave privada, sin contraseña y fuera del repo | Decisión del usuario. `release.ps1` queda no interactivo y con una variable menos que puede faltar; el secreto es el archivo, en `%USERPROFILE%\.tauri\`. Con contraseña, la contraseña acabaría en una variable de entorno de la misma máquina: la ganancia real era pequeña frente a la fricción en cada corte |
+| 2026-07-25 | La comprobación al arrancar va **en silencio** | Un equipo sin red o una VPN levantándose es lo normal, y un error nada más abrir la app parecería un fallo de la app. Solo se habla cuando de verdad hay versión nueva |
+| 2026-07-25 | Descargar e instalar **solo a petición** | Es lo único que la app puede traerse de internet y ejecutar. Que ocurra sin pedirlo convertiría una herramienta local en algo que se modifica solo, y eso hay que pedirlo |
+| 2026-07-25 | `process:allow-restart`, no `process:default` | `default` incluye además `allow-exit`. La app no necesita poder cerrarse a sí misma desde JS, igual que en el Tier 3 no se le concedió `core:window:allow-close` |
+| 2026-07-25 | `release.ps1` valida la clave **antes** de compilar | Enterarse de que falta después de veinte minutos de build es la peor forma de saberlo. Y si tras el build no aparece el `.sig`, el script para: publicar sin firma deja a todos los instalados sin poder actualizarse y no se nota hasta que alguien lo intenta |
+| 2026-07-25 | El endpoint es `releases/latest/download/latest.json` | GitHub lo resuelve siempre al último release no-prerelease, así que no hay que hospedar nada aparte ni tocar una URL en cada versión |
 
 ## 5. Decisiones pendientes
 
@@ -163,7 +173,8 @@ Dos cosas que cuestan una sesión si no se saben:
 - [x] ~~Repositorio remoto~~ → <https://github.com/xfiberex/ProcessDevKill> (rama `main`).
 - [x] ~~Renombrar el repositorio~~ → hecho el 2026-07-24. GitHub redirige la URL vieja, así que los enlaces ya publicados de la v1.0.0 siguen funcionando. La **carpeta local** conserva el nombre `ProcessVisorDev`; es solo cosmético, pero renombrarla obliga a reabrir el proyecto en el editor.
 - [ ] Lista inicial de procesos vigilados por defecto (¿incluir `java`, `deno`, `bun` desde el inicio?).
-- [ ] Firma de código: sin ella, Windows enseñará el aviso de SmartScreen ("editor desconocido") al instalar. Decidir antes de publicar el primer release.
+- [ ] Firma de código (Authenticode): sin ella, Windows sigue enseñando el aviso de SmartScreen. **No confundirla con la firma minisign del actualizador**, que sí existe desde la v1.1.0 y resuelve un problema distinto: aquélla dice quién publica el instalador que te descargas, ésta valida las actualizaciones que la app se trae sola. Cuesta un certificado de pago.
+- [ ] Construir el índice de `codegraph` (`codegraph init`) para que el `.mcp.json` sirva de algo.
 
 ## 6. Cómo retomar el proyecto en otro equipo
 
@@ -171,18 +182,37 @@ Dos cosas que cuestan una sesión si no se saben:
 2. Instalar prerequisitos: [Rust](https://rustup.rs) (`rustup`), Node.js LTS, y en Windows los **Microsoft C++ Build Tools**. WebView2 ya viene en Windows 11.
 3. `npm install` en la raíz.
 4. `npm run tauri dev` para desarrollo; `npm run tauri build` para generar el instalador.
-5. Leer este archivo (estado y decisiones) y el [ROADMAP.md](ROADMAP.md) (siguiente checkbox pendiente).
+5. `npm test` (frontend) y `cd src-tauri && cargo test` (backend) para comprobar que todo sigue en pie.
+6. Leer este archivo (estado y decisiones) y el [ROADMAP.md](ROADMAP.md) (siguiente checkbox pendiente).
+
+> ⚠️ **Para cortar un release desde otro equipo hace falta la clave privada minisign**, que no está en el repositorio: vive en `%USERPROFILE%\.tauri\processdevkill.key` de la máquina donde se generó. Copiarla a mano al equipo nuevo, o pasar su ruta con `-SigningKey`. **Generar una nueva no es una alternativa**: invalidaría las actualizaciones de todos los usuarios ya instalados.
 
 ## 7. Convenciones
+
+> Desde el 2026-07-25 estas convenciones viven también en [.claude/CLAUDE.md](.claude/CLAUDE.md), que es lo que lee un agente automáticamente. Al cambiar una, cambiarla en los dos sitios.
 
 - Comandos Tauri en Rust: `snake_case` (`get_processes`, `kill_process`).
 - Los checkboxes del ROADMAP.md se marcan `[x]` **solo cuando la funcionalidad está probada** en `tauri dev`.
 - Toda decisión técnica que contradiga o precise el roadmap se anota en la tabla de la sección 4 con fecha.
 - Commits en español, imperativo: "Añade comando get_processes".
+- `src/types.ts` es el espejo de los tipos de Rust: al tocar un `struct` o una constante de `storage.rs`, se toca aquí (hay una prueba que lo comprueba).
 
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-25 (noche) — Tier 6.4, 6.5 y 6.6: se cierra el ROADMAP
+
+- **Tier 6.4 — 98 pruebas de frontend** donde antes había cero, con Vitest + Testing Library en jsdom. La que más importa: *Escape cancela el diálogo destructivo sin confirmar*, verificada a mano en tres tiers y por fin fijada. También la búsqueda por puerto, la poda de la selección, el suelo de 256 MB y que se copia con el plugin de Tauri.
+  - `src/types.test.ts` **lee el fuente de Rust** y compara las constantes espejo. `types.ts` decía ser un espejo sin que nada lo obligara.
+  - **Fallo real encontrado:** los dos campos numéricos de Ajustes no tenían nombre accesible, solo `aria-describedby`. Se les añadió `aria-label`.
+  - Dos tropiezos, ambos anotados en `src/test/setup.ts`: las fábricas de `vi.mock` se izan por encima de los imports (de ahí `tauri-mock.ts` aparte), y `AnimatePresence` mantiene montada la fila que sale, así que sin doblar Motion las aserciones median la animación en vez del filtro.
+- **Tier 6.5 — auto-actualización** con `tauri-plugin-updater`, firma minisign y `latest.json` publicado por `release.ps1`. La comprobación del arranque va en silencio; descargar e instalar exige pulsarlo.
+  - **Corregida una afirmación falsa del README**: la sección de privacidad decía que la app no tiene concedido ningún permiso de red, enlazando al `capabilities/default.json` como prueba. Con el actualizador eso quedaba desmentido por el propio archivo que se citaba.
+  - El modelo de confianza se documenta con lo que **no** cubre: no sustituye a la firma de código, no protege una instalación manual, no alcanza a la v1.0.0 y depende de que la clave privada siga existiendo.
+- **Tier 6.6 — `.claude/CLAUDE.md` y `.mcp.json`.** El CLAUDE.md recoge las convenciones y, sobre todo, las cinco cosas que cuestan una sesión si no se saben (PowerShell y el UTF-8, CDP, `SendKeys`, los toast y BitBlt, una sesión por repositorio).
+  - **La suposición del roadmap sobre codegraph era incorrecta:** daba por hecho que el índice existía y solo faltaba conectarlo. `.codegraph/` contiene únicamente su `.gitignore`. El `.mcp.json` queda puesto, pero el índice hay que construirlo con `codegraph init`, y eso se deja al usuario.
+- Verificado antes de cortar: 98 pruebas de frontend, 22 de `cargo test`, `tsc` sin errores y `release.ps1` sin errores de sintaxis.
 
 ### 2026-07-25 — Tier 6.3: README de producto, capturas y FUNDING
 

@@ -298,27 +298,59 @@ Tenía 5 secciones; ahora tiene 12, con lo que mira quien llega de fuera.
 - [x] Tras ejecutar el script, `git status` no ve `tauri.conf.json` tocado y `settings.json` vuelve a `"theme": "system"`: la app queda como estaba.
 - [x] No sobrevive ningún proceso del script: ni la sesión de `tauri dev`, ni los dos servidores de demostración.
 
-### 4. Pruebas del frontend
+### 4. Pruebas del frontend — ✅ **completado y verificado**
 
-- [ ] Montar pruebas automáticas de la UI. Hoy son **cero**.
-  > ⚠️ Es el hueco de calidad más serio. Los 22 tests de Rust cubren bien el backend, pero todo lo que se verificó de React —menú contextual, Escape en el diálogo destructivo, cambio de tema, insignia de zombi— fueron scripts CDP a mano en una carpeta temporal que ya no existe. Cualquiera puede romper `App.tsx` mañana y la suite seguirá en verde.
-  > Dos niveles, y conviene no confundirlos: **Vitest + Testing Library** para la lógica de los componentes (rápido, sin app real), y un puñado de pruebas end-to-end sobre la ventana de Tauri para lo que solo se puede comprobar ahí: que Escape cancela sin matar nada, que el menú contextual copia de verdad al portapapeles.
-- [ ] Que `release.ps1` las ejecute junto a `cargo test`.
+- [x] **98 pruebas** con **Vitest + Testing Library** en jsdom, repartidas en 7 archivos. Antes eran cero.
+  > Era el hueco de calidad más serio: los tests de Rust cubrían bien el backend, pero todo lo que se verificó de React —menú contextual, Escape en el diálogo destructivo, cambio de tema, insignia de zombi— fueron scripts CDP a mano en una carpeta temporal que ya no existe.
+- [x] Los módulos de Tauri se doblan una sola vez, en `src/test/setup.ts`, no en cada archivo.
+  > ⚠️ Las fábricas de `vi.mock` **se izan por encima de los imports**, así que los `vi.fn()` viven en `src/test/tauri-mock.ts` y se traen con un `await import` dentro de la fábrica. Declarados arriba del propio setup, la fábrica correría antes de que existieran.
+- [x] **Motion también se dobla.** `AnimatePresence` mantiene montada la fila que sale hasta que acaba su animación.
+  > ⚠️ Sin el doble, filtrar la tabla seguía contando las filas de antes y la aserción medía la animación en vez del filtro. El doble deja `motion.tr` en un `<tr>` y quita las props de animación a mano, que si no React avisa de cada una por consola.
+- [x] `src/types.test.ts` **lee el fuente de Rust** y compara las constantes espejo (`MIN_AUTO_KILL_MB`, `MIN_ZOMBIE_MINUTES`, el nombre del evento y las variantes de `KillSource`).
+  > Nada obligaba a que `types.ts` siguiera siendo un espejo: cambiar una constante en `storage.rs` y olvidarse aquí no rompía ni el build ni `cargo test`. Ahora sí.
+- [x] Que `release.ps1` las ejecute junto a `cargo test`.
 
-### 5. Auto-actualización
+**Lo que cubren, por orden de lo que cuesta romperlo:**
 
-- [ ] Avisar de nuevas versiones y poder instalarlas desde la app.
-  > Es la diferencia más grande con FormatDiskPro, que lo comprueba al arrancar y desde *Ayuda → Buscar actualizaciones*. Hoy, quien instale la v1.0.0 no se enterará nunca de que existe una v1.1.0.
-  > ⚠️ **No se hace con el `.sha256` que ya publicamos.** `tauri-plugin-updater` verifica con **firmas minisign** y un `latest.json`: hay que generar un par de claves, firmar en el build (`TAURI_SIGNING_PRIVATE_KEY`) y que `release.ps1` publique la firma y el JSON. El hash actual seguiría siendo solo cortesía para verificación manual.
-  > ⚠️ La clave privada de firma **no puede acabar en el repositorio**. Sin CI, vive en la máquina que corta releases, y perderla significa que los usuarios instalados dejan de poder actualizarse.
-- [ ] Documentar el modelo de confianza en el README, como hace FormatDiskPro, incluyendo qué **no** protege.
+- [x] **`Escape` cancela el diálogo destructivo sin confirmar** — la garantía verificada a mano en los Tiers 2, 4 y 5, ahora fijada. También que el foco arranca en el botón destructivo (contrario al defecto de Base UI) y que Enter confirma.
+- [x] Búsqueda por **puerto**, por PID y por nombre; y que los tres son subcadena, así que `300` acierta el PID 300 **y** el puerto 3000.
+- [x] La **poda de la selección**: un PID que desaparece de la lista deja de contar para «Matar N».
+- [x] El **suelo de 256 MB** del Auto-Kill y que el umbral no se guarda en cada tecla.
+- [x] Que se copia con el **plugin de Tauri**, no con `navigator.clipboard`.
+- [x] Que la clase `dark` la pone JS: elegir «Claro» con Windows en oscuro tiene efecto.
+- [x] La insignia de zombi con su texto de ayuda, y el menú contextual abierto con **clic derecho real**.
 
-### 6. Herramientas del repositorio
+**Un fallo real encontrado al montarlas:** los dos campos numéricos de Ajustes (umbral del Auto-Kill
+y minutos del Zombie Finder) **no tenían nombre accesible**, solo `aria-describedby`, que describe
+pero no nombra. Un lector de pantalla los anunciaba sin decir qué eran. Se les añadió `aria-label`.
 
-- [ ] `.claude/CLAUDE.md` con las convenciones del proyecto.
-  > Ya están escritas en CONTEXT.md §7 (comandos en `snake_case`, commits en español, marcar `[x]` solo con la funcionalidad probada), pero nada se las da al agente automáticamente. Añadir también la lección de esta sesión: **una sola sesión por repositorio**.
-- [ ] `.mcp.json` enganchando el servidor `codegraph`.
-  > La carpeta `.codegraph/` ya existe en el repo, pero sin el `.mcp.json` que la conecta ese índice no lo usa nadie. FormatDiskPro sí lo tiene.
+> Las pruebas end-to-end sobre la ventana real quedan fuera a propósito. El 80 % del valor está en
+> Vitest, se mantienen solas y corren en dos segundos; montar Tauri en cada corte de release para
+> repetir lo que ya se verificó por CDP no compensa hoy.
+
+### 5. Auto-actualización — ✅ **completado**
+
+- [x] Avisar de nuevas versiones y poder instalarlas desde la app, con `tauri-plugin-updater`.
+  > Era la diferencia más grande con FormatDiskPro. Endpoint en `.../releases/latest/download/latest.json`, que GitHub resuelve siempre al último release no-prerelease: no hace falta hospedar nada aparte.
+  > ⚠️ **No se hace con el `.sha256` que ya publicábamos.** Se verifica con **firmas minisign**: la clave pública va compilada en el binario (`plugins.updater.pubkey`) y `release.ps1` firma el build y publica el `.sig` y el `latest.json`. El hash sigue siendo solo cortesía para verificación manual, y el actualizador no lo mira.
+  > ⚠️ La clave privada vive en `%USERPROFILE%\.tauri\processdevkill.key`, **nunca en el repositorio**; `.gitignore` lleva `*.key` como red. Perderla significa que los usuarios instalados dejan de poder actualizarse, porque una clave nueva no valida lo que firmó la vieja.
+- [x] La comprobación del arranque va en **modo silencioso**.
+  > ⚠️ Un fallo de red al abrir la app —equipo sin conexión, VPN levantándose— es lo normal y no puede pintar un error en la cara de nadie. Solo se avisa, con un toast que lleva a Ajustes, cuando de verdad hay versión nueva.
+- [x] **Descargar e instalar no ocurre solo**: hace falta pulsarlo en *Ajustes → Actualizaciones*, con la versión y las notas delante. La app se reinicia sola al terminar (`process:allow-restart`).
+- [x] `release.ps1` comprueba que la clave existe **antes** de las pruebas y del build.
+  > Descubrir que falta después de veinte minutos compilando es la peor forma de enterarse. Y si el `.sig` no aparece tras el build, el script para: un release sin firma deja a todos los instalados sin poder actualizarse y no se nota hasta que alguien lo intenta.
+- [x] Documentado el modelo de confianza en el README, incluyendo qué **no** protege: no sustituye a la firma de código (SmartScreen sigue avisando), no cubre una instalación manual, no alcanza a quien tenga la v1.0.0 y depende de que la clave privada siga existiendo.
+- [x] **Corregida la sección de privacidad del README**, que decía que la app no tiene concedido ningún permiso de red. Con el actualizador eso pasó a ser falso.
+  > No es un detalle menor: era una afirmación comprobable enlazando al `capabilities/default.json`, y habría quedado desmentida por el propio archivo.
+
+> ⚠️ **Verificación pendiente por naturaleza.** El ciclo completo —encontrar una versión, descargarla, instalarla y reiniciar— no se puede probar hasta que existan **dos** releases con actualizador. Lo que sí se verifica al publicar esta: que el `latest.json` está en el release, que responde por la URL del endpoint y que la app instalada dice «ya tienes la última versión», lo que recorre toda la cadena menos la descarga.
+
+### 6. Herramientas del repositorio — ✅ **completado**
+
+- [x] `.claude/CLAUDE.md` con las convenciones del proyecto.
+  > Estaban escritas en CONTEXT.md §7, pero nada se las daba al agente automáticamente. Recoge además lo que cuesta una sesión si no se sabe: que PowerShell 5.1 destroza estos `.md`, cómo inspeccionar la UI por CDP y quitarlo después, que `SendKeys` no dispara un atajo global, que los toast de Windows no se pueden capturar con BitBlt, y la lección del 2026-07-24: **una sola sesión por repositorio**.
+- [x] `.mcp.json` enganchando el servidor `codegraph`, con la misma invocación que ya tenía configurada la máquina.
+  > ⚠️ **La suposición de partida era incorrecta.** El roadmap daba por hecho que el índice ya existía y solo faltaba conectarlo; comprobado, `.codegraph/` contiene **únicamente su `.gitignore`**: no hay base de datos, el índice nunca se construyó. El `.mcp.json` conecta el servidor, pero para que sirva de algo hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva. Es una decisión del usuario y se deja sin hacer a propósito.
 
 ---
 
