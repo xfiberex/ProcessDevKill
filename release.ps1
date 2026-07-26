@@ -150,11 +150,20 @@ function Write-Texto($ruta, $texto) {
     Obtiene la contraseña de la clave de firma, sin dejarla escrita en ningún sitio.
 
 .DESCRIPTION
-    Dos vías, por ese orden:
+    Tres vías, por ese orden:
       1. La variable TAURI_SIGNING_PRIVATE_KEY_PASSWORD, si ya viene puesta. Es la que se
          usaría desde un script que llame a este, o desde CI el día que lo haya.
-      2. Preguntar por consola sin eco (Read-Host -AsSecureString), que es lo normal al
-         cortar un release a mano.
+      2. El cuadro de credenciales de Windows (Get-Credential).
+      3. La consola sin eco (Read-Host -AsSecureString), como último recurso.
+
+    EL ORDEN 2 ANTES QUE 3 NO ES CAPRICHO. `Read-Host -AsSecureString` lee la consola
+    carácter a carácter y en muchos terminales NO ADMITE PEGAR: con Ctrl+V no llega nada y
+    parece que el prompt está colgado. Una contraseña que sale de un gestor no se teclea a
+    mano, así que ese prompt es inservible en la práctica. El cuadro de Get-Credential es una
+    ventana normal de Windows y ahí pegar funciona. Pasó al cortar la v1.1.1.
+
+    Se ignora el usuario que pida el cuadro: minisign no tiene usuarios, solo contraseña. Se
+    rellena con un texto fijo para que quede claro que da igual.
 
     La SecureString hay que convertirla a texto plano porque es lo que espera Tauri en la
     variable de entorno; se libera el BSTR en el finally para no dejar la copia en memoria
@@ -165,6 +174,20 @@ function Get-PasswordDeFirma {
     if ($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
         Info "Contraseña de firma tomada de TAURI_SIGNING_PRIVATE_KEY_PASSWORD."
         return $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+    }
+
+    # Get-Credential puede caer a prompt de consola si la política del equipo lo fuerza
+    # (HKLM\...\PowerShell\ConsolePrompting a true); por eso queda el Read-Host debajo.
+    try {
+        $cred = Get-Credential -UserName "(da igual, minisign solo usa contraseña)" `
+                               -Message "Contraseña de la clave de firma de ProcessDevKill"
+        if ($cred) { return $cred.GetNetworkCredential().Password }
+        Die "No se introdujo la contraseña. Release abortado."
+    }
+    catch {
+        Warn "No se pudo abrir el cuadro de credenciales; se pide por consola."
+        Warn "Si no puedes pegar ahí, corta con Ctrl+C y define primero:"
+        Warn '  $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = (Get-Credential -UserName x).GetNetworkCredential().Password'
     }
 
     $segura = Read-Host "Contraseña de la clave de firma" -AsSecureString
