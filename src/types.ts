@@ -63,6 +63,22 @@ export const ZOMBIE_MIN_MINUTES = 1;
 /** Evento que emite Rust con cada lista nueva de procesos. */
 export const PROCESSES_UPDATED = "processes-updated";
 
+/** Evento con el avance de la descarga de una actualizacion: `[bajado, total]`. */
+export const UPDATE_PROGRESS = "update-progress";
+
+/** Espejo de `ReleaseInfo` en src-tauri/src/update.rs. */
+export type ReleaseInfo = {
+  tag: string;
+  version: string;
+  notes: string;
+  htmlUrl: string;
+  assetUrl: string;
+  assetName: string;
+  assetSize: number;
+  /** URL del `.sha256`. Vacia si el release no lo publica: entonces no se descarga. */
+  checksumUrl: string;
+};
+
 export const RUNTIMES: Record<Runtime, { label: string; color: string }> = {
   node: { label: "Node.js", color: "var(--color-node)" },
   python: { label: "Python", color: "var(--color-python)" },

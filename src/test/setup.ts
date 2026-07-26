@@ -29,12 +29,6 @@ vi.mock("@tauri-apps/plugin-opener", async () => {
   const m = await import("./tauri-mock");
   return { openPath: m.openPath, openUrl: m.openUrl };
 });
-vi.mock("@tauri-apps/plugin-updater", async () => ({
-  check: (await import("./tauri-mock")).check,
-}));
-vi.mock("@tauri-apps/plugin-process", async () => ({
-  relaunch: (await import("./tauri-mock")).relaunch,
-}));
 
 /**
  * Motion sin animaciones.

@@ -48,7 +48,8 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
   solo lo señala.
 - **Historial** de cierres con el origen de cada uno: ventana, bandeja, atajo o Auto-Kill.
 - Tema claro/oscuro que sigue al de Windows, o fijo si lo prefieres.
-- **Avisa de versiones nuevas** al arrancar y las instala desde Ajustes, verificando la firma.
+- **Avisa de versiones nuevas** al arrancar y las instala desde Ajustes, comprobando el hash del
+  instalador antes de ejecutarlo.
 
 ## Capturas
 
@@ -80,7 +81,6 @@ Desde la **[página de releases](https://github.com/xfiberex/ProcessDevKill/rele
 | `ProcessDevKill_X.Y.Z_x64-setup.exe` | **Recomendado** (NSIS). Instala en `%LOCALAPPDATA%\ProcessDevKill` para el usuario actual, sin pedir permisos de administrador. | ~2,4 MB |
 | `ProcessDevKill_X.Y.Z_x64_en-US.msi` | MSI, para despliegue por directiva de grupo o quien lo prefiera. | ~3,5 MB |
 | `*.sha256` | El hash de cada instalador, por si quieres verificar la descarga. | — |
-| `latest.json`, `*.sig` | Los usa el actualizador de la app; no hay que descargarlos a mano. | — |
 
 Requiere **Windows 10 o 11 (x64)** con **WebView2**, que viene de serie en Windows 11 y en Windows
 10 actualizado. No hay versión de macOS ni de Linux: la app usa `sysinfo` y `listeners`, que sí son
@@ -106,43 +106,37 @@ El resultado tiene que coincidir con el contenido del `.sha256` que acompaña al
 `sha256sum`: el hash y el nombre del archivo).
 
 > **Qué protege y qué no.** El hash viaja por el mismo sitio que el instalador, así que sirve para
-> detectar una descarga corrupta o a medias, **no** para demostrar quién publicó el archivo. Es
-> cortesía para la primera instalación, y el actualizador **no lo usa**: ese verifica firmas, como
-> se explica abajo.
+> detectar una descarga corrupta o a medias, **no** para demostrar quién publicó el archivo. Es el
+> mismo `.sha256` que usa la auto-actualización; ver abajo.
 
 ## Actualizaciones
 
-Desde la v1.1.0, la app comprueba al arrancar si hay una versión nueva y avisa con un toast. La
-descarga y la instalación **no ocurren solas**: se lanzan desde *Ajustes → Actualizaciones*, con el
-número de versión y las notas delante. Al terminar, la app se reinicia sola.
+La app comprueba al arrancar si hay una versión nueva y avisa con un toast. La descarga y la
+instalación **no ocurren solas**: se lanzan desde *Ajustes → Actualizaciones*, con el número de
+versión y las notas delante. Al terminar, la app se cierra para que el instalador la reemplace.
 
 ### El modelo de confianza, y qué no cubre
 
-Lo que autoriza una actualización es una firma **minisign**, no el `.sha256`:
+Antes de ejecutar nada, el instalador descargado se compara con el **`.sha256` publicado como asset
+del mismo release**. Si no coincide, se borra y no se instala. Es el mismo esquema que usa
+[FormatDiskPro](https://github.com/xfiberex/FormatDiskPro), y la implementación está en
+[`src-tauri/src/update.rs`](src-tauri/src/update.rs).
 
-- Cada release publica un `latest.json` y un `.sig` del instalador. La app trae **compilada dentro
-  del binario** la clave pública (`plugins.updater.pubkey` en
-  [`tauri.conf.json`](src-tauri/tauri.conf.json)), y rechaza cualquier descarga cuya firma no
-  valide contra ella.
-- Por eso **no basta con manipular el `latest.json`**: sin la clave privada correspondiente, un
-  instalador sustituido no llega a ejecutarse. La clave privada no está en este repositorio; vive
-  en la máquina desde la que se cortan los releases.
+Dicho claramente, esto **detecta una descarga corrupta o manipulada en tránsito**, y nada más:
 
-Lo que este esquema **no** hace, dicho claramente:
+- **No demuestra quién publicó el archivo.** El instalador y su hash salen del mismo release, así
+  que quien pudiera sustituir el `.exe` podría sustituir también el `.sha256`. No protege frente a
+  un compromiso de la cuenta de GitHub.
+- **No sustituye a la firma de código.** SmartScreen seguirá avisando la primera vez: eso requiere
+  un certificado Authenticode de pago que el proyecto todavía no tiene. El día que lo haya, esa
+  sería la comprobación fuerte y el hash pasaría a ser el respaldo.
+- **No cubre a quien tenga la v1.0.0.** Esa versión se publicó sin actualizador y no se enterará de
+  nada por su cuenta: hay que instalar la nueva a mano una vez.
+- **Si un release no publicara su `.sha256`, la app se negaría a actualizarse a él.** Es
+  deliberado: sin nada con que verificar, no se ejecuta un binario descargado.
 
-- **No sustituye a la firma de código.** SmartScreen seguirá avisando la primera vez: son cosas
-  distintas y esa requiere un certificado de pago que el proyecto todavía no tiene.
-- **No protege a quien instale a mano.** Si te bajas el `.exe` de Releases y lo ejecutas, ahí no
-  interviene ninguna verificación de firma; te queda el `.sha256` y confiar en GitHub.
-- **No cubre a quien tenga la v1.0.0 ni la v1.1.0.** La v1.0.0 se publicó sin actualizador. La
-  v1.1.0 lo tenía, pero su clave de firma **se rotó** (ver abajo), y una instalación solo acepta
-  actualizaciones de la clave con la que nació. En ambos casos hay que instalar a mano una vez.
-- **Una rotación de clave obliga a reinstalar a mano.** Ocurrió entre la v1.1.0 y la v1.1.1: la
-  clave original quedó expuesta y se sustituyó por otra, esta vez protegida con contraseña. No es
-  un fallo del esquema —es exactamente lo que debe pasar cuando una clave deja de ser fiable—,
-  pero conviene saber que el precio de rotar lo paga quien ya tenga la app instalada.
-- **Depende de que la clave privada siga existiendo.** Si se perdiera, habría que generar otra, y
-  ninguna instalación anterior aceptaría ya las actualizaciones firmadas con ella.
+Es el compromiso habitual de un proyecto sin certificado, y se prefiere decirlo a insinuar una
+garantía que no existe.
 
 ## Privacidad
 
@@ -156,14 +150,16 @@ Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz a
   (`settings.json` e `history.json`). Se pueden abrir, copiar entre equipos o borrar; el historial
   se puede vaciar desde la propia app y tiene un tope de 200 entradas.
 - **La única petición de red que hace la app** es la comprobación de actualizaciones: al arrancar
-  pide un archivo `latest.json` a `github.com` para comparar versiones. Es una descarga normal, sin
+  consulta la API de `github.com` para comparar versiones. Es una descarga normal, sin
   identificador ni cuenta; GitHub verá tu IP como la vería si abrieras la página. No se descarga
   nada más sin que lo confirmes tú.
 - Lo demás que sale al exterior lo abres tú: el navegador al pulsar **Repositorio** en Ajustes.
 
 Los permisos concedidos a la ventana son comprobables, y son los mínimos para lo anterior:
 [`capabilities/default.json`](src-tauri/capabilities/default.json). El del portapapeles es de
-**escritura únicamente** y el de reinicio no permite a la app cerrarse sola por su cuenta.
+**escritura únicamente**, y el de abrir archivos está acotado a los dos avisos legales, no a una
+carpeta. La red la usa **solo Rust**, para las actualizaciones; el frontend no tiene ningún permiso
+que le permita salir a internet por su cuenta.
 
 ## Cómo funciona
 
@@ -219,7 +215,8 @@ Cuatro decisiones explican casi todo el diseño; el resto están en
 | Procesos | crate **`sysinfo`** |
 | Puertos por PID | crate **`listeners`** — `sysinfo` no los expone |
 | Pruebas | **Vitest + Testing Library** (frontend) y `cargo test` (backend) |
-| Plugins Tauri | `notification`, `global-shortcut`, `clipboard-manager`, `opener`, `updater`, `process` + `tray-icon` |
+| Plugins Tauri | `notification`, `global-shortcut`, `clipboard-manager`, `opener` + `tray-icon` |
+| Actualizaciones | crate **`reqwest`** (rustls) + **`sha2`** — implementación propia, sin plugin |
 
 ## Desarrollo
 
@@ -253,7 +250,7 @@ constantes espejo, para que el contrato entre los dos lados no se desincronice e
 | Herramienta | Para qué |
 |---|---|
 | [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1) | Regenera las capturas del README conduciendo la app por CDP. |
-| [`release.ps1`](release.ps1) | Corta una versión entera: pruebas, bump en los tres sitios, build firmado, `latest.json`, tag y GitHub Release. Admite `-DryRun`. |
+| [`release.ps1`](release.ps1) | Corta una versión entera: pruebas, bump en los tres sitios, build, `.sha256`, tag y GitHub Release. Admite `-DryRun`. |
 | `npm run tauri icon app-icon.svg` | Regenera todos los tamaños de icono tras editar `app-icon.svg`. |
 
 ## Estructura

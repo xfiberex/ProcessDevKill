@@ -15,8 +15,6 @@
         { "path": "$RESOURCE/LICENSE.txt" },
         { "path": "$RESOURCE/THIRD-PARTY-NOTICES.txt" }
       ]
-    },
-    "updater:default",
-    "process:allow-restart"
+    }
   ]
 }

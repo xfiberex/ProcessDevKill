@@ -330,34 +330,33 @@ pero no nombra. Un lector de pantalla los anunciaba sin decir qué eran. Se les 
 
 ### 5. Auto-actualización — ✅ **completado**
 
-- [x] Avisar de nuevas versiones y poder instalarlas desde la app, con `tauri-plugin-updater`.
-  > Era la diferencia más grande con FormatDiskPro. Endpoint en `.../releases/latest/download/latest.json`, que GitHub resuelve siempre al último release no-prerelease: no hace falta hospedar nada aparte.
-  > ⚠️ **No se hace con el `.sha256` que ya publicábamos.** Se verifica con **firmas minisign**: la clave pública va compilada en el binario (`plugins.updater.pubkey`) y `release.ps1` firma el build y publica el `.sig` y el `latest.json`. El hash sigue siendo solo cortesía para verificación manual, y el actualizador no lo mira.
-  > ⚠️ La clave privada vive en `%USERPROFILE%\.tauri\processdevkill.key`, **nunca en el repositorio**; `.gitignore` lleva `*.key` como red. Perderla significa que los usuarios instalados dejan de poder actualizarse, porque una clave nueva no valida lo que firmó la vieja.
+> **Reescrito el 2026-07-26.** Se implementó primero con `tauri-plugin-updater` y firmas minisign, y se **descartó** tras dos días de fricción con la clave: el archivo se filtró, la rotación se atascó y el prompt de contraseña resultó impegable. Se sustituyó por el modelo de **FormatDiskPro**, decisión del usuario. El recorrido está en CONTEXT.md §8; aquí queda solo lo que hay.
+
+- [x] Actualizaciones vía **GitHub Releases**, verificadas con **SHA-256**, en `src-tauri/src/update.rs`.
+  > Mismo esquema que `UpdateService.cs` de FormatDiskPro: se consulta la API, se elige el instalador NSIS y su `.sha256`, se descarga, se **verifica antes de ejecutar** y se lanza. Si el hash no coincide, el archivo se borra y no se ejecuta nada.
+  > ⚠️ **El `.sha256` deja de ser cortesía y pasa a ser el mecanismo.** Un release sin él hace que la app se niegue a actualizarse a esa versión — que es lo correcto, pero hay que saberlo: `release.ps1` lo genera siempre.
+- [x] **Sin plugin y sin clave**: `reqwest` (rustls) + `sha2` directamente. Fuera `tauri-plugin-updater` y `tauri-plugin-process`.
+  > La red la usa **solo Rust**. Las capabilities gobiernan la superficie JS↔Rust, así que el frontend sigue sin ningún permiso que le deje salir a internet por su cuenta.
+- [x] La lógica que decide **qué es más nuevo** es pura y está cubierta por pruebas: `parse_tag` e `is_newer`, calcadas de `UpdateChecker.cs`. Tolera `v1.2.3`, `1.2`, `-beta` y `+build`, y ante una etiqueta ilegible responde "no hay actualización" en vez de arriesgarse.
 - [x] La comprobación del arranque va en **modo silencioso**.
   > ⚠️ Un fallo de red al abrir la app —equipo sin conexión, VPN levantándose— es lo normal y no puede pintar un error en la cara de nadie. Solo se avisa, con un toast que lleva a Ajustes, cuando de verdad hay versión nueva.
-- [x] **Descargar e instalar no ocurre solo**: hace falta pulsarlo en *Ajustes → Actualizaciones*, con la versión y las notas delante. La app se reinicia sola al terminar (`process:allow-restart`).
-- [x] `release.ps1` comprueba que la clave existe **antes** de las pruebas y del build.
-  > Descubrir que falta después de veinte minutos compilando es la peor forma de enterarse. Y si el `.sig` no aparece tras el build, el script para: un release sin firma deja a todos los instalados sin poder actualizarse y no se nota hasta que alguien lo intenta.
-- [x] `"createUpdaterArtifacts": true` en `bundle`.
-  > ⚠️ **Esto se descubrió con el release a medio camino, y la guardia del párrafo anterior es lo único que lo cazó.** La opción viene a `false` de fábrica ("Produce updaters and their signatures or not"), así que Tauri compiló los dos instaladores sin firmar **y sin quejarse**: la clave estaba en el entorno, pero nadie se la pidió. Sin esa comprobación, el release habría salido publicado con un `latest.json` cuya firma no existía, y el fallo no habría aparecido hasta que alguien intentara actualizarse.
-- [x] El build se lanza con `ProcessStartInfo`, no con `& npm run tauri build`.
-  > ⚠️ Segundo tropiezo del mismo corte, y peor que el anterior porque **no falla: se cuelga**. En PowerShell, `$env:VAR = ""` **borra** la variable en lugar de dejarla vacía (`SetEnvironmentVariable` trata la cadena vacía como `$null`; se comprueba con `$env:X = ""; Test-Path Env:\X` → `False`). Como la clave se generó sin contraseña, hay que pasar un `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` vacío; al desaparecer, el CLI de Tauri anuncia *"expect a prompt for password"* y **espera indefinidamente** una pulsación que en un script automatizado no llega nunca. `ProcessStartInfo.Environment` sí admite el valor vacío, y de paso la clave nunca toca la sesión de quien ejecuta el script.
-- [x] Documentado el modelo de confianza en el README, incluyendo qué **no** protege: no sustituye a la firma de código (SmartScreen sigue avisando), no cubre una instalación manual, no alcanza a quien tenga la v1.0.0 y depende de que la clave privada siga existiendo.
+- [x] **Descargar e instalar no ocurre solo**: hace falta pulsarlo en *Ajustes → Actualizaciones*, con la versión y las notas delante. La app se cierra al lanzar el instalador para que pueda reemplazar sus archivos.
+- [x] `install_update` **solo acepta rutas dentro de su carpeta de descargas**.
+  > ⚠️ El comando queda expuesto al frontend; sin esa guardia sería un "ejecuta lo que quieras". Mismo criterio que la guardia de PID de `kill_process`.
+- [x] Documentado el modelo de confianza en el README, incluyendo qué **no** protege: no demuestra quién publicó el archivo, no sustituye a la firma de código y no alcanza a quien tenga la v1.0.0.
 - [x] **Corregida la sección de privacidad del README**, que decía que la app no tiene concedido ningún permiso de red. Con el actualizador eso pasó a ser falso.
   > No es un detalle menor: era una afirmación comprobable enlazando al `capabilities/default.json`, y habría quedado desmentida por el propio archivo.
 
-**Verificación** (2026-07-26, tras publicar la v1.1.0):
+> **Lo que se descarta a propósito:** la verificación **Authenticode** que FormatDiskPro intenta antes del hash. Sin certificado de firma de código ningún instalador propio la pasaría, así que sería código muerto — y una comprobación que siempre falla acaba ignorándose. El día que haya certificado, esa pasa a ser la comprobación fuerte y el hash queda de respaldo.
 
-- [x] El release lleva sus **6 assets**: los dos instaladores, sus dos `.sha256`, el `.sig` del NSIS y el `latest.json`.
-- [x] El `.sig` lo generó **el propio build**: se borró a mano el que se había creado durante el diagnóstico, y el que se publicó lleva la marca de tiempo de la compilación posterior.
-- [x] `GET` a `https://github.com/xfiberex/ProcessDevKill/releases/latest/download/latest.json` —la URL exacta que lleva compilada el binario— responde **200**, con `version: 1.1.0` y la plataforma `windows-x86_64`.
-- [x] La URL del instalador que anuncia ese JSON responde **200**, con un `content-length` idéntico al tamaño del asset publicado.
-- [x] La firma del `latest.json`, la del `.sig` publicado y la del `.sig` local **son la misma cadena**.
-- [x] **El `key id` de la firma coincide con el de la clave pública compilada en el binario** (`366b8be5e0fef6cf`). Es la comprobación que de verdad importa: demuestra que la firma la hizo la clave que la app lleva dentro, no otra.
-- [x] **Sobre la app en ejecución**: en *Ajustes → Actualizaciones*, «Buscar actualizaciones» contesta **«Ya tienes la última versión»**. Recorre la cadena entera del lado cliente —petición de red, descarga del `latest.json`, parseo y comparación de versiones— sobre el endpoint real.
+**Verificación**:
 
-> ⚠️ **Lo único que queda sin probar es la descarga e instalación**, y no puede probarse hasta que exista un release **posterior** a éste: hacen falta dos versiones con actualizador para que una encuentre a la otra. Se cierra en el próximo corte.
+- [x] **13 pruebas de Rust** sobre la lógica pura: lectura de etiquetas con y sin `v`, componentes que faltan (`1.2` → 1.2.0), sufijos de prelanzamiento, elección del instalador NSIS frente al MSI, los dos formatos del `.sha256`, y el hash de un vector conocido (`"abc"`).
+- [x] Lo que más importa de todo: **`is_newer` solo dice que sí si de verdad lo es**. La misma versión no cuenta, una anterior tampoco, y una etiqueta ilegible responde "no hay actualización" — un `latest` o una respuesta rara de GitHub no puede traducirse en "hay que actualizar".
+- [x] Un `.sha256` que no contenga un hash de 64 caracteres hexadecimales **se rechaza** en vez de compararse. Un "404: Not Found" guardado como si fuera el hash daría "no coincide", pero por el motivo equivocado.
+- [x] **11 pruebas de frontend** sobre el hook: modo silencioso, reutilización de lo encontrado sin volver a consultar, cálculo del porcentaje, barra indeterminada sin tamaño total, y que un hash que no cuadra **se enseña como error y no llega a instalar nada**.
+
+> ⚠️ **Queda sin probar en vivo la descarga e instalación**, que necesita un release posterior a éste para que uno encuentre al otro. Lo demás —consulta, comparación y rechazo— está cubierto por pruebas.
 
 ### 6. Herramientas del repositorio — ✅ **completado**
 

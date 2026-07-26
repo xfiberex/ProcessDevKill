@@ -2,6 +2,7 @@ mod ports;
 mod processes;
 mod storage;
 mod tray;
+mod update;
 
 use std::sync::Mutex;
 use std::time::Duration;
@@ -463,11 +464,62 @@ fn spawn_poller(app: AppHandle) {
     });
 }
 
+/// Evento con el avance de la descarga de una actualizacion.
+const UPDATE_PROGRESS: &str = "update-progress";
+
+/// Busca si hay una version mas nueva publicada. `None` si ya esta al dia.
+///
+/// La version instalada la da el propio paquete, no el frontend: asi no hay una segunda
+/// copia del numero que se quede vieja al cortar un release.
+#[tauri::command]
+async fn check_update() -> Result<Option<update::ReleaseInfo>, String> {
+    update::check_for_update(env!("CARGO_PKG_VERSION")).await
+}
+
+/// Descarga el instalador y lo verifica contra el `.sha256` publicado.
+///
+/// Devuelve la ruta del archivo ya comprobado. Si el hash no cuadra, borra la descarga y
+/// devuelve error: nunca deja un instalador sin verificar en el disco.
+#[tauri::command]
+async fn download_update(app: AppHandle, release: update::ReleaseInfo) -> Result<String, String> {
+    let ruta = update::download_and_verify(&release, |bajado, total| {
+        // Un evento por trozo es demasiado ruido para la ventana; el frontend calcula el
+        // porcentaje y React descarta los renders que no cambian nada.
+        let _ = app.emit(UPDATE_PROGRESS, (bajado, total));
+    })
+    .await?;
+
+    Ok(ruta.to_string_lossy().into_owned())
+}
+
+/// Ejecuta el instalador descargado y cierra la app para que pueda reemplazar los archivos.
+///
+/// Solo acepta rutas dentro de la carpeta de descargas del actualizador: el comando queda
+/// expuesto al frontend y sin esa guardia seria un "ejecuta lo que quieras" —el mismo
+/// criterio que la guardia de PID en `kill_process`.
+#[tauri::command]
+fn install_update(app: AppHandle, path: String) -> Result<(), String> {
+    let ruta = std::path::PathBuf::from(&path);
+    let permitida = std::env::temp_dir().join("ProcessDevKill_update");
+
+    if !ruta.starts_with(&permitida) {
+        return Err("Ruta de instalador no permitida.".into());
+    }
+    if !ruta.is_file() {
+        return Err("El instalador descargado ya no esta donde deberia.".into());
+    }
+
+    update::launch_installer(&ruta)?;
+
+    // El instalador necesita que la app no tenga los archivos abiertos. Se sale del todo,
+    // no se esconde en la bandeja: `exit` salta el manejador de CloseRequested.
+    app.exit(0);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         // Copiar PID/puertos desde el menu contextual. Va por el portapapeles del
@@ -536,7 +588,10 @@ pub fn run() {
             get_settings,
             save_settings,
             get_history,
-            clear_history
+            clear_history,
+            check_update,
+            download_update,
+            install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

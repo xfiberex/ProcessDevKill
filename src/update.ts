@@ -1,14 +1,15 @@
 import { useCallback, useRef, useState } from "react";
-import { check } from "@tauri-apps/plugin-updater";
-import type { Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { UPDATE_PROGRESS } from "./types";
+import type { ReleaseInfo } from "./types";
 
 /**
  * Estado de la comprobacion de actualizaciones.
  *
- * Se distingue "al-dia" de "reposo" a proposito: tras pulsar el boton hay que
- * poder decir "ya tienes la ultima", y sin ese estado el boton se quedaria igual
- * que antes de pulsarlo y pareceria que no ha hecho nada.
+ * Se distingue "al-dia" de "reposo" a proposito: tras pulsar el boton hay que poder
+ * decir "ya tienes la ultima", y sin ese estado el boton se quedaria igual que antes
+ * de pulsarlo y pareceria que no ha hecho nada.
  */
 export type UpdateState =
   | { fase: "reposo" }
@@ -20,46 +21,49 @@ export type UpdateState =
   | { fase: "error"; mensaje: string };
 
 /**
- * Envuelve al plugin de actualizacion de Tauri.
+ * Actualizaciones vía GitHub Releases, verificadas con SHA-256.
  *
- * El modelo de confianza no es el `.sha256` que se publica con cada instalador:
- * el plugin verifica una firma **minisign** contra la clave publica que va
- * compilada dentro del binario (`plugins.updater.pubkey` de tauri.conf.json).
- * Un `latest.json` manipulado no basta para instalar nada: sin la firma privada
- * correspondiente, la descarga se rechaza antes de ejecutarse.
+ * Todo el trabajo real —consultar la API, descargar, comprobar el hash y ejecutar el
+ * instalador— vive en Rust (`src-tauri/src/update.rs`); aqui solo se orquesta y se pinta.
+ *
+ * **Que garantiza la verificacion.** El instalador se compara contra el `.sha256` que
+ * publica el mismo release antes de ejecutarlo, y si no coincide se borra. Eso detecta
+ * una descarga corrupta o manipulada en transito, pero no demuestra quien publico el
+ * archivo: el hash viaja por el mismo sitio. Es el compromiso de un proyecto sin
+ * certificado de firma de codigo, y esta dicho tal cual en el README.
  */
 export function useUpdater() {
   const [state, setState] = useState<UpdateState>({ fase: "reposo" });
 
-  // La actualizacion encontrada, para no repetir el check al pulsar "Instalar".
-  const pendiente = useRef<Update | null>(null);
+  // La version encontrada, para no repetir la consulta al pulsar "Instalar".
+  const pendiente = useRef<ReleaseInfo | null>(null);
 
   /**
    * Busca una version nueva.
    *
-   * `silencioso` es para la comprobacion del arranque: ahi un fallo de red es lo
-   * normal (equipo sin conexion, VPN levantandose) y no debe pintar un error en
-   * la cara del usuario nada mas abrir la app. Devuelve la version encontrada,
-   * si la hay, para que quien llame decida como avisar.
+   * `silencioso` es para la comprobacion del arranque: ahi un fallo de red es lo normal
+   * (equipo sin conexion, VPN levantandose) y no debe pintar un error en la cara del
+   * usuario nada mas abrir la app. Devuelve la version encontrada, si la hay, para que
+   * quien llame decida como avisar.
    */
   const buscar = useCallback(async (silencioso = false) => {
     if (!silencioso) setState({ fase: "buscando" });
 
     try {
-      const update = await check();
-      pendiente.current = update;
+      const release = await invoke<ReleaseInfo | null>("check_update");
+      pendiente.current = release;
 
-      if (!update) {
+      if (!release) {
         if (!silencioso) setState({ fase: "al-dia" });
         return null;
       }
 
       setState({
         fase: "disponible",
-        version: update.version,
-        notas: update.body ?? null,
+        version: release.version,
+        notas: release.notes || null,
       });
-      return update.version;
+      return release.version;
     } catch (e) {
       if (!silencioso) setState({ fase: "error", mensaje: String(e) });
       return null;
@@ -67,46 +71,41 @@ export function useUpdater() {
   }, []);
 
   /**
-   * Descarga e instala lo encontrado, y reinicia.
+   * Descarga lo encontrado, lo verifica y lo instala.
    *
-   * En Windows el instalador NSIS necesita que la app este cerrada, asi que el
-   * propio plugin la termina; `relaunch()` cubre el caso de que no lo haga. Si
-   * la app ya murio, esta linea sencillamente no llega a ejecutarse.
+   * Rust rechaza y borra el archivo si el hash no coincide, asi que llegar a
+   * `install_update` significa que la descarga ya se comprobo. La app se cierra sola
+   * para que el instalador pueda reemplazar sus archivos.
    */
   const instalar = useCallback(async () => {
-    const update = pendiente.current;
-    if (!update) return;
+    const release = pendiente.current;
+    if (!release) return;
 
     setState({ fase: "descargando", porcentaje: null });
 
-    try {
-      let total = 0;
-      let bajado = 0;
+    // La suscripcion se suelta siempre, tambien si la descarga falla: si no, cada
+    // intento dejaria un oyente mas contando bytes de una descarga que ya no existe.
+    let unlisten: (() => void) | null = null;
 
-      await update.downloadAndInstall((evento) => {
-        switch (evento.event) {
-          case "Started":
-            total = evento.data.contentLength ?? 0;
-            setState({ fase: "descargando", porcentaje: total ? 0 : null });
-            break;
-          case "Progress":
-            bajado += evento.data.chunkLength;
-            setState({
-              fase: "descargando",
-              // Sin Content-Length no se puede calcular: se enseña una barra
-              // indeterminada en vez de inventarse un porcentaje.
-              porcentaje: total ? Math.min(100, Math.round((bajado / total) * 100)) : null,
-            });
-            break;
-          case "Finished":
-            setState({ fase: "instalando" });
-            break;
-        }
+    try {
+      unlisten = await listen<[number, number]>(UPDATE_PROGRESS, (evento) => {
+        const [bajado, total] = evento.payload;
+        setState({
+          fase: "descargando",
+          // Sin Content-Length no se puede calcular: se enseña una barra
+          // indeterminada en vez de inventarse un porcentaje.
+          porcentaje: total > 0 ? Math.min(100, Math.round((bajado / total) * 100)) : null,
+        });
       });
 
-      await relaunch();
+      const ruta = await invoke<string>("download_update", { release });
+
+      setState({ fase: "instalando" });
+      await invoke("install_update", { path: ruta });
     } catch (e) {
       setState({ fase: "error", mensaje: String(e) });
+    } finally {
+      unlisten?.();
     }
   }, []);
 

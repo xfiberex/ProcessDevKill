@@ -23,7 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-# Clave privada de firma del actualizador. Nunca debe entrar en el repositorio:
-# vive en %USERPROFILE%\.tauri\. Esta regla es solo una red por si alguien la copia aqui.
+# Red de seguridad: el proyecto ya no usa claves de firma (el actualizador verifica con
+# SHA-256), pero si alguna vez vuelve a haberlas, que no entren aqui por descuido.
 *.key
 *.key.pub

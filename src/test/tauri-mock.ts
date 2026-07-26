@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { ProcessInfo, Runtime } from "../types";
+import type { ProcessInfo, ReleaseInfo, Runtime } from "../types";
 import type { UpdateState } from "../update";
 
 /**
@@ -29,16 +29,27 @@ export const openUrl = vi.fn(async () => {});
 export const getVersion = vi.fn(async () => "0.0.0-test");
 export const resolveResource = vi.fn(async (nombre: string) => `/recursos/${nombre}`);
 
-/** Plugin de actualizacion: por defecto, no hay version nueva. */
-export const check = vi.fn(async (): Promise<unknown> => null);
-export const relaunch = vi.fn(async () => {});
+/** Un ReleaseInfo completo, para las pruebas del actualizador. */
+export function release(parcial: Partial<ReleaseInfo> = {}): ReleaseInfo {
+  return {
+    tag: "v1.2.0",
+    version: "1.2.0",
+    notes: "Novedades de la 1.2.0",
+    htmlUrl: "https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.2.0",
+    assetUrl: "https://github.com/x/y/releases/download/v1.2.0/setup.exe",
+    assetName: "ProcessDevKill_1.2.0_x64-setup.exe",
+    assetSize: 3_600_000,
+    checksumUrl: "https://github.com/x/y/releases/download/v1.2.0/setup.exe.sha256",
+    ...parcial,
+  };
+}
 
 /**
  * Doble del hook `useUpdater` para las pruebas de SettingsView.
  *
  * La vista solo pinta el estado y llama a las dos acciones; probar el hook de
- * verdad ahi mezclaria dos cosas. La logica del hook se prueba aparte contra
- * `check`, en update.test.ts.
+ * verdad ahi mezclaria dos cosas. La logica del hook se prueba aparte contra los
+ * comandos de Rust, en update.test.ts.
  */
 export function updaterFalso(state: UpdateState = { fase: "reposo" }) {
   return { state, buscar: vi.fn(async () => null), instalar: vi.fn(async () => {}) };
@@ -54,12 +65,9 @@ export function resetTauriMocks() {
     openUrl,
     getVersion,
     resolveResource,
-    check,
-    relaunch,
   ]) {
     fn.mockClear();
   }
-  check.mockImplementation(async () => null);
 
   // Valores por defecto sanos: `invoke` responde a cada comando lo que responde
   // Rust en el caso normal. Una prueba que necesite otra cosa lo sobreescribe.
@@ -76,6 +84,14 @@ export function resetTauriMocks() {
       case "kill_processes":
         return [];
       case "clear_history":
+        return null;
+      // Por defecto, la app esta al dia: la comprobacion del arranque no debe
+      // ensuciar las pruebas que no van del actualizador.
+      case "check_update":
+        return null;
+      case "download_update":
+        return "C:\\Temp\\ProcessDevKill_update\\setup.exe";
+      case "install_update":
         return null;
       default:
         throw new Error(`Comando no simulado: ${cmd}`);

@@ -97,16 +97,12 @@ cd src-tauri && cargo test    # backend: lee procesos reales del equipo
 La versión vive en **tres** sitios que tienen que ir a la vez: `tauri.conf.json` (la que manda),
 `package.json` y `Cargo.toml`. El script los toca los tres.
 
-**La clave privada minisign que firma las actualizaciones NO puede entrar en el repositorio.** Vive
-en `%USERPROFILE%\.tauri\processdevkill.key` y lleva **contraseña**; el script la pide por consola.
-Generar una nueva invalida a todos los usuarios ya instalados —su binario lleva grabada la pública
-vieja—, así que no se hace salvo que no exista ninguna o esté comprometida.
+**El `.sha256` del instalador NSIS no es decorativo: es lo que verifica la auto-actualización.** La
+app lo descarga y lo compara con el instalador antes de ejecutarlo (`src-tauri/src/update.rs`). Un
+release sin él hace que la app se niegue a actualizarse a esa versión — correcto, pero conviene
+saberlo. No hay claves ni secretos que custodiar para cortar un release.
 
-**Nunca vuelques el archivo de la clave a la consola.** Es una sola línea de base64, así que
-`cat`, `head -1` o `Get-Content` imprimen el secreto entero. Pasó el 2026-07-26 con un `head -1`
-que pretendía leer solo el comentario, y obligó a rotar la clave. Si necesitas identificarla, usa
-el `key id` de la **pública**:
-
-```bash
-node -e "const c=require('./src-tauri/tauri.conf.json');console.log(Buffer.from(Buffer.from(c.plugins.updater.pubkey,'base64').toString().split('\n')[1],'base64').subarray(2,10).toString('hex'))"
-```
+**Si algún día vuelve a haber un secreto en el proyecto, no lo vuelques nunca a la consola.** Los
+archivos de clave suelen ser una sola línea de base64, así que `cat`, `head -1` o `Get-Content`
+imprimen el secreto entero aunque solo quisieras ver la cabecera. Pasó el 2026-07-26 y costó rotar
+una clave de firma.

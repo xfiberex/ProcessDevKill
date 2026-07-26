@@ -24,21 +24,9 @@
       "csp": null
     }
   },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCODAyMTU3MTgwNTIzQQpSV1E2VW9CeEZRSzREQlpRRGtWUEFpcHJlZEFOdEZOQ2t6Y1BRMjBZOG1nNnNtUFRZaG9MQ0JMcwo=",
-      "endpoints": [
-        "https://github.com/xfiberex/ProcessDevKill/releases/latest/download/latest.json"
-      ],
-      "windows": {
-        "installMode": "passive"
-      }
-    }
-  },
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": true,
     "publisher": "Ricky Angel Jiménez Bueno",
     "copyright": "© 2026 Ricky Angel Jiménez Bueno",
     "category": "DeveloperTool",

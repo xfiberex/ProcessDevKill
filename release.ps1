@@ -7,11 +7,11 @@
       1. Valida la versión y el árbol de trabajo.
       2. Ejecuta las pruebas (salvo -SkipTests): `cargo test`, `npm test` y `npm run build`.
       3. Actualiza la versión en los TRES sitios donde vive.
-      4. Compila los instaladores con `npm run tauri build` (NSIS + MSI), firmados.
-      5. Genera el .sha256 de cada instalador y el latest.json del actualizador.
+      4. Compila los instaladores con `npm run tauri build` (NSIS + MSI).
+      5. Genera el .sha256 de cada instalador — con el que la app verifica la actualización.
       6. Commit del bump de versión + tag anotado vX.Y.Z.
       7. Push de la rama y el tag a origin.
-      8. Crea el GitHub Release adjuntando instaladores, .sha256, .sig y latest.json.
+      8. Crea el GitHub Release adjuntando los instaladores y sus .sha256.
 
     Para 'gh' reutiliza la credencial de GitHub ya cacheada (la del push) si no
     estuviera autenticado; nunca se imprime el token.
@@ -24,22 +24,22 @@
     cambiar Cargo.toml se corre `cargo check` para que Cargo.lock quede al día; si no, el
     commit del release deja el árbol sucio justo después de haberlo commiteado.
 
-    DOS FIRMAS DISTINTAS, NO CONFUNDIRLAS:
+    EL .sha256 NO ES CORTESÍA: ES LO QUE VERIFICA LA AUTO-ACTUALIZACIÓN.
 
-      - minisign (SÍ la hay, desde el Tier 6.5). Es lo que verifica el actualizador: la
-        clave pública va compilada en el binario y la privada vive FUERA del repositorio,
-        en la máquina que corta releases, PROTEGIDA CON CONTRASEÑA. Firma los bundles y
-        produce los .sig. Perderla —el archivo o la contraseña— significa que los usuarios
-        ya instalados no podrán volver a actualizarse nunca, porque una clave nueva no
-        valida lo que firmó la vieja. Hacer copia de seguridad de las dos cosas.
+    La app descarga el instalador del último release y lo compara con el `.sha256` que este
+    script publica junto a él ANTES de ejecutarlo; si no coincide, lo borra y no instala
+    nada (ver src-tauri/src/update.rs). Si un release saliera sin su `.sha256`, la app se
+    negaría a actualizarse a él — que es el comportamiento correcto, pero conviene saberlo.
 
-      - firma de código Authenticode (NO la hay). Es la que quita el aviso de SmartScreen
-        ("editor desconocido"). Requiere un certificado de pago; en Tauri se configuraría
-        con `bundle.windows.certificateThumbprint`, no llamando a signtool a mano.
+    Alcance honesto: el instalador y su hash salen del MISMO release, así que esto detecta
+    una descarga corrupta o manipulada EN TRÁNSITO, pero no protege frente a un compromiso
+    de la cuenta de GitHub, porque quien pudiera sustituir el .exe podría sustituir también
+    el hash. Es el compromiso habitual de un proyecto sin certificado de firma de código.
 
-    Y EL .sha256 no es ninguna de las dos: es cortesía para verificar a mano una descarga
-    corrupta. El actualizador NO lo mira; viaja por el mismo sitio que el instalador, así
-    que no demuestra quién publicó el archivo.
+    FIRMA DE CÓDIGO AUTHENTICODE: no la hay. Es la que quitaría el aviso de SmartScreen
+    ("editor desconocido") y la que permitiría una verificación fuerte de origen. Requiere
+    un certificado de pago; en Tauri se configuraría con `bundle.windows.certificateThumbprint`,
+    no llamando a signtool a mano.
 
     Las pruebas de Rust son seguras para un corte de release: leen los procesos del sistema y
     solo matan procesos que ellas mismas lanzan. Ninguna toca los del usuario.
@@ -49,14 +49,6 @@
 
 .PARAMETER NotesFile
     Ruta a un archivo Markdown con las notas del release. Si se omite, se genera una plantilla.
-
-.PARAMETER SigningKey
-    Ruta a la clave privada minisign que firma la actualización. Por defecto
-    %USERPROFILE%\.tauri\processdevkill.key, o TAURI_SIGNING_PRIVATE_KEY_PATH si está puesta.
-
-    La clave lleva CONTRASEÑA. El script la pide por consola, sin eco, salvo que ya venga en
-    TAURI_SIGNING_PRIVATE_KEY_PASSWORD. Se comprueba nada más empezar, firmando un archivo de
-    prueba: teclearla mal aborta en el primer minuto, no después de compilar.
 
 .PARAMETER SkipTests
     Omite `cargo test`, `npm test` y `npm run build`.
@@ -75,7 +67,6 @@
 param(
     [string]$Version,
     [string]$NotesFile,
-    [string]$SigningKey,
     [switch]$SkipTests,
     [switch]$AllowDirty,
     [switch]$DryRun
@@ -145,110 +136,6 @@ function Write-Texto($ruta, $texto) {
     [System.IO.File]::WriteAllText($ruta, $texto, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-<#
-.SYNOPSIS
-    Obtiene la contraseña de la clave de firma, sin dejarla escrita en ningún sitio.
-
-.DESCRIPTION
-    Tres vías, por ese orden:
-      1. La variable TAURI_SIGNING_PRIVATE_KEY_PASSWORD, si ya viene puesta. Es la que se
-         usaría desde un script que llame a este, o desde CI el día que lo haya.
-      2. El cuadro de credenciales de Windows (Get-Credential).
-      3. La consola sin eco (Read-Host -AsSecureString), como último recurso.
-
-    EL ORDEN 2 ANTES QUE 3 NO ES CAPRICHO. `Read-Host -AsSecureString` lee la consola
-    carácter a carácter y en muchos terminales NO ADMITE PEGAR: con Ctrl+V no llega nada y
-    parece que el prompt está colgado. Una contraseña que sale de un gestor no se teclea a
-    mano, así que ese prompt es inservible en la práctica. El cuadro de Get-Credential es una
-    ventana normal de Windows y ahí pegar funciona. Pasó al cortar la v1.1.1.
-
-    Se ignora el usuario que pida el cuadro: minisign no tiene usuarios, solo contraseña. Se
-    rellena con un texto fijo para que quede claro que da igual.
-
-    La SecureString hay que convertirla a texto plano porque es lo que espera Tauri en la
-    variable de entorno; se libera el BSTR en el finally para no dejar la copia en memoria
-    más de lo imprescindible. No es una garantía fuerte —el proceso hijo la recibe en claro
-    de todos modos—, pero evita que quede en el historial de la consola.
-#>
-function Get-PasswordDeFirma {
-    if ($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
-        Info "Contraseña de firma tomada de TAURI_SIGNING_PRIVATE_KEY_PASSWORD."
-        return $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-    }
-
-    # Get-Credential puede caer a prompt de consola si la política del equipo lo fuerza
-    # (HKLM\...\PowerShell\ConsolePrompting a true); por eso queda el Read-Host debajo.
-    try {
-        # El usuario da igual y Windows lo rellena solo; minisign no tiene usuarios.
-        $cred = Get-Credential -UserName "firma" `
-                               -Message "Contraseña de la clave de firma de ProcessDevKill (el usuario se ignora)"
-        if ($cred) { return $cred.GetNetworkCredential().Password }
-        Die "No se introdujo la contraseña. Release abortado."
-    }
-    catch {
-        Warn "No se pudo abrir el cuadro de credenciales; se pide por consola."
-        Warn "Si no puedes pegar ahí, corta con Ctrl+C y define primero:"
-        Warn '  $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = (Get-Credential -UserName x).GetNetworkCredential().Password'
-    }
-
-    $segura = Read-Host "Contraseña de la clave de firma" -AsSecureString
-    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($segura)
-    try   { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-}
-
-<#
-.SYNOPSIS
-    Ejecuta un comando con la clave de firma en el entorno del PROCESO HIJO, no en esta sesión.
-
-.DESCRIPTION
-    Dos razones para no hacer simplemente `$env:X = ...` y llamar a npm:
-
-    1. LA CLAVE NO DEBE QUEDARSE EN LA SESIÓN de quien ejecuta el script. Aquí vive y muere
-       con el proceso hijo.
-
-    2. EN POWERSHELL, `$env:VAR = ""` BORRA LA VARIABLE. No la deja vacía: la elimina, porque
-       [Environment]::SetEnvironmentVariable trata la cadena vacía igual que $null. Se
-       comprueba en dos líneas:
-
-           $env:PRUEBA = ""; Test-Path Env:\PRUEBA   # -> False
-
-       Con una clave SIN contraseña hay que pasar un TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-       vacío; al desaparecer la variable, el CLI decide preguntar por consola ("Decrypting
-       updater signing key, expect a prompt for password") y el build SE QUEDA COLGADO PARA
-       SIEMPRE esperando una pulsación que en un script automatizado no llega. No falla: se
-       queda ahí. Pasó de verdad el 2026-07-25 cortando la v1.1.0.
-
-       Hoy la clave de este proyecto SÍ tiene contraseña, así que ese caso concreto ya no se
-       da; ProcessStartInfo.Environment se mantiene porque sigue siendo lo correcto por (1)
-       y porque el día que alguien vuelva a una clave sin contraseña, seguirá funcionando.
-
-    Sin redirigir la salida, el hijo hereda la consola y el progreso se ve en vivo. Va por
-    cmd.exe porque `npm` en Windows es `npm.cmd` y CreateProcess no sabe ejecutar un .cmd
-    directamente con UseShellExecute a $false.
-
-    NOTA sobre el aviso PSAvoidUsingPlainTextForPassword del analizador: $password entra como
-    String a propósito y no como SecureString. Tauri lee la contraseña de una VARIABLE DE
-    ENTORNO, que es texto plano por definición, así que la conversión hay que hacerla sí o sí;
-    lo único que se puede elegir es dónde. Se hace lo antes posible en Get-PasswordDeFirma
-    —que sí usa SecureString para leerla del teclado y libera el BSTR— y desde ahí viaja en
-    claro el trecho mínimo, sin tocar la sesión del usuario ni el historial de la consola.
-#>
-function Invoke-ConClaveDeFirma($rutaClave, $password, $comando) {
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName         = "$env:ComSpec"
-    $psi.Arguments        = "/c $comando"
-    $psi.WorkingDirectory = $root
-    $psi.UseShellExecute  = $false
-
-    $psi.Environment["TAURI_SIGNING_PRIVATE_KEY"] = (Read-Texto $rutaClave).Trim()
-    $psi.Environment["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"] = $password
-
-    $p = [System.Diagnostics.Process]::Start($psi)
-    $p.WaitForExit()
-    return $p.ExitCode
-}
-
 # ── Rutas ──────────────────────────────────────────────────────────────────
 $root       = $PSScriptRoot
 $tauriConf  = Join-Path $root "src-tauri\tauri.conf.json"
@@ -281,18 +168,6 @@ if ($currentVersion -and $currentVersion -ne $Version) {
 $setup = Join-Path $bundleDir "nsis\ProcessDevKill_${Version}_x64-setup.exe"
 $msi   = Join-Path $bundleDir "msi\ProcessDevKill_${Version}_x64_en-US.msi"
 
-# ── Firma de actualizacion (minisign) ────────────────────────────────────────
-# La clave privada NO vive en el repositorio: sin CI, vive en la maquina que corta
-# releases. Si falta, se para aqui en vez de compilar sin firmar: un release sin .sig
-# deja a todos los usuarios instalados sin poder actualizarse, y no se nota hasta que
-# alguien lo intenta.
-if (-not $SigningKey) {
-    $SigningKey = if ($env:TAURI_SIGNING_PRIVATE_KEY_PATH) { $env:TAURI_SIGNING_PRIVATE_KEY_PATH }
-                  else { Join-Path $env:USERPROFILE ".tauri\processdevkill.key" }
-}
-$sigSetup   = "$setup.sig"
-$latestJson = Join-Path $bundleDir "latest.json"
-
 # ── Validaciones de git ──────────────────────────────────────────────────────
 Push-Location $root
 try {
@@ -319,57 +194,6 @@ try {
         $untracked | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
     }
 
-    # Se comprueba ANTES de las pruebas y del build: descubrir que falta la clave
-    # después de veinte minutos compilando es la peor forma de enterarse.
-    if (-not (Test-Path $SigningKey)) {
-        Die @"
-No se encontró la clave de firma de actualizaciones: $SigningKey
-Sin ella el instalador sale sin .sig y los usuarios ya instalados no podrían actualizarse.
-Si la tienes en otro sitio, indícala con -SigningKey.
-
-Generar un par NUEVO deja tirados a todos los usuarios ya instalados: su binario lleva
-grabada la clave pública vieja y rechazará lo que firme la nueva. Hazlo solo si no existe
-ninguna clave, o si la actual está comprometida:
-    npm run tauri signer generate -- -w "`$env:USERPROFILE\.tauri\processdevkill.key" -f
-(pedirá una contraseña; guárdala junto a la clave)
-y pon la clave pública resultante en plugins.updater.pubkey de src-tauri/tauri.conf.json.
-"@
-    }
-    Ok "Clave de firma encontrada: $SigningKey"
-
-    # La contraseña se pide AQUÍ, no antes del build: así el fallo por teclearla mal aparece
-    # en el primer minuto y no después de compilar. Se comprueba firmando un archivo de
-    # prueba, que es la única forma de saber que abre la clave sin esperar al build entero.
-    $firmaPassword = Get-PasswordDeFirma
-    $pruebaFirma = Join-Path $env:TEMP "pdk_prueba_firma_$Version.txt"
-    $logFirma    = Join-Path $env:TEMP "pdk_prueba_firma_$Version.log"
-    Write-Texto $pruebaFirma "comprobacion de la clave de firma`n"
-    try {
-        Info "Comprobando que la contraseña abre la clave..."
-        # La salida se guarda y se ENSEÑA si falla. Antes iba a `> nul 2>&1` y el resultado
-        # era un "contraseña incorrecta" a secas que no distinguía una contraseña mal tecleada
-        # de una invocación mal montada; el firmador dice exactamente cuál de las dos es
-        # ("Wrong password for that key" frente a un error de argumentos). Tragarse esa línea
-        # costó una vuelta entera al cortar la v1.1.1.
-        $r = Invoke-ConClaveDeFirma $SigningKey $firmaPassword `
-             "npx tauri signer sign `"$pruebaFirma`" > `"$logFirma`" 2>&1"
-        if ($r -ne 0) {
-            if (Test-Path $logFirma) {
-                Warn "Salida del firmador:"
-                Get-Content $logFirma | Select-Object -Last 8 |
-                    ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
-            }
-            Die @"
-No se pudo firmar con esa clave y esa contraseña. Release abortado antes de compilar.
-Si arriba pone 'Wrong password for that key', la contraseña no es la que se usó al generar
-la clave. Ojo con los espacios o el salto de línea que algunos gestores añaden al copiar.
-"@
-        }
-        Ok "La contraseña abre la clave."
-    }
-    finally {
-        Remove-Item $pruebaFirma, "$pruebaFirma.sig", $logFirma -Force -ErrorAction SilentlyContinue
-    }
 
     # ── Pruebas ──────────────────────────────────────────────────────────────
     if ($SkipTests) {
@@ -438,15 +262,14 @@ la clave. Ojo con los espacios o el salto de línea que algunos gestores añaden
         Warn "DRY RUN — no se modificará nada. Plan:"
         Write-Host "    1. Poner la versión $Version en tauri.conf.json, package.json y Cargo.toml" -ForegroundColor DarkGray
         Write-Host "       + 'cargo check' para actualizar Cargo.lock" -ForegroundColor DarkGray
-        Write-Host "    2. npm run tauri build  (NSIS + MSI; firmados con minisign para el updater," -ForegroundColor DarkGray
-        Write-Host "       pero SIN firma de código: SmartScreen seguirá avisando)" -ForegroundColor DarkGray
-        Write-Host "    3. Generar los .sha256 y el latest.json del actualizador" -ForegroundColor DarkGray
+        Write-Host "    2. npm run tauri build  (NSIS + MSI, SIN firma de código:" -ForegroundColor DarkGray
+        Write-Host "       SmartScreen seguirá avisando)" -ForegroundColor DarkGray
+        Write-Host "    3. Generar los .sha256 — con el que la app verifica la actualización" -ForegroundColor DarkGray
         Write-Host "    4. git add -u ; git commit -m 'release: v$Version' ; git tag -a $tag" -ForegroundColor DarkGray
         Write-Host "    5. git push origin $branch ; git push origin $tag" -ForegroundColor DarkGray
-        Write-Host "    6. gh release create $tag con 6 assets:" -ForegroundColor DarkGray
-        Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256 + .sig)" -ForegroundColor DarkGray
+        Write-Host "    6. gh release create $tag con 4 assets:" -ForegroundColor DarkGray
+        Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256)" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
-        Write-Host "         latest.json" -ForegroundColor DarkGray
         if (-not $SkipTests) { Write-Host "    Pruebas ya ejecutadas en este dry run: cargo test + npm test + npm run build" -ForegroundColor DarkGray }
         if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
         Ok "Dry run completado."
@@ -481,27 +304,22 @@ la clave. Ojo con los espacios o el salto de línea que algunos gestores añaden
         Ok "Versión $Version puesta en los tres archivos."
     }
 
-    # ── 2. Compilar los instaladores, firmados ───────────────────────────────
-    # Tauri firma cada bundle y deja un .sig al lado cuando encuentra la clave en el entorno,
-    # PERO solo si bundle.createUpdaterArtifacts está a true en tauri.conf.json: viene a false
-    # de fábrica y sin ella compila los instaladores sin firmar y sin quejarse. De ahí la
-    # comprobación del .sig unas líneas más abajo.
-    Info "Compilando los instaladores, firmados (esto tarda varios minutos)..."
-    # La clave y su contraseña van al proceso hijo, no a esta sesión. Ver Invoke-ConClaveDeFirma.
-    if ((Invoke-ConClaveDeFirma $SigningKey $firmaPassword "npm run tauri build") -ne 0) {
-        Die "La compilación de los instaladores falló."
-    }
+    # ── 2. Compilar los instaladores ─────────────────────────────────────────
+    Info "Compilando los instaladores (esto tarda varios minutos)..."
+    & npm run tauri build
+    if ($LASTEXITCODE -ne 0) { Die "La compilación de los instaladores falló." }
 
     if (-not (Test-Path $setup)) { Die "No se encontró el instalador NSIS esperado: $setup" }
     if (-not (Test-Path $msi))   { Die "No se encontró el MSI esperado: $msi" }
-    if (-not (Test-Path $sigSetup)) {
-        Die "No se generó la firma $sigSetup. Sin ella el latest.json no vale y nadie podría actualizarse."
-    }
     Ok ("NSIS: {0} ({1} MB)" -f (Split-Path $setup -Leaf), [math]::Round((Get-Item $setup).Length / 1MB, 2))
     Ok ("MSI:  {0} ({1} MB)" -f (Split-Path $msi -Leaf),   [math]::Round((Get-Item $msi).Length / 1MB, 2))
 
     # ── 3. Checksums ─────────────────────────────────────────────────────────
     # Los genera este script: en Tauri no hay un paso de build que los produzca.
+    #
+    # NO SON DECORATIVOS. El `.sha256` del instalador NSIS es lo que la app descarga y
+    # compara antes de ejecutar una actualización (src-tauri/src/update.rs). Si este paso
+    # no publicara el hash, la app se negaría —correctamente— a actualizarse a esta versión.
     $hashes = @()
     foreach ($archivo in @($setup, $msi)) {
         $destino = "$archivo.sha256"
@@ -512,26 +330,6 @@ la clave. Ojo con los espacios o el salto de línea que algunos gestores añaden
         Ok "SHA-256 de $(Split-Path $archivo -Leaf): $h"
     }
 
-    # ── 3b. latest.json para el actualizador ─────────────────────────────────
-    # Es lo que consulta la app instalada. Va como asset del release y se descarga por
-    # la URL .../releases/latest/download/latest.json, que GitHub resuelve siempre al
-    # último release no-prerelease. El campo `signature` es el CONTENIDO del .sig, no
-    # su ruta; el plugin lo verifica contra la clave pública compilada en el binario.
-    Info "Generando latest.json..."
-    $repoUrl = ((& git remote get-url origin) -replace '\.git$', '').Trim()
-    $manifest = [ordered]@{
-        version   = $Version
-        notes     = "ProcessDevKill v$Version. Las notas completas están en $repoUrl/releases/tag/$tag"
-        pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-        platforms = [ordered]@{
-            "windows-x86_64" = [ordered]@{
-                signature = (Read-Texto $sigSetup).Trim()
-                url       = "$repoUrl/releases/download/$tag/$(Split-Path $setup -Leaf)"
-            }
-        }
-    }
-    Write-Texto $latestJson ($manifest | ConvertTo-Json -Depth 5)
-    Ok "latest.json generado apuntando a $(Split-Path $setup -Leaf)."
 
     # ── 4. Commit + tag ──────────────────────────────────────────────────────
     Info "Preparando commit de release..."
@@ -586,7 +384,7 @@ la clave. Ojo con los espacios o el salto de línea que algunos gestores añaden
     }
 
     Info "Creando el GitHub Release..."
-    & $gh release create $tag --title "ProcessDevKill $tag" --notes-file $notesPath $setup $msi $sigSetup $latestJson @hashes
+    & $gh release create $tag --title "ProcessDevKill $tag" --notes-file $notesPath $setup $msi @hashes
     if ($LASTEXITCODE -ne 0) { Die "gh release create falló (el tag ya está publicado; puedes reintentar el release)." }
 
     if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
@@ -595,7 +393,5 @@ la clave. Ojo con los espacios o el salto de línea que algunos gestores añaden
     Ok "Release $tag publicado: $repo/releases/tag/$tag"
 }
 finally {
-    # No hay variables de entorno que limpiar: la clave y su contraseña viven solo dentro de
-    # los procesos hijos que lanza Invoke-ConClaveDeFirma, y mueren con ellos.
     Pop-Location
 }

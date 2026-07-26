@@ -61,15 +61,17 @@ Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el
 
 Añadido el 2026-07-25: **98 pruebas de frontend** (Vitest + Testing Library) donde antes había cero, y **auto-actualización** con firma minisign. El remoto local ya apunta a la URL nueva.
 
-> ⚠️ **Salvedad abierta: la descarga e instalación de una actualización no está probada, y no puede estarlo todavía.** Hacen falta **dos** releases con actualizador para que una encuentre a la otra; se cierra en el próximo corte. Todo lo demás **sí** quedó verificado el 2026-07-26 tras publicar la v1.1.0: el endpoint responde 200 con la versión correcta, la firma del `latest.json` coincide con el `.sig` publicado, su `key id` (`366b8be5e0fef6cf`) es el de la clave pública compilada en el binario, y la app en ejecución contesta «Ya tienes la última versión» al buscar. Detalle en ROADMAP §Tier 6.5.
+> ⚠️ **Salvedad abierta: la descarga e instalación de una actualización no está probada en vivo**, y no puede estarlo hasta que exista un release posterior al actual. Lo demás —consultar, comparar versiones y rechazar lo que no verifica— está cubierto por 13 pruebas de Rust y 11 de frontend. Detalle en ROADMAP §Tier 6.5.
+
+> **El actualizador se rehízo el 2026-07-26.** La primera versión usaba `tauri-plugin-updater` con firmas minisign; se descartó por decisión del usuario tras dos días de fricción con la clave, y se sustituyó por el modelo de FormatDiskPro: GitHub Releases + verificación **SHA-256** antes de ejecutar. Ya no hay claves que custodiar.
 
 > ⚠️ **`codegraph` está conectado pero sin índice.** El `.mcp.json` ya engancha el servidor, pero `.codegraph/` contiene solo su `.gitignore`: la base de datos nunca se construyó. Para que sirva de algo hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva. Se deja al usuario a propósito.
 
-**Publicado:** v1.1.1 — 6 assets: instaladores NSIS y MSI, sus `.sha256`, el `.sig` del NSIS y el `latest.json` del actualizador. Sin firma de código (SmartScreen sigue avisando); **sí** con firma minisign para las actualizaciones.
+**Publicado:** v1.1.1 — 4 assets: instaladores NSIS y MSI con sus `.sha256`. Sin firma de código, así que SmartScreen sigue avisando.
 
-> ⚠️ **Ni la v1.0.0 ni la v1.1.0 pueden actualizarse solas.** La v1.0.0 se publicó sin actualizador. La v1.1.0 lo tenía, pero su clave se rotó el 2026-07-26 (ver el registro de sesiones), y una instalación solo acepta lo firmado por la clave con la que nació. Quien tenga cualquiera de las dos debe instalar la v1.1.1 a mano una vez; a partir de ahí ya se actualiza sola.
+> ⚠️ **Ni la v1.0.0 ni la v1.1.0 se actualizan solas.** La v1.0.0 se publicó sin actualizador. La v1.1.0 llevaba el de minisign, que ya no existe. Quien tenga cualquiera de las dos debe instalar la v1.1.1 a mano una vez.
 >
-> **`key id` vigente: `3a5280711502b80c`.** El comprometido y retirado es `366b8be5e0fef6cf`.
+> El `.sha256` del instalador NSIS **ya no es cortesía**: es lo que la app compara antes de ejecutar una actualización. Un release sin él hace que la app se niegue a actualizarse a esa versión.
 
 ### Entorno: el toolset MSVC venía incompleto (resuelto)
 
@@ -163,14 +165,18 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-25 | Motion se dobla en las pruebas | `AnimatePresence` mantiene montada la fila que sale hasta que acaba su animación. Al filtrar la tabla seguían contándose las filas de antes: la aserción medía la animación, no el filtro. La animación es presentación pura y ya se verificó a ojo en el Tier 2 |
 | 2026-07-25 | `types.test.ts` lee el fuente de Rust y compara | `types.ts` se declaraba "espejo" de los tipos de Rust, pero nada lo obligaba: cambiar `MIN_AUTO_KILL_MB` en `storage.rs` y olvidarse aquí no rompía ni el build ni `cargo test`. Ahora falla una prueba |
 | 2026-07-25 | `aria-label` en los dos campos numéricos de Ajustes | Lo encontraron las pruebas al no poder pedirlos por nombre: solo tenían `aria-describedby`, que **describe pero no nombra**. Un lector de pantalla los anunciaba sin decir qué eran |
-| 2026-07-25 | **Auto-actualización con minisign, no con el `.sha256`** | Son cosas distintas y confundirlas es peligroso: el hash viaja por el mismo sitio que el archivo y no prueba origen. La clave pública va compilada en el binario, así que un `latest.json` manipulado no basta para instalar nada |
+| 2026-07-25 | ~~Auto-actualización con minisign~~ | Se eligió por ser criptográficamente más fuerte que un hash. **Superada el 2026-07-26**: ver la fila del cambio a SHA-256 |
 | 2026-07-25 | ~~La clave privada, sin contraseña~~ | Se razonó que el secreto era el archivo y que una contraseña añadía fricción sin ganancia real. **Superada el 2026-07-26**: el archivo se filtró y sin contraseña eso basta para firmar. Ver la fila siguiente |
 | 2026-07-26 | **La clave privada, con contraseña** | Al día siguiente de generarla, un `head -1` que pretendía leer solo la línea de comentario volcó el archivo entero —es una sola línea de base64— a una conversación. Sin contraseña, quien tenga esos 348 bytes puede firmar: hubo que rotar. Con contraseña, una filtración del archivo ya no basta. La fricción que se quiso evitar era un `Read-Host` por release |
 | 2026-07-25 | La comprobación al arrancar va **en silencio** | Un equipo sin red o una VPN levantándose es lo normal, y un error nada más abrir la app parecería un fallo de la app. Solo se habla cuando de verdad hay versión nueva |
 | 2026-07-25 | Descargar e instalar **solo a petición** | Es lo único que la app puede traerse de internet y ejecutar. Que ocurra sin pedirlo convertiría una herramienta local en algo que se modifica solo, y eso hay que pedirlo |
 | 2026-07-25 | `process:allow-restart`, no `process:default` | `default` incluye además `allow-exit`. La app no necesita poder cerrarse a sí misma desde JS, igual que en el Tier 3 no se le concedió `core:window:allow-close` |
-| 2026-07-25 | `release.ps1` valida la clave **antes** de compilar | Enterarse de que falta después de veinte minutos de build es la peor forma de saberlo. Y si tras el build no aparece el `.sig`, el script para: publicar sin firma deja a todos los instalados sin poder actualizarse y no se nota hasta que alguien lo intenta |
-| 2026-07-25 | El endpoint es `releases/latest/download/latest.json` | GitHub lo resuelve siempre al último release no-prerelease, así que no hay que hospedar nada aparte ni tocar una URL en cada versión |
+| 2026-07-26 | **Auto-actualización con SHA-256, como FormatDiskPro** | Decisión del usuario tras dos días peleándose con la clave minisign: se filtró, la rotación se atascó y el prompt de contraseña resultaba impegable. El hash es más débil —no prueba origen— pero **el esquema entero cabe en la cabeza**, no hay secretos que custodiar y no puede dejar tirados a los usuarios instalados. Un mecanismo de seguridad que nadie consigue operar acaba desactivado, y ése es el fallo más caro de los dos |
+| 2026-07-26 | Se descarta implementar la verificación **Authenticode** | FormatDiskPro la intenta antes del hash, pero allí ya existe el código. Aquí, sin certificado de firma, ningún instalador propio la pasaría: sería código muerto, y una comprobación que siempre falla acaba ignorándose |
+| 2026-07-26 | `install_update` solo acepta rutas de su carpeta de descargas | El comando queda expuesto al frontend y sin la guardia sería un "ejecuta lo que quieras". Mismo criterio que la guardia de PID de `kill_process` del Tier 1 |
+| 2026-07-26 | La red la usa **solo Rust**, no el frontend | Las capabilities gobiernan la superficie JS↔Rust, así que el frontend sigue sin ningún permiso que le deje salir a internet. Un XSS en la ventana no puede hacer peticiones arbitrarias en nombre de la app |
+| 2026-07-25 | ~~`release.ps1` valida la clave **antes** de compilar~~ | Enterarse de que falta después de veinte minutos de build es la peor forma de saberlo. Y si tras el build no aparece el `.sig`, el script para: publicar sin firma deja a todos los instalados sin poder actualizarse y no se nota hasta que alguien lo intenta |
+| 2026-07-25 | ~~El endpoint es `releases/latest/download/latest.json`~~ | Superada: sin plugin no hay `latest.json`. Ahora se consulta la API de GitHub (`/releases/latest`), que además da las notas y el tamaño del asset |
 | 2026-07-25 | `"createUpdaterArtifacts": true` en `bundle` | **Sin ella no se firma nada y Tauri no avisa.** Viene a `false` de fábrica; con la clave puesta en el entorno y el plugin configurado, el build salió igual de contento produciendo los dos instaladores sin `.sig`. Lo cazó la comprobación de `release.ps1`, con el release ya a medio camino |
 | 2026-07-25 | El build se lanza con `ProcessStartInfo`, no con `& npm` | **En PowerShell `$env:VAR = ""` borra la variable en vez de dejarla vacía.** Con la clave sin contraseña hay que pasar un `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` vacío; al desaparecer, Tauri decide preguntar por consola y el build **se cuelga indefinidamente sin dar error**. `ProcessStartInfo.Environment` sí admite el valor vacío, y de paso la clave no toca la sesión de quien ejecuta el script |
 
@@ -237,7 +243,21 @@ La copia pública **se compila dentro de cada binario**: toda instalación de la
   - **La suposición del roadmap sobre codegraph era incorrecta:** daba por hecho que el índice existía y solo faltaba conectarlo. `.codegraph/` contiene únicamente su `.gitignore`. El `.mcp.json` queda puesto, pero el índice hay que construirlo con `codegraph init`, y eso se deja al usuario.
 - Verificado antes de cortar: 98 pruebas de frontend, 22 de `cargo test`, `tsc` sin errores y `release.ps1` sin errores de sintaxis.
 
-### 2026-07-26 — Rotación de la clave de firma y v1.1.1
+### 2026-07-26 — Fuera minisign: el actualizador pasa a SHA-256, como FormatDiskPro
+
+- **Decisión del usuario, y bien tomada.** Tras dos días de fricción con la clave de firma —se filtró, hubo que rotarla, la regeneración falló por estar en el directorio equivocado, y el prompt de contraseña resultó impegable— se cambia al modelo que ya funciona en FormatDiskPro: **GitHub Releases + verificación SHA-256 antes de ejecutar**.
+  - El hash es **criptográficamente más débil**: no demuestra quién publicó el archivo, porque viaja en el mismo release. Está dicho tal cual en el README y en el propio `update.rs`.
+  - A cambio, el esquema entero cabe en la cabeza, no hay secretos que custodiar y **no puede dejar tirados a los usuarios instalados**. Un mecanismo que nadie consigue operar acaba desactivado, y ése es el fallo más caro de los dos.
+- **`src-tauri/src/update.rs`**, calcado de `UpdateService.cs`: consulta la API, elige el instalador NSIS y su `.sha256`, descarga con progreso, **verifica y solo entonces ejecuta**. Si el hash no cuadra, borra el archivo.
+- Fuera `tauri-plugin-updater` y `tauri-plugin-process`; dentro `reqwest` (rustls) y `sha2`. La red la usa **solo Rust**: el frontend no tiene ningún permiso que le deje salir a internet.
+- **13 pruebas nuevas de Rust** (35 en total) sobre la lógica pura, y 11 de frontend reescritas (101 en total). Las que más valen: que `is_newer` no diga que sí ante una etiqueta ilegible, y que un `.sha256` que no sea un hash de 64 hexadecimales se rechace en vez de compararse —un "404: Not Found" guardado como hash daría "no coincide", pero por el motivo equivocado—.
+- **`sha2` 0.11 no vale**: es una preliberación cuya API ya no implementa `io::Write` ni `LowerHex` sobre la salida. Se fija la 0.10.
+- **El `.sha256` deja de ser cortesía y pasa a ser el mecanismo.** Anotado en `release.ps1`: un release sin él hace que la app se niegue a actualizarse a esa versión.
+- La clave minisign y su `.gitignore` quedan retirados: ya no hay nada que firmar.
+
+### 2026-07-26 — Rotación de la clave de firma (histórico, ya superado)
+
+> Se conserva porque explica por qué se abandonó el esquema de firma, y porque la lección sobre volcar secretos a la consola sigue valiendo.
 
 - **La clave privada de la v1.1.0 quedó expuesta y hubo que rotarla.** El agente ejecutó `head -1` sobre el archivo creyendo que leería solo la línea de comentario; el archivo es **una sola línea de base64**, así que volcó el secreto entero a la conversación. Sin contraseña —como se había decidido el día anterior— tener el archivo es poder firmar.
   - **Riesgo real, medido:** para empujar una actualización maliciosa hacía falta *además* poder publicar assets en el repo de GitHub, porque el endpoint va por HTTPS contra `github.com`. La clave sola no bastaba. Pero la firma existe justo para el caso en que los archivos de GitHub sí se manipulen, y esa capa dejó de valer.
