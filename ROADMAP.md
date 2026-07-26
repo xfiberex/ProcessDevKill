@@ -271,16 +271,32 @@ Sale de comparar este repo con **FormatDiskPro** (2026-07-24), que lleva 15 vers
   > Comprobado tras el cambio: el tag `v1.0.0` responde desde `xfiberex/ProcessDevKill` y el release conserva sus 4 assets. GitHub redirige la URL vieja, así que los enlaces ya publicados no se rompen.
   > La **carpeta local** sigue llamándose `ProcessVisorDev`. Es cosmético y renombrarla obliga a reabrir el proyecto en el editor, así que se deja para cuando toque.
 
-### 3. README de producto
+### 3. README de producto — ✅ **completado y verificado**
 
-Hoy tiene 5 secciones; el de FormatDiskPro, 15. Falta lo que mira quien llega de fuera:
+Tenía 5 secciones; ahora tiene 12, con lo que mira quien llega de fuera.
 
-- [ ] **Descarga e instalación** apuntando a Releases, con el aviso de SmartScreen y cómo verificar el `.sha256`.
-- [ ] **Capturas** de la app (tema claro y oscuro, menú contextual, Ajustes).
-- [ ] `tools/capture-screenshots.ps1` para regenerarlas sin trabajo manual.
-  > Aquí es más fácil que en FormatDiskPro: ya está resuelto cómo pilotar la ventana por CDP (ver CONTEXT.md §3). Lo que **no** sirve es `CopyFromScreen` para nada que dibuje el sistema por encima (toasts, menús nativos).
-- [ ] Secciones de **arquitectura**, **stack**, **privacidad** (esta app lee la lista de procesos: conviene decir en voz alta que no manda nada a ninguna parte) y licencia.
-- [ ] `.github/FUNDING.yml`.
+- [x] **Descarga e instalación** apuntando a Releases, con la tabla de los dos instaladores, el aviso de SmartScreen y cómo verificar el `.sha256`.
+  > ⚠️ Se dice también **qué no protege** el hash: viaja por el mismo sitio que el instalador, así que detecta una descarga corrupta, no demuestra quién publicó el archivo. Prometer más sería engañar.
+- [x] **Capturas** de la app: lista en oscuro y en claro, menú contextual y la vista de Ajustes entera.
+- [x] `tools/capture-screenshots.ps1` para regenerarlas sin trabajo manual.
+  > Las imágenes salen del **webview** (`Page.captureScreenshot`), no de la pantalla: sin barra de título, sin fondo de escritorio y con tamaño fijo por `Emulation.setDeviceMetricsOverride`, así que se ven igual las genere quien las genere. A x2 para que aguanten el zoom de GitHub.
+  > ⚠️ El puerto de depuración obliga a tocar `tauri.conf.json`: el script guarda los bytes originales y los restaura en el `finally`, y **cierra la app antes de restaurar** — al revés, Tauri detecta el cambio y reinicia la app en mitad de la limpieza.
+  > ⚠️ `Emulation.setDeviceMetricsOverride` **no encoge** el viewport si ya había uno más alto: la captura en claro salió con el alto de la de Ajustes. Se arregló limpiando el override antes de fijar el nuevo, y dejando la única captura alta para el final.
+  > ⚠️ `Start-Process` une los argumentos con espacios y **no entrecomilla nada**: el `node -e "…const t=…"` de los servidores de demostración llegaba partido y moría con *Unexpected end of input*. Las comillas van a mano.
+  > ⚠️ Un `.GetAwaiter().GetResult()` sobre un `Task` no genérico **emite un `VoidTaskResult`** a la salida de la función: `return $ws` acababa devolviendo un array de dos elementos y el `SendAsync` fallaba. Va con `| Out-Null`.
+  > Sigue sin poder capturarse lo que dibuja Windows por encima del webview (menú de la bandeja, notificaciones nativas). Los toast de la app sí salen: son HTML.
+- [x] El script levanta **dos servidores Node de verdad** (3000 y 8080, uno con carga) mientras captura, y los cierra al terminar.
+  > ⚠️ Sin ellos la columna de puertos sale vacía, que es justo la que justifica la app; y sin nada consumiendo CPU las barras salen todas a cero y la columna parece estropeada. No se simula nada: son procesos reales escuchando de verdad.
+- [x] Secciones de **arquitectura** (con diagrama Mermaid y las cuatro decisiones que explican el diseño), **stack**, **privacidad** y licencia.
+  > La de privacidad dice lo que la app lee, lo que **no** lee (línea de comandos, entorno), dónde guarda las cosas y que no tiene concedido ningún permiso de red — enlazando al `capabilities/default.json`, que es comprobable.
+- [x] `.github/FUNDING.yml`.
+
+**Verificación** (2026-07-25):
+
+- [x] Las cuatro capturas salen a 2000×1280 (1000×640 a x2) menos la de Ajustes, que se mide sola y sale a 2000×1820 para que quepan Auto-Kill, Zombie Finder y el atajo global.
+- [x] El menú contextual se abre sobre una fila **con puerto**, así que enseña las cinco opciones, incluida "Copiar http://localhost:1420".
+- [x] Tras ejecutar el script, `git status` no ve `tauri.conf.json` tocado y `settings.json` vuelve a `"theme": "system"`: la app queda como estaba.
+- [x] No sobrevive ningún proceso del script: ni la sesión de `tauri dev`, ni los dos servidores de demostración.
 
 ### 4. Pruebas del frontend
 

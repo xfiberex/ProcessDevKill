@@ -26,7 +26,7 @@
 
 ## 3. Estado actual
 
-**Fase actual:** ✅ Tiers 1 a 4 completados; del Tier 5 solo queda el punto 6, la publicación de releases.
+**Fase actual:** ✅ Tiers 1 a 5 completados y v1.0.0 publicada. Del Tier 6 están hechos los puntos 1 a 3; quedan las pruebas del frontend, la auto-actualización y las herramientas del repositorio.
 
 | Tier | Descripción | Estado |
 |---|---|---|
@@ -38,7 +38,12 @@
 | 5 | Salsa Secreta: Auto-Kill y Zombie Finder | ✅ Punto 4 completado y verificado |
 | 5 | Instaladores (NSIS + MSI) | ✅ Punto 5 completado |
 | 5 | Publicación de releases (`release.ps1`) | ✅ Punto 6 completado — **v1.0.0 publicada** |
-| 6 | Infraestructura de proyecto publicado | ⬜ Sin empezar |
+| 6 | Licencia y avisos de terceros | ✅ Punto 1 completado y verificado |
+| 6 | Nombre del repositorio | ✅ Punto 2 completado |
+| 6 | README de producto, capturas y `FUNDING.yml` | ✅ Punto 3 completado y verificado |
+| 6 | Pruebas del frontend | ⬜ Sin empezar |
+| 6 | Auto-actualización | ⬜ Sin empezar |
+| 6 | Herramientas del repositorio (`.claude/CLAUDE.md`, `.mcp.json`) | ⬜ Sin empezar |
 
 Verificado el 2026-07-23 con la app corriendo: la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; la lista se actualiza sola por eventos desde Rust; ajustes e historial sobreviven al reinicio; cerrar la ventana la esconde en la bandeja sin terminar la app.
 
@@ -54,7 +59,13 @@ Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el
 >
 > Lo que sí sirve como prueba indirecta de que la petición llega a Windows: la clave `HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.processdevkill.app` solo se crea cuando una app envía su primer toast.
 
-**Próximo paso concreto:** Tier 6.2 → renombrar el repositorio a `ProcessDevKill` en GitHub y actualizar el remoto local, antes de que la URL vieja circule más.
+**Próximo paso concreto:** Tier 6.4 → montar las pruebas del frontend (Vitest + Testing Library para la lógica de los componentes, y un puñado de end-to-end sobre la ventana para lo que solo se ve ahí). Hoy son cero, y es el hueco de calidad más serio que queda.
+
+> ⚠️ **Pendiente de una orden manual:** el remoto local de esta carpeta sigue apuntando a `https://github.com/xfiberex/ProcessVisorDev.git`. En GitHub el repositorio ya se llama `ProcessDevKill` y la URL vieja redirige, así que todo funciona, pero conviene arreglarlo:
+>
+> ```powershell
+> git remote set-url origin https://github.com/xfiberex/ProcessDevKill.git
+> ```
 
 **Publicado:** <https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.0.0> — instaladores NSIS (2,44 MB) y MSI (3,54 MB) con sus `.sha256`, sin firmar.
 
@@ -141,6 +152,10 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-24 | Apagar el Zombie Finder borra las rachas acumuladas | Mientras estuvo apagado nadie miraba; contar ese rato al reactivarlo sería inventárselo |
 | 2026-07-24 | `"center": true` en la ventana | Sin ello Windows coloca la ventana donde le parece y cada arranque aparecía en un sitio distinto. Tauri centra sobre el **área de trabajo**, no sobre la pantalla completa: el centro vertical queda unos píxeles más arriba, que es lo correcto para no quedar bajo la barra de tareas |
 | 2026-07-24 | `ZombieWatch` olvida los PIDs que desaparecen | La app vive días en la bandeja: el mapa crecería sin fin, y un PID reciclado por Windows heredaría la racha del proceso anterior |
+| 2026-07-25 | Las capturas del README salen del **webview** por CDP, no de la pantalla | Sin barra de título ni fondo de escritorio, y con `Emulation.setDeviceMetricsOverride` miden lo mismo las genere quien las genere, sin depender de la resolución ni del escalado de Windows. Van a x2 para que aguanten el zoom de GitHub. Capturar la pantalla ya se descartó en el Tier 5.5: BitBlt no recoge lo que compone DWM |
+| 2026-07-25 | El script de capturas levanta **sus propios servidores Node** (3000 y 8080) | La columna de puertos es lo que justifica la app: una captura con la columna vacía no vale. Y sin nada consumiendo CPU las barras salen todas a cero, que parece un fallo. Son procesos reales escuchando de verdad, no datos inventados; se cierran al terminar |
+| 2026-07-25 | La captura de Ajustes usa una ventana más alta que la de por defecto, y va la última | En 640 px solo se ve hasta el Auto-Kill, y las dos funciones estrella quedarían fuera; la app es redimensionable, así que sigue siendo una ventana posible. Va la última porque `setDeviceMetricsOverride` **no encoge** el viewport si ya había uno mayor: así el resto se capturan siempre al tamaño por defecto |
+| 2026-07-25 | El README dice qué **no** protege el `.sha256` | Publicar un hash junto al archivo que valida invita a leerlo como una garantía de origen. Detecta una descarga corrupta y poco más; sin firma no demuestra quién publicó el instalador. Decirlo cuesta dos líneas y evita una falsa sensación de seguridad |
 
 ## 5. Decisiones pendientes
 
@@ -168,6 +183,20 @@ Dos cosas que cuestan una sesión si no se saben:
 ## 8. Registro de sesiones
 
 > Añadir una entrada por sesión de trabajo, la más reciente arriba.
+
+### 2026-07-25 — Tier 6.3: README de producto, capturas y FUNDING
+
+- **README reescrito de 5 a 12 secciones**: el problema que resuelve (con el `EADDRINUSE` delante), qué hace, capturas, descarga e instalación, SmartScreen, verificación del `.sha256` —diciendo también qué **no** protege—, privacidad, arquitectura con diagrama Mermaid, stack, desarrollo, estructura, estado y licencia.
+- **`tools/capture-screenshots.ps1`**: lanza `tauri dev` con el puerto de depuración, conduce la ventana por CDP y guarda cuatro PNG en `docs/screenshots/`. Toca `tauri.conf.json` para abrir el puerto y restaura los bytes originales en el `finally`; **cierra la app antes de restaurar**, porque si no Tauri detecta el cambio y reinicia la app en mitad de la limpieza.
+- El script levanta dos servidores Node de verdad (3000, y 8080 con carga) para que la columna de puertos y las barras de CPU enseñen algo, y los cierra al acabar. También devuelve el tema a como estaba: cambiarlo es un ajuste del usuario, no un efecto secundario aceptable.
+- Cuatro tropiezos que costaron sus vueltas, todos anotados en el propio script:
+  - `Emulation.setDeviceMetricsOverride` **no encoge** el viewport si ya había uno más alto: la captura en claro salió con el alto de la de Ajustes. Se limpia el override antes de fijar el nuevo y la única captura alta va la última.
+  - `Start-Process` une los argumentos con espacios y **no entrecomilla nada**: el `node -e "…const t=…"` llegaba partido por el primer espacio y moría con *Unexpected end of input*.
+  - `.GetAwaiter().GetResult()` sobre un `Task` no genérico **emite un `VoidTaskResult`**: `return $ws` devolvía un array de dos elementos y el `SendAsync` fallaba con un error incomprensible.
+  - Para el clic derecho se usan eventos de ratón de CDP, pero para pulsar botones se usa `element.click()`: React responde igual y no hay que acertarle a un botón que puede estar fuera del área visible, que es el fallo de la sesión anterior.
+- **`.github/FUNDING.yml`** con el mismo destino que FormatDiskPro.
+- Verificado: 22 pruebas de `cargo test` en verde, la app queda como estaba (`tauri.conf.json` sin tocar según `git status`, `settings.json` con `"theme": "system"`) y no sobrevive ningún proceso del script.
+- **Detalle que faltaba del Tier 6.2:** el remoto local de esta carpeta seguía apuntando a la URL vieja. Queda anotado en §3 con el comando; el intento de cambiarlo desde la sesión lo bloqueó el clasificador de permisos.
 
 ### 2026-07-24 (noche) — Tier 6.1: licencia GPL-3.0 y avisos de terceros
 
