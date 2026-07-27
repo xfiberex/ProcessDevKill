@@ -248,11 +248,49 @@ pub fn pids_of_runtime(sys: &mut System, custom: &[String], runtime: Runtime) ->
         .collect()
 }
 
+/// Termina varios procesos vigilados y cuenta que paso con cada uno.
+///
+/// **La tabla de sockets se lee una sola vez para todo el lote.** Antes cada
+/// `kill_one` la enumeraba por su cuenta, asi que un "Nuke All" de quince procesos
+/// recorria todos los sockets del sistema quince veces. Leerlos antes de matar
+/// sigue siendo obligatorio —despues el socket ya no existe—, lo que sobraba era
+/// repetir la lectura.
+///
+/// De paso queda mas correcto: la foto de puertos se toma con todos los procesos
+/// del lote todavia vivos, en vez de irse degradando conforme caen.
+pub fn kill_many(sys: &mut System, custom: &[String], pids: Vec<u32>) -> Vec<KillOutcome> {
+    let mut ports = listening_ports();
+
+    pids.into_iter()
+        .map(|pid| match kill_one(sys, custom, pid, &mut ports) {
+            Ok((name, freed_ports)) => KillOutcome {
+                pid,
+                killed: true,
+                error: None,
+                freed_ports,
+                name,
+            },
+            Err(error) => KillOutcome {
+                pid,
+                killed: false,
+                error: Some(error),
+                freed_ports: Vec::new(),
+                name: String::new(),
+            },
+        })
+        .collect()
+}
+
 /// Termina un unico proceso vigilado. Devuelve su nombre y los puertos liberados.
-pub fn kill_one(
+///
+/// `ports` es el mapa PID -> puertos ya leido por [`kill_many`]; se saca de el la
+/// entrada de este PID. Recibirlo en vez de leerlo aqui es lo que evita enumerar
+/// los sockets una vez por proceso.
+fn kill_one(
     sys: &mut System,
     custom: &[String],
     pid: u32,
+    ports: &mut HashMap<u32, Vec<u16>>,
 ) -> Result<(String, Vec<u16>), String> {
     let target = Pid::from_u32(pid);
 
@@ -275,11 +313,12 @@ pub fn kill_one(
         return Err(format!("{name} no es un proceso de desarrollo vigilado"));
     }
 
-    // Hay que leer los puertos *antes* de matarlo: despues el socket ya no existe.
-    let ports = listening_ports().remove(&pid).unwrap_or_default();
+    // Los puertos ya venian leidos de antes de empezar el lote, que es cuando
+    // habia que leerlos: una vez muerto el proceso, su socket ya no existe.
+    let freed = ports.remove(&pid).unwrap_or_default();
 
     if process.kill() {
-        Ok((name, ports))
+        Ok((name, freed))
     } else {
         Err(format!("No se pudo terminar {name} (PID {pid})"))
     }
@@ -326,33 +365,37 @@ mod tests {
     /// seleccion se equivocara, el usuario mataria procesos que no pidio y sin
     /// ventana abierta para verlo venir, asi que se comprueba que cada runtime
     /// solo devuelve los suyos.
+    ///
+    /// ⚠️ **Se comprueba el criterio negativo —que no cuele un PID ajeno— y no que
+    /// los conteos cuadren.** La version anterior tomaba dos fotos del sistema y
+    /// exigia que fueran identicas, cosa que en una maquina de desarrollo no se
+    /// sostiene: los procesos van y vienen entre una lectura y la siguiente. Fallo
+    /// de verdad (15 contra 13) en cuanto otro test empezo a lanzar servidores node
+    /// en paralelo, y ya era fragil antes por el node de
+    /// `reporta_cpu_de_un_proceso_ocupado`. Lo que importa aqui es a quien NO se
+    /// mata, que es ademas la regla de la casa para todo lo que cierra procesos.
     #[test]
     fn selecciona_solo_los_pids_del_runtime_pedido() {
         let mut sys = new_system();
-        let todos = collect_processes(&mut sys, SIN_EXTRAS);
 
         for runtime in Runtime::BUILT_INS {
             let elegidos = pids_of_runtime(&mut sys, SIN_EXTRAS, runtime);
-            let esperados: Vec<u32> = todos
-                .iter()
-                .filter(|p| p.runtime == runtime)
-                .map(|p| p.pid)
-                .collect();
+            // Foto inmediatamente posterior con la que contrastar.
+            let ahora = collect_processes(&mut sys, SIN_EXTRAS);
 
-            assert_eq!(
-                elegidos.len(),
-                esperados.len(),
-                "{} devolvio {} PIDs y se esperaban {}",
-                runtime.label(),
-                elegidos.len(),
-                esperados.len()
-            );
             for pid in &elegidos {
-                assert!(
-                    esperados.contains(pid),
-                    "{} incluyo el PID {pid}, que no es suyo",
-                    runtime.label()
-                );
+                match ahora.iter().find(|p| p.pid == *pid) {
+                    Some(p) => assert_eq!(
+                        p.runtime,
+                        runtime,
+                        "{} incluyo el PID {pid}, que es de {}",
+                        runtime.label(),
+                        p.runtime.label()
+                    ),
+                    // Murio entre las dos lecturas. No demuestra nada malo: lo que
+                    // no puede pasar es devolver un PID vivo de otro runtime.
+                    None => continue,
+                }
             }
         }
     }
@@ -496,6 +539,96 @@ mod tests {
         watch.track(&mut vuelve, 20 * MINUTO, Some(5));
         assert_eq!(vuelve[0].idle_secs, 0);
         assert!(!vuelve[0].zombie);
+    }
+
+    /// El riesgo de leer los puertos una sola vez por lote es **cruzarlos**: que el
+    /// puerto de un proceso acabe apuntado en el resultado de otro, o que se pierda.
+    /// Y eso no se ve en la UI —el numero sale igual de plausible—, solo en el
+    /// historial, cuando ya no hay forma de saber que era verdad.
+    ///
+    /// Se prueba con dos servidores de verdad, cada uno en su puerto, matados en el
+    /// mismo lote. Los lanza el propio test y solo mata esos dos.
+    #[test]
+    fn un_lote_no_cruza_los_puertos_de_cada_proceso() {
+        const A: u16 = 45871;
+        const B: u16 = 45872;
+
+        fn servidor(puerto: u16) -> Option<std::process::Child> {
+            std::process::Command::new("node")
+                .arg("-e")
+                .arg(format!("require('net').createServer().listen({puerto})"))
+                .spawn()
+                .ok()
+        }
+
+        let (Some(mut uno), Some(mut dos)) = (servidor(A), servidor(B)) else {
+            println!("sin node instalado: no hay nada que comprobar");
+            return;
+        };
+        let (pid_uno, pid_dos) = (uno.id(), dos.id());
+
+        // Esperar a que los dos esten escuchando de verdad.
+        let mut listos = false;
+        for _ in 0..50 {
+            let mapa = listening_ports();
+            if mapa.get(&pid_uno).is_some_and(|p| p.contains(&A))
+                && mapa.get(&pid_dos).is_some_and(|p| p.contains(&B))
+            {
+                listos = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+
+        if !listos {
+            // Puertos ocupados u otro estorbo del entorno: se limpia y se sale sin
+            // dar un fallo que no es del codigo.
+            let _ = uno.kill();
+            let _ = dos.kill();
+            let _ = uno.wait();
+            let _ = dos.wait();
+            println!("los servidores de prueba no llegaron a escuchar; se omite");
+            return;
+        }
+
+        let mut sys = new_system();
+        let outcomes = kill_many(&mut sys, SIN_EXTRAS, vec![pid_uno, pid_dos]);
+
+        // Recoger a los hijos pase lo que pase, antes de cualquier asercion.
+        let _ = uno.wait();
+        let _ = dos.wait();
+
+        assert_eq!(outcomes.len(), 2);
+        let de = |pid: u32| {
+            outcomes
+                .iter()
+                .find(|o| o.pid == pid)
+                .unwrap_or_else(|| panic!("falta el resultado del PID {pid}"))
+        };
+
+        assert!(de(pid_uno).killed, "no se pudo cerrar el primero");
+        assert!(de(pid_dos).killed, "no se pudo cerrar el segundo");
+
+        // Cada uno con SU puerto, y sin el del otro: es lo que se romperia al
+        // compartir el mapa entre las dos llamadas.
+        assert!(
+            de(pid_uno).freed_ports.contains(&A),
+            "el primero deberia liberar el {A}, y trajo {:?}",
+            de(pid_uno).freed_ports
+        );
+        assert!(
+            !de(pid_uno).freed_ports.contains(&B),
+            "el primero se quedo con el puerto del segundo"
+        );
+        assert!(
+            de(pid_dos).freed_ports.contains(&B),
+            "el segundo deberia liberar el {B}, y trajo {:?}",
+            de(pid_dos).freed_ports
+        );
+        assert!(
+            !de(pid_dos).freed_ports.contains(&A),
+            "el segundo se quedo con el puerto del primero"
+        );
     }
 
     #[test]

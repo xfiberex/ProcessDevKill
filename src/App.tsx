@@ -3,20 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { toast } from "sonner";
-import { PROCESSES_UPDATED, REFRESH_INTERVALS, RUNTIMES } from "./types";
-import type {
-  HistoryEntry,
-  KillOutcome,
-  ProcessInfo,
-  Runtime,
-  Settings,
-} from "./types";
-import { RUNTIME_ICONS } from "./icons";
+import { PROCESSES_UPDATED } from "./types";
+import type { HistoryEntry, KillOutcome, ProcessInfo, Settings } from "./types";
 import { ThemeProvider } from "./theme";
-import { useUpdater } from "./update";
+import { useUpdater } from "./hooks/useUpdater";
 import { ProcessTable } from "./components/ProcessTable";
 import { HistoryView } from "./components/HistoryView";
 import { SettingsView } from "./components/SettingsView";
+import { Sidebar } from "./components/Sidebar";
+import type { Filter, View } from "./components/Sidebar";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import type { ConfirmRequest } from "./components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -32,9 +27,6 @@ import { Toaster } from "@/components/ui/sonner";
  */
 const SOLID_DESTRUCTIVE =
   "shrink-0 bg-destructive text-destructive-foreground hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90";
-
-type Filter = Runtime | "all";
-type View = "processes" | "history" | "settings";
 
 const DEFAULT_SETTINGS: Settings = {
   customNames: [],
@@ -256,81 +248,15 @@ export default function App() {
   return (
     <ThemeProvider theme={settings.theme}>
       <div className="flex h-full">
-        <aside className="flex w-52 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-          <div className="border-b border-sidebar-border px-4 py-4">
-            <h1 className="font-heading text-sm font-semibold tracking-wide">
-              ProcessDevKill
-            </h1>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Process Manager
-            </p>
-          </div>
-
-          <nav className="flex gap-1 border-b border-sidebar-border p-2">
-            {(
-              [
-                ["processes", "Procesos"],
-                ["history", "Historial"],
-                ["settings", "Ajustes"],
-              ] as const
-            ).map(([id, label]) => (
-              <Button
-                key={id}
-                size="xs"
-                variant={view === id ? "secondary" : "ghost"}
-                // `aria-current`, no `aria-pressed`: esto es navegacion entre vistas
-                // excluyentes, no un interruptor. Un lector de pantalla dice "vista
-                // actual" en vez de "presionado", que es lo que de verdad pasa.
-                aria-current={view === id ? "page" : undefined}
-                onClick={() => setView(id)}
-                // px-1: con el padding por defecto las tres pestañas no caben en
-                // los 208 px del sidebar y "Ajustes" se sale por el borde.
-                className="min-w-0 flex-1 px-1"
-              >
-                {label}
-              </Button>
-            ))}
-          </nav>
-
-          {view === "processes" && (
-            <nav className="flex flex-col gap-1 p-2">
-              <FilterButton
-                label="Todos"
-                count={processes.length}
-                active={filter === "all"}
-                onClick={() => setFilter("all")}
-              />
-              {(Object.keys(RUNTIMES) as Runtime[]).map((runtime) => (
-                <FilterButton
-                  key={runtime}
-                  label={RUNTIMES[runtime].label}
-                  runtime={runtime}
-                  count={processes.filter((p) => p.runtime === runtime).length}
-                  active={filter === runtime}
-                  onClick={() => setFilter(runtime)}
-                />
-              ))}
-            </nav>
-          )}
-
-          <div className="mt-auto border-t border-sidebar-border p-3">
-            <p className="mb-2 text-xs text-muted-foreground">Auto-refresco</p>
-            <div className="flex gap-1">
-              {REFRESH_INTERVALS.map(({ label, ms }) => (
-                <Button
-                  key={label}
-                  size="xs"
-                  variant={settings.refreshMs === ms ? "secondary" : "ghost"}
-                  aria-pressed={settings.refreshMs === ms}
-                  onClick={() => saveSettings({ ...settings, refreshMs: ms })}
-                  className="flex-1"
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </aside>
+        <Sidebar
+          view={view}
+          onViewChange={setView}
+          filter={filter}
+          onFilterChange={setFilter}
+          processes={processes}
+          refreshMs={settings.refreshMs}
+          onRefreshMsChange={(ms) => saveSettings({ ...settings, refreshMs: ms })}
+        />
 
         <main className="flex min-w-0 flex-1 flex-col">
           {view === "processes" && (
@@ -437,41 +363,5 @@ export default function App() {
         <Toaster position="bottom-right" />
       </div>
     </ThemeProvider>
-  );
-}
-
-function FilterButton({
-  label,
-  count,
-  active,
-  runtime,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  runtime?: Runtime;
-  onClick: () => void;
-}) {
-  const Icon = runtime ? RUNTIME_ICONS[runtime] : null;
-
-  return (
-    <Button
-      variant={active ? "secondary" : "ghost"}
-      aria-pressed={active}
-      onClick={onClick}
-      className="justify-start gap-2 px-3"
-    >
-      {Icon ? (
-        <Icon
-          className="size-4 shrink-0"
-          style={{ color: RUNTIMES[runtime!].color }}
-        />
-      ) : (
-        <span className="size-4 shrink-0" />
-      )}
-      <span className="flex-1 truncate text-left">{label}</span>
-      <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
-    </Button>
   );
 }

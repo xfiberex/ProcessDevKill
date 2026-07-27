@@ -231,9 +231,9 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 101 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 115 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
-cd src-tauri && cargo test    # 37 pruebas del backend
+cd src-tauri && cargo test    # 44 pruebas del backend
 ```
 
 Las pruebas de Rust leen los procesos reales del equipo y **solo matan procesos que lanzan ellas
@@ -256,9 +256,11 @@ constantes espejo, para que el contrato entre los dos lados no se desincronice e
 | Ruta | Contenido |
 |---|---|
 | `src/` | Frontend React: vistas, tipos compartidos con Rust y tema |
+| `src/components/`, `src/hooks/`, `src/lib/` | Componentes de la app, hooks de React y utilidades |
 | `src/components/ui/` | Componentes de shadcn/ui (generados; se editan a mano si hace falta) |
-| `src-tauri/src/lib.rs` | Comandos de Tauri y arranque |
+| `src-tauri/src/lib.rs` | Comandos de Tauri, estado compartido y arranque |
 | `src-tauri/src/{processes,ports,storage,tray}.rs` | Procesos, puertos, persistencia y bandeja |
+| `src-tauri/src/{poller,auto_kill,notify}.rs` | Hilo de refresco, cierre automático por RAM y avisos nativos |
 | `src-tauri/src/update.rs` | Actualizaciones: consulta a GitHub, descarga y verificación SHA-256 |
 | `src-tauri/capabilities/` | Permisos concedidos a la ventana |
 | `tools/`, `docs/screenshots/` | Utilidades del repositorio y capturas del README |

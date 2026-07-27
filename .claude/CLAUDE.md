@@ -35,7 +35,11 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 ## Backend (Rust, `src-tauri/src/`)
 
 - Comandos de Tauri en `snake_case`: `get_processes`, `kill_process`.
-- `lib.rs` es arranque y comandos; la lógica vive en `processes`, `ports`, `storage` y `tray`.
+- `lib.rs` es arranque, `AppState` y comandos; la lógica vive en `processes`, `ports`, `storage`,
+  `tray`, `poller`, `auto_kill`, `notify` y `update`. **Cuando `lib.rs` vuelva a pasar de ~450
+  líneas de código, se parte otra vez**: ya ha pasado dos veces (Tier 4 y Tier 7.6).
+- Los comandos del actualizador se registran como `update::check_update` en `generate_handler!`. El
+  nombre por IPC lo da el **último segmento**, así que `invoke("check_update")` no cambia.
 - **Toda muerte de proceso pasa por `kill_and_record`.** La ventana, la bandeja, el atajo global y
   el Auto-Kill comparten camino, así que los cuatro notifican, registran en el historial y refrescan
   igual. Tres rutas separadas se desincronizaron a la primera.
@@ -83,6 +87,10 @@ cd src-tauri && cargo test    # backend: lee procesos reales del equipo
 - **Para inspeccionar la UI en marcha** hay que añadir `"additionalBrowserArgs":
   "--remote-debugging-port=9222"` a la ventana en `tauri.conf.json` y **quitarlo después**. La
   variable de entorno `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` no sirve: Tauri la sobrescribe.
+- **El binario de release se construye con `npx tauri build --no-bundle`, no con `cargo build
+  --release`.** Los assets de `dist/` los embebe el CLI de Tauri; el que sale de `cargo` arranca
+  apuntando al `devUrl` y la ventana enseña `ERR_CONNECTION_REFUSED`. Se lee como si la app
+  estuviera rota.
 - **Nunca evaluar `navigator.clipboard.readText()` por CDP**: abre un diálogo de permiso dentro de
   la ventana que deja la evaluación colgada. Para comprobar el portapapeles, `Get-Clipboard`.
 - **Los toast de Windows no se pueden capturar** con `Graphics.CopyFromScreen`: DWM los compone en

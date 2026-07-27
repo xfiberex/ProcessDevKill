@@ -608,42 +608,127 @@ fija—. Lo que desentona:
   > el cambio es mayor, hay una prueba que depende de él y la ganancia es pequeña. Queda escrito por
   > si algún día se hace de una pasada.
 
-### 5. Rendimiento
+### 5. Rendimiento — ✅ **completado y verificado**
 
-- [ ] **Leer los puertos una sola vez por lote en `kill_and_record`.**
-  > ⚠️ `kill_one` llama a `listening_ports()` por cada PID, y `kill_and_record` la invoca en un `map`:
-  > un "Nuke All" con quince procesos **recorre la tabla TCP del sistema quince veces**. Leerlos antes
-  > de matar es obligatorio y está bien razonado; lo que sobra es repetir la enumeración. Pasar el mapa
-  > ya leído como parámetro lo deja en una pasada.
-- [ ] **Quitar el bucle de 300 ms del poller cuando no hay nada que hacer.**
-  > Con el refresco en "Off" y el Auto-Kill apagado, el hilo despierta tres veces por segundo para no
-  > hacer nada. En una app pensada para vivir días en la bandeja son cientos de miles de despertares
-  > diarios. Un `Condvar` señalado al guardar ajustes conserva la reactividad sin el sondeo.
+- [x] **Los puertos se leen una sola vez por lote**, en `processes::kill_many`.
+  > ⚠️ `kill_one` llamaba a `listening_ports()` por cada PID, y `kill_and_record` la invocaba en un
+  > `map`: un "Nuke All" con quince procesos **recorría la tabla TCP del sistema quince veces**.
+  > Leerlos antes de matar es obligatorio y estaba bien razonado; lo que sobraba era repetir la
+  > enumeración.
+  > De paso queda **más correcto**: la foto de puertos se toma con todos los procesos del lote aún
+  > vivos, en vez de irse degradando conforme caen.
+- [x] Prueba de que el lote **no cruza ni pierde** la atribución de puertos.
+  > ⚠️ Es el riesgo real de este refactor, y de los que no se ven: si el puerto de un proceso acabara
+  > apuntado en el resultado de otro, la UI enseñaría un número igual de plausible y solo se notaría
+  > en el historial, cuando ya no hay forma de saber qué era verdad. Se prueba con dos servidores
+  > `node` de verdad, en puertos distintos, cerrados en el mismo lote.
+- [x] **Fuera el bucle de 300 ms del poller**: ahora espera en un `Condvar` al que se avisa al guardar
+      ajustes.
+  > Con el refresco en "Off" y el Auto-Kill apagado, el hilo despertaba tres veces por segundo para no
+  > hacer nada: en una app pensada para vivir días en la bandeja, cientos de miles de despertares
+  > diarios. Ahora espera hasta `PAUSA_MS` (60 s) y el aviso lo devuelve al trabajo al instante.
+  > ⚠️ **El `bool` del `Condvar` no es decoración.** El poller lee los ajustes, decide cuánto dormir y
+  > solo entonces entra a esperar; si alguien guarda ajustes en ese hueco, un `notify` a secas se
+  > pierde —no había nadie escuchando— y el hilo se queda el plazo entero. El testigo se marca
+  > **dentro del candado** y la espera lo consume, que es el patrón que cierra esa carrera.
 
-> Lo que ya está bien y no se toca: una sola instancia de `System`, `watch_cycle` leyendo la lista una
-> vez por ciclo, el calentamiento de CPU en hilo aparte y el frontend sin polling.
+**Verificación** (2026-07-27):
 
-### 6. Refactor: archivos que volvieron a crecer
+- [x] **41 pruebas de `cargo test`** (antes 38), y la suite pasa tres veces seguidas.
+- [x] En vivo, sobre el binario de release y por CDP: con el refresco en 2 s un proceso nuevo entra en
+      la lista en **1,9 s**; con "Off" **no entra**; y al volver a 2 s el poller despierta y lo lista
+      en **2,2 s**, no en los 60 de `PAUSA_MS`.
 
-El Tier 4 partió `lib.rs` cuando pasaba de 450 líneas «porque el Tier 4 la habría llevado a 900». Hoy
-tiene **704** y el frontend tiene dos archivos de ~480. Es el mismo síntoma, un tier después.
+> ⚠️ **Dos trampas de la verificación, que costaron más que el cambio.**
+>
+> 1. **La primera medición dio un falso fallo.** Usaba la columna "Activo" como latido, y
+>    `formatUptime` la da en **minutos** en cuanto un proceso pasa del minuto: no cambiaba en 20 s
+>    aunque el refresco funcionara. El latido bueno es lanzar un proceso y ver si **aparece**.
+> 2. **El proceso hay que lanzarlo *después* de reactivar el refresco.** `save_settings` publica una
+>    lista al guardar, así que uno lanzado antes aparecería por ese camino y no probaría nada sobre el
+>    hilo del poller.
+>
+> El arreglo del testigo del `Condvar` se hizo mientras se perseguía ese falso fallo. **No era la
+> causa** —no había nada roto—, pero la carrera que cierra es real, así que se queda con su prueba de
+> regresión: `un_aviso_anterior_a_la_espera_no_se_pierde`.
 
-- [ ] **`lib.rs` (704 líneas)**: sacar los tres comandos del actualizador y el `auto_kill` a sus
-      módulos. `lib.rs` debería volver a ser arranque y comandos, como dice CONTEXT.md §4.
-- [ ] **`SettingsView.tsx` (489)**: el archivo más grande del frontend, con el subcomponente
-      `Actualizaciones` dentro. Sale limpio a `components/Actualizaciones.tsx`.
-- [ ] **`App.tsx` (471)**: lleva dentro el sidebar completo, la cabecera de búsqueda y `FilterButton`.
-      El sidebar sale a `components/Sidebar.tsx`.
-- [ ] **`src/types.ts` hace tres trabajos**: tipos espejo de Rust, constantes de UI (`RUNTIMES`,
-      `THEMES`, `REFRESH_INTERVALS`) y funciones de formato (`formatUptime`, `formatMemory`,
-      `formatTimestamp`).
-  > ⚠️ Importa más de lo que parece: `types.test.ts` verifica que este archivo sea **espejo** del
-  > fuente de Rust, y cuanto más contenido no-espejo arrastra, menos claro queda ese contrato. Los
-  > formateadores encajan en `src/lib/utils.ts`, que ya existe.
-- [ ] **`src/update.ts` es un hook de React** (`useUpdater`) viviendo en la raíz junto a los tipos.
-      Su sitio está con los componentes o en un `hooks/`.
+> ⚠️ **El test nuevo destapó otro que ya era frágil.** `selecciona_solo_los_pids_del_runtime_pedido`
+> tomaba dos fotos del sistema y exigía que cuadraran (15 contra 13 en cuanto algo lanza procesos
+> `node` en paralelo). Ya era frágil por el `node` de `reporta_cpu_de_un_proceso_ocupado`; ahora
+> comprueba el **criterio negativo** —que no cuele un PID de otro runtime—, que es lo que de verdad
+> importa y además es la regla de la casa para todo lo que cierra procesos.
 
-> No entra aquí `processes.rs` (572 líneas): 307 son tests, y el código son 265. Está bien como está.
+> Lo que ya estaba bien y no se toca: una sola instancia de `System`, `watch_cycle` leyendo la lista
+> una vez por ciclo, el calentamiento de CPU en hilo aparte y el frontend sin polling.
+
+### 6. Refactor: archivos que volvieron a crecer — ✅ **completado y verificado**
+
+El Tier 4 partió `lib.rs` cuando pasaba de 450 líneas «porque el Tier 4 la habría llevado a 900». Al
+abrir este tier tenía **704**, y el 7.5 la dejó en **860**. Es el mismo síntoma, un tier después.
+
+- [x] **`lib.rs`: 860 → 635 líneas** (de las que 185 son tests, o sea ~450 de código).
+  > Salen tres módulos, no los dos que decía este plan. El de más es `poller.rs`, y se añadió porque
+  > el 7.5 metió en `lib.rs` el hilo entero y sus constantes **después** de escribirse esta lista: el
+  > objetivo escrito era «volver a ser arranque y comandos», y un hilo de fondo no es ninguna de las
+  > dos cosas.
+  > - **`update.rs`** ← los tres comandos del actualizador. Cada uno delega en la función del mismo
+  >   archivo que hace el trabajo; tenerlos en `lib.rs` obligaba a abrir dos archivos para seguir una
+  >   actualización, y era donde peor se veía que `install_update` lleva una guardia detrás.
+  > - **`auto_kill.rs`** ← lo único de la app que cierra procesos sin que nadie se lo pida. Módulo
+  >   propio precisamente por eso: estaba suelto entre las cien líneas de arranque.
+  > - **`notify.rs`** ← los avisos nativos, que comparten las cuatro vías de cierre.
+  > - **`poller.rs`** ← el hilo, `watch_cycle` y los cuatro plazos (`MIN/MAX_REFRESH_MS`,
+  >   `AUTO_KILL_IDLE_MS`, `PAUSA_MS`).
+- [x] **`SettingsView.tsx` (518 → 419)**: `Actualizaciones` sale a `components/Actualizaciones.tsx`.
+- [x] **`App.tsx` (477 → 367)**: el sidebar y `FilterButton` salen a `components/Sidebar.tsx`, que
+      además se lleva los tipos `View` y `Filter` — es el componente que gobierna las dos cosas.
+- [x] **`src/types.ts` (127 → 115) deja de hacer tres trabajos**: los formateadores se van a
+      `src/lib/format.ts`, con sus pruebas en `src/lib/format.test.ts`. `types.test.ts` baja de 95 a
+      57 líneas y queda solo con el contrato contra Rust, que es de lo que iba.
+  > ⚠️ **A `src/lib/format.ts`, no a `src/lib/utils.ts`** como decía este plan. `utils.ts` lo genera
+  > el CLI de shadcn con `cn` dentro, y volver a pasar `shadcn init` lo reescribe. El CLI está en las
+  > dependencias del proyecto, así que no es hipotético.
+  > **Los mapas de etiquetas se quedan** (`RUNTIMES`, `THEMES`, `KILL_SOURCES`, `REFRESH_INTERVALS`):
+  > cada uno es un `Record` indexado por un tipo espejo, así que TypeScript obliga a completarlos
+  > cuando Rust gana una variante. Sacarlos de ahí perdería esa comprobación a cambio de un archivo
+  > más. Los formateadores no tenían esa atadura, y por eso sí se van.
+- [x] **`src/update.ts` → `src/hooks/useUpdater.ts`**, con su prueba al lado. Movido con `git mv`
+      para no perder el historial del archivo.
+
+> No entra aquí `processes.rs` (705 líneas): 376 son tests. Está bien como está.
+
+**Verificación** (2026-07-27):
+
+- [x] **44 pruebas de `cargo test`** (antes 41) y **115 de frontend en 9 archivos** (antes 115 en 8).
+  > Las tres nuevas de Rust cubren texto que hasta ahora no probaba nadie: la concordancia de la
+  > frase de puertos liberados y los dos formatos del aviso del Auto-Kill (nombra al proceso cuando
+  > cae uno, resume cuando caen varios). Al quedarse solas en un módulo pequeño se veía que el
+  > mensaje más delicado de la app —el de lo que mató sin preguntar— no tenía ninguna.
+- [x] `tsc` sin errores y `tauri build` en verde.
+- [x] **En vivo, sobre el binario de release y por CDP**, las dos cosas que ninguna prueba caza:
+      un proceso nuevo entra solo en la lista en **1,9 s** (el hilo sigue vivo tras mudarse de
+      archivo) y `invoke("check_update")` responde *"Ya tienes la última versión."* desde el botón
+      de Ajustes.
+  > ⚠️ Esto último era **el riesgo real del refactor**: los comandos pasan a registrarse como
+  > `update::check_update` en `generate_handler!`. Si Tauri tomara la ruta entera como nombre en vez
+  > del último segmento, `invoke("check_update")` dejaría de existir — y compila igual, y
+  > `cargo test` pasa igual. Solo se ve en marcha.
+- [x] El puerto de depuración se quitó de `tauri.conf.json` después, cerrando antes la app, y se
+      recompiló sin él.
+
+> ⚠️ **`cargo build --release` NO produce un binario de producción utilizable.** La primera pasada
+> de la verificación falló en los dos casos, y la causa era esa: el ejecutable arrancaba apuntando a
+> `http://localhost:1420` (el `devUrl`) y la ventana enseñaba `ERR_CONNECTION_REFUSED`. Los assets de
+> `dist/` los embebe el **CLI de Tauri**, no `cargo`. Para verificar en vivo hay que construir con
+> `npx tauri build --no-bundle`.
+> Es la tercera vez en este tier que un fallo del guion se lee como un fallo de la app. Mirar qué
+> pinta la ventana antes de creerse nada sigue saliendo a cuenta.
+
+> Lo que **no** se probó en vivo, dicho claro: el camino del **Auto-Kill**. Exigiría bajar el umbral
+> y dejar suelto al vigilante sobre los procesos reales del equipo, y la regla de la casa es que
+> ninguna prueba toca procesos del usuario. Queda cubierto por que el traslado es literal —el control
+> de flujo de `enforce` devuelve `true` en los mismos casos en que `watch_cycle` hacía `return`— y por
+> las dos pruebas nuevas del mensaje.
 
 ### 7. Compactar la documentación
 

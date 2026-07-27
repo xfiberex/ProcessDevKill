@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { useUpdater } from "./update";
-import { invoke, listen, release } from "./test/tauri-mock";
-import { UPDATE_PROGRESS } from "./types";
-import type { ReleaseInfo } from "./types";
+import { useUpdater } from "./useUpdater";
+import { invoke, listen, release } from "../test/tauri-mock";
+import { UPDATE_PROGRESS } from "../types";
+import type { ReleaseInfo } from "../types";
 
 /** Hace que `check_update` conteste con una version nueva. */
 function hayVersion(parcial: Partial<ReleaseInfo> = {}) {

@@ -379,6 +379,65 @@ pub fn launch_installer(ruta: &Path) -> Result<(), String> {
         .map_err(|e| format!("No se pudo ejecutar el instalador: {e}"))
 }
 
+// ---------------------------------------------------------------- comandos ---
+//
+// Los tres viven aquí y no en `lib.rs` porque no son mas que la cara publica de
+// lo de arriba: cada uno delega en la funcion de este mismo modulo que hace el
+// trabajo. Tenerlos en `lib.rs` obligaba a leer dos archivos para seguir el
+// camino de una actualizacion, y era donde peor se veia que `install_update`
+// tiene una guardia de seguridad detras.
+
+use tauri::{AppHandle, Emitter};
+
+/// Evento con el avance de la descarga. Espejo de `UPDATE_PROGRESS` en `src/types.ts`.
+const UPDATE_PROGRESS: &str = "update-progress";
+
+/// Busca si hay una version mas nueva publicada. `None` si ya esta al dia.
+///
+/// La version instalada la da el propio paquete, no el frontend: asi no hay una segunda
+/// copia del numero que se quede vieja al cortar un release.
+#[tauri::command]
+pub async fn check_update() -> Result<Option<ReleaseInfo>, String> {
+    check_for_update(env!("CARGO_PKG_VERSION")).await
+}
+
+/// Descarga el instalador y lo verifica contra el `.sha256` publicado.
+///
+/// Devuelve la ruta del archivo ya comprobado. Si el hash no cuadra, borra la descarga y
+/// devuelve error: nunca deja un instalador sin verificar en el disco.
+#[tauri::command]
+pub async fn download_update(app: AppHandle, release: ReleaseInfo) -> Result<String, String> {
+    let ruta = download_and_verify(&release, |bajado, total| {
+        // Un evento por trozo es demasiado ruido para la ventana; el frontend calcula el
+        // porcentaje y React descarta los renders que no cambian nada.
+        let _ = app.emit(UPDATE_PROGRESS, (bajado, total));
+    })
+    .await?;
+
+    Ok(ruta.to_string_lossy().into_owned())
+}
+
+/// Ejecuta el instalador descargado y cierra la app para que pueda reemplazar los archivos.
+///
+/// Solo acepta rutas dentro de la carpeta de descargas del actualizador: el comando queda
+/// expuesto al frontend y sin esa guardia seria un "ejecuta lo que quieras" —el mismo
+/// criterio que la guardia de PID en `kill_process`.
+///
+/// La comprobacion es una funcion pura, probable sin montar una `App`, igual que
+/// `collect_processes` frente a `get_processes`. Se ejecuta **la ruta que devuelve**, ya
+/// canonicalizada: validar una y lanzar otra seria dejar el agujero abierto por detras.
+#[tauri::command]
+pub fn install_update(app: AppHandle, path: String) -> Result<(), String> {
+    let ruta = ruta_de_instalador_valida(Path::new(&path))?;
+
+    launch_installer(&ruta)?;
+
+    // El instalador necesita que la app no tenga los archivos abiertos. Se sale del todo,
+    // no se esconde en la bandeja: `exit` salta el manejador de CloseRequested.
+    app.exit(0);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

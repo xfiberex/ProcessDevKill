@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "motion/react";
 import { CopyIcon, GhostIcon, SkullIcon } from "lucide-react";
 import { RUNTIME_ICONS } from "../icons";
-import { RUNTIMES, formatMemory, formatUptime } from "../types";
+import { RUNTIMES } from "../types";
 import type { ProcessInfo } from "../types";
+import { formatMemory, formatUptime } from "../lib/format";
 import { UsageBar } from "./UsageBar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";

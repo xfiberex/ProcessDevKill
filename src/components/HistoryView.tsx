@@ -1,5 +1,6 @@
-import { KILL_SOURCES, formatTimestamp } from "../types";
+import { KILL_SOURCES } from "../types";
 import type { HistoryEntry } from "../types";
+import { formatTimestamp } from "../lib/format";
 import { Button } from "@/components/ui/button";
 
 type HistoryViewProps = {

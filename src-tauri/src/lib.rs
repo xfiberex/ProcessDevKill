@@ -1,37 +1,27 @@
+mod auto_kill;
+mod notify;
+mod poller;
 mod ports;
 mod processes;
 mod storage;
 mod tray;
 mod update;
 
-use std::sync::Mutex;
+use std::sync::{Condvar, Mutex};
 use std::time::Duration;
 
 use sysinfo::System;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
-use tauri_plugin_notification::NotificationExt;
 
-use processes::{
-    collect_processes, kill_one, new_system, over_memory_limit, warm_up_cpu, KillOutcome,
-    ProcessInfo,
-};
+use poller::{MAX_REFRESH_MS, MIN_REFRESH_MS};
+use processes::{collect_processes, kill_many, new_system, warm_up_cpu, KillOutcome, ProcessInfo};
 use storage::{
     now_millis, HistoryEntry, KillSource, Settings, Storage, MIN_AUTO_KILL_MB, MIN_ZOMBIE_MINUTES,
 };
 
 /// Evento que recibe el frontend cada vez que hay una lista nueva de procesos.
 const PROCESSES_UPDATED: &str = "processes-updated";
-
-/// Limites del refresco automatico. Por debajo de 500 ms el enumerado de procesos
-/// se solaparia consigo mismo sin aportar nada util.
-const MIN_REFRESH_MS: u64 = 500;
-const MAX_REFRESH_MS: u64 = 60_000;
-
-/// Cada cuanto mira la RAM el Auto-Kill cuando el refresco automatico esta en
-/// "Off". Una red de seguridad que deja de vigilar porque la ventana no se
-/// refresca no es una red de seguridad.
-const AUTO_KILL_IDLE_MS: u64 = 2000;
 
 pub struct AppState {
     sys: Mutex<System>,
@@ -40,6 +30,12 @@ pub struct AppState {
     /// Memoria de refrescos anteriores para el Zombie Finder. Se bloquea siempre
     /// **despues** de soltar `sys`, nunca dentro.
     zombies: Mutex<processes::ZombieWatch>,
+    /// Testigo con el que despertar al hilo del poller cuando cambian los ajustes.
+    ///
+    /// El bool no significa nada: es lo que exige la API del `Condvar`. Lo que
+    /// importa es el aviso, que evita tener que sondear para enterarse de que
+    /// alguien ha vuelto a encender el refresco o el Auto-Kill.
+    senal: (Mutex<bool>, Condvar),
 }
 
 impl AppState {
@@ -69,6 +65,50 @@ impl AppState {
             .unwrap_or((false, u64::MAX))
     }
 
+    /// Despierta al hilo del poller. Se llama al guardar ajustes.
+    ///
+    /// Sin esto, apagar y volver a encender el refresco tardaria hasta
+    /// `poller::PAUSA_MS` en notarse; con esto, se nota al instante y sin sondear
+    /// entre medias.
+    ///
+    /// **El testigo se marca dentro del candado, y no es opcional**: ver `esperar`.
+    fn despertar_poller(&self) {
+        let (candado, cv) = &self.senal;
+        let mut pendiente = candado.lock().unwrap_or_else(|e| e.into_inner());
+        *pendiente = true;
+        cv.notify_all();
+    }
+
+    /// Espera `ms`, o hasta que alguien guarde ajustes, lo que pase antes.
+    ///
+    /// ⚠️ **El `bool` del candado no es decoracion: es lo que evita perder avisos.**
+    /// El hilo del poller lee los ajustes, decide cuanto dormir y solo entonces
+    /// entra aqui. Si entre esas dos cosas alguien guarda ajustes, un `notify` a
+    /// secas se pierde —no habia nadie escuchando todavia— y el hilo se queda
+    /// esperando el plazo entero. Con el testigo, ese aviso queda anotado y esta
+    /// funcion vuelve sin esperar.
+    ///
+    /// Costo una verificacion en vivo descubrirlo: los tests no lo cazaban porque
+    /// avisaban con el hilo ya dormido, que es justo el caso facil.
+    fn esperar(&self, ms: u64) {
+        let (candado, cv) = &self.senal;
+        // Un candado envenenado no debe dejar al hilo girando en vacio: se recupera
+        // el guard y se sigue esperando igual.
+        let mut pendiente = candado.lock().unwrap_or_else(|e| e.into_inner());
+
+        // Aviso llegado mientras el hilo miraba los ajustes: se consume y se vuelve
+        // al bucle de inmediato, sin dormir.
+        if *pendiente {
+            *pendiente = false;
+            return;
+        }
+
+        let (mut guard, _) = cv
+            .wait_timeout(pendiente, Duration::from_millis(ms))
+            .unwrap_or_else(|e| e.into_inner());
+        *guard = false;
+    }
+
     /// Minutos tras los que marcar zombi, o `None` si la funcion esta apagada.
     fn zombie_after(&self) -> Option<u64> {
         self.settings
@@ -84,7 +124,7 @@ impl AppState {
 /// Unico sitio donde se combinan las dos cosas: si el refresco manual, el hilo y
 /// el evento de cierre no pasaran todos por aqui, la marca aparecerian y
 /// desaparecerian segun de donde viniera la lista.
-fn read_list(state: &AppState) -> Result<Vec<ProcessInfo>, String> {
+pub(crate) fn read_list(state: &AppState) -> Result<Vec<ProcessInfo>, String> {
     let custom = state.custom_names();
     let zombie_after = state.zombie_after();
 
@@ -107,7 +147,7 @@ fn atajo_nuke() -> Shortcut {
     Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyK)
 }
 
-fn publish(app: &AppHandle, list: Vec<ProcessInfo>) {
+pub(crate) fn publish(app: &AppHandle, list: Vec<ProcessInfo>) {
     if let Err(e) = app.emit(PROCESSES_UPDATED, list) {
         eprintln!("No se pudo emitir {PROCESSES_UPDATED}: {e}");
     }
@@ -123,96 +163,16 @@ fn emit_processes(app: &AppHandle) {
     }
 }
 
-/// Un ciclo del vigilante: lee la lista **una sola vez**, deja que el Auto-Kill
-/// actue si toca y publica el resultado.
-///
-/// `publish_list` separa el ciclo normal del que corre con el refresco en "Off":
-/// alli se sigue mirando la RAM, pero no se emite nada, que es justo lo que pidio
-/// el usuario al apagarlo.
-fn watch_cycle(app: &AppHandle, publish_list: bool) {
-    let state = app.state::<AppState>();
-    let (auto_enabled, limit_mb) = state.auto_kill();
-    let Ok(list) = read_list(&state) else { return };
-
-    if auto_enabled {
-        let excedidos: Vec<(u32, String, f64)> = over_memory_limit(&list, limit_mb)
-            .into_iter()
-            .map(|p| (p.pid, p.name.clone(), p.memory_mb))
-            .collect();
-
-        if !excedidos.is_empty() {
-            // `kill_and_record` publica la lista ya sin ellos; publicar antes la
-            // vieja solo haria parpadear filas que estan a punto de desaparecer.
-            auto_kill(app, excedidos, limit_mb);
-            return;
-        }
-    }
-
-    if publish_list {
-        publish(app, list);
-    }
-}
-
-/// Cierra los procesos que se pasaron del umbral y lo cuenta por notificacion.
-///
-/// El aviso no es un adorno: es la unica forma de enterarse de que la app ha
-/// matado algo por su cuenta, y puede ocurrir con la ventana oculta en la bandeja.
-fn auto_kill(app: &AppHandle, excedidos: Vec<(u32, String, f64)>, limit_mb: u64) {
-    let pids: Vec<u32> = excedidos.iter().map(|(pid, _, _)| *pid).collect();
-    let outcomes = kill_and_record(app, pids, KillSource::Auto);
-
-    let cerrados: Vec<&KillOutcome> = outcomes.iter().filter(|o| o.killed).collect();
-    if cerrados.is_empty() {
-        return;
-    }
-
-    let limite = format_mb(limit_mb as f64);
-    let mut body = if cerrados.len() == 1 {
-        let (_, name, mb) = excedidos
-            .iter()
-            .find(|(pid, _, _)| *pid == cerrados[0].pid)
-            .expect("el cierre viene de esta misma lista");
-        format!(
-            "{name} (PID {}) usaba {}, por encima del limite de {limite}. Cerrado automaticamente.",
-            cerrados[0].pid,
-            format_mb(*mb)
-        )
-    } else {
-        format!(
-            "{} procesos cerrados automaticamente por pasar de {limite}.",
-            cerrados.len()
-        )
-    };
-
-    let mut freed: Vec<u16> = cerrados
-        .iter()
-        .flat_map(|o| o.freed_ports.clone())
-        .collect();
-    freed.sort_unstable();
-    freed.dedup();
-    if let Some(frase) = freed_ports_sentence(&freed) {
-        body.push(' ');
-        body.push_str(&frase);
-    }
-
-    notify(app, body);
-}
-
-/// Memoria legible, con el mismo criterio que `formatMemory` en `src/types.ts`.
-fn format_mb(mb: f64) -> String {
-    if mb >= 1024.0 {
-        format!("{:.1} GB", mb / 1024.0)
-    } else {
-        format!("{mb:.0} MB")
-    }
-}
-
 /// Unico camino por el que se cierra un proceso, venga de la ventana, de la
-/// bandeja o del atajo global.
+/// bandeja, del atajo global o del Auto-Kill.
 ///
-/// Centralizarlo garantiza que las tres vias registren historial, notifiquen los
+/// Centralizarlo garantiza que las cuatro vias registren historial, notifiquen los
 /// puertos liberados y refresquen la UI de la misma forma.
-fn kill_and_record(app: &AppHandle, pids: Vec<u32>, source: KillSource) -> Vec<KillOutcome> {
+pub(crate) fn kill_and_record(
+    app: &AppHandle,
+    pids: Vec<u32>,
+    source: KillSource,
+) -> Vec<KillOutcome> {
     let state = app.state::<AppState>();
     let custom = state.custom_names();
 
@@ -220,24 +180,8 @@ fn kill_and_record(app: &AppHandle, pids: Vec<u32>, source: KillSource) -> Vec<K
         let Ok(mut sys) = state.sys.lock() else {
             return Vec::new();
         };
-        pids.into_iter()
-            .map(|pid| match kill_one(&mut sys, &custom, pid) {
-                Ok((name, freed_ports)) => KillOutcome {
-                    pid,
-                    killed: true,
-                    error: None,
-                    freed_ports,
-                    name,
-                },
-                Err(error) => KillOutcome {
-                    pid,
-                    killed: false,
-                    error: Some(error),
-                    freed_ports: Vec::new(),
-                    name: String::new(),
-                },
-            })
-            .collect()
+        // `kill_many` lee la tabla de sockets una sola vez para todo el lote.
+        kill_many(&mut sys, &custom, pids)
     };
 
     let killed_at = now_millis();
@@ -265,53 +209,12 @@ fn kill_and_record(app: &AppHandle, pids: Vec<u32>, source: KillSource) -> Vec<K
             .collect();
         freed.sort_unstable();
         freed.dedup();
-        notify_freed_ports(app, &freed);
+        notify::freed_ports(app, &freed);
     }
 
     // La lista cambio: que la ventana lo refleje sin esperar al siguiente ciclo.
     emit_processes(app);
     outcomes
-}
-
-/// Avisa por notificacion nativa de los puertos que acaban de quedar libres.
-///
-/// Vive en Rust y no en el frontend porque la bandeja y el atajo global tambien
-/// matan procesos sin que la ventana intervenga (e incluso estando oculta).
-fn notify_freed_ports(app: &AppHandle, ports: &[u16]) {
-    if let Some(body) = freed_ports_sentence(ports) {
-        notify(app, body);
-    }
-}
-
-/// Frase sobre los puertos liberados, o `None` si no se libero ninguno. Aparte
-/// para que el Auto-Kill pueda pegarla a su propio mensaje.
-fn freed_ports_sentence(ports: &[u16]) -> Option<String> {
-    if ports.is_empty() {
-        return None;
-    }
-
-    let list = ports
-        .iter()
-        .map(|p| p.to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-    Some(if ports.len() == 1 {
-        format!("El puerto {list} ha quedado libre.")
-    } else {
-        format!("Los puertos {list} han quedado libres.")
-    })
-}
-
-fn notify(app: &AppHandle, body: String) {
-    if let Err(e) = app
-        .notification()
-        .builder()
-        .title("ProcessDevKill")
-        .body(body)
-        .show()
-    {
-        eprintln!("No se pudo mostrar la notificacion: {e}");
-    }
 }
 
 // ---------------------------------------------------------------- comandos ---
@@ -373,6 +276,10 @@ fn save_settings(
     apply_hotkey(&app, settings.hotkey_enabled);
     *state.settings.lock().map_err(|_| "Ajustes corruptos")? = settings.clone();
 
+    // El hilo puede estar esperando con el refresco en "Off": sin este aviso
+    // tardaria hasta poller::PAUSA_MS en enterarse de que lo han vuelto a encender.
+    state.despertar_poller();
+
     // La lista de vigilados puede haber cambiado: refrescar sin esperar al ciclo.
     emit_processes(&app);
     Ok(settings)
@@ -423,94 +330,13 @@ fn nuke_everything(app: &AppHandle) {
     };
 
     if pids.is_empty() {
-        notify(app, "No hay procesos de desarrollo activos.".into());
+        notify::show(app, "No hay procesos de desarrollo activos.".into());
         return;
     }
 
     let outcomes = kill_and_record(app, pids, KillSource::Hotkey);
     let killed = outcomes.iter().filter(|o| o.killed).count();
-    notify(app, format!("{killed} procesos cerrados con Ctrl+Alt+K."));
-}
-
-/// Hilo que publica la lista de procesos al ritmo configurado.
-///
-/// Sustituye al `setInterval` del frontend: el trabajo pesado (enumerar procesos y
-/// sockets) ocurre en Rust y la ventana solo recibe el resultado ya hecho.
-fn spawn_poller(app: AppHandle) {
-    std::thread::spawn(move || loop {
-        let (ms, auto_enabled) = {
-            let state = app.state::<AppState>();
-            (state.refresh_ms(), state.auto_kill().0)
-        };
-
-        if ms == 0 {
-            if !auto_enabled {
-                // Pausado: dormir poco para reaccionar rapido si vuelven a activarlo.
-                std::thread::sleep(Duration::from_millis(300));
-                continue;
-            }
-
-            // Refresco apagado pero Auto-Kill encendido: se sigue vigilando la RAM
-            // a ritmo fijo, sin publicar la lista.
-            std::thread::sleep(Duration::from_millis(AUTO_KILL_IDLE_MS));
-            watch_cycle(&app, false);
-            continue;
-        }
-
-        std::thread::sleep(Duration::from_millis(
-            ms.clamp(MIN_REFRESH_MS, MAX_REFRESH_MS),
-        ));
-        watch_cycle(&app, true);
-    });
-}
-
-/// Evento con el avance de la descarga de una actualizacion.
-const UPDATE_PROGRESS: &str = "update-progress";
-
-/// Busca si hay una version mas nueva publicada. `None` si ya esta al dia.
-///
-/// La version instalada la da el propio paquete, no el frontend: asi no hay una segunda
-/// copia del numero que se quede vieja al cortar un release.
-#[tauri::command]
-async fn check_update() -> Result<Option<update::ReleaseInfo>, String> {
-    update::check_for_update(env!("CARGO_PKG_VERSION")).await
-}
-
-/// Descarga el instalador y lo verifica contra el `.sha256` publicado.
-///
-/// Devuelve la ruta del archivo ya comprobado. Si el hash no cuadra, borra la descarga y
-/// devuelve error: nunca deja un instalador sin verificar en el disco.
-#[tauri::command]
-async fn download_update(app: AppHandle, release: update::ReleaseInfo) -> Result<String, String> {
-    let ruta = update::download_and_verify(&release, |bajado, total| {
-        // Un evento por trozo es demasiado ruido para la ventana; el frontend calcula el
-        // porcentaje y React descarta los renders que no cambian nada.
-        let _ = app.emit(UPDATE_PROGRESS, (bajado, total));
-    })
-    .await?;
-
-    Ok(ruta.to_string_lossy().into_owned())
-}
-
-/// Ejecuta el instalador descargado y cierra la app para que pueda reemplazar los archivos.
-///
-/// Solo acepta rutas dentro de la carpeta de descargas del actualizador: el comando queda
-/// expuesto al frontend y sin esa guardia seria un "ejecuta lo que quieras" —el mismo
-/// criterio que la guardia de PID en `kill_process`.
-///
-/// La comprobacion vive en `update` y es una funcion pura, probable sin montar una `App`,
-/// igual que `collect_processes` frente a `get_processes`. Se ejecuta **la ruta que
-/// devuelve**, ya canonicalizada: validar una y lanzar otra seria dejar el agujero abierto.
-#[tauri::command]
-fn install_update(app: AppHandle, path: String) -> Result<(), String> {
-    let ruta = update::ruta_de_instalador_valida(std::path::Path::new(&path))?;
-
-    update::launch_installer(&ruta)?;
-
-    // El instalador necesita que la app no tenga los archivos abiertos. Se sale del todo,
-    // no se esconde en la bandeja: `exit` salta el manejador de CloseRequested.
-    app.exit(0);
-    Ok(())
+    notify::show(app, format!("{killed} procesos cerrados con Ctrl+Alt+K."));
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -561,6 +387,7 @@ pub fn run() {
                 settings: Mutex::new(settings.clone()),
                 storage,
                 zombies: Mutex::new(processes::ZombieWatch::default()),
+                senal: (Mutex::new(false), Condvar::new()),
             });
 
             tray::build(&handle)?;
@@ -579,7 +406,7 @@ pub fn run() {
                 emit_processes(&warm);
             });
 
-            spawn_poller(handle);
+            poller::spawn(handle);
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -612,9 +439,11 @@ pub fn run() {
             save_settings,
             get_history,
             clear_history,
-            check_update,
-            download_update,
-            install_update
+            // Los del actualizador viven en `update`, junto a la logica en la que
+            // delegan y a la guardia de rutas que protege a `install_update`.
+            update::check_update,
+            update::download_update,
+            update::install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -720,13 +549,87 @@ mod tests {
         assert_eq!(auto, "auto");
     }
 
-    /// La notificacion del Auto-Kill dice cuanta memoria usaba el proceso; si el
-    /// formato no coincide con el de la tabla, el usuario lee dos cifras distintas
-    /// para lo mismo.
+    /// El hilo del poller ya no sondea: espera en un `Condvar` y se le avisa al
+    /// guardar ajustes.
+    ///
+    /// Si el aviso no funcionara, el fallo seria de los malos: con el refresco en
+    /// "Off", volver a encenderlo tardaria hasta `PAUSA_MS` —un minuto— en notarse,
+    /// y la app pareceria colgada sin que nada diera un error. El sondeo de 300 ms
+    /// que habia antes disimulaba esto por fuerza bruta.
     #[test]
-    fn la_memoria_se_formatea_como_en_la_tabla() {
-        assert_eq!(format_mb(512.0), "512 MB");
-        assert_eq!(format_mb(1024.0), "1.0 GB");
-        assert_eq!(format_mb(2457.6), "2.4 GB");
+    fn guardar_ajustes_despierta_al_poller_sin_esperar_el_timeout() {
+        use std::sync::Arc;
+        use std::time::Instant;
+
+        let state = Arc::new(AppState {
+            sys: Mutex::new(new_system()),
+            settings: Mutex::new(Settings::default()),
+            storage: Storage::new(std::env::temp_dir().join("pdk-test-senal")),
+            zombies: Mutex::new(processes::ZombieWatch::default()),
+            senal: (Mutex::new(false), Condvar::new()),
+        });
+
+        let hilo = {
+            let state = Arc::clone(&state);
+            std::thread::spawn(move || {
+                let t0 = Instant::now();
+                // Muy por encima de PAUSA_MS: si el test acaba rapido es porque el
+                // aviso llego, no porque venciera el plazo.
+                state.esperar(30_000);
+                t0.elapsed()
+            })
+        };
+
+        // Margen para que el hilo llegue a la espera antes de avisarle; un aviso
+        // lanzado antes de que nadie escuche se pierde, y esto no probaria nada.
+        std::thread::sleep(Duration::from_millis(300));
+        state.despertar_poller();
+
+        let tardo = hilo.join().expect("el hilo del poller no deberia romperse");
+        assert!(
+            tardo < Duration::from_secs(5),
+            "el aviso no desperto al poller: espero {tardo:?} de los 30 s"
+        );
+    }
+
+    /// **Regresion de un fallo real, encontrado verificando en vivo.**
+    ///
+    /// El caso de arriba es el facil: se avisa con el hilo ya dormido. El que se
+    /// escapaba es este — el aviso llega **antes** de que el hilo entre a esperar,
+    /// que es exactamente lo que pasa en la app: el poller lee los ajustes, decide
+    /// dormir, y el usuario pulsa "2s" en ese hueco.
+    ///
+    /// Con un `notify` a secas ese aviso se pierde (no habia nadie escuchando) y el
+    /// hilo se queda el plazo entero: en la app eran hasta 60 s con la ventana
+    /// aparentemente colgada. Lo arregla el testigo que se marca dentro del candado.
+    #[test]
+    fn un_aviso_anterior_a_la_espera_no_se_pierde() {
+        let state = AppState {
+            sys: Mutex::new(new_system()),
+            settings: Mutex::new(Settings::default()),
+            storage: Storage::new(std::env::temp_dir().join("pdk-test-senal-previa")),
+            zombies: Mutex::new(processes::ZombieWatch::default()),
+            senal: (Mutex::new(false), Condvar::new()),
+        };
+
+        // El aviso llega ANTES, con nadie esperando todavia.
+        state.despertar_poller();
+
+        let t0 = std::time::Instant::now();
+        state.esperar(30_000);
+        let tardo = t0.elapsed();
+
+        assert!(
+            tardo < Duration::from_secs(1),
+            "el aviso previo se perdio: la espera duro {tardo:?}"
+        );
+
+        // Y el testigo se consume: la siguiente espera sin aviso si aguarda.
+        let t1 = std::time::Instant::now();
+        state.esperar(300);
+        assert!(
+            t1.elapsed() >= Duration::from_millis(250),
+            "el testigo no se consumio; el poller giraria en vacio sin dormir nunca"
+        );
     }
 }

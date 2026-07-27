@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { UPDATE_PROGRESS } from "./types";
-import type { ReleaseInfo } from "./types";
+import { UPDATE_PROGRESS } from "../types";
+import type { ReleaseInfo } from "../types";
 
 /**
  * Estado de la comprobacion de actualizaciones.

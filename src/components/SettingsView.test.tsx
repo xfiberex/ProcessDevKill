@@ -5,7 +5,7 @@ import { SettingsView } from "./SettingsView";
 import { DEFAULT_TEST_SETTINGS, updaterFalso } from "../test/tauri-mock";
 import { AUTO_KILL_MIN_MB, ZOMBIE_MIN_MINUTES } from "../types";
 import type { Settings } from "../types";
-import type { UpdateState } from "../update";
+import type { UpdateState } from "../hooks/useUpdater";
 
 function pintar(parcial: Partial<Settings> = {}, estadoUpdater?: UpdateState) {
   const settings: Settings = { ...DEFAULT_TEST_SETTINGS, ...parcial };

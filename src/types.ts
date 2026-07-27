@@ -81,6 +81,12 @@ export type ReleaseInfo = {
   checksumUrl: string;
 };
 
+// Los mapas de etiquetas de aqui abajo **no** son espejo de Rust, y se quedan a
+// proposito: cada uno es un `Record` indexado por un tipo espejo, asi que TypeScript
+// obliga a completarlos cuando Rust gana una variante. Separarlos de su tipo perderia
+// esa comprobacion a cambio de un archivo mas. Los formateadores, que no tenian esa
+// atadura, si se fueron a `lib/format.ts`.
+
 export const RUNTIMES: Record<Runtime, { label: string; color: string }> = {
   node: { label: "Node.js", color: "var(--color-node)" },
   python: { label: "Python", color: "var(--color-python)" },
@@ -107,21 +113,3 @@ export const REFRESH_INTERVALS = [
   { label: "2s", ms: 2000 },
   { label: "5s", ms: 5000 },
 ] as const;
-
-export function formatUptime(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m`;
-  return `${seconds}s`;
-}
-
-export function formatMemory(mb: number): string {
-  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`;
-}
-
-/** Rust guarda epoch en ms; el formato lo pone aqui la configuracion del equipo. */
-export function formatTimestamp(millis: number): string {
-  return new Date(millis).toLocaleString();
-}

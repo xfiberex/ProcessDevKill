@@ -37,13 +37,13 @@ fn kill_all_of(app: &AppHandle, runtime: Runtime) {
     };
 
     if targets.is_empty() {
-        notify(app, format!("No hay procesos {} activos.", runtime.label()));
+        notify::show(app, format!("No hay procesos {} activos.", runtime.label()));
         return;
     }
 
     let outcomes = kill_and_record(app, targets, KillSource::Tray);
     let killed = outcomes.iter().filter(|o| o.killed).count();
-    notify(
+    notify::show(
         app,
         format!("{killed} procesos {} cerrados.", runtime.label()),
     );

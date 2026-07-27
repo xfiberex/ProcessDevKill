@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import type { ProcessInfo, ReleaseInfo, Runtime } from "../types";
-import type { UpdateState } from "../update";
+import type { UpdateState } from "../hooks/useUpdater";
 
 /**
  * Dobles de todo lo que el frontend le pide a Tauri.
@@ -49,7 +49,7 @@ export function release(parcial: Partial<ReleaseInfo> = {}): ReleaseInfo {
  *
  * La vista solo pinta el estado y llama a las dos acciones; probar el hook de
  * verdad ahi mezclaria dos cosas. La logica del hook se prueba aparte contra los
- * comandos de Rust, en update.test.ts.
+ * comandos de Rust, en hooks/useUpdater.test.ts.
  */
 export function updaterFalso(state: UpdateState = { fase: "reposo" }) {
   return { state, buscar: vi.fn(async () => null), instalar: vi.fn(async () => {}) };
