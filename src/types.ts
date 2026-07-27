@@ -45,6 +45,8 @@ export type Theme = "system" | "light" | "dark";
 export type Settings = {
   customNames: string[];
   hotkeyEnabled: boolean;
+  /** Si cerrar la ventana la esconde en la bandeja en vez de terminar la app. */
+  closeToTray: boolean;
   refreshMs: number;
   theme: Theme;
   autoKillEnabled: boolean;

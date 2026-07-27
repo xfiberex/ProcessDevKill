@@ -370,7 +370,350 @@ pero no nombra. Un lector de pantalla los anunciaba sin decir qué eran. Se les 
 - [x] `.claude/CLAUDE.md` con las convenciones del proyecto.
   > Estaban escritas en CONTEXT.md §7, pero nada se las daba al agente automáticamente. Recoge además lo que cuesta una sesión si no se sabe: que PowerShell 5.1 destroza estos `.md`, cómo inspeccionar la UI por CDP y quitarlo después, que `SendKeys` no dispara un atajo global, que los toast de Windows no se pueden capturar con BitBlt, y la lección del 2026-07-24: **una sola sesión por repositorio**.
 - [x] `.mcp.json` enganchando el servidor `codegraph`, con la misma invocación que ya tenía configurada la máquina.
-  > ⚠️ **La suposición de partida era incorrecta.** El roadmap daba por hecho que el índice ya existía y solo faltaba conectarlo; comprobado, `.codegraph/` contiene **únicamente su `.gitignore`**: no hay base de datos, el índice nunca se construyó. El `.mcp.json` conecta el servidor, pero para que sirva de algo hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva. Es una decisión del usuario y se deja sin hacer a propósito.
+  > ⚠️ **La suposición de partida era incorrecta.** El roadmap daba por hecho que el índice ya existía y solo faltaba conectarlo; comprobado el 2026-07-25, `.codegraph/` contenía **únicamente su `.gitignore`**. El `.mcp.json` conecta el servidor, pero no construye nada: hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva.
+  > ✅ **Índice construido el 2026-07-27**: `.codegraph/codegraph.db` existe y el servidor responde.
+
+---
+
+## 🧹 Tier 7: Deuda técnica y compactación de la documentación
+*Objetivo: cerrar lo que encontró la revisión completa y devolver los documentos a un tamaño que alguien lea de verdad.*
+
+Sale de una **revisión completa del repositorio** hecha el 2026-07-27 sobre la v1.1.1 publicada —código,
+seguridad, rendimiento, estructura, accesibilidad, responsividad, ortografía y documentación—, con las
+101 pruebas de frontend y las 35 de `cargo test` en verde y el árbol limpio. Nada de lo de aquí es un
+fallo de funcionamiento: la app hace lo que promete. Es lo que se rompe o estorba a partir de ahora.
+
+### 1. Seguridad — ✅ **completado y verificado**
+
+- [x] **Canonicalizar la ruta en `install_update` antes de compararla.**
+  > ⚠️ **La guardia se saltaba con `..`, comprobado antes de tocar nada.** `Path::starts_with` compara
+  > componentes literales y **no normaliza**: `%TEMP%\ProcessDevKill_update\..\..\Windows\System32\calc.exe`
+  > pasaba como válida, y `is_file()` también. El comentario de la función decía que sin ella sería un
+  > "ejecuta lo que quieras", y cumplía menos de lo que prometía. La guardia de PID de `kill_process`
+  > sí era sólida, porque relee el proceso y valida el nombre.
+  > Arreglado con `canonicalize` sobre las dos rutas antes del `starts_with`. De paso resuelve que
+  > `temp_dir()` pueda devolver una ruta corta 8.3.
+- [x] La comprobación se mueve a `update::ruta_de_instalador_valida`, función pura probable sin montar
+      una `App` —igual que `collect_processes` frente a `get_processes`—, y **se ejecuta la ruta
+      canónica que devuelve**: validar una y lanzar otra sería reabrir el agujero por detrás.
+  > ⚠️ Canonicalizar devuelve el prefijo verbatim de Windows (`\\?\C:\…`), y ahora es **esa** la ruta
+  > que se lanza. Comprobado aparte que `CreateProcess` la acepta: era lo único que podía romper la
+  > actualización al añadir la canonicalización, y no se habría notado hasta el siguiente release.
+- [x] Test de regresión con un `..` por medio, que es lo que nadie piensa en probar.
+  > El test afirma primero que la ruta de escape **sí** pasa el `starts_with` crudo. Sin esa línea no
+  > se sabría si cubre el fallo real o una versión cómoda de él.
+- [x] **Sanear `asset_name` antes de usarlo como nombre de archivo** en `download_and_verify`.
+  > Venía de la API de GitHub y se pegaba con `join` sin mirar. No era explotable —GitHub no admite
+  > separadores en nombres de asset—, pero es la misma clase de descuido y costaba una línea.
+- [x] `carpeta_descargas()` pasa a ser el único sitio donde se nombra la carpeta.
+  > El literal estaba duplicado entre `lib.rs` y `update.rs`. Dos copias de la ruta contra la que se
+  > valida es un agujero esperando a que alguien cambie una sola.
+- [x] **CSP restrictivo** en `tauri.conf.json`, que estaba en `null`.
+  > ⚠️ **El CSP solo se aplica en producción**: en `tauri dev` el HTML lo sirve Vite y Tauri no llega a
+  > inyectarlo (por eso existe `dev_csp` aparte). Probarlo en desarrollo no demuestra nada.
+  > ⚠️ `style-src` lleva `'unsafe-inline'` **y además `style-src-attr`**. No es dejadez: Motion,
+  > `UsageBar` y el color de los iconos pintan con **atributos `style`**, y como Tauri añade su propio
+  > nonce a `style-src`, el `'unsafe-inline'` de ahí queda anulado para los `<style>`. `style-src-attr`
+  > es lo que garantiza que los atributos sigan aplicándose.
+
+**Verificación end-to-end** (2026-07-27, sobre el **binario de release**, conducido por CDP):
+
+- [x] 37 pruebas de `cargo test` en verde (antes 35), las dos nuevas sobre la guardia y el nombre.
+- [x] La ventana **pinta y funciona**: 8 filas con datos reales del equipo (`node.exe … 21376 … 128 MB
+      … 34m`), que solo pueden venir de `get_processes` por IPC. Si el CSP hubiera roto el bundle o el
+      IPC, la ventana habría quedado en blanco o la tabla vacía.
+- [x] **Los estilos inline se aplican**: el icono de Node mide `rgb(108, 184, 90)`, que es
+      `--runtime-node` exacto, y el fondo es `oklch(0.175 0.009 265)` con `<html class="dark">`.
+- [x] **El CSP está activo y Tauri hasheó el script inline del tema**: la política servida trae
+      `script-src 'self' 'sha256-hPTyHH3…' 'sha256-leISGvn…'`, dos hashes que inyecta el propio Tauri
+      al compilar. O sea que el script de primera pintura **no se bloquea** y el fogonazo blanco sigue
+      evitado, sin necesidad de `'unsafe-inline'` en `script-src`.
+- [x] Un `<script>` inline **nuevo sí se bloquea** (`violatedDirective: script-src-elem`), que es la
+      prueba de que la política hace algo y no está puesta de adorno.
+- [x] El puerto de depuración se quitó de `tauri.conf.json` después, cerrando antes la app.
+
+> Lo que **no** hizo falta tocar: las capabilities ya estaban bien acotadas y son comprobables
+> —portapapeles de escritura únicamente, `open_path` limitado a los dos avisos legales, y la red solo
+> en Rust—.
+
+### 2. Cosas de cinco minutos — ✅ **completado y verificado**
+
+- [x] **Descripción y topics del repositorio en GitHub**, que estaban vacíos (`description: ""`,
+      `repositoryTopics: null`).
+  > Es lo único de este proyecto que un buscador indexa: el webview no lo ve nadie, así que el "SEO"
+  > empieza y acaba aquí. Puestos **15 topics** (`tauri`, `tauri-app`, `rust`, `react`, `typescript`,
+  > `windows`, `desktop-app`, `developer-tools`, `process-manager`, `port-killer`, `kill-process`,
+  > `task-manager`, `sysinfo`, `tailwindcss`, `vite`) y una descripción que incluye el caso de uso con
+  > el que la gente busca: *"Para cuando el puerto 3000 está ocupado y no sabes por quién"*.
+  > ⚠️ La descripción se publicó primero **sin tildes**, por pasar el texto por la shell. Se corrigió
+  > mandando el JSON desde un archivo UTF-8 con `gh api -X PATCH --input`. Mismo problema de siempre:
+  > el texto con acentos no sobrevive al viaje por la línea de órdenes.
+- [x] **Actualizar los conteos de pruebas del README**, que decía 98 de frontend y 22 de backend.
+      Ahora **101 y 37** (las 35 del 2026-07-26 más las dos del Tier 7.1). Corregido también el estado
+      de CONTEXT.md §3, que arrastraba el 98.
+- [x] **Añadir `update.rs` a la tabla de estructura del README**, que listaba
+      `{processes,ports,storage,tray}.rs` y dejaba fuera precisamente el módulo más delicado.
+- [x] **Cerrada la casilla de `codegraph`** en CONTEXT.md §5, y corregidos §3 y el Tier 6.6 de aquí,
+      que afirmaban que `.codegraph/` contenía solo su `.gitignore`.
+  > Dejó de ser cierto el 2026-07-27: el índice existe (`codegraph.db`, 3 MB). Se conserva escrito el
+  > motivo del malentendido —el `.mcp.json` conecta el servidor pero no construye nada—, porque es lo
+  > que hizo perder el tiempo.
+- [x] Quitado `@tauri-apps/plugin-process`, huérfano desde que se fue el actualizador de minisign:
+      cero usos en `src/`, cero permisos en `capabilities/` y sin crate en `Cargo.toml`. Las 101
+      pruebas y el build siguen en verde sin él.
+
+> **`npm audit` reporta 2 vulnerabilidades moderadas, y no afectan al producto.** Vienen de
+> `@modelcontextprotocol/sdk`, dependencia transitiva de `shadcn`, que aquí es **herramienta de
+> build**: el instalador solo lleva `dist/` y el binario de Rust, y de shadcn únicamente sale CSS a
+> través del `@import "shadcn/tailwind.css"` de `index.css`. Nada de ese árbol viaja al equipo del
+> usuario. Se anota para no volver a investigarlo cada vez que alguien corra `npm audit`.
+>
+> De paso: `shadcn` está declarada en `dependencies` cuando es de desarrollo. Con `"private": true`
+> y un empaquetado que ignora `node_modules`, moverla es cosmético — pero es lo que hace que estas
+> dos vulnerabilidades salgan en una auditoría de producción.
+
+### 3. Ortografía de la UI — ✅ **completado y verificado**
+
+Nueve textos **visibles en la ventana** iban sin tilde mientras el resto de la interfaz sí las lleva
+("confirmación", "notificación", "última versión", "Mínimo", "Ábrelo"). Era una inconsistencia, no un
+criterio: los comentarios del código sí van sin tildes de forma sistemática, y eso se mantiene.
+
+- [x] `App.tsx`: "terminara/terminaran" → **terminará/terminarán**; "Se borrara… ningun proceso en
+      ejecucion" → **borrará, ningún, ejecución**; "Ningun proceso coincide" → **Ningún**.
+  > ⚠️ El barrido para corregirlas destapó una novena que no estaba en la lista de la revisión:
+  > **"Esta accion no se puede deshacer"** → *acción*, en el mismo mensaje del diálogo destructivo.
+  > Merece la pena leer el texto entero antes de ir tachando: la lista inicial venía de un `grep`.
+- [x] `HistoryView.tsx`: "Todavia… ningun proceso" → **Todavía, ningún**; encabezado "Cuando" →
+      **Cuándo**.
+- [x] `SettingsView.tsx`: "Aqui puedes añadir" → **Aquí**; "sin la extension" → **extensión**;
+      "sin pedir confirmacion" → **confirmación** (la misma vista ya lo escribía bien 150 líneas antes).
+- [x] **Corregido "1 cierre registrados"** en `HistoryView.tsx`.
+  > ⚠️ Era exactamente el bug que el Tier 5 cazó y arregló con "Se terminaran los 1 procesos".
+  > Se singulariza **la frase entera** (`"cierre registrado"` / `"cierres registrados"`) en vez del
+  > sustantivo suelto, que es lo que dejaba el participio descolgado.
+- [x] Ajustados los tests que **fijaban los textos antiguos**: `App.test.tsx` (tres) y
+      `ConfirmDialog.test.tsx` (dos).
+  > ⚠️ No era opcional ni se descubre a tiempo: corregir la UI sin tocarlos deja la suite en rojo.
+- [x] **`HistoryView.test.tsx` creado**: era el único componente de dominio sin pruebas.
+  > Cubre la concordancia del contador en singular y plural, la vista vacía, el guion de "sin puertos
+  > liberados", la traducción de los cuatro orígenes de cierre y que el botón de vaciar **avisa al
+  > padre en vez de borrar por su cuenta** —vaciar sin confirmar sería una pérdida irreversible a un
+  > clic—.
+
+**Verificación** (2026-07-27):
+
+- [x] **108 pruebas de frontend** en verde, en 8 archivos (antes 101 en 7).
+- [x] El test de la concordancia **caza el fallo**: reintroducido el texto antiguo a propósito, falla
+      con *"Unable to find an element with the text: 1 cierre registrado"*. Un test de regresión que
+      no se ve fallar no demuestra nada.
+- [x] `tsc` sin errores y encoding UTF-8 intacto en los cinco archivos tocados.
+- [x] Barrido final del texto visible: lo único que queda sin tildes son **comentarios y nombres de
+      test**, que es el estilo establecido del proyecto.
+
+### 4. Comportamiento de la ventana, y accesibilidad
+
+#### 4a. Dos fallos de comportamiento que encontró el usuario usando la app — ✅ **completado y verificado**
+
+Los reportó el 2026-07-27 con una captura que enseña **tres ventanas de ProcessDevKill abiertas a la
+vez y cuatro iconos en la bandeja**. No son dos fallos independientes: **se retroalimentan**. Como
+cerrar la ventana la esconde, el usuario cree que cerró la app; la vuelve a lanzar y, al no haber
+instancia única, arranca otra copia. Repetir eso tres veces da exactamente la captura.
+
+- [x] **Cerrar la ventana cierra la app.** Esconderla en la bandeja pasa a ser **opcional y
+      apagada de fábrica** (`closeToTray`).
+  > ⚠️ Hoy `on_window_event` hace `api.prevent_close()` + `hide()` **siempre, sin condición**. Se
+  > decidió en el Tier 3 junto con el icono de bandeja, y visto en uso es lo contrario de lo que
+  > espera cualquiera: el botón X de Windows cierra. Que una app siga viva e invisible tras pulsarlo
+  > tiene que ser una decisión del usuario, no el valor de fábrica.
+  > Ajuste nuevo `closeToTray`, **`false` por defecto**. Con `#[serde(default)]` ya en el struct, un
+  > `settings.json` de una versión anterior sigue valiendo y toma el valor nuevo — lo mismo que se
+  > fijó para el Auto-Kill con `los_ajustes_de_una_version_anterior_siguen_valiendo`.
+  > ⚠️ Comprobar que al cerrar **el proceso muere de verdad**. Con un icono de bandeja registrado, una
+  > app que deja de tener ventanas puede quedarse viva e invisible, que es el peor resultado posible:
+  > ni ventana, ni icono útil, ni forma de darse cuenta salvo el Administrador de tareas.
+- [x] **Instancia única**: lanzar la app estando abierta trae al frente la que ya hay, no abre otra.
+  > Con `tauri-plugin-single-instance` (2.4.3). El plugin **se registra el primero**, antes que los
+  > demás, que es como lo pide su documentación.
+  > La segunda instancia no avisa con un toast: trae al frente la ventana existente y se cierra, que
+  > es lo que hace cualquier app de Windows bien educada y lo que el usuario interpreta solo. Un aviso
+  > de "ya estaba abierta" sería ruido para algo que se ve en pantalla.
+  > ⚠️ Reaprovechar `tray::show_main_window`, que ya hace `show` + `unminimize` + `set_focus`. Si la
+  > ventana estaba escondida en la bandeja hay que **mostrarla**, no solo enfocarla.
+- [x] Interruptor en Ajustes, junto al del atajo global, con una sección propia *"Al cerrar la
+      ventana"*.
+  > Lo que hay que contar no es que la ventana se esconde —eso se ve—, sino que la app **sigue
+  > funcionando**: es la parte que sorprende y la que hace que uno la vuelva a abrir. El texto lo dice
+  > y explica las dos salidas (icono de bandeja para recuperarla, "Salir" para terminarla).
+- [x] Espejo en `src/types.ts`, en `DEFAULT_SETTINGS` de `App.tsx`, en `DEFAULT_TEST_SETTINGS` y en el
+      test de contrato de `lib.rs`, que enumera las claves de `Settings`.
+
+**Verificación end-to-end** (2026-07-27, sobre el **binario de release**, con `WM_CLOSE` nativo —el
+mensaje que manda el botón X— y no `Stop-Process`, que no ejercitaría el manejador):
+
+- [x] **38 pruebas de `cargo test`** (antes 37) y **114 de frontend** (antes 108).
+- [x] Con `closeToTray` en `false`, pulsar la X **no deja ningún proceso vivo**. Era el riesgo serio:
+      con un icono de bandeja registrado, una app sin ventanas puede quedarse viva e invisible.
+- [x] Lanzar la app estando abierta **deja una sola instancia, y es la original** (mismo PID).
+- [x] Con `closeToTray` en `true`, la X esconde la ventana y el proceso **sigue vivo**.
+- [x] **Estando escondida, relanzarla la recupera**: mismo PID, ventana visible otra vez. Es el caso
+      que cierra el círculo — si relanzar no la recuperase, el usuario volvería a creer que no está.
+- [x] El `settings.json` **real del usuario** se respaldó antes de las pruebas y se restauró después;
+      quedó intacto y sin `closeToTray`, que es como estaba.
+
+> ⚠️ **Un fallo del guion de pruebas que casi se lee como un fallo de la app.** La primera pasada dijo
+> que con `closeToTray=true` la app se cerraba. Repetido el caso aislado, funcionaba. La causa era el
+> propio guion: mandaba el `WM_CLOSE` en cuanto `MainWindowHandle` dejaba de ser 0, sin dar tiempo a
+> que la app terminara de arrancar. Que exista la ventana no significa que el arranque haya acabado.
+> Antes de creerse un fallo raro, comprobar si lo raro es la prueba.
+>
+> ⚠️ El `settings.json` del usuario **no tenía el campo `closeToTray`**, así que las pruebas se
+> hicieron sobre el caso real de "ajustes de una versión anterior": toma el valor por defecto y la app
+> cierra al pulsar la X, sin descartar el resto de los ajustes. Es lo que fija
+> `los_ajustes_de_una_version_anterior_siguen_valiendo`.
+
+#### 4b. Accesibilidad y semántica — ✅ **completado y verificado**
+
+La base está cuidada —`lang="es"`, jerarquía de encabezados correcta, `aria-label` en checkboxes y en
+los dos campos numéricos, el zombi señalado con color **y** texto, Escape cancelando con test que lo
+fija—. Lo que desentona:
+
+- [x] **Nombre accesible en el botón "Kill" de cada fila** (`Cerrar node.exe, PID 1234`).
+  > ⚠️ Había veinte botones que se anunciaban "Kill" a secas, sin decir de qué proceso. El checkbox de
+  > la misma fila sí lo hacía bien desde el Tier 6. Para el botón que mata un proceso es justo la
+  > etiqueta que no se puede fallar. El texto **visible** sigue siendo "Kill".
+  > ⚠️ Cambiar el nombre accesible rompió tres pruebas que buscaban el botón por `name: "Kill"`
+  > (`ProcessTable.test.tsx` ×2 y `App.test.tsx` ×1). Mismo patrón que con la ortografía del 7.3: si
+  > la prueba localiza por el texto que estás cambiando, se rompe.
+- [x] **`scope="col"` en los `<th>`** de las dos tablas, con prueba que lo fija.
+  > En una tabla de ocho columnas es lo que permite a un lector de pantalla decir "Puerto: 3000" en
+  > vez de leer números sueltos. La columna de acciones, que no tiene título visible, gana un
+  > `sr-only`.
+- [x] Subido el contraste del guion de "sin puerto" en las dos tablas: el `/50` lo dejaba en ~2:1.
+- [x] **El menú contextual se queda solo con clic derecho.** Decisión del usuario (2026-07-27) tras
+      ver las dos alternativas y su coste.
+  > Se descartó `tabIndex={0}` en la fila —la opción de una línea— **por las veinte paradas de
+  > tabulación que añade**: empeora la navegación por teclado de todo el mundo para arreglar un
+  > camino que casi nadie usa. La otra salida, un botón visible de "más acciones" (⋮) por fila, no se
+  > toma porque cambiaría el diseño de la tabla.
+  > ⚠️ **Lo que esto deja fuera, dicho claro:** "Copiar PID", "Copiar puerto" y
+  > "Copiar http://localhost:PUERTO" siguen siendo **solo de ratón**, sin equivalente en el resto de
+  > la UI. "Matar proceso" no cuenta: ese sí lo tiene en el botón Kill de la fila. Es un compromiso
+  > asumido a sabiendas, no un descuido — el mismo criterio con el que el README dice qué **no**
+  > protege el `.sha256`.
+- [x] **`aria-current` en la navegación** Procesos/Historial/Ajustes, en vez de `aria-pressed`.
+  > Son vistas excluyentes: esto es navegación, no un interruptor. Un lector de pantalla pasa a decir
+  > "vista actual" en lugar de "presionado". Con prueba que fija que solo una lo lleva a la vez.
+  > No se tocan los otros tres `aria-pressed` (tema, intervalo de refresco y filtros por runtime):
+  > son grupos de selección exclusiva dentro de una vista, donde lo ideal sería un `radiogroup`, pero
+  > el cambio es mayor, hay una prueba que depende de él y la ganancia es pequeña. Queda escrito por
+  > si algún día se hace de una pasada.
+
+### 5. Rendimiento
+
+- [ ] **Leer los puertos una sola vez por lote en `kill_and_record`.**
+  > ⚠️ `kill_one` llama a `listening_ports()` por cada PID, y `kill_and_record` la invoca en un `map`:
+  > un "Nuke All" con quince procesos **recorre la tabla TCP del sistema quince veces**. Leerlos antes
+  > de matar es obligatorio y está bien razonado; lo que sobra es repetir la enumeración. Pasar el mapa
+  > ya leído como parámetro lo deja en una pasada.
+- [ ] **Quitar el bucle de 300 ms del poller cuando no hay nada que hacer.**
+  > Con el refresco en "Off" y el Auto-Kill apagado, el hilo despierta tres veces por segundo para no
+  > hacer nada. En una app pensada para vivir días en la bandeja son cientos de miles de despertares
+  > diarios. Un `Condvar` señalado al guardar ajustes conserva la reactividad sin el sondeo.
+
+> Lo que ya está bien y no se toca: una sola instancia de `System`, `watch_cycle` leyendo la lista una
+> vez por ciclo, el calentamiento de CPU en hilo aparte y el frontend sin polling.
+
+### 6. Refactor: archivos que volvieron a crecer
+
+El Tier 4 partió `lib.rs` cuando pasaba de 450 líneas «porque el Tier 4 la habría llevado a 900». Hoy
+tiene **704** y el frontend tiene dos archivos de ~480. Es el mismo síntoma, un tier después.
+
+- [ ] **`lib.rs` (704 líneas)**: sacar los tres comandos del actualizador y el `auto_kill` a sus
+      módulos. `lib.rs` debería volver a ser arranque y comandos, como dice CONTEXT.md §4.
+- [ ] **`SettingsView.tsx` (489)**: el archivo más grande del frontend, con el subcomponente
+      `Actualizaciones` dentro. Sale limpio a `components/Actualizaciones.tsx`.
+- [ ] **`App.tsx` (471)**: lleva dentro el sidebar completo, la cabecera de búsqueda y `FilterButton`.
+      El sidebar sale a `components/Sidebar.tsx`.
+- [ ] **`src/types.ts` hace tres trabajos**: tipos espejo de Rust, constantes de UI (`RUNTIMES`,
+      `THEMES`, `REFRESH_INTERVALS`) y funciones de formato (`formatUptime`, `formatMemory`,
+      `formatTimestamp`).
+  > ⚠️ Importa más de lo que parece: `types.test.ts` verifica que este archivo sea **espejo** del
+  > fuente de Rust, y cuanto más contenido no-espejo arrastra, menos claro queda ese contrato. Los
+  > formateadores encajan en `src/lib/utils.ts`, que ya existe.
+- [ ] **`src/update.ts` es un hook de React** (`useUpdater`) viviendo en la raíz junto a los tipos.
+      Su sitio está con los componentes o en un `hooks/`.
+
+> No entra aquí `processes.rs` (572 líneas): 307 son tests, y el código son 265. Está bien como está.
+
+### 7. Compactar la documentación
+
+Los cuatro documentos suman **18.237 palabras**. `CONTEXT.md` solo ya son **9.508** —más que el README
+y el ROADMAP juntos, y más palabras que líneas tiene todo el backend de Rust—. El problema no es el
+detalle, que es lo que da valor a este repositorio; es que lo mismo está contado en varios sitios y
+nada dice cuál manda.
+
+- [ ] **Decidir qué documento responde a qué**, y que cada cosa viva en uno solo:
+
+  | Documento | Responde a | Hoy también lleva |
+  |---|---|---|
+  | `README.md` | ¿Qué es y cómo la uso? (quien llega de fuera) | — está bien acotado |
+  | `.claude/CLAUDE.md` | ¿Cómo se trabaja aquí? (lo que lee el agente) | — está bien acotado |
+  | `CONTEXT.md` | ¿En qué estado está y por qué se decidió así? | el registro de sesiones entero |
+  | `ROADMAP.md` | ¿Qué falta? | la verificación histórica de seis tiers cerrados |
+
+- [ ] **Quitar la duplicación del modelo de confianza del actualizador**, explicado **siete veces** en
+      cuatro archivos (README ×2, ROADMAP ×2, CONTEXT ×2, `src/update.ts`), más `update.rs` con otras
+      palabras.
+  > Que esté en el README (es información de producto) y en `update.rs` (es donde se implementa). El
+  > resto, enlace. Siete copias de una explicación delicada es una garantía de que algún día seis
+  > digan una cosa y una diga otra.
+- [ ] **Podar las 8 decisiones tachadas de CONTEXT.md §4** y las **11 menciones a minisign**, que
+      describen un mecanismo **borrado del código**.
+  > ⚠️ Conservar la **lección**, no el recorrido: "nunca volcar un archivo de clave a la consola" vale
+  > para siempre y ya está en CLAUDE.md; "la regeneración falló por estar en el directorio equivocado"
+  > no le sirve a nadie. Mismo criterio con las filas de `createUpdaterArtifacts` y de la clave con
+  > contraseña: describen un plugin que ya no se usa. La de `ProcessStartInfo` **se queda**, porque la
+  > lección de PowerShell (`$env:VAR = ""` borra la variable) sigue valiendo.
+- [ ] **Resolver la duplicación declarada de CONTEXT.md §7**, que dice literalmente que las
+      convenciones viven también en `.claude/CLAUDE.md` y que «al cambiar una, hay que cambiarla en los
+      dos sitios».
+  > Es deuda que el propio documento confiesa. `CLAUDE.md` es la fuente única —es lo que se carga
+  > solo—; CONTEXT.md §7 se queda en un enlace.
+- [ ] **Condensar los Tiers 1-6 de este archivo.** Están todos cerrados y verificados: cada uno puede
+      quedar en su objetivo, su estado y las notas ⚠️ que siguen enseñando algo, moviendo el detalle de
+      verificación al registro de sesiones (que ya lo cuenta) en vez de tenerlo por duplicado.
+- [ ] **Sacar el registro de sesiones de CONTEXT.md §8 a su propio archivo** (`docs/BITACORA.md` o
+      similar), dejando en CONTEXT solo estado, decisiones vigentes y cómo retomar.
+  > Son 180 líneas creciendo por sesión dentro del documento que alguien abre para saber en qué punto
+  > está el proyecto. Separarlo no pierde nada y hace que CONTEXT.md se pueda volver a leer entero.
+- [ ] Actualizar CONTEXT.md §3, que dice **«El ROADMAP.md está terminado»**: con este tier deja de
+      serlo.
+
+**Criterio para todo lo de arriba, por si se hace en otra sesión:** no se borra información, se borra
+**repetición**. Lo que explica por qué algo raro está como está se queda; lo que narra un camino que ya
+no existe, se va o se archiva.
+
+> ⚠️ **Editar estos `.md` con herramientas que respeten UTF-8.** PowerShell 5.1 los lee como ANSI y al
+> guardarlos destroza todos los acentos y emojis. Está en CLAUDE.md y ya costó una sesión revertirlo.
+
+### 8. Producto (opcional, no es deuda)
+
+Dos cosas que la revisión señala como mejora, no como fallo. Decisión del usuario si entran:
+
+- [ ] **Ordenar la tabla por columna.** Hoy llega siempre por RAM descendente desde Rust, que es buen
+      valor por defecto, pero el Administrador de tareas —con el que el usuario compara
+      inevitablemente, y así lo plantea el README— ordena por lo que quieras. Por CPU es lo primero
+      que se va a pedir.
+- [ ] **Estado vacío que oriente.** «No hay procesos de desarrollo activos.» es lo primero que ve quien
+      acaba de instalar la app sin nada corriendo; una línea sugiriendo añadir ejecutables en Ajustes
+      convierte un callejón sin salida en el paso siguiente.
+- [ ] **Decidir si 720 px es una anchura que se soporta de verdad.**
+  > A la anchura mínima el sidebar se lleva 208 px fijos y quedan ~512 para una tabla de ocho columnas
+  > que necesita unos 670. Hay scroll horizontal, así que no se pierde nada, pero una tabla densa con
+  > scroll lateral y cabecera sticky se usa mal. O se colapsa el sidebar por debajo de cierto ancho, o
+  > se suben los `minWidth` a ~860 y se deja de prometer un tamaño incómodo.
+  > ⚠️ **Sin verificar en vivo**: medirlo obliga a abrir el puerto de depuración en `tauri.conf.json`.
+  > Lo de arriba es análisis del código, no una medición.
 
 ---
 

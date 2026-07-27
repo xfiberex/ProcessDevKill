@@ -103,6 +103,7 @@ export function resetTauriMocks() {
 export const DEFAULT_TEST_SETTINGS = {
   customNames: [],
   hotkeyEnabled: true,
+  closeToTray: false,
   refreshMs: 2000,
   theme: "dark" as const,
   autoKillEnabled: false,

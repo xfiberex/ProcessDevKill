@@ -39,6 +39,9 @@ type View = "processes" | "history" | "settings";
 const DEFAULT_SETTINGS: Settings = {
   customNames: [],
   hotkeyEnabled: true,
+  // Igual que en Rust: cerrar la ventana cierra la app. Esconderla en la bandeja
+  // hay que pedirlo, porque si no se acumulan instancias invisibles.
+  closeToTray: false,
   refreshMs: 2000,
   theme: "system",
   // Igual que en Rust: ni el Auto-Kill ni el Zombie Finder arrancan encendidos.
@@ -242,9 +245,9 @@ export default function App() {
     const uno = pids.length === 1;
     setConfirm({
       title: `Cerrar ${pids.length} ${uno ? "proceso" : "procesos"}`,
-      message: `Se ${uno ? "terminara" : "terminaran"} ${scope}. ${
+      message: `Se ${uno ? "terminará" : "terminarán"} ${scope}. ${
         uno ? "El proceso se cierra" : "Los procesos se cierran"
-      } de golpe, sin guardar nada. Esta accion no se puede deshacer.`,
+      } de golpe, sin guardar nada. Esta acción no se puede deshacer.`,
       confirmLabel: uno ? "Cerrar proceso" : "Cerrar procesos",
       onConfirm: () => killMany(pids),
     });
@@ -275,7 +278,10 @@ export default function App() {
                 key={id}
                 size="xs"
                 variant={view === id ? "secondary" : "ghost"}
-                aria-pressed={view === id}
+                // `aria-current`, no `aria-pressed`: esto es navegacion entre vistas
+                // excluyentes, no un interruptor. Un lector de pantalla dice "vista
+                // actual" en vez de "presionado", que es lo que de verdad pasa.
+                aria-current={view === id ? "page" : undefined}
                 onClick={() => setView(id)}
                 // px-1: con el padding por defecto las tres pestañas no caben en
                 // los 208 px del sidebar y "Ajustes" se sale por el borde.
@@ -395,7 +401,7 @@ export default function App() {
                   setConfirm({
                     title: "Vaciar el historial",
                     message:
-                      "Se borrara el registro de procesos cerrados. No afecta a ningun proceso en ejecucion.",
+                      "Se borrará el registro de procesos cerrados. No afecta a ningún proceso en ejecución.",
                     confirmLabel: "Vaciar",
                     onConfirm: async () => {
                       await invoke("clear_history");
@@ -411,7 +417,7 @@ export default function App() {
                 <p className="px-5 py-10 text-center text-sm text-muted-foreground">
                   {processes.length === 0
                     ? "No hay procesos de desarrollo activos."
-                    : "Ningun proceso coincide con el filtro."}
+                    : "Ningún proceso coincide con el filtro."}
                 </p>
               ) : (
                 <ProcessTable

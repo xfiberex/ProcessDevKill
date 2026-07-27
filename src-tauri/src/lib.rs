@@ -497,17 +497,13 @@ async fn download_update(app: AppHandle, release: update::ReleaseInfo) -> Result
 /// Solo acepta rutas dentro de la carpeta de descargas del actualizador: el comando queda
 /// expuesto al frontend y sin esa guardia seria un "ejecuta lo que quieras" —el mismo
 /// criterio que la guardia de PID en `kill_process`.
+///
+/// La comprobacion vive en `update` y es una funcion pura, probable sin montar una `App`,
+/// igual que `collect_processes` frente a `get_processes`. Se ejecuta **la ruta que
+/// devuelve**, ya canonicalizada: validar una y lanzar otra seria dejar el agujero abierto.
 #[tauri::command]
 fn install_update(app: AppHandle, path: String) -> Result<(), String> {
-    let ruta = std::path::PathBuf::from(&path);
-    let permitida = std::env::temp_dir().join("ProcessDevKill_update");
-
-    if !ruta.starts_with(&permitida) {
-        return Err("Ruta de instalador no permitida.".into());
-    }
-    if !ruta.is_file() {
-        return Err("El instalador descargado ya no esta donde deberia.".into());
-    }
+    let ruta = update::ruta_de_instalador_valida(std::path::Path::new(&path))?;
 
     update::launch_installer(&ruta)?;
 
@@ -520,6 +516,19 @@ fn install_update(app: AppHandle, path: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // El primero de todos, como pide su documentacion. Si la app ya esta
+        // corriendo, la instancia nueva avisa a esta y se cierra sola en vez de
+        // abrir una segunda ventana.
+        //
+        // Sin esto se acumulaban copias: como cerrar la ventana la escondia en la
+        // bandeja, el usuario creia haber cerrado la app y la volvia a lanzar. Se
+        // llegaron a ver cuatro iconos de bandeja a la vez.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // Traer al frente la que ya hay. `show_main_window` hace show +
+            // unminimize + set_focus: el `show` es imprescindible porque puede
+            // estar escondida en la bandeja, y entonces enfocarla no la enseña.
+            tray::show_main_window(app);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         // Copiar PID/puertos desde el menu contextual. Va por el portapapeles del
@@ -574,11 +583,25 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Cerrar la ventana la esconde en la bandeja en vez de terminar la app;
-            // para salir de verdad esta la opcion "Salir" del menu del icono.
+            // Cerrar cierra, salvo que el usuario haya pedido lo contrario en
+            // Ajustes. Hasta el Tier 7.4 esto escondia la ventana **siempre**, y era
+            // justo lo que hacia que se acumularan instancias invisibles.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                let esconder = window
+                    .app_handle()
+                    .state::<AppState>()
+                    .settings
+                    .lock()
+                    .map(|s| s.close_to_tray)
+                    // Ante un candado envenenado, cerrar: dejar la app viva e
+                    // invisible es peor que cerrarla de mas.
+                    .unwrap_or(false);
+
+                if esconder {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+                // Si no, se deja cerrar y `RunEvent::ExitRequested` termina la app.
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -671,6 +694,7 @@ mod tests {
         for clave in [
             "customNames",
             "hotkeyEnabled",
+            "closeToTray",
             "refreshMs",
             "theme",
             "autoKillEnabled",
@@ -681,6 +705,10 @@ mod tests {
             assert!(settings.get(clave).is_some(), "falta '{clave}' en Settings");
         }
         assert_eq!(settings["theme"], "system");
+        assert_eq!(
+            settings["closeToTray"], false,
+            "cerrar la ventana cierra la app: esconderse en la bandeja hay que pedirlo"
+        );
         assert_eq!(
             settings["autoKillEnabled"], false,
             "el Auto-Kill mata sin preguntar: tiene que venir apagado de fabrica"

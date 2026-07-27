@@ -114,11 +114,15 @@ describe("seleccion", () => {
 });
 
 describe("boton Kill", () => {
+  /** Por nombre accesible, que desde el Tier 7.4 incluye proceso y PID. */
+  const matar = (pid: number, name = "node.exe") =>
+    screen.getByRole("button", { name: `Cerrar ${name}, PID ${pid}` });
+
   it("manda el PID de su propia fila", async () => {
     const user = userEvent.setup();
     const { onKill } = pintar([proceso({ pid: 40 }), proceso({ pid: 41 })]);
 
-    await user.click(within(fila(41)).getByRole("button", { name: "Kill" }));
+    await user.click(matar(41));
 
     expect(onKill).toHaveBeenCalledWith(41);
   });
@@ -128,10 +132,42 @@ describe("boton Kill", () => {
       killing: new Set([42]),
     });
 
-    expect(within(fila(42)).getByRole("button", { name: "Kill" })).toBeDisabled();
-    expect(
-      within(fila(43)).getByRole("button", { name: "Kill" }),
-    ).not.toBeDisabled();
+    expect(matar(42)).toBeDisabled();
+    expect(matar(43)).not.toBeDisabled();
+  });
+
+  /**
+   * Con veinte filas hay veinte botones que ponen "Kill". Sin nombre accesible
+   * propio, un lector de pantalla los anuncia todos igual y no hay forma de saber
+   * cual mata cual: es la etiqueta que menos se puede fallar de toda la app. El
+   * checkbox de la misma fila ya se nombraba bien desde el Tier 6.
+   */
+  it("cada boton dice a que proceso mata", () => {
+    pintar([
+      proceso({ pid: 50, name: "node.exe" }),
+      proceso({ pid: 51, name: "python.exe" }),
+    ]);
+
+    expect(matar(50, "node.exe")).toBeInTheDocument();
+    expect(matar(51, "python.exe")).toBeInTheDocument();
+    // El texto visible sigue siendo "Kill": lo que cambia es lo que se anuncia.
+    expect(within(fila(50)).getByText("Kill")).toBeInTheDocument();
+  });
+});
+
+/**
+ * `scope="col"` es lo que permite a un lector de pantalla decir "Puerto: 3000" al
+ * recorrer celdas. En una tabla de ocho columnas, sin el se leen numeros sueltos.
+ */
+describe("semantica de la tabla", () => {
+  it("marca las cabeceras como cabeceras de columna", () => {
+    pintar([proceso({ pid: 60 })]);
+
+    const cabeceras = screen.getAllByRole("columnheader");
+    expect(cabeceras.length).toBe(8);
+    for (const th of cabeceras) {
+      expect(th).toHaveAttribute("scope", "col");
+    }
   });
 });
 

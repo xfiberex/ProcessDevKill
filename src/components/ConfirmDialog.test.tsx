@@ -20,7 +20,7 @@ function Anfitrion({ onConfirm }: { onConfirm: () => void }) {
         onClick={() =>
           setRequest({
             title: "Cerrar 2 procesos",
-            message: "Se terminaran los 2 procesos seleccionados.",
+            message: "Se terminarán los 2 procesos seleccionados.",
             confirmLabel: "Cerrar procesos",
             onConfirm,
           })
@@ -51,7 +51,7 @@ describe("ConfirmDialog", () => {
     await abrir();
     expect(screen.getByText("Cerrar 2 procesos")).toBeInTheDocument();
     expect(
-      screen.getByText("Se terminaran los 2 procesos seleccionados."),
+      screen.getByText("Se terminarán los 2 procesos seleccionados."),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Cerrar procesos" }),

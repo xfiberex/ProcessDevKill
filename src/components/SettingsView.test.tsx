@@ -169,6 +169,56 @@ describe("interruptores", () => {
   });
 });
 
+/**
+ * Cerrar la ventana cierra la app mientras nadie diga lo contrario.
+ *
+ * Hasta el Tier 7.4 la escondia en la bandeja **siempre**, sin ajuste que lo
+ * cambiara, y eso hacia que se acumularan instancias: quien no lo espera da la
+ * app por cerrada, la vuelve a abrir y termina con varias copias vivas. El
+ * usuario reporto cuatro iconos de bandeja a la vez.
+ */
+describe("al cerrar la ventana", () => {
+  const interruptor = () =>
+    screen.getByRole("switch", { name: /bandeja en vez de cerrar/ });
+
+  it("viene apagado, o sea que la X cierra la app", () => {
+    pintar({ closeToTray: false });
+    expect(interruptor()).not.toBeChecked();
+  });
+
+  it("se puede pedir que la deje en la bandeja", async () => {
+    const { user, onChange } = pintar({ closeToTray: false });
+
+    await user.click(interruptor());
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ closeToTray: true }),
+    );
+  });
+
+  it("y volver atras", async () => {
+    const { user, onChange } = pintar({ closeToTray: true });
+
+    expect(interruptor()).toBeChecked();
+    await user.click(interruptor());
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ closeToTray: false }),
+    );
+  });
+
+  /**
+   * Lo que hay que contarle al usuario no es que la ventana se esconde, sino que
+   * la app **sigue viva**: es la parte que sorprende y la que hace que la vuelva
+   * a abrir creyendo que no estaba.
+   */
+  it("avisa de que la app sigue funcionando en segundo plano", () => {
+    pintar({ closeToTray: true });
+    expect(screen.getByText(/sigue funcionando/)).toBeInTheDocument();
+    expect(screen.getByText(/para salir del todo/i)).toBeInTheDocument();
+  });
+});
+
 describe("procesos vigilados", () => {
   it("añade un nombre y limpia el campo", async () => {
     const { user, onChange } = pintar({ customNames: [] });

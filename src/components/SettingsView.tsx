@@ -182,11 +182,11 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
       <section>
         <h2 className="font-heading text-sm font-semibold">Procesos vigilados</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Node, Python y .NET se vigilan siempre. Aqui puedes añadir otros
+          Node, Python y .NET se vigilan siempre. Aquí puedes añadir otros
           ejecutables, como <code className="text-foreground">docker</code>,{" "}
           <code className="text-foreground">go</code> o{" "}
           <code className="text-foreground">php</code>. Se compara el nombre
-          exacto, sin la extension.
+          exacto, sin la extensión.
         </p>
 
         <div className="mt-3 flex gap-2">
@@ -371,6 +371,35 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
       </section>
 
       <section>
+        <h2 className="font-heading text-sm font-semibold">Al cerrar la ventana</h2>
+        <div className="mt-3 flex items-start gap-3">
+          <Switch
+            id="close-to-tray"
+            checked={settings.closeToTray}
+            onCheckedChange={(checked) =>
+              onChange({ ...settings, closeToTray: checked })
+            }
+            className="mt-0.5"
+          />
+          <label htmlFor="close-to-tray" className="cursor-pointer text-sm">
+            <span>Dejarla en la bandeja en vez de cerrar la app</span>
+            <span className="mt-1 block text-muted-foreground">
+              Con esto activado, el botón{" "}
+              <span className="font-medium text-foreground">✕</span> esconde la
+              ventana y ProcessDevKill{" "}
+              <strong className="font-medium text-foreground">
+                sigue funcionando
+              </strong>{" "}
+              en segundo plano: el Auto-Kill y el atajo global siguen vigilando. Para
+              recuperarla, pulsa su icono en la bandeja; para salir del todo,{" "}
+              <span className="font-medium text-foreground">Salir</span> en el menú
+              de ese icono.
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section>
         <h2 className="font-heading text-sm font-semibold">Atajo global</h2>
         <div className="mt-3 flex items-start gap-3">
           <Switch
@@ -392,7 +421,7 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
               Cierra <strong className="font-medium text-foreground">todos</strong>{" "}
               los procesos vigilados al instante, funcione o no la ventana, y{" "}
               <strong className="font-medium text-foreground">
-                sin pedir confirmacion
+                sin pedir confirmación
               </strong>
               . Queda registrado en el historial.
             </span>

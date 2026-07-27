@@ -45,6 +45,14 @@ pub struct Settings {
     pub custom_names: Vec<String>,
     /// Si el atajo global Ctrl+Alt+K esta activo.
     pub hotkey_enabled: bool,
+    /// Si cerrar la ventana la esconde en la bandeja en vez de terminar la app.
+    ///
+    /// **Apagado por defecto**: el boton X de Windows cierra, y que una app siga
+    /// viva e invisible despues de pulsarlo tiene que pedirlo el usuario. Hasta el
+    /// Tier 7.4 esto era el comportamiento fijo, y lo que provocaba era que se
+    /// acumularan instancias: uno cree que cerro la app, la vuelve a abrir, y
+    /// termina con cuatro iconos en la bandeja.
+    pub close_to_tray: bool,
     /// Intervalo del refresco automatico en ms; 0 lo pausa.
     pub refresh_ms: u64,
     /// Apariencia de la ventana. Se guarda aqui, y no en el `localStorage` del
@@ -68,6 +76,9 @@ impl Default for Settings {
         Self {
             custom_names: Vec::new(),
             hotkey_enabled: true,
+            // Cerrar cierra. Ver el comentario del campo: esconderse en la bandeja
+            // sin pedirlo es lo que hacia que se acumularan instancias.
+            close_to_tray: false,
             refresh_ms: 2000,
             theme: Theme::System,
             auto_kill_enabled: false,
@@ -258,6 +269,7 @@ mod tests {
         let settings = Settings {
             custom_names: vec!["php".into()],
             hotkey_enabled: false,
+            close_to_tray: true,
             refresh_ms: 5000,
             theme: Theme::Dark,
             auto_kill_enabled: true,
@@ -330,6 +342,21 @@ mod tests {
             "actualizar la app JAMAS debe encender solo el Auto-Kill"
         );
         assert!(!settings.zombie_enabled, "ni el Zombie Finder");
+        assert!(
+            !settings.close_to_tray,
+            "cerrar la ventana cierra la app mientras nadie diga lo contrario"
+        );
+    }
+
+    /// El valor de fabrica de `close_to_tray` no es una preferencia estetica.
+    ///
+    /// Con `true`, pulsar la X deja la app viva e invisible; quien no lo espere la
+    /// da por cerrada, la vuelve a abrir y acumula instancias. Paso de verdad: el
+    /// usuario reporto cuatro iconos de bandeja a la vez. Si alguien cambia este
+    /// valor por descuido, que falle aqui.
+    #[test]
+    fn cerrar_la_ventana_cierra_la_app_de_fabrica() {
+        assert!(!Settings::default().close_to_tray);
     }
 
     #[test]

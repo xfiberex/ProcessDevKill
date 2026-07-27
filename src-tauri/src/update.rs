@@ -194,9 +194,69 @@ pub async fn check_for_update(version_actual: &str) -> Result<Option<ReleaseInfo
     Ok(is_newer(&info.tag, version_actual).then_some(info))
 }
 
-/// Carpeta donde se descargan los instaladores, ya vaciada de intentos anteriores.
+/// Carpeta donde se descargan los instaladores.
+///
+/// Único sitio donde se nombra. La guardia de `install_update` compara contra esto, así que
+/// una segunda copia del literal dejaría la puerta abierta el día que una de las dos cambiara.
+pub fn carpeta_descargas() -> PathBuf {
+    std::env::temp_dir().join("ProcessDevKill_update")
+}
+
+/// Comprueba que `candidata` sea un archivo dentro de la carpeta de descargas y devuelve su
+/// ruta canónica, que es la única que se debe ejecutar.
+///
+/// **Canonicaliza antes de comparar, y no es un detalle de estilo.** `Path::starts_with`
+/// compara componentes literales y **no normaliza nada**: sin esto,
+/// `…\ProcessDevKill_update\..\..\Windows\System32\calc.exe` empieza por la carpeta permitida
+/// y pasa la guardia tan campante. Con `canonicalize` los `..` se resuelven *antes* de mirar.
+///
+/// Se devuelve la ruta ya normalizada a propósito: validar una y ejecutar otra sería volver a
+/// abrir el agujero por la puerta de atrás.
+///
+/// Canonicalizar exige además que la ruta exista, así que de paso cubre el "ya no está donde
+/// debería" sin una comprobación aparte.
+pub fn ruta_de_instalador_valida(candidata: &Path) -> Result<PathBuf, String> {
+    let permitida = carpeta_descargas()
+        .canonicalize()
+        .map_err(|_| "No hay ninguna descarga que instalar.".to_string())?;
+
+    let ruta = candidata
+        .canonicalize()
+        .map_err(|_| "El instalador descargado ya no está donde debería.".to_string())?;
+
+    if !ruta.starts_with(&permitida) {
+        return Err("Ruta de instalador no permitida.".into());
+    }
+    // `canonicalize` acepta directorios: sin esto, pasar la propia carpeta llegaría a
+    // intentar ejecutarla.
+    if !ruta.is_file() {
+        return Err("La ruta indicada no es un archivo.".into());
+    }
+
+    Ok(ruta)
+}
+
+/// Nombre de archivo con el que guardar la descarga, sin componentes de ruta.
+///
+/// `asset_name` viene de la API de GitHub y acaba pegado a una ruta con `join`. Hoy GitHub no
+/// admite separadores en el nombre de un asset, pero quedarse con el último componente cuesta
+/// una línea y cierra la puerta a que un nombre con `..\` escriba fuera de la carpeta.
+fn nombre_seguro(asset_name: &str) -> &str {
+    let limpio = Path::new(asset_name)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+
+    if limpio.is_empty() {
+        "ProcessDevKill-setup.exe"
+    } else {
+        limpio
+    }
+}
+
+/// Carpeta de descargas creada y vaciada de intentos anteriores.
 fn preparar_carpeta() -> Result<PathBuf, String> {
-    let dir = std::env::temp_dir().join("ProcessDevKill_update");
+    let dir = carpeta_descargas();
     std::fs::create_dir_all(&dir).map_err(|e| format!("No se pudo crear {dir:?}: {e}"))?;
 
     // Limpia descargas previas para no acumular instaladores viejos en %TEMP%.
@@ -254,11 +314,7 @@ where
     let esperado = hash_from_checksum_file(&publicado)
         .ok_or("El archivo .sha256 publicado no contiene un hash válido.")?;
 
-    let destino = preparar_carpeta()?.join(if info.asset_name.is_empty() {
-        "ProcessDevKill-setup.exe"
-    } else {
-        &info.asset_name
-    });
+    let destino = preparar_carpeta()?.join(nombre_seguro(&info.asset_name));
 
     {
         use futures_util::StreamExt;
@@ -309,7 +365,13 @@ where
 /// Lanza el instalador descargado. El NSIS en modo `currentUser` no pide UAC.
 ///
 /// No se comprueba nada aquí: para cuando se llama, `download_and_verify` ya ha validado
-/// el hash. Llamarla con una ruta que no venga de ahí sería saltarse la verificación.
+/// el hash y `ruta_de_instalador_valida` la carpeta. Llamarla con una ruta que no venga de
+/// ahí sería saltarse las dos comprobaciones.
+///
+/// La ruta llega **canonicalizada**, o sea con el prefijo verbatim de Windows
+/// (`\\?\C:\…`). Comprobado que `CreateProcess` la acepta y el instalador arranca igual:
+/// era lo único que podía romper la actualización al añadir la canonicalización, y no se
+/// habría notado hasta el siguiente release.
 pub fn launch_installer(ruta: &Path) -> Result<(), String> {
     std::process::Command::new(ruta)
         .spawn()
@@ -445,6 +507,83 @@ mod tests {
         assert_eq!(info.asset_url, "https://x/setup");
         assert_eq!(info.asset_size, 3600);
         assert_eq!(info.checksum_url, "https://x/setup.sha256");
+    }
+
+    /// **Regresion del agujero que encontro la revision del 2026-07-27.**
+    ///
+    /// La guardia comparaba con `starts_with` sobre la ruta cruda, y `Path::starts_with`
+    /// compara componentes literales **sin normalizar**: un `..` por medio la atravesaba y
+    /// `install_update` acababa ejecutando cualquier cosa del disco. El comando esta
+    /// expuesto al frontend, asi que era justo lo que la guardia decia impedir.
+    #[test]
+    fn la_guardia_de_rutas_rechaza_un_escape_con_dos_puntos() {
+        let dir = carpeta_descargas();
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Un instalador legitimo dentro de la carpeta.
+        let dentro = dir.join("ProcessDevKill_9.9.9_x64-setup.exe");
+        std::fs::write(&dentro, b"instalador de mentira").unwrap();
+
+        // Y un archivo fuera: lo que un frontend comprometido querria ejecutar.
+        let fuera = std::env::temp_dir().join("pdk_test_fuera_de_la_carpeta.exe");
+        std::fs::write(&fuera, b"esto no deberia ejecutarse nunca").unwrap();
+
+        // El escape sale de la carpeta permitida y vuelve a %TEMP% por la puerta de atras.
+        let escape = dir.join("..").join("pdk_test_fuera_de_la_carpeta.exe");
+
+        // Sin esta asercion el test no probaria nada: deja constancia de que la
+        // comparacion ingenua SI aceptaba el escape, que es el fallo que se corrigio.
+        assert!(
+            escape.starts_with(&dir),
+            "la ruta de escape tiene que pasar el starts_with crudo; si no, este test no cubre el fallo"
+        );
+
+        assert!(
+            ruta_de_instalador_valida(&dentro).is_ok(),
+            "un instalador legitimo dentro de la carpeta tiene que valer"
+        );
+        assert!(
+            ruta_de_instalador_valida(&escape).is_err(),
+            "un '..' no puede sacar la ruta de la carpeta permitida"
+        );
+        assert!(
+            ruta_de_instalador_valida(&fuera).is_err(),
+            "una ruta abiertamente de fuera tampoco"
+        );
+        assert!(
+            ruta_de_instalador_valida(&dir).is_err(),
+            "la propia carpeta no es un archivo: no hay nada que ejecutar"
+        );
+
+        // La ruta que se devuelve es la canonica, que es la que se ejecuta.
+        let validada = ruta_de_instalador_valida(&dentro).unwrap();
+        assert!(validada.is_file());
+        assert!(!validada.to_string_lossy().contains(".."));
+
+        let _ = std::fs::remove_file(&dentro);
+        let _ = std::fs::remove_file(&fuera);
+    }
+
+    /// El nombre del asset viene de la API de GitHub y acaba pegado a una ruta con `join`.
+    #[test]
+    fn el_nombre_de_la_descarga_no_puede_salirse_de_la_carpeta() {
+        assert_eq!(
+            nombre_seguro("ProcessDevKill_1.2.0_x64-setup.exe"),
+            "ProcessDevKill_1.2.0_x64-setup.exe"
+        );
+
+        // Con separadores, solo sobrevive el ultimo componente.
+        assert_eq!(nombre_seguro(r"..\..\Windows\System32\evil.exe"), "evil.exe");
+        assert_eq!(nombre_seguro("../../evil.exe"), "evil.exe");
+
+        // Y lo que no deja nombre utilizable cae al de por defecto.
+        assert_eq!(nombre_seguro(""), "ProcessDevKill-setup.exe");
+        assert_eq!(nombre_seguro(".."), "ProcessDevKill-setup.exe");
+
+        // Lo que importa de verdad: pegado a la carpeta, no se sale de ella.
+        let dir = carpeta_descargas();
+        let destino = dir.join(nombre_seguro(r"..\..\evil.exe"));
+        assert_eq!(destino.parent(), Some(dir.as_path()));
     }
 
     #[test]

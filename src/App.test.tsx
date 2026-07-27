@@ -135,7 +135,7 @@ describe("buscador", () => {
     await user.type(buscador(), "no-existe");
 
     expect(
-      screen.getByText("Ningun proceso coincide con el filtro."),
+      screen.getByText("Ningún proceso coincide con el filtro."),
     ).toBeInTheDocument();
   });
 
@@ -212,7 +212,7 @@ describe("boton destructivo", () => {
     const dialogo = await screen.findByRole("alertdialog");
     expect(within(dialogo).getByText("Cerrar 1 proceso")).toBeInTheDocument();
     expect(
-      within(dialogo).getByText(/Se terminara el proceso seleccionado/),
+      within(dialogo).getByText(/Se terminará el proceso seleccionado/),
     ).toBeInTheDocument();
     expect(
       within(dialogo).getByRole("button", { name: "Cerrar proceso" }),
@@ -229,7 +229,7 @@ describe("boton destructivo", () => {
     const dialogo = await screen.findByRole("alertdialog");
     expect(within(dialogo).getByText("Cerrar 2 procesos")).toBeInTheDocument();
     expect(
-      within(dialogo).getByText(/Se terminaran los 2 procesos seleccionados/),
+      within(dialogo).getByText(/Se terminarán los 2 procesos seleccionados/),
     ).toBeInTheDocument();
   });
 
@@ -284,7 +284,11 @@ describe("cierre de procesos", () => {
     const user = await montar();
 
     const fila = screen.getByLabelText("Seleccionar PID 100").closest("tr")!;
-    await user.click(within(fila).getByRole("button", { name: "Kill" }));
+    // El nombre accesible lleva proceso y PID desde el Tier 7.4; el texto visible
+    // del boton sigue siendo "Kill".
+    await user.click(
+      within(fila).getByRole("button", { name: /^Cerrar .*PID 100$/ }),
+    );
 
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith("kill_processes", { pids: [100] }),
@@ -332,6 +336,26 @@ describe("navegacion", () => {
     expect(
       screen.queryByPlaceholderText("Buscar por nombre, PID o puerto…"),
     ).not.toBeInTheDocument();
+  });
+
+  /**
+   * Las tres vistas son excluyentes, asi que la actual se marca con
+   * `aria-current="page"` y no con `aria-pressed`: esto es navegacion, no un
+   * interruptor. Un lector de pantalla dice "vista actual" en vez de "presionado".
+   */
+  it("marca la vista actual como tal, y solo una a la vez", async () => {
+    const user = await montar();
+    const boton = (nombre: string) =>
+      screen.getByRole("button", { name: nombre });
+
+    expect(boton("Procesos")).toHaveAttribute("aria-current", "page");
+    expect(boton("Historial")).not.toHaveAttribute("aria-current");
+    expect(boton("Ajustes")).not.toHaveAttribute("aria-current");
+
+    await user.click(boton("Ajustes"));
+
+    expect(boton("Ajustes")).toHaveAttribute("aria-current", "page");
+    expect(boton("Procesos")).not.toHaveAttribute("aria-current");
   });
 });
 

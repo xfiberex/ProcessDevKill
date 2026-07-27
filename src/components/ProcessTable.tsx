@@ -44,20 +44,37 @@ export function ProcessTable({
     <table className="w-full text-sm">
       <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
         <tr>
-          <th className="w-9 py-2 pl-5">
+          {/* scope="col": en una tabla de ocho columnas es lo que hace que un
+              lector de pantalla diga "Puerto: 3000" al recorrer celdas, en vez de
+              leer numeros sueltos sin saber de que son. */}
+          <th scope="col" className="w-9 py-2 pl-5">
             <Checkbox
               checked={allSelected}
               onCheckedChange={onToggleAll}
               aria-label="Seleccionar todos"
             />
           </th>
-          <th className="px-3 py-2 text-left font-medium">Proceso</th>
-          <th className="px-3 py-2 text-left font-medium">Puerto</th>
-          <th className="px-3 py-2 text-right font-medium">PID</th>
-          <th className="px-3 py-2 text-right font-medium">CPU</th>
-          <th className="px-3 py-2 text-right font-medium">RAM</th>
-          <th className="px-3 py-2 text-right font-medium">Activo</th>
-          <th className="px-5 py-2" />
+          <th scope="col" className="px-3 py-2 text-left font-medium">
+            Proceso
+          </th>
+          <th scope="col" className="px-3 py-2 text-left font-medium">
+            Puerto
+          </th>
+          <th scope="col" className="px-3 py-2 text-right font-medium">
+            PID
+          </th>
+          <th scope="col" className="px-3 py-2 text-right font-medium">
+            CPU
+          </th>
+          <th scope="col" className="px-3 py-2 text-right font-medium">
+            RAM
+          </th>
+          <th scope="col" className="px-3 py-2 text-right font-medium">
+            Activo
+          </th>
+          <th scope="col" className="px-5 py-2">
+            <span className="sr-only">Acciones</span>
+          </th>
         </tr>
       </thead>
 
@@ -122,7 +139,10 @@ export function ProcessTable({
 
                   <td className="px-3 py-2">
                     {p.ports.length === 0 ? (
-                      <span className="text-xs text-muted-foreground/50">—</span>
+                      // Sin el /50: al 50 % de opacidad el guion se queda en ~2:1 de
+                      // contraste, por debajo del minimo. Es poca informacion, pero
+                      // es informacion.
+                      <span className="text-xs text-muted-foreground">—</span>
                     ) : (
                       <span className="flex flex-wrap gap-1">
                         {p.ports.map((port) => (
@@ -169,6 +189,11 @@ export function ProcessTable({
                       variant="destructive"
                       onClick={() => onKill(p.pid)}
                       disabled={isKilling}
+                      // Sin esto hay veinte botones que se anuncian "Kill" a secas,
+                      // sin decir cual mata cada uno. El checkbox de la misma fila ya
+                      // se nombraba bien; para el boton que cierra un proceso es
+                      // justo la etiqueta que no se puede fallar.
+                      aria-label={`Cerrar ${p.name}, PID ${p.pid}`}
                     >
                       Kill
                     </Button>

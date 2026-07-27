@@ -26,7 +26,10 @@
 
 ## 3. Estado actual
 
-**Fase actual:** ✅ **El ROADMAP.md está terminado.** Tiers 1 a 6 completos.
+**Fase actual:** Tiers 1 a 6 completos. **Tier 7 abierto** (2026-07-27): deuda técnica y compactación
+de la documentación, salido de una revisión completa del repositorio sobre la v1.1.1 ya publicada.
+Nada de lo que recoge es un fallo de funcionamiento —la app hace lo que promete—, salvo la guardia de
+rutas de `install_update`, que se salta con un `..` y es lo único con consecuencias de seguridad.
 
 | Tier | Descripción | Estado |
 |---|---|---|
@@ -41,7 +44,7 @@
 | 6 | Licencia y avisos de terceros | ✅ Punto 1 completado y verificado |
 | 6 | Nombre del repositorio | ✅ Punto 2 completado |
 | 6 | README de producto, capturas y `FUNDING.yml` | ✅ Punto 3 completado y verificado |
-| 6 | Pruebas del frontend | ✅ Punto 4 completado y verificado — **98 pruebas** |
+| 6 | Pruebas del frontend | ✅ Punto 4 completado y verificado — **101 pruebas** (y 37 de `cargo test`) |
 | 6 | Auto-actualización | ✅ Punto 5 completado (ver la salvedad de abajo) |
 | 6 | Herramientas del repositorio (`.claude/CLAUDE.md`, `.mcp.json`) | ✅ Punto 6 completado |
 
@@ -65,7 +68,7 @@ Añadido el 2026-07-25: **98 pruebas de frontend** (Vitest + Testing Library) do
 
 > **El actualizador se rehízo el 2026-07-26.** La primera versión usaba `tauri-plugin-updater` con firmas minisign; se descartó por decisión del usuario tras dos días de fricción con la clave, y se sustituyó por el modelo de FormatDiskPro: GitHub Releases + verificación **SHA-256** antes de ejecutar. Ya no hay claves que custodiar.
 
-> ⚠️ **`codegraph` está conectado pero sin índice.** El `.mcp.json` ya engancha el servidor, pero `.codegraph/` contiene solo su `.gitignore`: la base de datos nunca se construyó. Para que sirva de algo hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva. Se deja al usuario a propósito.
+> **`codegraph` ya tiene índice** (2026-07-27). El `.mcp.json` engancha el servidor y `.codegraph/codegraph.db` existe, así que las consultas de estructura del código funcionan. Estuvo conectado pero sin base de datos desde el 2026-07-25: el `.mcp.json` por sí solo no construye nada, hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva.
 
 **Publicado:** v1.1.1 — 4 assets: instaladores NSIS y MSI con sus `.sha256`. Sin firma de código, así que SmartScreen sigue avisando.
 
@@ -178,6 +181,18 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-25 | ~~`release.ps1` valida la clave **antes** de compilar~~ | Enterarse de que falta después de veinte minutos de build es la peor forma de saberlo. Y si tras el build no aparece el `.sig`, el script para: publicar sin firma deja a todos los instalados sin poder actualizarse y no se nota hasta que alguien lo intenta |
 | 2026-07-25 | ~~El endpoint es `releases/latest/download/latest.json`~~ | Superada: sin plugin no hay `latest.json`. Ahora se consulta la API de GitHub (`/releases/latest`), que además da las notas y el tamaño del asset |
 | 2026-07-25 | `"createUpdaterArtifacts": true` en `bundle` | **Sin ella no se firma nada y Tauri no avisa.** Viene a `false` de fábrica; con la clave puesta en el entorno y el plugin configurado, el build salió igual de contento produciendo los dos instaladores sin `.sig`. Lo cazó la comprobación de `release.ps1`, con el release ya a medio camino |
+| 2026-07-27 | **Cerrar la ventana cierra la app; la bandeja es opcional y apagada de fábrica** | Desde el Tier 3, la X escondía la ventana **siempre**. Visto en uso es lo contrario de lo que espera cualquiera, y tenía una consecuencia peor que la sorpresa: el usuario daba la app por cerrada, la volvía a abrir y **acumulaba instancias**. Lo reportó con una captura de tres ventanas y cuatro iconos de bandeja a la vez. Ajuste `closeToTray`, `false` de fábrica |
+| 2026-07-27 | Ante un candado envenenado, `CloseRequested` **cierra** | Dejar la app viva e invisible es peor que cerrarla de más: sin ventana ni forma de darse cuenta salvo el Administrador de tareas |
+| 2026-07-27 | **Instancia única con `tauri-plugin-single-instance`** | La segunda instancia trae al frente la ventana de la primera y se cierra. No avisa con un toast: es lo que hace cualquier app de Windows bien educada, y el usuario lo interpreta solo al ver aparecer la ventana. Un aviso de "ya estaba abierta" sería ruido para algo que se ve en pantalla. Se reaprovecha `tray::show_main_window`, cuyo `show` es imprescindible: si estaba escondida en la bandeja, enfocarla no la enseña |
+| 2026-07-27 | El botón "Kill" gana nombre accesible con proceso y PID | Veinte filas son veinte botones que se anunciaban "Kill" a secas. El checkbox de la misma fila ya se nombraba bien desde el Tier 6; el botón que **mata** un proceso es el que menos se puede fallar. El texto visible no cambia |
+| 2026-07-27 | **El menú contextual se queda solo con clic derecho** | Decisión del usuario tras ver las alternativas. Se descarta `tabIndex` en la fila **por las veinte paradas de tabulación** que añadiría: empeora la navegación por teclado de todo el mundo para arreglar un camino que casi nadie usa. Lo que deja fuera, asumido a sabiendas: copiar PID, puerto y URL siguen siendo solo de ratón. "Matar proceso" no, que ese está en el botón Kill |
+| 2026-07-27 | `aria-current` en la navegación de vistas, no `aria-pressed` | Procesos/Historial/Ajustes son vistas excluyentes: es navegación, no un interruptor. Los otros tres `aria-pressed` (tema, intervalo, filtros) se quedan: son grupos de selección dentro de una vista, donde lo ideal sería un `radiogroup`, pero el cambio es mayor y la ganancia pequeña |
+| 2026-07-27 | **La guardia de `install_update` canonicaliza antes de comparar** | `Path::starts_with` compara componentes **literales y no normaliza**: `…\ProcessDevKill_update\..\..\Windows\System32\calc.exe` la pasaba tan campante, y el comando está expuesto al frontend. Era justo lo que la guardia decía impedir. Se ejecuta la ruta **canónica que devuelve la comprobación**, no la que llegó: validar una y lanzar otra sería reabrir el agujero por detrás |
+| 2026-07-27 | La comprobación vive en `update.rs`, no dentro del comando | Misma razón que `collect_processes` frente a `get_processes`: se prueba sin montar una `App`. El test de regresión afirma primero que la ruta de escape **sí** pasa el `starts_with` crudo, para que quede constancia de que cubre el fallo real y no una versión cómoda de él |
+| 2026-07-27 | `carpeta_descargas()` es el único sitio donde se nombra la carpeta | El literal estaba duplicado entre `lib.rs` y `update.rs`. Dos copias de la ruta contra la que se valida es un agujero esperando a que alguien cambie una sola |
+| 2026-07-27 | El nombre del asset se reduce a su último componente antes de usarlo como archivo | Viene de la API de GitHub y se pega con `join`. Hoy GitHub no admite separadores en el nombre de un asset, así que no era explotable, pero es la misma clase de descuido que la guardia de arriba y cuesta una línea |
+| 2026-07-27 | **CSP restrictivo en vez de `null`** | Es la barrera que impide que una inyección en el webview cargue o ejecute algo de fuera; sale barata porque todos los recursos son locales. **Verificado sobre el binario de release**, que es donde aplica: en `tauri dev` el HTML lo sirve Vite y Tauri no llega a inyectarlo |
+| 2026-07-27 | `style-src` lleva `'unsafe-inline'`, y además `style-src-attr` | No es dejadez: Motion, `UsageBar` y el color de los iconos por runtime pintan con **atributos `style`**. Y como Tauri añade su propio nonce a `style-src`, el `'unsafe-inline'` de ahí queda anulado para los elementos `<style>`; `style-src-attr` es lo que garantiza que los atributos sigan aplicándose. Comprobado en la app: el icono de Node mide `rgb(108, 184, 90)`, que es `--runtime-node` exacto |
 | 2026-07-25 | El build se lanza con `ProcessStartInfo`, no con `& npm` | **En PowerShell `$env:VAR = ""` borra la variable en vez de dejarla vacía.** Con la clave sin contraseña hay que pasar un `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` vacío; al desaparecer, Tauri decide preguntar por consola y el build **se cuelga indefinidamente sin dar error**. `ProcessStartInfo.Environment` sí admite el valor vacío, y de paso la clave no toca la sesión de quien ejecuta el script |
 
 ## 5. Decisiones pendientes
@@ -187,7 +202,7 @@ Dos cosas que cuestan una sesión si no se saben:
 - [x] ~~Renombrar el repositorio~~ → hecho el 2026-07-24. GitHub redirige la URL vieja, así que los enlaces ya publicados de la v1.0.0 siguen funcionando. La **carpeta local** conserva el nombre `ProcessVisorDev`; es solo cosmético, pero renombrarla obliga a reabrir el proyecto en el editor.
 - [ ] Lista inicial de procesos vigilados por defecto (¿incluir `java`, `deno`, `bun` desde el inicio?).
 - [ ] Firma de código (Authenticode): sin ella, Windows sigue enseñando el aviso de SmartScreen, y el actualizador no puede comprobar **quién** publicó el instalador —solo que no se corrompió por el camino—. Cuesta un certificado de pago. El día que lo haya, pasa a ser la comprobación fuerte y el `.sha256` queda de respaldo, como en FormatDiskPro.
-- [ ] Construir el índice de `codegraph` (`codegraph init`) para que el `.mcp.json` sirva de algo.
+- [x] ~~Construir el índice de `codegraph`~~ → hecho el 2026-07-27; `.codegraph/codegraph.db` existe y el servidor responde.
 
 ## 6. Cómo retomar el proyecto en otro equipo
 
