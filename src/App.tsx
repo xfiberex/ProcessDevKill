@@ -6,7 +6,10 @@ import { toast } from "sonner";
 import { PROCESSES_UPDATED } from "./types";
 import type { HistoryEntry, KillOutcome, ProcessInfo, Settings } from "./types";
 import { ThemeProvider } from "./theme";
+import { DEFAULT_SORT, FIRST_DIR, sortProcesses } from "./lib/sort";
+import type { SortKey } from "./lib/sort";
 import { useUpdater } from "./hooks/useUpdater";
+import { EmptyState } from "./components/EmptyState";
 import { ProcessTable } from "./components/ProcessTable";
 import { HistoryView } from "./components/HistoryView";
 import { SettingsView } from "./components/SettingsView";
@@ -50,6 +53,10 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  // El orden vive aqui y no en la tabla porque la tabla se desmonta al filtrar a
+  // cero y al cambiar de vista; dentro, la eleccion del usuario se perderia cada
+  // vez que pasa por Historial y vuelve.
+  const [sort, setSort] = useState(DEFAULT_SORT);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [killing, setKilling] = useState<Set<number>>(new Set());
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -153,10 +160,21 @@ export default function App() {
     });
   }, [processes, filter, query]);
 
+  const ordenados = useMemo(() => sortProcesses(visible, sort), [visible, sort]);
+
   const selectedVisible = useMemo(
     () => visible.filter((p) => selected.has(p.pid)),
     [visible, selected],
   );
+
+  /** Repetir la columna activa invierte; cambiar de columna estrena su direccion. */
+  function ordenarPor(key: SortKey) {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: FIRST_DIR[key] },
+    );
+  }
 
   async function killMany(pids: number[]) {
     if (pids.length === 0) return;
@@ -339,17 +357,18 @@ export default function App() {
             )}
 
             {view === "processes" &&
-              (visible.length === 0 ? (
-                <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-                  {processes.length === 0
-                    ? "No hay procesos de desarrollo activos."
-                    : "Ningún proceso coincide con el filtro."}
-                </p>
+              (ordenados.length === 0 ? (
+                <EmptyState
+                  sinProcesos={processes.length === 0}
+                  onIrAAjustes={() => setView("settings")}
+                />
               ) : (
                 <ProcessTable
-                  processes={visible}
+                  processes={ordenados}
                   selected={selected}
                   killing={killing}
+                  sort={sort}
+                  onSort={ordenarPor}
                   onToggle={toggle}
                   onToggleAll={toggleAll}
                   onKill={(pid) => killMany([pid])}

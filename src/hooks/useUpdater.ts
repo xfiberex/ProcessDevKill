@@ -24,13 +24,8 @@ export type UpdateState =
  * Actualizaciones vía GitHub Releases, verificadas con SHA-256.
  *
  * Todo el trabajo real —consultar la API, descargar, comprobar el hash y ejecutar el
- * instalador— vive en Rust (`src-tauri/src/update.rs`); aqui solo se orquesta y se pinta.
- *
- * **Que garantiza la verificacion.** El instalador se compara contra el `.sha256` que
- * publica el mismo release antes de ejecutarlo, y si no coincide se borra. Eso detecta
- * una descarga corrupta o manipulada en transito, pero no demuestra quien publico el
- * archivo: el hash viaja por el mismo sitio. Es el compromiso de un proyecto sin
- * certificado de firma de codigo, y esta dicho tal cual en el README.
+ * instalador— vive en Rust: ver `src-tauri/src/update.rs`, que documenta ademas **que
+ * garantiza y que no** esa verificacion. Aqui solo se orquesta y se pinta.
  */
 export function useUpdater() {
   const [state, setState] = useState<UpdateState>({ fase: "reposo" });

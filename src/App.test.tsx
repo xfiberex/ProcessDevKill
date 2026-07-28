@@ -345,17 +345,18 @@ describe("navegacion", () => {
    */
   it("marca la vista actual como tal, y solo una a la vez", async () => {
     const user = await montar();
-    const boton = (nombre: string) =>
-      screen.getByRole("button", { name: nombre });
+    // Por expresion regular y no por texto exacto: "Procesos" lleva el total al
+    // lado cuando sus filtros no estan desplegados, igual que los de runtime.
+    const boton = (nombre: RegExp) => screen.getByRole("button", { name: nombre });
 
-    expect(boton("Procesos")).toHaveAttribute("aria-current", "page");
-    expect(boton("Historial")).not.toHaveAttribute("aria-current");
-    expect(boton("Ajustes")).not.toHaveAttribute("aria-current");
+    expect(boton(/^Procesos/)).toHaveAttribute("aria-current", "page");
+    expect(boton(/^Historial/)).not.toHaveAttribute("aria-current");
+    expect(boton(/^Ajustes/)).not.toHaveAttribute("aria-current");
 
-    await user.click(boton("Ajustes"));
+    await user.click(boton(/^Ajustes/));
 
-    expect(boton("Ajustes")).toHaveAttribute("aria-current", "page");
-    expect(boton("Procesos")).not.toHaveAttribute("aria-current");
+    expect(boton(/^Ajustes/)).toHaveAttribute("aria-current", "page");
+    expect(boton(/^Procesos/)).not.toHaveAttribute("aria-current");
   });
 });
 
@@ -370,5 +371,199 @@ describe("auto-refresco", () => {
         settings: expect.objectContaining({ refreshMs: 5000 }),
       }),
     );
+  });
+});
+
+/**
+ * El orden vive en App, no en la tabla: la tabla se desmonta al filtrar a cero y
+ * al cambiar de vista, y dentro la eleccion del usuario se perderia. Lo que se
+ * prueba aqui es esa integracion; el criterio de ordenacion, en `lib/sort.test.ts`.
+ */
+describe("ordenar la tabla", () => {
+  const pidsEnPantalla = () =>
+    filas().map((c) => Number(c.getAttribute("aria-label")!.replace(/\D/g, "")));
+
+  const lista = [
+    proceso({ pid: 3, name: "python.exe", memoryMb: 300, cpu: 1 }),
+    proceso({ pid: 1, name: "node.exe", memoryMb: 900, cpu: 7 }),
+    proceso({ pid: 2, name: "dotnet.exe", memoryMb: 600, cpu: 4 }),
+  ];
+
+  it("arranca por RAM descendente, que es como lo manda Rust", async () => {
+    await montar(lista);
+    expect(pidsEnPantalla()).toEqual([1, 2, 3]);
+  });
+
+  it("pulsar CPU reordena de mayor a menor", async () => {
+    const user = await montar(lista);
+
+    await user.click(screen.getByRole("button", { name: "CPU" }));
+
+    expect(pidsEnPantalla()).toEqual([1, 2, 3]);
+    expect(screen.getByRole("columnheader", { name: /CPU/ })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+  });
+
+  it("volver a pulsar la misma columna invierte la direccion", async () => {
+    const user = await montar(lista);
+
+    await user.click(screen.getByRole("button", { name: "Proceso" }));
+    expect(pidsEnPantalla()).toEqual([2, 1, 3]); // dotnet, node, python
+
+    await user.click(screen.getByRole("button", { name: "Proceso" }));
+    expect(pidsEnPantalla()).toEqual([3, 1, 2]);
+  });
+
+  /**
+   * Se perdia con el orden dentro de la tabla: filtrar a cero la desmonta, y al
+   * volver a escribir el usuario se encontraba otra vez con el orden de fabrica
+   * sin haber pedido nada.
+   */
+  it("el orden elegido sobrevive a que el filtro deje la lista vacia", async () => {
+    const user = await montar(lista);
+
+    await user.click(screen.getByRole("button", { name: "Proceso" }));
+    await user.type(buscador(), "zzz");
+    await screen.findByText("Ningún proceso coincide con el filtro.");
+    await user.clear(buscador());
+
+    await screen.findByLabelText("Seleccionar PID 2");
+    expect(pidsEnPantalla()).toEqual([2, 1, 3]);
+  });
+
+  it("y a pasar por otra vista y volver", async () => {
+    const user = await montar(lista);
+
+    await user.click(screen.getByRole("button", { name: "Proceso" }));
+    await user.click(screen.getByRole("button", { name: /^Historial/ }));
+    await user.click(screen.getByRole("button", { name: /^Procesos/ }));
+
+    await screen.findByLabelText("Seleccionar PID 2");
+    expect(pidsEnPantalla()).toEqual([2, 1, 3]);
+  });
+});
+
+/**
+ * Con la lista vacia, la app tiene que distinguir "no hay nada" de "tu filtro no
+ * deja pasar nada", y en el primer caso decir cual es el paso siguiente.
+ */
+describe("estado vacio", () => {
+  it("con cero procesos ofrece añadir procesos vigilados", async () => {
+    await montar([]);
+    expect(
+      screen.getByRole("button", { name: /Añadir procesos vigilados/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("y ese boton abre Ajustes de verdad", async () => {
+    const user = await montar([]);
+
+    await user.click(screen.getByRole("button", { name: /Añadir procesos vigilados/ }));
+
+    expect(screen.getByRole("button", { name: "Ajustes" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("con el filtro sin resultados no manda a Ajustes", async () => {
+    const user = await montar([proceso({ pid: 70 })]);
+
+    await user.type(buscador(), "zzz");
+
+    await screen.findByText("Ningún proceso coincide con el filtro.");
+    expect(
+      screen.queryByRole("button", { name: /Añadir procesos vigilados/ }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * El sidebar pasa a ser vertical, con los filtros por runtime colgando de
+ * "Procesos" en vez de flotando debajo sin decir de que dependen. El mismo boton
+ * navega y, ya estando en la vista, pliega y despliega.
+ */
+describe("sidebar plegable", () => {
+  const procesos = () => screen.getByRole("button", { name: /^Procesos/ });
+  const filtroTodos = () => screen.queryByRole("button", { name: /^Todos/ });
+
+  it("los filtros vienen desplegados de fabrica", async () => {
+    await montar();
+
+    expect(filtroTodos()).toBeInTheDocument();
+    expect(procesos()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("pulsar Procesos estando en Procesos los pliega, y repetir los devuelve", async () => {
+    const user = await montar();
+
+    await user.click(procesos());
+    expect(filtroTodos()).not.toBeInTheDocument();
+    expect(procesos()).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(procesos());
+    expect(filtroTodos()).toBeInTheDocument();
+    expect(procesos()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  /** Plegar no puede cambiar de vista: la tabla se queda donde estaba. */
+  it("plegar no saca al usuario de la vista de procesos", async () => {
+    const user = await montar();
+
+    await user.click(procesos());
+
+    expect(procesos()).toHaveAttribute("aria-current", "page");
+    expect(filas()).toHaveLength(LISTA.length);
+  });
+
+  /**
+   * Con el desglose a la vista lo dice "Todos"; plegado no lo diria nadie, y el
+   * numero de procesos activos es justo lo que se mira de un vistazo.
+   */
+  it("plegado, Procesos ensena el total", async () => {
+    const user = await montar();
+
+    const total = String(LISTA.length);
+    expect(within(procesos()).queryByText(total)).not.toBeInTheDocument();
+    await user.click(procesos());
+    expect(within(procesos()).getByText(total)).toBeInTheDocument();
+  });
+
+  it("desde otra vista, pulsar Procesos navega en vez de plegar", async () => {
+    const user = await montar();
+
+    await user.click(screen.getByRole("button", { name: /^Ajustes/ }));
+    expect(filtroTodos()).not.toBeInTheDocument();
+
+    await user.click(procesos());
+
+    expect(procesos()).toHaveAttribute("aria-current", "page");
+    expect(filtroTodos()).toBeInTheDocument();
+  });
+
+  /**
+   * Si volver de Ajustes lo desplegara solo, plegar no serviria de nada: se
+   * desharia en cuanto el usuario pasa por otra vista.
+   */
+  it("el pliegue elegido sobrevive a ir a otra vista y volver", async () => {
+    const user = await montar();
+
+    await user.click(procesos()); // plegar
+    await user.click(screen.getByRole("button", { name: /^Historial/ }));
+    await user.click(procesos()); // volver
+
+    expect(procesos()).toHaveAttribute("aria-current", "page");
+    expect(filtroTodos()).not.toBeInTheDocument();
+  });
+
+  /** Los filtros no se pintan fuera de su vista: filtrar lo que no se mira no ordena nada. */
+  it("los filtros no aparecen en Historial ni en Ajustes", async () => {
+    const user = await montar();
+
+    await user.click(screen.getByRole("button", { name: /^Historial/ }));
+    expect(filtroTodos()).not.toBeInTheDocument();
+    expect(procesos()).toHaveAttribute("aria-expanded", "false");
   });
 });

@@ -99,15 +99,14 @@ que cuesta dinero y todavía no lo tiene este proyecto.
 ### Verificar la descarga (opcional)
 
 ```powershell
-Get-FileHash .\ProcessDevKill_1.1.1_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\ProcessDevKill_X.Y.Z_x64-setup.exe -Algorithm SHA256
 ```
 
 El resultado tiene que coincidir con el contenido del `.sha256` que acompaña al archivo (formato de
 `sha256sum`: el hash y el nombre del archivo).
 
-> **Qué protege y qué no.** El hash viaja por el mismo sitio que el instalador, así que sirve para
-> detectar una descarga corrupta o a medias, **no** para demostrar quién publicó el archivo. Es el
-> mismo `.sha256` que usa la auto-actualización; ver abajo.
+> Es el mismo `.sha256` que usa la auto-actualización, y protege exactamente lo mismo:
+> [qué cubre y qué no](#el-modelo-de-confianza-y-qué-no-cubre).
 
 ## Actualizaciones
 
@@ -231,7 +230,7 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 115 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 147 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
 cd src-tauri && cargo test    # 44 pruebas del backend
 ```

@@ -168,10 +168,16 @@ function Invoke-Js($ws, [string]$expresion) {
     área visible — el fallo que costó una sesión al verificar la sección "Acerca de".
 #>
 function Invoke-Boton($ws, [string]$texto) {
+    # Primero coincidencia exacta y solo despues por prefijo: desde que el sidebar
+    # es plegable, "Procesos" lleva el total al lado cuando sus filtros no estan
+    # a la vista, y el texto exacto pasa a ser "Procesos13". Buscando solo por
+    # prefijo se correria el riesgo de acertar otro boton que empiece igual.
     $js = @"
 (() => {
-  const b = Array.from(document.querySelectorAll('button'))
-    .find(x => x.textContent.trim() === '$texto');
+  const bs = Array.from(document.querySelectorAll('button'));
+  const t = '$texto';
+  const b = bs.find(x => x.textContent.trim() === t)
+         || bs.find(x => x.textContent.trim().startsWith(t));
   if (!b) return false;
   b.scrollIntoView({ block: 'center' });
   b.click();
@@ -414,6 +420,16 @@ try {
 
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
     Set-Viewport $ws $ALTO | Out-Null
+
+    # Ordenar por PUERTO antes de capturar, y no es cosmético: la columna de puertos es lo
+    # que justifica la app, y de fábrica la lista llega por RAM descendente, así que los
+    # servidores de demostración —que son pequeños— se hunden por debajo del corte en
+    # cuanto la máquina tiene unos cuantos `node` sueltos. Pasó: la captura salió con un
+    # solo puerto visible y trece guiones. Ordenando por puerto, los que ocupan alguno
+    # suben arriba (los que no, van siempre al final) y la captura sale igual la genere
+    # quien la genere, con dos procesos node de más o de menos.
+    Info "Ordenando por puerto para que la columna que justifica la app salga llena."
+    Invoke-Boton $ws "Puerto"
 
     # El tema es un ajuste del usuario y estas capturas lo cambian dos veces: se anota para
     # devolverlo tal y como estaba.

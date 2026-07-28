@@ -15,7 +15,7 @@
         "title": "ProcessDevKill",
         "width": 1000,
         "height": 680,
-        "minWidth": 720,
+        "minWidth": 900,
         "minHeight": 480,
         "center": true
       }

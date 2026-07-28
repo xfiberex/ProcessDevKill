@@ -9,379 +9,307 @@
 ## 🛠 Tier 1: Cimientos y MVP — ✅ **completado y verificado**
 *Objetivo: tener una lista funcional de procesos y poder matarlos.*
 
-- [x] **Configuración del entorno:**
-    - [x] Node.js LTS (v24.18) y npm (11.12) — ya estaban instalados.
-    - [x] Rust vía `rustup` → 1.97.1 instalado.
-    - [x] **Microsoft C++ Build Tools** — la instalación de VS 18 venía sin headers ni librerías de escritorio; se añadió el componente `Microsoft.VisualStudio.Component.VC.Tools.x86.x64`.
-    - [x] Inicializar proyecto: plantilla **React + TypeScript + Vite** de `create-tauri-app`.
-    - [x] `git init` + primer commit.
-    - [x] Configurar **Tailwind CSS v4**.
-      > ⚠️ La instalación cambió respecto a v3: `npm install tailwindcss @tailwindcss/vite`, registrar el plugin en `vite.config.ts` y añadir `@import "tailwindcss";` en el CSS. Ya no se necesita `tailwind.config.js` ni PostCSS.
-- [x] **Backend (Rust):**
-    - [x] Añadir crate `sysinfo` (0.39) a `src-tauri/Cargo.toml`, solo con la feature `system`.
-    - [x] Comando `get_processes`: filtra por runtime y ordena por RAM descendente.
-      > ⚠️ La comparación **no** es por prefijo simple como decía el plan original: `nodemon.exe` empezaría por `node` sin ser Node. Se exige nombre exacto o sufijo de versión (`python3.11`), con tests que lo cubren.
-    - [x] Comando `kill_process(pid)` con `Process::kill()`, más una guardia que rechaza PIDs que no sean de un runtime vigilado.
-    - [x] Una sola instancia de `System` en `State<Mutex<System>>`, refrescada con `refresh_processes_specifics` (solo CPU y memoria).
-    - [x] Calentamiento de CPU al arrancar, en un hilo aparte.
-      > ⚠️ Hacen falta **tres** muestras, no una: sysinfo descarta la primera sin guardar líneas base y la segunda las compara contra cero. Ver CONTEXT.md §4.
-- [x] **Frontend (React):**
-    - [x] Layout Sidebar (filtros por runtime con contadores) + Main Content.
-    - [x] Botón manual de "Refrescar" (`invoke("get_processes")`).
-    - [x] Tabla con: Nombre, PID, CPU, RAM, tiempo activo y botón "Kill".
-- [x] **Verificación end-to-end** (2026-07-23, sobre la app en ejecución):
-    - [x] 5 tests de `cargo test` en verde, incluidos dos contra los procesos reales de la máquina.
-    - [x] La UI lista 13 procesos `node` reales con RAM y tiempo correctos; contadores del sidebar coherentes.
-    - [x] Un proceso saturando un núcleo reporta 6,28 % en un equipo de 16 núcleos (100/16 = 6,25 ✓).
-    - [x] El botón "Kill" mata un proceso real: la fila desaparece y el PID deja de existir en el sistema.
+Entorno (Rust vía `rustup`, plantilla React + TS + Vite de `create-tauri-app`, Tailwind v4), backend
+con `sysinfo` (`get_processes` y `kill_process`), y frontend con sidebar de filtros y tabla de
+nombre, PID, CPU, RAM, tiempo activo y botón Kill.
+
+Lo que sigue enseñando algo:
+
+> ⚠️ **Tailwind v4 se instala distinto que la v3**: `npm i tailwindcss @tailwindcss/vite`, plugin en
+> `vite.config.ts` y `@import "tailwindcss";` en el CSS. Sin `tailwind.config.js` ni PostCSS.
+> ⚠️ **Los runtimes no se detectan por prefijo**: `nodemon.exe` empieza por `node` sin serlo. Se
+> exige nombre exacto o sufijo de versión (`python3.11`), con tests que lo cubren.
+> ⚠️ **El calentamiento de CPU necesita tres muestras, no una.** sysinfo descarta la primera sin
+> guardar líneas base y compara la segunda contra cero; solo la tercera es real. Es lo que hacía que
+> todos los procesos reportaran 0 %, y los tests iniciales no lo cazaron porque la máquina estaba
+> ociosa y 0 % parecía plausible.
+> ⚠️ `kill_process` valida que el PID sea de un runtime vigilado. Un comando de Tauri acepta lo que
+> le manden; sin la guardia sería un "mata lo que quieras".
 
 ---
 
 ## 🎨 Tier 2: UX/UI y Reactividad — ✅ **completado y verificado**
 *Objetivo: que la app sea visualmente atractiva y fácil de usar.*
 
-- [x] **Visualización avanzada:**
-    - [x] Iconos por lenguaje (Node.js, Python, .NET) como **SVG inline** en `src/icons.tsx`, sin peticiones de red.
-    - [x] Barras de consumo (CPU y RAM) por proceso.
-      > ⚠️ Las barras se escalan al proceso que más consume de la lista, **no** a la capacidad total del equipo: con 32 GB de RAM, un Node de 300 MB daría una barra invisible. El número junto a la barra sí es el valor absoluto real.
-    - [x] Animaciones al eliminar procesos con **Motion** (`AnimatePresence` + `motion.tr`).
-      > ⚠️ Framer Motion fue renombrado: el paquete ahora es `motion` y se importa desde `motion/react`.
-- [x] **Automatización de UI:**
-    - [x] Auto-refresco conmutable (Off / 2 s / 5 s) con guardia para no encolar peticiones si una tarda más que el intervalo. En Tier 4 se migra a eventos desde Rust.
-    - [x] Buscador por nombre o PID.
-- [x] **Acciones masivas:**
-    - [x] Botón **"Nuke All"** (cierra los procesos de la lista filtrada) con diálogo de confirmación.
-    - [x] Casillas de selección múltiple; el botón pasa a "Matar N" cuando hay selección.
-    - [x] Comando `kill_processes` en Rust que devuelve un resultado por PID en vez de abortar al primer fallo.
-- [x] **Verificación end-to-end** (2026-07-23, inspeccionando el DOM real vía CDP):
-    - [x] 15 iconos SVG y 30 barras de consumo renderizadas (2 por fila).
-    - [x] Buscar por PID filtra de 15 filas a 1; buscar texto inexistente muestra el mensaje vacío.
-    - [x] Auto-refresco: la columna "Activo" pasa de `33m` a `34m` sin intervención.
-    - [x] Seleccionar 2 procesos cambia el botón a "Matar 2"; el diálogo abre con el foco en el botón destructivo.
-    - [x] **Escape cancela sin matar nada** (los 2 procesos siguen vivos tras cancelar).
-    - [x] Confirmar mata ambos de verdad: desaparecen de la tabla y del sistema.
-    - [x] Motion anima la salida: opacidad 1 → 0 y `translateX` 0 → −24 px antes de quitar la fila del DOM.
+Iconos SVG por runtime, barras de consumo, animaciones de salida con Motion, auto-refresco
+conmutable (Off / 2 s / 5 s), buscador, selección múltiple y **"Nuke All"** con diálogo de
+confirmación, más `kill_processes` en Rust.
+
+Lo que sigue enseñando algo:
+
+> ⚠️ **Las barras se escalan al proceso que más consume de la lista**, no a la capacidad del equipo:
+> con 32 GB de RAM, un Node de 300 MB daría una barra invisible. El número de al lado sí es absoluto.
+> ⚠️ **Framer Motion se renombró**: el paquete es `motion` y se importa de `motion/react`.
+> ⚠️ `kill_processes` devuelve **un resultado por PID**, no un `Result` global: en un lote es normal
+> que alguno muera solo entre el refresco y el clic, y eso no debe impedir matar los demás.
 
 ---
 
 ## 🔧 Tier 3: Integración profunda con el sistema — ✅ **completado y verificado**
 *Objetivo: dar información técnica que la terminal no da fácilmente.*
 
-- [x] **Detección de puertos (feature estrella):**
-    - [x] Mapear cada PID a sus puertos locales en escucha con el crate [`listeners`](https://crates.io/crates/listeners) 0.6.
-      > ⚠️ Confirmado: `sysinfo` **no expone puertos por proceso**, hizo falta el crate aparte.
-      > ⚠️ `listeners::get_all()` devuelve **todos** los sockets, incluidas las conexiones salientes. Hay que filtrar por `Protocol::TCP` + `SocketState::Listen`; si no, la UI mostraría el puerto efímero de una petición HTTP en vez del puerto donde sirve tu servidor.
-      > ⚠️ Un servidor que escucha en IPv4 e IPv6 aparece dos veces con el mismo puerto: hay que deduplicar.
-      > ⚠️ En Windows, ver puertos de procesos de **otros usuarios** puede requerir permisos elevados; los procesos propios de desarrollo no tienen problema.
-    - [x] Columna "Puerto" prominente, justo después del nombre, con el puerto como badge.
-    - [x] El buscador encuentra también por número de puerto.
-- [x] **Notificaciones nativas:**
-    - [x] Plugin `tauri-plugin-notification` registrado en el `Builder` + permiso `notification:default` en `capabilities/`.
-    - [x] Notificación al liberar puertos, emitida **desde Rust**: el menú de la bandeja también mata procesos sin que la ventana intervenga, así que la lógica no puede vivir en el frontend.
-- [x] **System Tray:**
-    - [x] Features `tray-icon` e `image-png` de Tauri; menú con `TrayIconBuilder` (`on_menu_event` + `on_tray_icon_event`).
-    - [x] Cerrar la ventana la esconde en la bandeja (`CloseRequested` + `api.prevent_close()`).
-    - [x] Menú: "Mostrar ProcessDevKill", "Cerrar todos los Node/Python/.NET" y **"Salir"**.
-      > ⚠️ La opción "Salir" no estaba en el plan pero es imprescindible: sin ella, esconder la ventana al cerrar deja la app sin forma de terminar.
-- [x] **Verificación end-to-end** (2026-07-23):
-    - [x] Un servidor de prueba en el 4321 aparece con ese puerto; su puerto efímero saliente (60117) **no** se muestra.
-    - [x] Solo 2 de 13 procesos muestran puerto, y son los correctos — incluido el **1420 del propio Vite**.
-    - [x] Buscar "4321" filtra a 1 fila y matarla libera el puerto de verdad.
-    - [x] `WM_CLOSE` nativo (lo que hace el botón X): el proceso sigue vivo y la ventana deja de ser visible.
-    - [x] 7 tests de `cargo test` en verde, incluidos puertos reales y selección por runtime.
+La **feature estrella**: cada PID mapeado a sus puertos locales en escucha con el crate
+[`listeners`](https://crates.io/crates/listeners) 0.6, columna "Puerto" junto al nombre y búsqueda
+por número de puerto. Más notificaciones nativas emitidas desde Rust e icono de bandeja con menú.
+
+Lo que sigue enseñando algo:
+
+> ⚠️ `sysinfo` **no expone puertos por proceso**; hizo falta el crate aparte.
+> ⚠️ `listeners::get_all()` devuelve **todos** los sockets, incluidas las conexiones salientes. Hay
+> que filtrar por `Protocol::TCP` + `SocketState::Listen`; si no, la UI enseñaría el puerto efímero
+> de una petición HTTP en vez del puerto donde sirve tu servidor. Y un servidor que escucha en IPv4
+> e IPv6 aparece dos veces con el mismo puerto: hay que deduplicar.
+> ⚠️ En Windows, ver puertos de procesos de **otros usuarios** puede requerir permisos elevados.
+> ⚠️ **Las notificaciones se emiten desde Rust, no desde el frontend**: la bandeja mata procesos sin
+> que la ventana intervenga, y ahí un toast de la UI no lo vería nadie.
+> ⚠️ La opción **"Salir"** del menú de la bandeja no estaba en el plan y es imprescindible: sin ella,
+> esconder la ventana al cerrar dejaba la app sin forma de terminar. (Desde el Tier 7.4 la X cierra
+> de fábrica, y esconderse es opcional.)
 
 ---
 
 ## ⚡ Tier 4: Power User y optimización — ✅ **completado y verificado**
 *Objetivo: pulir detalles y mejorar el rendimiento.*
 
-- [x] **Refactor previo:** `lib.rs` se dividió en `processes.rs`, `ports.rs`, `storage.rs` y `tray.rs` antes de seguir creciendo.
-- [x] **Logs y auditoría:**
-    - [x] Vista "Historial" con fecha, proceso, PID, puertos liberados y **origen** (ventana / bandeja / atajo).
-    - [x] Persistido en `app_data_dir/history.json`, lo más reciente primero, con tope de 200 entradas para que el archivo no crezca sin fin.
-      > Se descartó `tauri-plugin-store`: su API es de frontend, y aquí la bandeja y el atajo escriben historial sin que la ventana intervenga.
-- [x] **Configuración personalizada:**
-    - [x] Lista de procesos vigilados editable (`docker`, `go`, `php`, …), persistida en `settings.json`. Los nombres se normalizan en Rust: minúsculas, sin `.exe`, sin duplicados.
-      > ⚠️ Los nombres del usuario se comparan **exactos**, no por prefijo: añadir `go` no debe capturar `golang`.
-    - [x] Atajo global `Ctrl+Alt+K` con `tauri-plugin-global-shortcut` + permiso en `capabilities/`.
-      > ⚠️ Añadido un interruptor en Ajustes para desactivarlo: dispara un cierre masivo **sin confirmación**, y un atajo global mal pulsado no debería ser irreversible por accidente. Queda registrado en el historial.
-- [x] **Rendimiento:**
-    - [x] El `setInterval` del frontend se sustituyó por un hilo en Rust que emite `processes-updated`; React solo escucha con `listen()`. El intervalo se configura desde la UI y se persiste.
-- [x] **Verificación end-to-end** (2026-07-23):
-    - [x] La tabla se actualiza sola (13 → 14 filas, "Activo" de 34s a 38s) **sin polling en el frontend**.
-    - [x] Añadir un ejecutable propio lo hace aparecer al instante, clasificado en el filtro "Otros".
-    - [x] Al matar un proceso, el historial registra nombre, PID, puerto liberado y origen.
-    - [x] Ajustes e historial **sobreviven al reinicio** de la app.
-    - [x] Atajo global comprobado sin dispararlo: con él activo ningún otro proceso puede registrar `Ctrl+Alt+K`; al desactivarlo queda libre; al reactivarlo lo vuelve a tomar.
-    - [x] 12 tests de `cargo test` en verde (antes 7).
+**Primer troceado de `lib.rs`** (a `processes`, `ports`, `storage` y `tray`) antes de seguir
+creciendo. Vista de Historial persistida, lista de procesos vigilados editable, atajo global
+`Ctrl+Alt+K` con interruptor, y el `setInterval` del frontend sustituido por un hilo en Rust que
+emite `processes-updated`.
+
+Lo que sigue enseñando algo:
+
+> ⚠️ **Persistencia con archivos JSON propios, no `tauri-plugin-store`**: su API es de frontend, y
+> aquí la bandeja y el atajo escriben historial sin que la ventana exista. Tope de 200 entradas para
+> que el archivo no crezca sin fin, y un JSON corrupto degrada a valores por defecto en vez de
+> impedir el arranque.
+> ⚠️ Los nombres que añade el usuario se comparan **exactos**, no por prefijo: añadir `go` no debe
+> capturar `golang`.
+> ⚠️ El atajo global lleva **interruptor en Ajustes**: dispara un cierre masivo sin confirmación, y
+> uno mal pulsado no debería ser irreversible por accidente.
 
 ---
 
-## 📦 Tier 5: Distribución y estética final
+
+## 📦 Tier 5: Distribución y estética final — ✅ **completado y verificado**
 *Objetivo: que parezca un producto comercial.*
 
-> **La app pasa a llamarse ProcessDevKill** (2026-07-24). Cambian el `productName`, el título de la ventana, la bandeja, el crate de Rust y el identificador (`com.processdevkill.app`), que es lo que decide dónde viven los ajustes y el historial.
+> **La app pasa a llamarse ProcessDevKill** (2026-07-24). Cambian el `productName`, el título de la
+> ventana, la bandeja, el crate de Rust y el identificador (`com.processdevkill.app`), que es lo que
+> decide dónde viven los ajustes y el historial.
 
-### 1. Modo oscuro / claro — ✅ **completado y verificado**
-- [x] Variante `dark` de Tailwind v4 (`@custom-variant dark`) sobre las variables de tema de shadcn, con paletas propias para claro y oscuro.
-- [x] Selector **Sistema / Claro / Oscuro** en Ajustes, persistido en `settings.json` junto al resto de opciones.
-  > ⚠️ La clase `dark` **no** la pone la media query de CSS, sino `src/theme.tsx`: si lo decidiera el CSS, elegir "Claro" con Windows en oscuro no tendría ningún efecto. Con "Sistema" se escucha `prefers-color-scheme` en vivo y la app cambia sin reiniciar.
-  > ⚠️ Añadir un campo a `Settings` habría invalidado el `settings.json` de las versiones anteriores; el struct ya llevaba `#[serde(default)]`, y ahora hay un test que lo fija.
-- [x] Script en `index.html` que aplica el tema **antes** de la primera pintura, leyendo una copia en `localStorage`: los ajustes llegan de Rust de forma asíncrona y sin esto la ventana arrancaría en blanco durante unos milisegundos.
+Modo claro/oscuro, componentes de shadcn/ui, icono propio, las dos funciones "salsa secreta"
+(**Auto-Kill** y **Zombie Finder**), instaladores NSIS y MSI, y `release.ps1` para cortar versiones.
+**v1.0.0 publicada** (luego retirada; ver el Tier 6.5).
 
-### 2. Componentes de shadcn/ui — ✅ **completado y verificado**
-- [x] Alias `@/` en `vite.config.ts` **y** en `tsconfig.json` (hacen falta los dos: uno resuelve el bundle y el otro el chequeo de tipos).
-- [x] `AlertDialog` para las confirmaciones, `ContextMenu` por fila y `Toaster` (Sonner) para los avisos.
-  > ⚠️ shadcn ya no genera sobre Radix: el estilo actual (`base-nova`) usa **Base UI** (`@base-ui/react`). El `Toast` clásico tampoco existe: su sustituto es **Sonner**.
-  > ⚠️ El `sonner.tsx` generado importa `next-themes`; se reescribió para leer el tema de `src/theme.tsx` y se desinstaló el paquete.
-  > ⚠️ El foco al abrir el diálogo se fuerza con `initialFocus`: Base UI enfoca "Cancelar" y aquí se mantiene el foco en el botón destructivo de los Tiers 2-4.
-- [x] `Checkbox` de shadcn en la tabla, en lugar del `<input type="checkbox">` en crudo.
-  > Era lo único que rompía la coherencia visual: sobre el tema oscuro, la casilla nativa de Windows es un cuadrado blanco macizo entre componentes que respetan la paleta.
-- [x] Menú contextual con "Matar proceso", "Copiar PID / nombre / puerto" y "Copiar http://localhost:PUERTO".
-  > ⚠️ Copiar **no** puede usar `navigator.clipboard`: la API web exige que el documento tenga el foco y lanza `NotAllowedError` si no lo tiene. Se añadió `tauri-plugin-clipboard-manager` con el permiso `clipboard-manager:allow-write-text` (solo escritura).
+### Tema, componentes e icono
 
-### 3. Icono propio — ✅ **completado y verificado**
-- [x] `app-icon.svg` en la raíz → `npm run tauri icon app-icon.svg` genera todos los tamaños de `src-tauri/icons/`.
-  > ⚠️ El símbolo tiene que aguantar los 16 px de la bandeja: la primera versión llevaba un corchete `>` que a ese tamaño era un borrón sobre el anillo.
-  > ⚠️ La barra vertical del símbolo de encendido no se pintaba: un degradado con el `objectBoundingBox` por defecto no se aplica a una línea de **ancho cero**. Se arregló con `gradientUnits="userSpaceOnUse"`.
-- [x] Se borran `icons/android/` e `icons/ios/`, que genera el comando pero no usa una app de escritorio.
+> ⚠️ **La clase `dark` la pone `src/theme.tsx`, no la media query de CSS.** Si lo decidiera el CSS,
+> elegir "Claro" con Windows en oscuro no tendría ningún efecto. Con "Sistema" se escucha
+> `prefers-color-scheme` en vivo y la app cambia sin reiniciar.
+> ⚠️ Un script en `index.html` aplica el tema **antes de la primera pintura**, leyendo una copia en
+> `localStorage`: los ajustes llegan de Rust de forma asíncrona y sin esto la ventana arrancaría en
+> blanco unos milisegundos.
+> ⚠️ El alias `@/` va en `vite.config.ts` **y** en `tsconfig.json`: uno resuelve el bundle y el otro
+> el chequeo de tipos. Si falta en uno, falla el otro.
+> ⚠️ **shadcn ya no genera sobre Radix**: el estilo `base-nova` usa **Base UI**, y el `Toast` clásico
+> no existe — su sustituto es **Sonner**. El `sonner.tsx` generado importa `next-themes`; se
+> reescribió para leer el tema de `src/theme.tsx`.
+> ⚠️ El foco al abrir el diálogo se fuerza con `initialFocus`: Base UI enfoca "Cancelar" y aquí
+> interesa el botón destructivo.
+> ⚠️ **Copiar no puede usar `navigator.clipboard`**: exige que el documento tenga el foco y lanza
+> `NotAllowedError` si no lo tiene, que es justo lo que pasa al recuperar la ventana de la bandeja.
+> Se usa `tauri-plugin-clipboard-manager`, solo con permiso de escritura.
+> ⚠️ El icono tiene que aguantar los **16 px de la bandeja**: la primera versión llevaba un corchete
+> que a ese tamaño era un borrón. Y la barra vertical del símbolo de encendido no se pintaba: un
+> degradado con `objectBoundingBox` no se aplica a una línea de **ancho cero** (se arregló con
+> `gradientUnits="userSpaceOnUse"`).
 
-### 4. Ideas "Salsa Secreta" — ✅ **completadas y verificadas**
+### Auto-Kill
 
-**Auto-Kill — ✅ completado y verificado**
+Cierra solo los procesos vigilados que pasen de un umbral de RAM, con notificación y entrada en el
+historial con origen `auto`. **Apagado de fábrica**, umbral por defecto 2048 MB.
 
-- [x] Cierra automáticamente los procesos vigilados que superen un umbral de RAM configurable, con notificación nativa y entrada en el historial con origen `auto`.
-- [x] **Apagado por defecto** y con umbral por defecto de 2048 MB. Interruptor y umbral en Ajustes, persistidos en `settings.json`.
-  > ⚠️ Un `settings.json` de una versión anterior no trae los campos nuevos: el test `los_ajustes_de_una_version_anterior_siguen_valiendo` fija que actualizar la app **nunca** enciende solo el Auto-Kill.
-- [x] Suelo de **256 MB** para el umbral (`MIN_AUTO_KILL_MB`).
-  > ⚠️ No es validación de formulario: con un umbral de 50 MB, cualquier proceso vigilado lo supera y el siguiente ciclo se lleva por delante el entorno entero. Se aplica al guardar **y** al leer, porque `settings.json` es un archivo que el usuario puede editar a mano.
-- [x] El umbral se compara en estricto (`>`): quien esté justo en el límite no muere. Lo fija `el_auto_kill_solo_elige_a_quien_pasa_del_umbral`, sobre la función pura `over_memory_limit`.
-- [x] La vigilancia va en el hilo que ya emitía `processes-updated`, reaprovechando la misma lectura de procesos; no se enumera dos veces por ciclo.
-- [x] **Sigue vigilando con el auto-refresco en "Off"**, a un ritmo fijo de 2 s y sin publicar la lista.
-  > ⚠️ Es la diferencia entre una red de seguridad y un adorno: si dejara de mirar porque la ventana no se refresca, el usuario se creería protegido sin estarlo.
-- [x] El campo del umbral se guarda al salir del campo, no en cada tecla.
-  > ⚠️ Escribir "2048" pasa por "2": guardar en cada pulsación dejaría el umbral en el mínimo durante un instante, con el vigilante mirando.
-- [x] El campo es editable con el Auto-Kill apagado, para poder configurarlo **antes** de armarlo.
-  > ⚠️ Se descubrió probándolo: con el campo deshabilitado había que encender primero, y ese rato con el umbral por defecto puede cerrar algo legítimo.
+> ⚠️ **Suelo de 256 MB, y no es validación de formulario**: con 50 MB cualquier proceso vigilado lo
+> supera y el siguiente ciclo se lleva por delante el entorno entero. Se aplica al guardar **y** al
+> leer, porque `settings.json` es un archivo que el usuario puede editar a mano.
+> ⚠️ El umbral se compara en **estricto** (`>`): quien esté justo en el límite no muere.
+> ⚠️ **Sigue vigilando con el auto-refresco en "Off"**, a ritmo fijo y sin publicar la lista. Es la
+> diferencia entre una red de seguridad y un adorno: si dejara de mirar porque la ventana no se
+> refresca, el usuario se creería protegido sin estarlo.
+> ⚠️ El umbral se guarda **al salir del campo**, no en cada tecla: escribir "2048" pasa por "2", y
+> guardar eso dejaría el umbral en el mínimo un instante con el vigilante mirando.
+> ⚠️ El campo es editable con el Auto-Kill apagado. Se descubrió probándolo: si no, había que armarlo
+> con el umbral por defecto para poder cambiarlo, y ese rato con 2 GB puede cerrar algo legítimo.
+> ⚠️ Un `settings.json` anterior no trae los campos nuevos: `los_ajustes_de_una_version_anterior_siguen_valiendo`
+> fija que actualizar la app **nunca** enciende solo el Auto-Kill.
 
-**Verificación end-to-end** (2026-07-24, con procesos `node` de mentira creados para la prueba):
+**Verificado con procesos de mentira creados para la prueba**: uno de 651 MB con el umbral en 400
+muere solo, y los **7 `node` reales** de la máquina siguen vivos. El criterio discrimina.
 
-- [x] Un proceso de 651 MB con el puerto 4321 ocupado, umbral en 400 MB: **muere solo** en el siguiente ciclo.
-- [x] Los **7 procesos `node` reales** de la máquina (el mayor, 118 MB) siguen vivos. El criterio discrimina.
-- [x] El puerto 4321 queda libre y el historial registra `pid, freedPorts [4321], source "auto"`; la vista de Historial lo muestra como **Auto-Kill**.
-- [x] Con el auto-refresco en "Off", un segundo proceso de 600 MB **también muere**.
-- [x] Escribir 50 en el umbral lo corrige a 256 en la propia UI.
-- [x] Tras apagar el interruptor, `settings.json` vuelve a `"autoKillEnabled": false` y no se cierra nada más.
+### Zombie Finder
 
-**Zombie Finder — ✅ completado y verificado**
+Resalta —sin cerrar nada— los procesos sin actividad de CPU durante los minutos configurados **que
+además siguen ocupando un puerto**. Apagado de fábrica.
 
-- [x] Resalta en ámbar, con una insignia "Zombi", los procesos sin actividad de CPU durante los minutos configurados **que además siguen ocupando un puerto**. No cierra nada: solo señala.
-- [x] **Apagado por defecto**, con 10 minutos por defecto; interruptor y minutos en Ajustes, persistidos en `settings.json`. Mínimo 1 minuto.
-- [x] `ZombieWatch` guarda desde cuándo lleva parado cada PID, que es lo que le faltaba a la app: `collect_processes` devuelve una foto sin pasado.
-  > ⚠️ **La condición del puerto no es un adorno.** Casi todo proceso de desarrollo en reposo marca 0 % de CPU: en la máquina de pruebas, 7 de 10 `node`. Sin exigir puerto, la tabla entera saldría resaltada, que es lo mismo que no resaltar nada.
-  > ⚠️ El umbral de CPU es 0,5 %, no 0 exacto: un servidor parado sigue despertando por sus temporizadores y el recolector de basura.
-  > ⚠️ Se olvidan los PIDs que desaparecen. La app vive días en la bandeja: el mapa crecería sin fin, y un PID reciclado por Windows heredaría la racha del proceso anterior.
-  > ⚠️ Al apagar la función se borran las rachas: mientras estuvo apagada nadie miraba, y contar ese rato sería inventárselo.
-- [x] La marca la calcula Rust y la UI solo la pinta; `read_list` es el único sitio donde se combinan lectura y marcado, así que el refresco manual, el hilo y el evento de cierre pintan siempre lo mismo.
+> ⚠️ **La condición del puerto no es un adorno.** Casi todo proceso de desarrollo en reposo marca
+> 0 % de CPU: en la máquina de pruebas, 7 de 10 `node`. Sin exigir puerto saldría resaltada la tabla
+> entera, que es lo mismo que no resaltar nada.
+> ⚠️ El umbral de CPU es **0,5 %**, no 0 exacto: un servidor parado sigue despertando por sus
+> temporizadores y el recolector de basura.
+> ⚠️ Se **olvidan los PIDs que desaparecen**. La app vive días en la bandeja: el mapa crecería sin
+> fin, y un PID reciclado por Windows heredaría la racha del proceso anterior.
+> ⚠️ Apagar la función **borra las rachas**: mientras estuvo apagada nadie miraba, y contar ese rato
+> sería inventárselo.
+> Limitación asumida: un servidor en uso pero ocioso —el propio Vite— también sale marcado. La
+> insignia dice cuánto lleva parado y qué puerto ocupa; cerrarlo sigue siendo decisión del usuario.
 
-**Verificación end-to-end** (2026-07-24, con el umbral bajado a 1 minuto para no esperar diez):
+### Instaladores y releases
 
-- [x] Recién encendido no marca nada: las rachas empiezan en ese momento.
-- [x] Al pasar el minuto, marca **2 de 10** procesos: el servidor de pruebas del 4321 y el propio Vite del 1420. Los otros 7 `node`, parados pero sin puerto, no se tocan.
-- [x] Un proceso **ocupado** (9,4 % de CPU) con el puerto 4322 **no** se marca en ningún momento.
-- [x] La insignia dice desde cuándo: *"Sin actividad desde hace 1m, y sigue ocupando el puerto 4321"*.
-- [x] Al darle trabajo al servidor parado (65 000 peticiones, 5 % de CPU), **pierde la marca en el refresco siguiente**; al volver a quedarse quieto no la recupera hasta cumplir otro minuto entero.
-- [x] Apagar el interruptor quita las marcas de la tabla al instante.
+NSIS en modo **`currentUser`** (instala en `%LOCALAPPDATA%` sin pedir UAC) y MSI. `release.ps1`
+adaptado del de FormatDiskPro: pruebas, bump en los tres sitios, build, `.sha256`, tag y Release.
 
-> ⚠️ Limitación asumida: un servidor de desarrollo que está en uso pero ocioso —el propio Vite, sin ir más lejos— también sale marcado. La insignia dice cuánto lleva parado y qué puerto ocupa; la decisión de cerrarlo sigue siendo del usuario.
-
-### 5. Instaladores — ✅ **completado**
-
-- [x] Metadatos de paquete: `publisher`, `copyright`, `category` y descripciones. Sin ellos, el instalador y las propiedades del `.exe` salen sin autor.
-- [x] NSIS en modo **`currentUser`**: instala en `%LOCALAPPDATA%\ProcessDevKill` sin pedir UAC, que es lo razonable para una herramienta de desarrollo.
-- [x] `npm run tauri build` genera los dos instaladores de Windows:
-  - `bundle/nsis/ProcessDevKill_0.1.0_x64-setup.exe` — 2,44 MB
-  - `bundle/msi/ProcessDevKill_0.1.0_x64_en-US.msi` — 3,54 MB
-  - El ejecutable (10,3 MB) lleva producto, versión, empresa y copyright correctos.
-  > macOS (`.dmg`) no se puede generar desde Windows: queda para cuando haya máquina o CI de macOS.
-- [x] **Verificado sobre la app instalada**, no sobre la de desarrollo: arranca con su icono propio en la barra de título, lista los procesos y responde.
-- [x] **Salvedad del atajo global, cerrada.** Se pulsó `Ctrl+Alt+K` de verdad, con entrada sintetizada por `keybd_event`.
-  > ⚠️ `SendKeys` **no** sirve para esto: manda mensajes a la ventana con el foco y un atajo registrado con `RegisterHotKey` no se entera. Hace falta entrada real a nivel de sistema.
-  > Cerró los 4 procesos `node` vivos, liberó el puerto 4321 y dejó las 4 entradas en el historial con origen `hotkey`. El riesgo se acotó antes de pulsar: los únicos procesos vigilados eran auxiliares de la propia sesión de trabajo más un servidor de pruebas lanzado para esto.
-- [x] **Salvedad de las notificaciones, cerrada.** El toast sale en pantalla con su icono, su título y el cuerpo correcto, confirmado a ojo sobre la app instalada. Windows la registra en *Configuración → Notificaciones* con Banners y Sonidos.
-  > ⚠️ Se intentó automatizar la comprobación con capturas por código (`Graphics.CopyFromScreen`) y salían vacías, lo que llevó a concluir en falso que el banner no se pintaba: **BitBlt no recoge los toast**, que DWM compone en otra capa. Para esto o mira una persona, o se consulta el centro de notificaciones por WinRT.
-
-### 6. Publicación de releases — ✅ **completado; v1.0.0 publicada**
-
-- [x] Script `release.ps1` propio (pruebas + bump + build + tag + GitHub Release con `gh`), adaptado del de FormatDiskPro.
-  > Decidido el 2026-07-24: se descarta GitHub Actions mientras el objetivo sea Windows. Ver CONTEXT.md §4.
-  > Se conserva del original: `Invoke-Git` (la lección del `NativeCommandError` al capturar la salida), validación de tags local y remoto, rechazo de archivos sin rastrear, `-DryRun` y reutilización de la credencial cacheada de `gh`.
-- [x] La versión se pone en los **tres** sitios de golpe y se corre `cargo check` para que `Cargo.lock` no deje el árbol sucio justo después del commit de release.
-- [x] Los `.sha256` los genera el propio script: en Tauri no hay ningún paso de build que los produzca.
-  > ⚠️ Y aquí son **cortesía**, no un requisito como en FormatDiskPro: sin auto-actualización nadie los verifica automáticamente. Si algún día se añade `tauri-plugin-updater`, ese usa firmas minisign, no SHA-256.
-- [x] **v1.0.0 publicada** (subida desde 0.1.0: primera versión pública de una app completa). Cuatro assets, sin firmar.
-  > ⚠️ Tres tropiezos de PowerShell 5.1 que cuestan una tarde: escapar comillas con `\"` **cierra la cadena**; las comillas tipográficas `“ ”` **también** cuentan como delimitador; y un `.ps1` sin BOM se lee como ANSI y rompe los acentos, pero añadir el BOM dos veces deja un `U+FEFF` suelto que atraganta al parser antes del primer bloque de comentarios.
-
-### 7. Verificación end-to-end (2026-07-24, sobre la app en ejecución)
-- [x] La ventana arranca con el tema del sistema (Windows en oscuro → `<html class="dark">`, fondo `oklch(0.175 0.009 265)`).
-- [x] Elegir "Claro" quita la clase y el fondo pasa a `oklch(0.995 0.002 265)`; elegir "Oscuro" la devuelve.
-- [x] La preferencia llega al disco: `%APPDATA%\com.processdevkill.app\settings.json` contiene `"theme": "dark"`.
-- [x] Clic derecho sobre una fila abre el menú contextual con sus 5 opciones; la fila queda resaltada mientras está abierto.
-- [x] Copiar deja el texto en el portapapeles de Windows y sale el toast de confirmación.
-- [x] El diálogo de "Nuke All" sigue cancelándose con Escape **sin matar nada**, ahora sobre el AlertDialog de shadcn.
-- [x] 13 tests de `cargo test` en verde (antes 12) y `npm run build` sin errores de tipos.
-
-**Segunda pasada (misma fecha, sesión independiente).** Se repitió la verificación desde cero sobre la app recién compilada, porque los componentes se habían tocado después de la primera:
-
-- [x] Con Windows en oscuro, la ventana arranca en `dark`; "Claro" la deja en `oklch(0.995 0.002 265)` y la copia `light` queda en `localStorage`. Medido aparte, coincide con lo de arriba.
-- [x] De 9 procesos `node` listados, solo dos muestran puerto: el **1420 de Vite** y el **4321 de un servidor de pruebas** lanzado a propósito. Los demás, "—".
-- [x] Clic derecho **real** (evento de ratón nativo, no sintético) sobre una fila: el menú abre con sus 5 opciones y la fila se resalta.
-- [x] "Copiar PID" con la ventana **sin foco**: `Get-Clipboard` de PowerShell devuelve `11664`, el PID exacto de esa fila. Es justo el caso que fallaba con `navigator.clipboard`.
-- [x] Seleccionar una fila cambia el botón a "Matar 1", el diálogo abre con el foco en el botón destructivo y **Escape cancela**: el proceso 11664 seguía vivo y su puerto 4321 seguía ocupado después.
-- [x] Confirmar sí mata: el proceso deja de existir, el 4321 queda libre, sale el toast "node.exe cerrado / Puerto 4321 liberado" y el historial registra `pid 11664, freedPorts [4321], source "window"`.
-- [x] Textos en singular cuando se cierra un solo proceso ("Se terminará el proceso seleccionado", botón "Cerrar proceso").
-- [x] `cargo build` sin avisos de código muerto y 13 tests en verde tras hacer que la bandeja use `pids_of_runtime`.
+> macOS (`.dmg`) no se puede generar desde Windows: queda para cuando haya máquina o CI de macOS.
+> ⚠️ **`SendKeys` no dispara un atajo global.** Manda mensajes a la ventana con foco, y uno
+> registrado con `RegisterHotKey` no se entera; hace falta entrada real de sistema (`keybd_event`).
+> Así se cerró la salvedad del atajo: pulsado de verdad, cerró los 4 `node` vivos y liberó el 4321.
+> ⚠️ **Los toast de Windows no se pueden capturar con `Graphics.CopyFromScreen`.** Salían capturas
+> vacías y se concluyó en falso que el banner no se pintaba: BitBlt no recoge lo que DWM compone en
+> otra capa. O lo mira una persona, o se consulta el centro de notificaciones por WinRT.
+> ⚠️ **Tres tropiezos de PowerShell 5.1 que cuestan una tarde**: escapar comillas con `\"` cierra la
+> cadena; las comillas tipográficas `“ ”` también cuentan como delimitador; y un `.ps1` sin BOM se
+> lee como ANSI y rompe los acentos, pero ponerlo dos veces deja un `U+FEFF` que atraganta al parser.
 
 ---
 
-## 🏗 Tier 6: Infraestructura de proyecto publicado
+
+## 🏗 Tier 6: Infraestructura de proyecto publicado — ✅ **completado y verificado**
 *Objetivo: que el repositorio aguante a alguien que no seas tú, ahora que el instalador está en la calle.*
 
-Sale de comparar este repo con **FormatDiskPro** (2026-07-24), que lleva 15 versiones publicadas. Aquí solo están los huecos que aplican; lo que se descartó a propósito está anotado en CONTEXT.md §4.
+Sale de comparar este repo con **FormatDiskPro** (2026-07-24), que lleva 15 versiones publicadas.
+Licencia GPL-3.0 y avisos de terceros, repositorio renombrado, README de producto con capturas
+automatizables, las primeras pruebas de frontend, auto-actualización y `.claude/CLAUDE.md`.
 
-### 1. Licencia y avisos legales — ✅ **completado**
+### Licencia y avisos legales
 
-- [x] `LICENSE` en la raíz: **GPL-3.0** (elegida el 2026-07-24, misma que FormatDiskPro).
-  > ⚠️ No era burocracia: un repositorio público **sin licencia** es "todos los derechos reservados" por defecto. Con la v1.0.0 ya publicada, nadie tenía derecho legal a usar lo que se estaba descargando.
-- [x] `THIRD-PARTY-NOTICES.txt` con lo que **el instalador empaqueta y distribuye**, no con todo lo que hay en `node_modules`: las herramientas de compilación no viajan dentro del binario.
-  > ⚠️ Hallazgo al montarlo: la tipografía **Geist va embebida** en la app (`.woff2` dentro del bundle) y su licencia **OFL-1.1 obliga** a distribuir el aviso de copyright junto a ella. Es la única dependencia con una obligación que no se cubre sola.
-  > ⚠️ De los 515 crates del árbol de Rust, **5 son MPL-2.0**: compatible con GPLv3 y con copyleft por archivo. Se usan sin modificar, así que no arrastran obligaciones; si algún día se parchea uno de esos archivos, hay que publicarlo bajo MPL-2.0.
-  > ⚠️ Ninguna licencia del árbol es incompatible con la GPLv3 — todo es MIT, Apache-2.0, BSD, Zlib, ISC, Unicode-3.0, MPL-2.0 o equivalente. Apache-2.0 solo es compatible con GPL**v3**, no con la v2, lo que confirma la elección.
-  > El archivo declara su propio alcance: se construyó con el campo `license` de cada paquete y no sustituye a una revisión legal.
-- [x] `license` en `package.json` y `Cargo.toml` (`GPL-3.0-only`), y sección de licencia en el README.
-- [x] Los avisos **viajan dentro del instalador**: `LICENSE` y `THIRD-PARTY-NOTICES.txt` van como `bundle.resources`, y una sección **Acerca de** en Ajustes los abre, junto al enlace al repositorio y la versión.
-  > ⚠️ La licencia se empaqueta renombrada a **`LICENSE.txt`** aunque en el repositorio se llame `LICENSE` (que es lo que espera GitHub). Un archivo **sin extensión no tiene asociación en Windows**: al pulsar el botón no pasaba nada visible. El formato de mapa de `resources` permite renombrar al copiar.
-  > ⚠️ `opener:default` **no incluye** `open_path`, solo `open_url`. Hay que concederlo aparte y con ámbito; aquí se limita a esos dos archivos concretos, no a una carpeta.
-  > La versión que muestra la sección la da `getVersion()` de Tauri, que la lee de `tauri.conf.json`: así no hay una segunda copia del número en el frontend que se quede vieja al cortar un release.
-- [x] **Verificado sobre la app**: los dos archivos aparecen en el directorio de recursos y los dos botones abren de verdad (`LICENSE.txt: Bloc de notas` y `THIRD-PARTY-NOTICES.txt: Bloc de notas`).
+> ⚠️ **No era burocracia**: un repositorio público **sin licencia** es "todos los derechos
+> reservados" por defecto. Con la v1.0.0 ya publicada, nadie tenía derecho legal a usar lo que se
+> estaba descargando.
+> ⚠️ `THIRD-PARTY-NOTICES.txt` cubre lo que **el instalador distribuye**, no todo `node_modules`. La
+> tipografía **Geist va embebida** y su **OFL-1.1 obliga** a distribuir su aviso: es la única
+> dependencia con una obligación que no se cubre sola. De los 515 crates de Rust, 5 son MPL-2.0
+> (copyleft por archivo, se usan sin modificar). Ninguna licencia del árbol es incompatible con la
+> GPLv3 — y Apache-2.0 solo lo es con la **v3**, no con la v2, lo que confirma la elección.
+> ⚠️ La licencia se empaqueta renombrada a **`LICENSE.txt`** aunque en el repo se llame `LICENSE`
+> (lo que espera GitHub): un archivo **sin extensión no tiene asociación en Windows** y al pulsar el
+> botón no pasaba nada visible.
+> ⚠️ `opener:default` **no incluye `open_path`**, solo `open_url`. Hay que concederlo aparte y con
+> ámbito; aquí se limita a esos dos archivos concretos, no a una carpeta.
 
-### 2. Nombre del repositorio — ✅ **completado**
+### README de producto y capturas
 
-- [x] Renombrado a `ProcessDevKill` en GitHub y remoto local apuntando a la URL nueva.
-  > Comprobado tras el cambio: el tag `v1.0.0` responde desde `xfiberex/ProcessDevKill` y el release conserva sus 4 assets. GitHub redirige la URL vieja, así que los enlaces ya publicados no se rompen.
-  > La **carpeta local** sigue llamándose `ProcessVisorDev`. Es cosmético y renombrarla obliga a reabrir el proyecto en el editor, así que se deja para cuando toque.
+`tools/capture-screenshots.ps1` regenera las capturas conduciendo la app por CDP, con dos servidores
+Node de verdad levantados mientras tanto.
 
-### 3. README de producto — ✅ **completado y verificado**
+> Las imágenes salen del **webview** (`Page.captureScreenshot`), no de la pantalla: sin barra de
+> título ni fondo de escritorio, y a tamaño fijo, así que se ven igual las genere quien las genere.
+> ⚠️ Sin los servidores de verdad, la columna de puertos sale vacía —justo la que justifica la app—
+> y las barras salen todas a cero.
+> ⚠️ El script **cierra la app antes de restaurar** `tauri.conf.json`: al revés, Tauri detecta el
+> cambio y reinicia la app en mitad de la limpieza.
+> ⚠️ `Emulation.setDeviceMetricsOverride` **no encoge** el viewport si ya había uno más alto. Se
+> limpia el override antes de fijar el nuevo, y la única captura alta va la última.
+> ⚠️ `Start-Process` une los argumentos con espacios y **no entrecomilla nada**: el `node -e "…"` de
+> los servidores llegaba partido y moría con *Unexpected end of input*.
+> ⚠️ Un `.GetAwaiter().GetResult()` sobre un `Task` no genérico **emite un `VoidTaskResult`**, así
+> que `return $ws` devolvía un array de dos elementos. Va con `| Out-Null`.
+> No se puede capturar lo que Windows dibuja por encima del webview (menú de bandeja,
+> notificaciones). Los toast de la app sí: son HTML.
 
-Tenía 5 secciones; ahora tiene 12, con lo que mira quien llega de fuera.
+### Pruebas del frontend
 
-- [x] **Descarga e instalación** apuntando a Releases, con la tabla de los dos instaladores, el aviso de SmartScreen y cómo verificar el `.sha256`.
-  > ⚠️ Se dice también **qué no protege** el hash: viaja por el mismo sitio que el instalador, así que detecta una descarga corrupta, no demuestra quién publicó el archivo. Prometer más sería engañar.
-- [x] **Capturas** de la app: lista en oscuro y en claro, menú contextual y la vista de Ajustes entera.
-- [x] `tools/capture-screenshots.ps1` para regenerarlas sin trabajo manual.
-  > Las imágenes salen del **webview** (`Page.captureScreenshot`), no de la pantalla: sin barra de título, sin fondo de escritorio y con tamaño fijo por `Emulation.setDeviceMetricsOverride`, así que se ven igual las genere quien las genere. A x2 para que aguanten el zoom de GitHub.
-  > ⚠️ El puerto de depuración obliga a tocar `tauri.conf.json`: el script guarda los bytes originales y los restaura en el `finally`, y **cierra la app antes de restaurar** — al revés, Tauri detecta el cambio y reinicia la app en mitad de la limpieza.
-  > ⚠️ `Emulation.setDeviceMetricsOverride` **no encoge** el viewport si ya había uno más alto: la captura en claro salió con el alto de la de Ajustes. Se arregló limpiando el override antes de fijar el nuevo, y dejando la única captura alta para el final.
-  > ⚠️ `Start-Process` une los argumentos con espacios y **no entrecomilla nada**: el `node -e "…const t=…"` de los servidores de demostración llegaba partido y moría con *Unexpected end of input*. Las comillas van a mano.
-  > ⚠️ Un `.GetAwaiter().GetResult()` sobre un `Task` no genérico **emite un `VoidTaskResult`** a la salida de la función: `return $ws` acababa devolviendo un array de dos elementos y el `SendAsync` fallaba. Va con `| Out-Null`.
-  > Sigue sin poder capturarse lo que dibuja Windows por encima del webview (menú de la bandeja, notificaciones nativas). Los toast de la app sí salen: son HTML.
-- [x] El script levanta **dos servidores Node de verdad** (3000 y 8080, uno con carga) mientras captura, y los cierra al terminar.
-  > ⚠️ Sin ellos la columna de puertos sale vacía, que es justo la que justifica la app; y sin nada consumiendo CPU las barras salen todas a cero y la columna parece estropeada. No se simula nada: son procesos reales escuchando de verdad.
-- [x] Secciones de **arquitectura** (con diagrama Mermaid y las cuatro decisiones que explican el diseño), **stack**, **privacidad** y licencia.
-  > La de privacidad dice lo que la app lee, lo que **no** lee (línea de comandos, entorno), dónde guarda las cosas y que no tiene concedido ningún permiso de red — enlazando al `capabilities/default.json`, que es comprobable.
-- [x] `.github/FUNDING.yml`.
+98 pruebas con Vitest + Testing Library en jsdom, donde antes había cero. Cubren, por orden de lo
+que cuesta romperlo: **Escape cancela el diálogo destructivo sin confirmar** (verificado a mano en
+tres tiers y por fin fijado), la búsqueda por puerto/PID/nombre como subcadena, la poda de la
+selección, el suelo de 256 MB, que se copia con el plugin de Tauri, que la clase `dark` la pone JS,
+y el menú contextual con clic derecho real.
 
-**Verificación** (2026-07-25):
+> ⚠️ Las fábricas de `vi.mock` **se izan por encima de los imports**, así que los `vi.fn()` viven en
+> `src/test/tauri-mock.ts` y se traen con un `await import` dentro de la fábrica.
+> ⚠️ **Motion también se dobla.** `AnimatePresence` mantiene montada la fila que sale hasta que
+> acaba su animación: sin el doble, filtrar la tabla seguía contando las filas de antes y la
+> aserción medía la animación en vez del filtro.
+> ⚠️ `types.test.ts` **lee el fuente de Rust** y compara las constantes espejo. Nada obligaba a que
+> `types.ts` siguiera siendo un espejo: cambiar una constante en `storage.rs` y olvidarse aquí no
+> rompía ni el build ni `cargo test`.
+> **Un fallo real encontrado al montarlas:** los dos campos numéricos de Ajustes no tenían nombre
+> accesible, solo `aria-describedby`, que describe pero no nombra. Se les añadió `aria-label`.
+> Las pruebas end-to-end sobre la ventana real quedan fuera a propósito: el 80 % del valor está en
+> Vitest, se mantiene solo y corre en dos segundos.
 
-- [x] Las cuatro capturas salen a 2000×1280 (1000×640 a x2) menos la de Ajustes, que se mide sola y sale a 2000×1820 para que quepan Auto-Kill, Zombie Finder y el atajo global.
-- [x] El menú contextual se abre sobre una fila **con puerto**, así que enseña las cinco opciones, incluida "Copiar http://localhost:1420".
-- [x] Tras ejecutar el script, `git status` no ve `tauri.conf.json` tocado y `settings.json` vuelve a `"theme": "system"`: la app queda como estaba.
-- [x] No sobrevive ningún proceso del script: ni la sesión de `tauri dev`, ni los dos servidores de demostración.
+### Auto-actualización
 
-### 4. Pruebas del frontend — ✅ **completado y verificado**
+> **Reescrito el 2026-07-26.** Se implementó primero con `tauri-plugin-updater` y firmas minisign, y
+> se **descartó** tras dos días de fricción con la clave: se filtró, la rotación se atascó y el
+> prompt de contraseña resultó impegable. Se sustituyó por el modelo de FormatDiskPro, decisión del
+> usuario. El recorrido está en la [bitácora](docs/BITACORA.md); aquí queda solo lo que hay.
 
-- [x] **98 pruebas** con **Vitest + Testing Library** en jsdom, repartidas en 7 archivos. Antes eran cero.
-  > Era el hueco de calidad más serio: los tests de Rust cubrían bien el backend, pero todo lo que se verificó de React —menú contextual, Escape en el diálogo destructivo, cambio de tema, insignia de zombi— fueron scripts CDP a mano en una carpeta temporal que ya no existe.
-- [x] Los módulos de Tauri se doblan una sola vez, en `src/test/setup.ts`, no en cada archivo.
-  > ⚠️ Las fábricas de `vi.mock` **se izan por encima de los imports**, así que los `vi.fn()` viven en `src/test/tauri-mock.ts` y se traen con un `await import` dentro de la fábrica. Declarados arriba del propio setup, la fábrica correría antes de que existieran.
-- [x] **Motion también se dobla.** `AnimatePresence` mantiene montada la fila que sale hasta que acaba su animación.
-  > ⚠️ Sin el doble, filtrar la tabla seguía contando las filas de antes y la aserción medía la animación en vez del filtro. El doble deja `motion.tr` en un `<tr>` y quita las props de animación a mano, que si no React avisa de cada una por consola.
-- [x] `src/types.test.ts` **lee el fuente de Rust** y compara las constantes espejo (`MIN_AUTO_KILL_MB`, `MIN_ZOMBIE_MINUTES`, el nombre del evento y las variantes de `KillSource`).
-  > Nada obligaba a que `types.ts` siguiera siendo un espejo: cambiar una constante en `storage.rs` y olvidarse aquí no rompía ni el build ni `cargo test`. Ahora sí.
-- [x] Que `release.ps1` las ejecute junto a `cargo test`.
+Actualizaciones vía **GitHub Releases** verificadas con **SHA-256**, en `src-tauri/src/update.rs`:
+se consulta la API, se elige el instalador NSIS y su `.sha256`, se descarga, se **verifica antes de
+ejecutar** y se lanza. Si el hash no coincide, el archivo se borra. Sin plugin y sin clave: `reqwest`
++ `sha2` directamente. Qué garantiza y qué no, en el
+[README](README.md#el-modelo-de-confianza-y-qué-no-cubre).
 
-**Lo que cubren, por orden de lo que cuesta romperlo:**
+> ⚠️ **El `.sha256` deja de ser cortesía y pasa a ser el mecanismo.** Un release sin él hace que la
+> app se niegue a actualizarse a esa versión — correcto, pero hay que saberlo.
+> ⚠️ La comprobación del arranque va en **modo silencioso**: un fallo de red al abrir la app es lo
+> normal y no puede pintar un error en la cara de nadie. **Descargar e instalar exige pulsarlo.**
+> ⚠️ `install_update` **solo acepta rutas de su carpeta de descargas**; el comando queda expuesto al
+> frontend. (Esa guardia se saltaba con un `..` hasta el Tier 7.1.)
+> ⚠️ **Corregida una afirmación falsa del README**, que decía que la app no tiene concedido ningún
+> permiso de red enlazando al `capabilities/default.json` como prueba. Con el actualizador, el propio
+> archivo que se citaba la desmentía. La red la usa **solo Rust**.
+> **Se descarta a propósito** la verificación **Authenticode** que FormatDiskPro intenta antes del
+> hash: sin certificado ningún instalador propio la pasaría, y una comprobación que siempre falla
+> acaba ignorándose.
 
-- [x] **`Escape` cancela el diálogo destructivo sin confirmar** — la garantía verificada a mano en los Tiers 2, 4 y 5, ahora fijada. También que el foco arranca en el botón destructivo (contrario al defecto de Base UI) y que Enter confirma.
-- [x] Búsqueda por **puerto**, por PID y por nombre; y que los tres son subcadena, así que `300` acierta el PID 300 **y** el puerto 3000.
-- [x] La **poda de la selección**: un PID que desaparece de la lista deja de contar para «Matar N».
-- [x] El **suelo de 256 MB** del Auto-Kill y que el umbral no se guarda en cada tecla.
-- [x] Que se copia con el **plugin de Tauri**, no con `navigator.clipboard`.
-- [x] Que la clase `dark` la pone JS: elegir «Claro» con Windows en oscuro tiene efecto.
-- [x] La insignia de zombi con su texto de ayuda, y el menú contextual abierto con **clic derecho real**.
+**Verificado contra el release v1.1.1 publicado**: la API responde 200, `pick_assets` elige el
+`-setup.exe` y **su** `.sha256` (no el del MSI, que es el error fácil), y el instalador descargado
+coincide con el hash publicado. Lo que más importa de las pruebas: **`is_newer` solo dice que sí si
+de verdad lo es** —la misma versión no cuenta, una anterior tampoco, y una etiqueta ilegible responde
+"no hay actualización"—, y un `.sha256` sin un hash de 64 hex **se rechaza** en vez de compararse (un
+"404: Not Found" guardado como hash daría "no coincide", pero por el motivo equivocado).
 
-**Un fallo real encontrado al montarlas:** los dos campos numéricos de Ajustes (umbral del Auto-Kill
-y minutos del Zombie Finder) **no tenían nombre accesible**, solo `aria-describedby`, que describe
-pero no nombra. Un lector de pantalla los anunciaba sin decir qué eran. Se les añadió `aria-label`.
+> ⚠️ **Queda sin ejecutar en vivo el último paso**: lanzar el instalador y que reemplace la app.
+> Necesita un release posterior a éste para que uno encuentre al otro.
 
-> Las pruebas end-to-end sobre la ventana real quedan fuera a propósito. El 80 % del valor está en
-> Vitest, se mantienen solas y corren en dos segundos; montar Tauri en cada corte de release para
-> repetir lo que ya se verificó por CDP no compensa hoy.
+### Herramientas del repositorio
 
-### 5. Auto-actualización — ✅ **completado**
+`.claude/CLAUDE.md` con las convenciones y las cosas que cuestan una sesión si no se saben, y
+`.mcp.json` enganchando `codegraph`.
 
-> **Reescrito el 2026-07-26.** Se implementó primero con `tauri-plugin-updater` y firmas minisign, y se **descartó** tras dos días de fricción con la clave: el archivo se filtró, la rotación se atascó y el prompt de contraseña resultó impegable. Se sustituyó por el modelo de **FormatDiskPro**, decisión del usuario. El recorrido está en CONTEXT.md §8; aquí queda solo lo que hay.
-
-- [x] Actualizaciones vía **GitHub Releases**, verificadas con **SHA-256**, en `src-tauri/src/update.rs`.
-  > Mismo esquema que `UpdateService.cs` de FormatDiskPro: se consulta la API, se elige el instalador NSIS y su `.sha256`, se descarga, se **verifica antes de ejecutar** y se lanza. Si el hash no coincide, el archivo se borra y no se ejecuta nada.
-  > ⚠️ **El `.sha256` deja de ser cortesía y pasa a ser el mecanismo.** Un release sin él hace que la app se niegue a actualizarse a esa versión — que es lo correcto, pero hay que saberlo: `release.ps1` lo genera siempre.
-- [x] **Sin plugin y sin clave**: `reqwest` (rustls) + `sha2` directamente. Fuera `tauri-plugin-updater` y `tauri-plugin-process`.
-  > La red la usa **solo Rust**. Las capabilities gobiernan la superficie JS↔Rust, así que el frontend sigue sin ningún permiso que le deje salir a internet por su cuenta.
-- [x] La lógica que decide **qué es más nuevo** es pura y está cubierta por pruebas: `parse_tag` e `is_newer`, calcadas de `UpdateChecker.cs`. Tolera `v1.2.3`, `1.2`, `-beta` y `+build`, y ante una etiqueta ilegible responde "no hay actualización" en vez de arriesgarse.
-- [x] La comprobación del arranque va en **modo silencioso**.
-  > ⚠️ Un fallo de red al abrir la app —equipo sin conexión, VPN levantándose— es lo normal y no puede pintar un error en la cara de nadie. Solo se avisa, con un toast que lleva a Ajustes, cuando de verdad hay versión nueva.
-- [x] **Descargar e instalar no ocurre solo**: hace falta pulsarlo en *Ajustes → Actualizaciones*, con la versión y las notas delante. La app se cierra al lanzar el instalador para que pueda reemplazar sus archivos.
-- [x] `install_update` **solo acepta rutas dentro de su carpeta de descargas**.
-  > ⚠️ El comando queda expuesto al frontend; sin esa guardia sería un "ejecuta lo que quieras". Mismo criterio que la guardia de PID de `kill_process`.
-- [x] Documentado el modelo de confianza en el README, incluyendo qué **no** protege: no demuestra quién publicó el archivo ni sustituye a la firma de código.
-- [x] **Corregida la sección de privacidad del README**, que decía que la app no tiene concedido ningún permiso de red. Con el actualizador eso pasó a ser falso.
-  > No es un detalle menor: era una afirmación comprobable enlazando al `capabilities/default.json`, y habría quedado desmentida por el propio archivo.
-
-> **Lo que se descarta a propósito:** la verificación **Authenticode** que FormatDiskPro intenta antes del hash. Sin certificado de firma de código ningún instalador propio la pasaría, así que sería código muerto — y una comprobación que siempre falla acaba ignorándose. El día que haya certificado, esa pasa a ser la comprobación fuerte y el hash queda de respaldo.
-
-**Verificación**:
-
-- [x] **13 pruebas de Rust** sobre la lógica pura: lectura de etiquetas con y sin `v`, componentes que faltan (`1.2` → 1.2.0), sufijos de prelanzamiento, elección del instalador NSIS frente al MSI, los dos formatos del `.sha256`, y el hash de un vector conocido (`"abc"`).
-- [x] Lo que más importa de todo: **`is_newer` solo dice que sí si de verdad lo es**. La misma versión no cuenta, una anterior tampoco, y una etiqueta ilegible responde "no hay actualización" — un `latest` o una respuesta rara de GitHub no puede traducirse en "hay que actualizar".
-- [x] Un `.sha256` que no contenga un hash de 64 caracteres hexadecimales **se rechaza** en vez de compararse. Un "404: Not Found" guardado como si fuera el hash daría "no coincide", pero por el motivo equivocado.
-- [x] **11 pruebas de frontend** sobre el hook: modo silencioso, reutilización de lo encontrado sin volver a consultar, cálculo del porcentaje, barra indeterminada sin tamaño total, y que un hash que no cuadra **se enseña como error y no llega a instalar nada**.
-
-**Contra el release v1.1.1 ya publicado** (2026-07-26):
-
-- [x] El release lleva sus **4 assets**: los dos instaladores y sus dos `.sha256`.
-- [x] La API que consulta la app (`/repos/xfiberex/ProcessDevKill/releases/latest`) responde **200** con `tag_name: v1.1.1`.
-- [x] Aplicando la misma lógica de `pick_assets` sobre la respuesta real, se elige el **`-setup.exe`** y **su** `.sha256` — no el del MSI, que es el error fácil de cometer.
-- [x] **Descargado el instalador publicado y verificado contra el hash publicado: coinciden.** Es la cadena entera que recorrerá la app —API → elección de assets → descarga → hash → comparación—, hecha sobre los archivos reales, no sobre datos de prueba.
-
-> ⚠️ **Queda sin ejecutar en vivo el último paso**: lanzar el instalador y que reemplace la app. Necesita un release posterior a éste para que uno encuentre al otro; todo lo anterior está verificado.
-
-### 6. Herramientas del repositorio — ✅ **completado**
-
-- [x] `.claude/CLAUDE.md` con las convenciones del proyecto.
-  > Estaban escritas en CONTEXT.md §7, pero nada se las daba al agente automáticamente. Recoge además lo que cuesta una sesión si no se sabe: que PowerShell 5.1 destroza estos `.md`, cómo inspeccionar la UI por CDP y quitarlo después, que `SendKeys` no dispara un atajo global, que los toast de Windows no se pueden capturar con BitBlt, y la lección del 2026-07-24: **una sola sesión por repositorio**.
-- [x] `.mcp.json` enganchando el servidor `codegraph`, con la misma invocación que ya tenía configurada la máquina.
-  > ⚠️ **La suposición de partida era incorrecta.** El roadmap daba por hecho que el índice ya existía y solo faltaba conectarlo; comprobado el 2026-07-25, `.codegraph/` contenía **únicamente su `.gitignore`**. El `.mcp.json` conecta el servidor, pero no construye nada: hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva.
-  > ✅ **Índice construido el 2026-07-27**: `.codegraph/codegraph.db` existe y el servidor responde.
+> ⚠️ **La suposición de partida era incorrecta.** El roadmap daba por hecho que el índice de
+> codegraph existía y solo faltaba conectarlo; `.codegraph/` contenía únicamente su `.gitignore`. El
+> `.mcp.json` conecta el servidor pero **no construye nada**: hay que ejecutar `codegraph init` en la
+> raíz y abrir una sesión nueva. Índice construido el 2026-07-27.
 
 ---
 
-## 🧹 Tier 7: Deuda técnica y compactación de la documentación
+
+## 🧹 Tier 7: Deuda técnica y compactación de la documentación — ✅ **completado y verificado**
 *Objetivo: cerrar lo que encontró la revisión completa y devolver los documentos a un tamaño que alguien lea de verdad.*
 
 Sale de una **revisión completa del repositorio** hecha el 2026-07-27 sobre la v1.1.1 publicada —código,
 seguridad, rendimiento, estructura, accesibilidad, responsividad, ortografía y documentación—, con las
-101 pruebas de frontend y las 35 de `cargo test` en verde y el árbol limpio. Nada de lo de aquí es un
-fallo de funcionamiento: la app hace lo que promete. Es lo que se rompe o estorba a partir de ahora.
+101 pruebas de frontend y las 35 de `cargo test` en verde y el árbol limpio. Nada de lo de aquí era un
+fallo de funcionamiento: la app hace lo que promete. Era lo que se rompe o estorba a partir de ahora.
+
+**Cerrado entero el mismo día.** Al terminar: **140 pruebas de frontend** (antes 101) y **44 de
+`cargo test`** (antes 35). Lo único con consecuencias de seguridad —la guardia de rutas de
+`install_update`, que se saltaba con un `..`— se arregló en el 7.1.
+
+> ⚠️ **Nada de esto está publicado todavía.** El release vigente sigue siendo la v1.1.1, que no lleva
+> ni el CSP, ni el cierre de ventana configurable, ni la instancia única, ni la ordenación. Hace
+> falta cortar una versión nueva con `.\release.ps1 -Version X.Y.Z`.
 
 ### 1. Seguridad — ✅ **completado y verificado**
 
@@ -730,77 +658,199 @@ abrir este tier tenía **704**, y el 7.5 la dejó en **860**. Es el mismo sínto
 > de flujo de `enforce` devuelve `true` en los mismos casos en que `watch_cycle` hacía `return`— y por
 > las dos pruebas nuevas del mensaje.
 
-### 7. Compactar la documentación
+### 7. Compactar la documentación — ✅ **completado**
 
-Los cuatro documentos suman **18.237 palabras**. `CONTEXT.md` solo ya son **9.508** —más que el README
-y el ROADMAP juntos, y más palabras que líneas tiene todo el backend de Rust—. El problema no es el
-detalle, que es lo que da valor a este repositorio; es que lo mismo está contado en varios sitios y
-nada dice cuál manda.
+Al abrir este tier los cuatro documentos sumaban **18.237 palabras**, y `CONTEXT.md` solo ya eran
+9.508. Al llegar aquí eran **26.102**: el propio Tier 7, con su verificación tier a tier, los había
+engordado un 43 % antes de tocar nada. El problema no es el detalle —es lo que da valor a este
+repositorio—; es que lo mismo estaba contado en varios sitios y nada decía cuál manda.
 
-- [ ] **Decidir qué documento responde a qué**, y que cada cosa viva en uno solo:
+**Ahora suman 22.301 en cinco archivos**, y cada uno responde a una cosa:
 
-  | Documento | Responde a | Hoy también lleva |
-  |---|---|---|
-  | `README.md` | ¿Qué es y cómo la uso? (quien llega de fuera) | — está bien acotado |
-  | `.claude/CLAUDE.md` | ¿Cómo se trabaja aquí? (lo que lee el agente) | — está bien acotado |
-  | `CONTEXT.md` | ¿En qué estado está y por qué se decidió así? | el registro de sesiones entero |
-  | `ROADMAP.md` | ¿Qué falta? | la verificación histórica de seis tiers cerrados |
+| Documento | Responde a | Palabras |
+|---|---|---|
+| `README.md` | ¿Qué es y cómo la uso? (quien llega de fuera) | 2.148 |
+| `.claude/CLAUDE.md` | ¿Cómo se trabaja aquí? (lo que lee el agente) | 1.208 |
+| `CONTEXT.md` | ¿En qué estado está y por qué se decidió así? | 5.508 |
+| `ROADMAP.md` | ¿Qué falta, y qué enseñó lo ya hecho? | 8.826 |
+| `docs/BITACORA.md` | ¿Cómo se llegó hasta aquí? (historia) | 4.611 |
 
-- [ ] **Quitar la duplicación del modelo de confianza del actualizador**, explicado **siete veces** en
-      cuatro archivos (README ×2, ROADMAP ×2, CONTEXT ×2, `src/update.ts`), más `update.rs` con otras
-      palabras.
-  > Que esté en el README (es información de producto) y en `update.rs` (es donde se implementa). El
-  > resto, enlace. Siete copias de una explicación delicada es una garantía de que algún día seis
-  > digan una cosa y una diga otra.
-- [ ] **Podar las 8 decisiones tachadas de CONTEXT.md §4** y las **11 menciones a minisign**, que
-      describen un mecanismo **borrado del código**.
-  > ⚠️ Conservar la **lección**, no el recorrido: "nunca volcar un archivo de clave a la consola" vale
-  > para siempre y ya está en CLAUDE.md; "la regeneración falló por estar en el directorio equivocado"
-  > no le sirve a nadie. Mismo criterio con las filas de `createUpdaterArtifacts` y de la clave con
-  > contraseña: describen un plugin que ya no se usa. La de `ProcessStartInfo` **se queda**, porque la
-  > lección de PowerShell (`$env:VAR = ""` borra la variable) sigue valiendo.
-- [ ] **Resolver la duplicación declarada de CONTEXT.md §7**, que dice literalmente que las
-      convenciones viven también en `.claude/CLAUDE.md` y que «al cambiar una, hay que cambiarla en los
-      dos sitios».
-  > Es deuda que el propio documento confiesa. `CLAUDE.md` es la fuente única —es lo que se carga
-  > solo—; CONTEXT.md §7 se queda en un enlace.
-- [ ] **Condensar los Tiers 1-6 de este archivo.** Están todos cerrados y verificados: cada uno puede
-      quedar en su objetivo, su estado y las notas ⚠️ que siguen enseñando algo, moviendo el detalle de
-      verificación al registro de sesiones (que ya lo cuenta) en vez de tenerlo por duplicado.
-- [ ] **Sacar el registro de sesiones de CONTEXT.md §8 a su propio archivo** (`docs/BITACORA.md` o
-      similar), dejando en CONTEXT solo estado, decisiones vigentes y cómo retomar.
-  > Son 180 líneas creciendo por sesión dentro del documento que alguien abre para saber en qué punto
-  > está el proyecto. Separarlo no pierde nada y hace que CONTEXT.md se pueda volver a leer entero.
-- [ ] Actualizar CONTEXT.md §3, que dice **«El ROADMAP.md está terminado»**: con este tier deja de
-      serlo.
+- [x] **El registro de sesiones sale a [`docs/BITACORA.md`](docs/BITACORA.md)**. Eran 180 líneas
+      —más que todo el resto de CONTEXT.md— creciendo por sesión dentro del documento que uno abre
+      para saber en qué punto está el proyecto. **CONTEXT.md pasa de 427 líneas a 212.**
+- [x] **Reescrito CONTEXT.md §3.** Era una pila de párrafos «Verificado el…/Añadido el…» por orden de
+      llegada, con salvedades ya cerradas conviviendo con las abiertas. Ahora dice el estado, lo que
+      está verificado sobre la app en marcha, y **la única salvedad que sigue abierta** (el último
+      paso de la auto-actualización). El recorrido está en la bitácora.
+- [x] **Podadas 8 filas de decisiones de CONTEXT.md §4** que describían el actualizador de minisign,
+      **borrado del código** el 2026-07-26.
+  > La **lección** se conserva, el recorrido no: "nunca volcar un archivo de clave a la consola"
+  > está en CLAUDE.md y vale para siempre; "la regeneración falló por estar en el directorio
+  > equivocado" no le sirve a nadie. La fila de `ProcessStartInfo` **se queda**, porque su lección
+  > —`$env:VAR = ""` borra la variable en PowerShell— sigue valiendo.
+  > ⚠️ **Y una fila decía algo falso.** La del 2026-07-24 afirmaba que se descartaba «el modelo de
+  > confianza basado en SHA-256 del updater», decisión revertida el 2026-07-26 — o sea que describía
+  > como descartado justo lo que hoy se usa. Corregida. Es exactamente el riesgo que justifica este
+  > punto: la información vieja no envejece a la vista, se queda ahí pareciendo vigente.
+- [x] **CONTEXT.md §7 pasa a ser un enlace a `.claude/CLAUDE.md`.** El propio documento confesaba la
+      duplicación («al cambiar una, cambiarla en los dos sitios») y la lista de CONTEXT ya se había
+      quedado corta, que es lo que pasa siempre con esas promesas.
+- [x] **Quitada la duplicación del modelo de confianza del actualizador**, que estaba explicado siete
+      veces. Se queda entero en el **README** (es información de producto) y en **`update.rs`** (es
+      donde se implementa); el resto son enlaces. Siete copias de una explicación delicada garantizan
+      que algún día seis digan una cosa y una diga otra.
+- [x] **Condensados los Tiers 1-6**, de 367 líneas a 205. Cada uno queda con su objetivo, qué se hizo
+      y **las notas ⚠️ que siguen enseñando algo**; las listas de verificación se van, porque la
+      bitácora ya las cuenta y CONTEXT.md §3 las resume.
+  > El criterio fue **no borrar información, borrar repetición**. Se conserva íntegro lo que explica
+  > por qué algo raro está como está —que `SendKeys` no dispara un atajo global, que BitBlt no
+  > captura los toast, que sysinfo necesita tres muestras, que la condición del puerto del Zombie
+  > Finder no es un adorno—; se va lo que narra que en tal fecha había 13 filas en la tabla.
+- [x] **Movido a CONTEXT.md §6 el bloque del toolset MSVC**, que estaba en §3 (estado) cuando es algo
+      que solo importa al montar el entorno en otra máquina.
+- [x] **Borrado de CONTEXT.md §3 el bloque «Cómo inspeccionar la UI en ejecución»**, copia de lo que
+      ya está en CLAUDE.md, que es donde un agente lo lee sin buscarlo.
+- [x] Actualizado CONTEXT.md §3, que daba el ROADMAP por terminado.
 
-**Criterio para todo lo de arriba, por si se hace en otra sesión:** no se borra información, se borra
-**repetición**. Lo que explica por qué algo raro está como está se queda; lo que narra un camino que ya
-no existe, se va o se archiva.
+> ⚠️ **Editar estos `.md` con herramientas que respeten UTF-8.** PowerShell 5.1 los lee como ANSI y
+> al guardarlos destroza todos los acentos y emojis. Está en CLAUDE.md y ya costó una sesión.
 
-> ⚠️ **Editar estos `.md` con herramientas que respeten UTF-8.** PowerShell 5.1 los lee como ANSI y al
-> guardarlos destroza todos los acentos y emojis. Está en CLAUDE.md y ya costó una sesión revertirlo.
+**Verificación** (2026-07-27):
 
-### 8. Producto (opcional, no es deuda)
+- [x] **Ni un enlace roto** entre los cinco documentos: comprobados uno a uno los destinos relativos
+      y las anclas.
+- [x] Encoding UTF-8 intacto en los cinco (cero caracteres de reemplazo).
+- [x] 44 pruebas de `cargo test`, 115 de frontend y `tsc` en verde: la única edición de código fue
+      recortar el comentario del modelo de confianza en `hooks/useUpdater.ts`.
 
-Dos cosas que la revisión señala como mejora, no como fallo. Decisión del usuario si entran:
 
-- [ ] **Ordenar la tabla por columna.** Hoy llega siempre por RAM descendente desde Rust, que es buen
-      valor por defecto, pero el Administrador de tareas —con el que el usuario compara
-      inevitablemente, y así lo plantea el README— ordena por lo que quieras. Por CPU es lo primero
-      que se va a pedir.
-- [ ] **Estado vacío que oriente.** «No hay procesos de desarrollo activos.» es lo primero que ve quien
-      acaba de instalar la app sin nada corriendo; una línea sugiriendo añadir ejecutables en Ajustes
-      convierte un callejón sin salida en el paso siguiente.
-- [ ] **Decidir si 720 px es una anchura que se soporta de verdad.**
-  > A la anchura mínima el sidebar se lleva 208 px fijos y quedan ~512 para una tabla de ocho columnas
-  > que necesita unos 670. Hay scroll horizontal, así que no se pierde nada, pero una tabla densa con
-  > scroll lateral y cabecera sticky se usa mal. O se colapsa el sidebar por debajo de cierto ancho, o
-  > se suben los `minWidth` a ~860 y se deja de prometer un tamaño incómodo.
-  > ⚠️ **Sin verificar en vivo**: medirlo obliga a abrir el puerto de depuración en `tauri.conf.json`.
-  > Lo de arriba es análisis del código, no una medición.
+### 8. Producto — ✅ **completado y verificado**
+
+Tres cosas que la revisión señaló como mejora, no como fallo. Entran por decisión del usuario
+(2026-07-27).
+
+- [x] **La tabla se ordena por columna.** Los seis encabezados de datos —Proceso, Puerto, PID, CPU,
+      RAM y Activo— ordenan al pulsarlos; repetir la columna activa invierte la dirección.
+  > Llegaba siempre por RAM descendente desde Rust, que es buen valor por defecto y **se mantiene
+  > como estado inicial**. Pero el Administrador de tareas —con el que el usuario compara
+  > inevitablemente, y así lo plantea el README— ordena por lo que quieras, y por CPU era lo primero
+  > que se iba a pedir.
+  > Las columnas numéricas se estrenan **descendentes**: al pulsar "CPU" lo que se busca es quién se
+  > está comiendo la máquina, no quién gasta menos. Nombre y puerto empiezan ascendentes.
+  > ⚠️ **El desempate por PID no es cosmético: es lo que impide que las filas bailen.** Rust reenvía
+  > la lista cada dos segundos ya ordenada por RAM, y la RAM fluctúa, así que el orden de partida
+  > cambia entre refrescos. Ordenando por CPU —donde media tabla marca 0,0 %— eso se traduce en filas
+  > saltando de sitio solas cada dos segundos. Y el desempate **no se invierte** con la dirección, o
+  > el problema volvería en descendente.
+  > ⚠️ **Los procesos sin puerto se van siempre al final**, también en descendente. Al revés, ordenar
+  > por puerto ascendente empezaría por veinte guiones y habría que bajar hasta el final para ver el
+  > 3000, que es justo lo que se venía a buscar.
+  > ⚠️ **El estado del orden vive en `App`, no en `ProcessTable`.** La tabla se desmonta al filtrar a
+  > cero y al cambiar de vista: dentro, la elección del usuario se perdería cada vez que pasa por
+  > Historial y vuelve. Hay dos pruebas que fijan justo eso.
+  > La lógica va en `src/lib/sort.ts`, función pura, por lo mismo que `collect_processes` está
+  > separada de `get_processes`: lo que hay que probar —la estabilidad entre refrescos— no se ve
+  > mirando el DOM, solo comparando dos listas seguidas.
+  > `aria-sort` en el `<th>` es lo que anuncia un lector de pantalla al entrar en la columna; la
+  > flecha es su equivalente visual y va `aria-hidden` para no decirlo dos veces. Las columnas
+  > inactivas enseñan una flecha fantasma al pasar por encima o al recibir el foco: sin ninguna
+  > pista, que la tabla se ordena no lo descubre nadie.
+
+- [x] **Estado vacío que orienta**, en `components/EmptyState.tsx`.
+  > *"No hay procesos de desarrollo activos."* es lo primero que ve quien acaba de instalar la app
+  > sin nada corriendo, y solo con esa frase se queda en un callejón sin salida: Node, Python y .NET
+  > se vigilan siempre, pero quien trabaje con Go, Docker o PHP **no verá nunca nada** hasta que los
+  > añada, y eso no se adivina. Ahora lo dice y lleva a Ajustes de un clic.
+  > ⚠️ Son **dos** situaciones que en pantalla se parecen y no tienen nada que ver: no haber
+  > encontrado nada, y no estar buscando lo correcto. Cuando el filtro es el que deja la lista vacía
+  > **no** se ofrece añadir procesos — mandaría al usuario a arreglar algo que no está roto en vez de
+  > a borrar lo que acaba de escribir. Hay una prueba para cada caso.
+
+- [x] **`minWidth` sube de 720 a 900 px.** Decisión del usuario tras ver la medición.
+  > La app prometía un tamaño mínimo que **no soportaba**. Medido sobre el binario de release con 16
+  > filas reales: a 720 px el sidebar se lleva 208 fijos y a la tabla le quedan **497** cuando
+  > necesita **672** — se esconden 175 px, un 26 % del ancho, detrás de un scroll lateral con la
+  > cabecera *sticky* por encima. Cabe entera **a partir de 896 px**.
+  > Se descartó colapsar el sidebar por debajo de cierta anchura: recuperaría el espacio, pero es
+  > funcionalidad nueva —estados responsive, un control para plegarlo, reubicar los filtros por
+  > runtime y el auto-refresco que viven ahí— para un tamaño que un gestor de procesos de escritorio
+  > casi nunca necesita. El valor por defecto de la ventana ya es 1000.
+  > ⚠️ **Este número tiene detrás una medición, no una estimación.** Si alguien lo vuelve a bajar,
+  > que sepa que 900 sale de 208 (sidebar) + 672 (tabla) + margen.
+
+**Verificación** (2026-07-27):
+
+- [x] **140 pruebas de frontend** (antes 115), en 11 archivos. Las 25 nuevas cubren el criterio de
+      ordenación, los encabezados, el estado vacío y la integración en `App`.
+- [x] **La prueba del desempate caza el fallo**: reintroducido a propósito (`return 0` en el empate),
+      falla con `expected [77, 45, 12] to deeply equal [12, 77, 45]`, que es exactamente el baile de
+      filas. Un test de regresión que no se ve fallar no demuestra nada.
+- [x] **En vivo, sobre el binario de release y por CDP**, con 16 procesos reales: pulsar "PID" los
+      deja ascendentes con `aria-sort="ascending"`, repetir invierte a `descending`, y ordenando por
+      **CPU** —con media tabla a 0,0 %— el orden **no cambia tras 5 segundos** y varios refrescos de
+      Rust por medio. Es la prueba de estabilidad que jsdom no puede dar.
+- [x] Las mediciones de anchura de arriba, tomadas a 720, 896 y 1000 px sobre esa misma ventana.
+- [x] El puerto de depuración se quitó de `tauri.conf.json` después, cerrando antes la app, y se
+      recompiló sin él.
+
 
 ---
+
+### 9. Sidebar vertical, con los filtros colgando de «Procesos» — ✅ **completado y verificado**
+
+Lo pidió el usuario el 2026-07-28 viendo la app en marcha: las tres vistas estaban en **tres
+pestañas en fila** dentro de 208 px, y los filtros por runtime flotaban debajo sin decir de qué
+dependían.
+
+- [x] **La navegación pasa a vertical**: Procesos, Historial y Ajustes, uno por línea y con icono.
+  > Las tres pestañas en fila ya venían con `px-1` a mano *"porque con el padding por defecto no
+  > caben en los 208 px del sidebar y Ajustes se sale por el borde"*. Esa nota del Tier 2 era el
+  > aviso de que el diseño no daba más de sí; en vertical sobra sitio y desaparece el apaño.
+- [x] **«Procesos» pliega y despliega sus filtros**, desplegado de fábrica. Al plegar, Historial y
+      Ajustes suben a ocupar el hueco (130 px medidos).
+  > El mismo botón navega y pliega, según dónde estés: desde otra vista **navega** —y respeta el
+  > pliegue tal como lo dejó el usuario, sin desplegarlo solo—; ya estando en Procesos, pliega. Si
+  > volver de Ajustes lo desplegara, plegar no serviría de nada.
+  > Los filtros solo se pintan en la vista de Procesos: filtrar lo que no se está mirando no ordena
+  > nada. Por eso `aria-expanded` es la conjunción de las dos cosas y no solo del pliegue.
+  > ⚠️ **El estado vive en `Sidebar`, al revés que el del orden de la tabla.** El sidebar no se
+  > desmonta nunca, así que no hay nada que perder al cambiar de vista; subirlo a `App` sería pasarle
+  > un detalle que solo le importa a este componente. El del orden **sí** tuvo que subir, porque la
+  > tabla se desmonta al filtrar a cero.
+  > Guía vertical bajo «Procesos» para que los filtros se lean como hijos suyos, y hueco del ancho
+  > del chevron en Historial y Ajustes para que sus iconos alineen.
+- [x] **Plegado, «Procesos» recoge el total.** Desplegado lo dice «Todos», y repetirlo dos líneas
+      seguidas sobra.
+  > ⚠️ Eso hace que el texto del botón **cambie según el estado**, y rompió dos cosas que lo
+  > buscaban por texto exacto: dos pruebas de `App.test.tsx` y el `Invoke-Boton` de
+  > `tools/capture-screenshots.ps1`. Las pruebas pasan a expresión regular —como ya hacía la de
+  > `Node.js`, que lleva contador desde el Tier 6— y el script prueba primero coincidencia exacta y
+  > solo después por prefijo, que es lo que evita acertar otro botón que empiece igual.
+
+**Verificación** (2026-07-28):
+
+- [x] **147 pruebas de frontend** (antes 140). Las 7 nuevas cubren el pliegue: que viene desplegado,
+      que el mismo botón pliega y devuelve, que plegar **no** cambia de vista, que plegado enseña el
+      total, que desde otra vista navega en vez de plegar, que el pliegue sobrevive a ir y volver, y
+      que los filtros no aparecen en Historial ni en Ajustes.
+- [x] **En vivo, sobre el binario de release y por CDP**: ningún texto del sidebar se recorta a
+      208 px, plegar recupera **130 px** de alto, la tabla sigue en su sitio con `aria-current` en
+      «page», el pliegue sobrevive a pasar por Ajustes y volver, y a la anchura mínima nueva (900 px)
+      no se recorta nada ni desborda la tabla.
+- [x] **Capturas del README regeneradas** con `tools/capture-screenshots.ps1`: enseñaban el sidebar
+      viejo.
+  > ⚠️ **Y al regenerarlas salió un defecto que no era del cambio.** La captura principal salió con
+  > **un solo puerto visible y trece guiones**: los servidores de demostración son pequeños, y con el
+  > orden de fábrica —RAM descendente— se hunden por debajo del corte en cuanto la máquina tiene unos
+  > cuantos `node` sueltos (18 ese día, 13 cuando se generaron las anteriores). La columna de puertos
+  > es lo que justifica la app: una captura que la enseña vacía la vende mal.
+  > Arreglado aprovechando lo que acababa de entrar en el 7.8: **el script ordena por Puerto antes de
+  > capturar**. Los que ocupan alguno suben arriba, los que no van siempre al final, y la captura
+  > sale igual la genere quien la genere, con dos `node` de más o de menos. Deja de depender del
+  > estado de la máquina.
+
+---
+
 
 ## ✅ Resumen de la verificación técnica
 

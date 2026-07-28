@@ -4,20 +4,27 @@ import { describe, expect, it, vi } from "vitest";
 import { ProcessTable } from "./ProcessTable";
 import { proceso } from "../test/tauri-mock";
 import type { ProcessInfo } from "../types";
+import { DEFAULT_SORT } from "../lib/sort";
 
 function pintar(processes: ProcessInfo[], extra: Partial<Parameters<typeof ProcessTable>[0]> = {}) {
   const props = {
     processes,
     selected: new Set<number>(),
     killing: new Set<number>(),
+    // La tabla recibe la lista **ya ordenada** y solo la pinta; quien ordena es
+    // App. Aqui solo hace falta el estado para saber que flecha dibujar.
+    sort: DEFAULT_SORT,
+    onSort: vi.fn(),
     onToggle: vi.fn(),
     onToggleAll: vi.fn(),
     onKill: vi.fn(),
     onCopy: vi.fn(),
     ...extra,
   };
-  render(<ProcessTable {...props} />);
-  return props;
+  // Se devuelve tambien lo que da `render` (sobre todo `unmount`) para que nadie
+  // tenga que repetir la lista de props a mano: cada vez que la tabla gana una,
+  // esa copia suelta se queda corta y rompe la suite.
+  return { ...props, ...render(<ProcessTable {...props} />) };
 }
 
 /** Fila de datos por PID, saltandose la cabecera. */
@@ -94,17 +101,7 @@ describe("seleccion", () => {
   it("la casilla de la cabecera solo se marca con todas las filas seleccionadas", () => {
     const todos = [proceso({ pid: 33 }), proceso({ pid: 34 })];
 
-    const { unmount } = render(
-      <ProcessTable
-        processes={todos}
-        selected={new Set([33])}
-        killing={new Set()}
-        onToggle={vi.fn()}
-        onToggleAll={vi.fn()}
-        onKill={vi.fn()}
-        onCopy={vi.fn()}
-      />,
-    );
+    const { unmount } = pintar(todos, { selected: new Set([33]) });
     expect(screen.getByLabelText("Seleccionar todos")).not.toBeChecked();
     unmount();
 
@@ -225,5 +222,77 @@ describe("menu contextual", () => {
     await user.click(screen.getByText("Copiar PID"));
 
     expect(onCopy).toHaveBeenCalledWith("53", "PID 53");
+  });
+});
+
+/**
+ * La tabla **no ordena**: recibe la lista ya ordenada y avisa de la columna que
+ * se pulsa. Lo que se prueba aqui es lo que ve el usuario —la flecha y el estado
+ * accesible— y que el aviso llega. El criterio de ordenacion se prueba aparte,
+ * en `lib/sort.test.ts`.
+ */
+describe("encabezados que ordenan", () => {
+  const cabecera = (nombre: string) => screen.getByRole("button", { name: nombre });
+
+  it("avisa de la columna pulsada sin reordenar por su cuenta", async () => {
+    const user = userEvent.setup();
+    const { onSort } = pintar([proceso({ pid: 60 }), proceso({ pid: 61 })]);
+
+    await user.click(cabecera("CPU"));
+
+    expect(onSort).toHaveBeenCalledWith("cpu");
+    // Sigue pintando el orden en el que llego: reordenar es cosa de App.
+    expect(screen.getAllByLabelText(/Seleccionar PID/)).toHaveLength(2);
+  });
+
+  it("las seis columnas de datos se pueden ordenar", async () => {
+    const user = userEvent.setup();
+    const onSort = vi.fn();
+    pintar([proceso({ pid: 62 })], { onSort });
+
+    for (const etiqueta of ["Proceso", "Puerto", "PID", "CPU", "RAM", "Activo"]) {
+      await user.click(cabecera(etiqueta));
+    }
+
+    expect(onSort.mock.calls.map((c) => c[0])).toEqual([
+      "name",
+      "port",
+      "pid",
+      "cpu",
+      "memoryMb",
+      "runTimeSecs",
+    ]);
+  });
+
+  /**
+   * `aria-sort` es lo que anuncia un lector de pantalla al entrar en la columna.
+   * La flecha es su equivalente visual, y va `aria-hidden` para no decirlo dos
+   * veces; sin el atributo, quien no ve la flecha no sabe por que esta ordenado.
+   */
+  it("marca con aria-sort solo la columna activa, y en su direccion", () => {
+    const { unmount } = pintar([proceso({ pid: 63 })], {
+      sort: { key: "cpu", dir: "desc" },
+    });
+
+    expect(screen.getByRole("columnheader", { name: /CPU/ })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+    expect(screen.getByRole("columnheader", { name: /RAM/ })).toHaveAttribute(
+      "aria-sort",
+      "none",
+    );
+    unmount();
+
+    pintar([proceso({ pid: 63 })], { sort: { key: "name", dir: "asc" } });
+    expect(screen.getByRole("columnheader", { name: /Proceso/ })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+  });
+
+  it("la columna de acciones no ordena nada", () => {
+    pintar([proceso({ pid: 64 })]);
+    expect(screen.queryByRole("button", { name: "Acciones" })).not.toBeInTheDocument();
   });
 });

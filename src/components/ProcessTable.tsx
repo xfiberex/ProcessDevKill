@@ -1,9 +1,18 @@
 import { AnimatePresence, motion } from "motion/react";
-import { CopyIcon, GhostIcon, SkullIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChevronsUpDownIcon,
+  CopyIcon,
+  GhostIcon,
+  SkullIcon,
+} from "lucide-react";
 import { RUNTIME_ICONS } from "../icons";
 import { RUNTIMES } from "../types";
 import type { ProcessInfo } from "../types";
 import { formatMemory, formatUptime } from "../lib/format";
+import { SORT_LABELS } from "../lib/sort";
+import type { Sort, SortKey } from "../lib/sort";
 import { UsageBar } from "./UsageBar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,9 +25,12 @@ import {
 } from "@/components/ui/context-menu";
 
 type ProcessTableProps = {
+  /** Ya filtrada **y ordenada**: aqui solo se pinta lo que llega. */
   processes: ProcessInfo[];
   selected: Set<number>;
   killing: Set<number>;
+  sort: Sort;
+  onSort: (key: SortKey) => void;
   onToggle: (pid: number) => void;
   onToggleAll: () => void;
   onKill: (pid: number) => void;
@@ -29,6 +41,8 @@ export function ProcessTable({
   processes,
   selected,
   killing,
+  sort,
+  onSort,
   onToggle,
   onToggleAll,
   onKill,
@@ -55,24 +69,17 @@ export function ProcessTable({
               aria-label="Seleccionar todos"
             />
           </th>
-          <th scope="col" className="px-3 py-2 text-left font-medium">
-            Proceso
-          </th>
-          <th scope="col" className="px-3 py-2 text-left font-medium">
-            Puerto
-          </th>
-          <th scope="col" className="px-3 py-2 text-right font-medium">
-            PID
-          </th>
-          <th scope="col" className="px-3 py-2 text-right font-medium">
-            CPU
-          </th>
-          <th scope="col" className="px-3 py-2 text-right font-medium">
-            RAM
-          </th>
-          <th scope="col" className="px-3 py-2 text-right font-medium">
-            Activo
-          </th>
+          <SortableHeader sortKey="name" sort={sort} onSort={onSort} />
+          <SortableHeader sortKey="port" sort={sort} onSort={onSort} />
+          <SortableHeader sortKey="pid" sort={sort} onSort={onSort} align="right" />
+          <SortableHeader sortKey="cpu" sort={sort} onSort={onSort} align="right" />
+          <SortableHeader sortKey="memoryMb" sort={sort} onSort={onSort} align="right" />
+          <SortableHeader
+            sortKey="runTimeSecs"
+            sort={sort}
+            onSort={onSort}
+            align="right"
+          />
           <th scope="col" className="px-5 py-2">
             <span className="sr-only">Acciones</span>
           </th>
@@ -257,5 +264,57 @@ export function ProcessTable({
         </AnimatePresence>
       </tbody>
     </table>
+  );
+}
+
+/**
+ * Encabezado que ordena al pulsarlo.
+ *
+ * El estado va en `aria-sort` sobre el `<th>`, que es lo que un lector de pantalla
+ * anuncia al entrar en la columna ("ordenado de forma descendente"); la flecha es
+ * su equivalente visual y va `aria-hidden` para no leerla dos veces.
+ */
+function SortableHeader({
+  sortKey,
+  sort,
+  onSort,
+  align = "left",
+}: {
+  sortKey: SortKey;
+  sort: Sort;
+  onSort: (key: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  const activa = sort.key === sortKey;
+  const ascendente = sort.dir === "asc";
+  const Flecha = ascendente ? ArrowUpIcon : ArrowDownIcon;
+
+  return (
+    <th
+      scope="col"
+      aria-sort={activa ? (ascendente ? "ascending" : "descending") : "none"}
+      className={`py-0 font-medium ${align === "right" ? "text-right" : "text-left"}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        // `group` para que la flecha fantasma de las columnas inactivas aparezca
+        // al pasar por encima: sin ninguna pista, que la tabla se ordena no lo
+        // descubre nadie. Con focus-visible sale tambien navegando con teclado.
+        className={`group flex w-full cursor-pointer items-center gap-1 px-3 py-2 tracking-wide uppercase transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${
+          align === "right" ? "justify-end" : "justify-start"
+        } ${activa ? "text-foreground" : ""}`}
+      >
+        {SORT_LABELS[sortKey]}
+        {activa ? (
+          <Flecha className="size-3.5 shrink-0" aria-hidden />
+        ) : (
+          <ChevronsUpDownIcon
+            className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-visible:opacity-60"
+            aria-hidden
+          />
+        )}
+      </button>
+    </th>
   );
 }

@@ -1,8 +1,12 @@
 # 📋 CONTEXT.md — ProcessDevKill
 
-> **Documento vivo.** Registra el contexto, las decisiones y el progreso del proyecto para poder retomarlo desde cualquier equipo sin perder información. Se actualiza al final de cada sesión de trabajo o cuando se toma una decisión relevante.
+> **Documento vivo.** Responde a **en qué estado está el proyecto y por qué se decidió así**, para
+> poder retomarlo desde cualquier equipo sin perder información. Se actualiza al final de cada sesión
+> o cuando se toma una decisión relevante.
 >
-> El plan detallado por fases vive en [ROADMAP.md](ROADMAP.md); aquí solo se refleja el estado.
+> Los otros tres: el plan por fases y lo que enseñó cada uno, en [ROADMAP.md](ROADMAP.md); las
+> convenciones de trabajo, en [.claude/CLAUDE.md](.claude/CLAUDE.md); y la historia sesión a sesión,
+> en [docs/BITACORA.md](docs/BITACORA.md). **Cada cosa vive en uno solo**, y los demás enlazan.
 
 ---
 
@@ -26,86 +30,42 @@
 
 ## 3. Estado actual
 
-**Fase actual:** Tiers 1 a 6 completos. **Tier 7 abierto** (2026-07-27): deuda técnica y compactación
-de la documentación, salido de una revisión completa del repositorio sobre la v1.1.1 ya publicada.
-Nada de lo que recoge es un fallo de funcionamiento —la app hace lo que promete—, salvo la guardia de
-rutas de `install_update`, que se salta con un `..` y es lo único con consecuencias de seguridad.
+**Tiers 1 a 7 completos y verificados.** El 7 se abrió el 2026-07-27 con una revisión completa del
+repositorio sobre la v1.1.1 ya publicada —código, seguridad, rendimiento, estructura, accesibilidad,
+responsividad, ortografía y documentación— y se cerró entero el mismo día: seguridad, arreglos
+rápidos, ortografía, comportamiento de la ventana y accesibilidad, rendimiento, refactor,
+compactación de los documentos y los tres puntos de producto.
 
-| Tier | Descripción | Estado |
-|---|---|---|
-| 1 | Cimientos y MVP | ✅ Completado y verificado |
-| 2 | UX/UI y reactividad | ✅ Completado y verificado |
-| 3 | Puertos, notificaciones, tray | ✅ Completado y verificado |
-| 4 | Power user y optimización | ✅ Completado y verificado |
-| 5 | Estética (tema, shadcn/ui, icono) | ✅ Puntos 1-3 completados y verificados |
-| 5 | Salsa Secreta: Auto-Kill y Zombie Finder | ✅ Punto 4 completado y verificado |
-| 5 | Instaladores (NSIS + MSI) | ✅ Punto 5 completado |
-| 5 | Publicación de releases (`release.ps1`) | ✅ Punto 6 completado — **v1.0.0 publicada** |
-| 6 | Licencia y avisos de terceros | ✅ Punto 1 completado y verificado |
-| 6 | Nombre del repositorio | ✅ Punto 2 completado |
-| 6 | README de producto, capturas y `FUNDING.yml` | ✅ Punto 3 completado y verificado |
-| 6 | Pruebas del frontend | ✅ Punto 4 completado y verificado — **115 pruebas** (y 44 de `cargo test`) |
-| 6 | Auto-actualización | ✅ Punto 5 completado (ver la salvedad de abajo) |
-| 6 | Herramientas del repositorio (`.claude/CLAUDE.md`, `.mcp.json`) | ✅ Punto 6 completado |
+Nada de lo que recogía esa revisión era un fallo de funcionamiento —la app hace lo que promete—
+**salvo la guardia de rutas de `install_update`**, que se saltaba con un `..`; arreglada en el 7.1.
 
-Verificado el 2026-07-23 con la app corriendo: la UI lista procesos reales con CPU, RAM, tiempo y **puerto**; buscar por puerto localiza el proceso y matarlo lo libera de verdad; la lista se actualiza sola por eventos desde Rust; ajustes e historial sobreviven al reinicio; cerrar la ventana la esconde en la bandeja sin terminar la app.
+**Publicado:** v1.1.1, la primera versión pública. 4 assets: instaladores NSIS y MSI con sus
+`.sha256`. Sin firma de código, así que SmartScreen sigue avisando. **Lo hecho en el Tier 7 todavía
+no está publicado**: hace falta cortar una versión nueva.
 
-Añadido el 2026-07-24, también sobre la app en ejecución: la ventana sigue el tema de Windows y obedece al selector de Ajustes (que persiste en disco), el menú contextual de cada fila copia PID/nombre/puerto al portapapeles real de Windows con su toast, y el diálogo destructivo —ahora el AlertDialog de shadcn— sigue cancelándose con Escape sin matar nada. El Auto-Kill, con un umbral de prueba, cierra solo un proceso de 651 MB y deja intactos los 7 `node` reales de la máquina. 16 tests de `cargo test` en verde.
+**Pruebas:** 147 de frontend (Vitest + Testing Library, en jsdom) y 44 de `cargo test`.
 
-**Atajo global: salvedad cerrada el 2026-07-24.** Se pulsó `Ctrl+Alt+K` de verdad sobre la app **instalada**, con la entrada sintetizada por `keybd_event` (`SendKeys` no vale: no llega a un atajo de `RegisterHotKey`). Cerró los 4 procesos `node` vivos, liberó el puerto 4321 y registró las 4 entradas con origen `hotkey`. Antes de pulsar se comprobó que ninguno de esos procesos era trabajo del usuario. Queda el texto original abajo como registro de por qué estuvo tanto tiempo sin comprobarse.
+### Lo que está verificado sobre la app en ejecución
 
-**Salvedad histórica sobre el atajo global (ya cerrada; se conserva como registro):** se comprobó que `Ctrl+Alt+K` se registra y se libera correctamente (con él activo ningún otro proceso puede tomarlo), pero **no se llegó a pulsar**: dispararlo habría cerrado los ~13 procesos `node` reales del equipo. La ruta de cierre que ejecuta es la misma `kill_and_record` que usan la ventana y la bandeja, ambas verificadas end-to-end.
+Todo lo del producto se ha comprobado con la app corriendo, no solo con pruebas: la lista de
+procesos reales con su puerto, buscar por puerto y liberarlo al matar, el refresco por eventos desde
+Rust, los ajustes y el historial sobreviviendo al reinicio, el tema siguiendo a Windows, el menú
+contextual copiando al portapapeles real, Escape cancelando el diálogo destructivo, el Auto-Kill
+cerrando un proceso de 651 MB sin tocar los 7 `node` reales de la máquina, `Ctrl+Alt+K` pulsado de
+verdad (con `keybd_event`, no `SendKeys`), los toast apareciendo en pantalla, y —desde el Tier 7— el
+CSP activo, la X cerrando la app, la instancia única, el poller despertando al instante y la tabla
+ordenándose por columna sin que las filas bailen entre refrescos, y el sidebar plegándose
+sin sacar al usuario de la vista.
 
-**Notificaciones: salvedad cerrada el 2026-07-24.** Con la app **instalada**, el toast aparece en pantalla con su icono, su título y el cuerpo correcto (confirmado a ojo por el usuario). Se acabó la duda que arrastraba desde el Tier 3.
+El detalle de cada verificación, con su fecha y lo que costó, está en [ROADMAP.md](ROADMAP.md) junto
+al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 
-> ⚠️ **Cómo NO comprobarlo.** Se intentó verificar con capturas de pantalla por código (`Graphics.CopyFromScreen`) y salían vacías, lo que llevó a concluir en falso que el banner no se pintaba. `CopyFromScreen` copia el escritorio con BitBlt y **los toast de Windows los compone DWM en una capa que ese método no recoge**. Para esto no hay atajo: o lo mira una persona, o se consulta el centro de notificaciones por la API de WinRT.
->
-> Lo que sí sirve como prueba indirecta de que la petición llega a Windows: la clave `HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.processdevkill.app` solo se crea cuando una app envía su primer toast.
+> ⚠️ **La única salvedad que sigue abierta: el último paso de la auto-actualización**, lanzar el
+> instalador para que reemplace la app. Necesita un release posterior al actual. Todo lo anterior sí
+> se verificó contra la v1.1.1 publicada: la API responde 200, la elección de assets acierta el
+> `-setup.exe` y su `.sha256` (no el del MSI), y el instalador descargado coincide con el hash
+> publicado.
 
-Añadido el 2026-07-25: **98 pruebas de frontend** (Vitest + Testing Library) donde antes había cero, y **auto-actualización** con firma minisign. El remoto local ya apunta a la URL nueva.
-
-> ⚠️ **Salvedad abierta: falta ejecutar en vivo el último paso**, lanzar el instalador para que reemplace la app. Necesita un release posterior al actual. Todo lo anterior sí se verificó contra la v1.1.1 publicada: la API responde 200, la elección de assets acierta el `-setup.exe` y su `.sha256` (no el del MSI), y **el instalador descargado coincide con el hash publicado**. Detalle en ROADMAP §Tier 6.5.
-
-> **El actualizador se rehízo el 2026-07-26.** La primera versión usaba `tauri-plugin-updater` con firmas minisign; se descartó por decisión del usuario tras dos días de fricción con la clave, y se sustituyó por el modelo de FormatDiskPro: GitHub Releases + verificación **SHA-256** antes de ejecutar. Ya no hay claves que custodiar.
-
-> **`codegraph` ya tiene índice** (2026-07-27). El `.mcp.json` engancha el servidor y `.codegraph/codegraph.db` existe, así que las consultas de estructura del código funcionan. Estuvo conectado pero sin base de datos desde el 2026-07-25: el `.mcp.json` por sí solo no construye nada, hay que ejecutar `codegraph init` en la raíz y abrir una sesión nueva.
-
-**Publicado:** v1.1.1 — 4 assets: instaladores NSIS y MSI con sus `.sha256`. Sin firma de código, así que SmartScreen sigue avisando.
-
-> **La v1.1.1 es la primera versión pública.** Las anteriores (v1.0.0 y v1.1.0) se **retiraron el 2026-07-26**, releases y tags: ninguna podía actualizarse sola —la primera no llevaba actualizador y la segunda usaba el de minisign, ya inexistente— y dejarlas descargables solo habría servido para instalar algo condenado a quedarse atrás. Sus URLs de descarga devuelven 404; los commits siguen en el historial.
->
-> El `.sha256` del instalador NSIS **ya no es cortesía**: es lo que la app compara antes de ejecutar una actualización. Un release sin él hace que la app se niegue a actualizarse a esa versión.
-
-### Entorno: el toolset MSVC venía incompleto (resuelto)
-
-Merece la pena dejarlo escrito por si hay que montar el entorno en otra máquina. Visual Studio 18 Community estaba instalado con `cl.exe` y `link.exe`, pero **sin directorio `VC\include`** (cero headers de C) y solo con librerías `lib\onecore\`, sin las de escritorio `lib\x64`. Síntomas: `LNK1104: no se puede abrir el archivo 'msvcrt.lib'` y, al forzar rutas OneCore a mano, `C1083: no se puede abrir el archivo incluir 'excpt.h'`.
-
-Se resolvió añadiendo el componente que faltaba, desde PowerShell **como administrador**:
-
-```powershell
-& "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify `
-  --installPath "C:\Program Files\Microsoft Visual Studio\18\Community" `
-  --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --passive --norestart
-```
-
-Comprobación rápida de que el entorno está sano: debe existir `...\VC\Tools\MSVC\<versión>\include\excpt.h`.
-
-> Nota: `vswhere.exe` de este equipo no reporta VS 18 (`-products *` devuelve vacío) aunque la instalación sí esté registrada. No impidió compilar, pero puede confundir a herramientas que dependan de él.
-
-### Cómo inspeccionar la UI en ejecución
-
-Para depurar el frontend dentro de la ventana de Tauri, añadir temporalmente a la ventana en `tauri.conf.json`:
-
-```json
-"additionalBrowserArgs": "--remote-debugging-port=9222"
-```
-
-Con eso, `http://127.0.0.1:9222/json` expone el protocolo CDP y se puede leer el DOM real o simular clics. **Quitarlo después**: sustituye los argumentos por defecto de Tauri y no debe llegar a producción. La variable de entorno `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` **no** sirve aquí, Tauri la sobrescribe.
-
-Dos cosas que cuestan una sesión si no se saben:
-
-- **Nunca evaluar `navigator.clipboard.readText()` por CDP.** Abre un diálogo de permiso *dentro* de la ventana ("… quiere ver texto e imágenes copiadas en el Portapapeles"), que se convierte en un target nuevo, deja colgada la evaluación y tapa la app. Para comprobar el portapapeles, `Get-Clipboard` desde PowerShell.
-- Con la ventana sin foco (que es lo normal al conducirla por CDP desde una terminal), `navigator.clipboard.writeText` falla con `NotAllowedError: Document is not focused`. No es un fallo de la app: es la razón por la que se copia con el plugin de Tauri.
 
 ## 4. Decisiones tomadas
 
@@ -114,7 +74,6 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-23 | Tauri 2 (no Electron) | Binario ligero, backend Rust necesario para `sysinfo` |
 | 2026-07-23 | Tailwind v4 con plugin de Vite | Setup actual oficial; v3 quedó obsoleto |
 | 2026-07-23 | Crate `listeners` para puertos | `sysinfo` no mapea PID→puerto |
-| 2026-07-23 | ~~CI compila release solo con tags `v*`~~ | Build multi-plataforma en cada commit es lenta y cara. **Superada el 2026-07-24**: no habrá CI, ver la fila del `release.ps1` |
 | 2026-07-23 | Polling frontend en Tier 2, eventos Rust en Tier 4 | Simplicidad primero, rendimiento después |
 | 2026-07-23 | `sysinfo` solo con la feature `system` | No usamos discos, red ni componentes; acorta la compilación |
 | 2026-07-23 | Clasificar procesos por nombre exacto o sufijo de versión, no por prefijo | Un prefijo simple capturaría `nodemon` como si fuera Node |
@@ -147,7 +106,7 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-24 | Rojo sólido para la acción destructiva principal | El `variant="destructive"` de este estilo de shadcn es un rojo tenue, pensado para acciones secundarias; el botón que cierra toda la lista tiene que verse que quema |
 | 2026-07-24 | **Releases con `release.ps1` local, sin GitHub Actions** | La app es solo Windows por ahora y la build de Tauri en CI tarda minutos por plataforma. Se compila en la misma máquina donde se prueba, sin secretos en la nube ni minutos de CI. Si algún día se publica para macOS, entonces sí hará falta CI (no se puede compilar `.dmg` desde Windows) |
 | 2026-07-24 | Se descarta `navigator.clipboard.readText()` incluso para depurar | Abre un diálogo de permiso **dentro** de la ventana de WebView2 que bloquea la evaluación por CDP; la app solo necesita escribir |
-| 2026-07-24 | Tier 6 recoge solo parte de lo que tiene FormatDiskPro | De la comparación se descartan tres cosas a propósito: **CI** (ya decidido, `release.ps1` local), los **UI tests con FlaUI** (es una app WinForms; aquí el equivalente es Vitest + pruebas por CDP) y el **modelo de confianza basado en SHA-256** del updater (Tauri firma con minisign, el hash no vale para eso) |
+| 2026-07-24 | Tier 6 recoge solo parte de lo que tiene FormatDiskPro | De la comparación se descartan a propósito **CI** (ya decidido: `release.ps1` local) y los **UI tests con FlaUI** (es una app WinForms; aquí el equivalente es Vitest + pruebas por CDP). También se descartó su modelo de confianza SHA-256, por preferir minisign — **decisión revertida el 2026-07-26**, ver la fila de esa fecha |
 | 2026-07-24 | El menú de la bandeja llama a `pids_of_runtime` en vez de repetir el filtro | El test `selecciona_solo_los_pids_del_runtime_pedido` decía cubrir la bandeja, pero la bandeja tenía su propia copia del filtro: el test protegía código que nadie usaba |
 | 2026-07-24 | Una sola sesión de Claude Code por repositorio | Dos trabajando a la vez se sobrescriben los archivos, y el `tauri dev` de una reinicia la app que la otra está inspeccionando por CDP |
 | 2026-07-24 | El Auto-Kill nace apagado y con suelo de 256 MB en el umbral | Es lo único de la app que mata sin que nadie se lo pida. Un umbral bajo por descuido (o heredado de un `settings.json` editado a mano) cerraría el entorno de desarrollo entero, así que el suelo se aplica también al leer del disco |
@@ -168,19 +127,12 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-25 | Motion se dobla en las pruebas | `AnimatePresence` mantiene montada la fila que sale hasta que acaba su animación. Al filtrar la tabla seguían contándose las filas de antes: la aserción medía la animación, no el filtro. La animación es presentación pura y ya se verificó a ojo en el Tier 2 |
 | 2026-07-25 | `types.test.ts` lee el fuente de Rust y compara | `types.ts` se declaraba "espejo" de los tipos de Rust, pero nada lo obligaba: cambiar `MIN_AUTO_KILL_MB` en `storage.rs` y olvidarse aquí no rompía ni el build ni `cargo test`. Ahora falla una prueba |
 | 2026-07-25 | `aria-label` en los dos campos numéricos de Ajustes | Lo encontraron las pruebas al no poder pedirlos por nombre: solo tenían `aria-describedby`, que **describe pero no nombra**. Un lector de pantalla los anunciaba sin decir qué eran |
-| 2026-07-25 | ~~Auto-actualización con minisign~~ | Se eligió por ser criptográficamente más fuerte que un hash. **Superada el 2026-07-26**: ver la fila del cambio a SHA-256 |
-| 2026-07-25 | ~~La clave privada, sin contraseña~~ | Se razonó que el secreto era el archivo y que una contraseña añadía fricción sin ganancia real. **Superada el 2026-07-26**: el archivo se filtró y sin contraseña eso basta para firmar. Ver la fila siguiente |
-| 2026-07-26 | **La clave privada, con contraseña** | Al día siguiente de generarla, un `head -1` que pretendía leer solo la línea de comentario volcó el archivo entero —es una sola línea de base64— a una conversación. Sin contraseña, quien tenga esos 348 bytes puede firmar: hubo que rotar. Con contraseña, una filtración del archivo ya no basta. La fricción que se quiso evitar era un `Read-Host` por release |
 | 2026-07-25 | La comprobación al arrancar va **en silencio** | Un equipo sin red o una VPN levantándose es lo normal, y un error nada más abrir la app parecería un fallo de la app. Solo se habla cuando de verdad hay versión nueva |
 | 2026-07-25 | Descargar e instalar **solo a petición** | Es lo único que la app puede traerse de internet y ejecutar. Que ocurra sin pedirlo convertiría una herramienta local en algo que se modifica solo, y eso hay que pedirlo |
-| 2026-07-25 | `process:allow-restart`, no `process:default` | `default` incluye además `allow-exit`. La app no necesita poder cerrarse a sí misma desde JS, igual que en el Tier 3 no se le concedió `core:window:allow-close` |
-| 2026-07-26 | **Auto-actualización con SHA-256, como FormatDiskPro** | Decisión del usuario tras dos días peleándose con la clave minisign: se filtró, la rotación se atascó y el prompt de contraseña resultaba impegable. El hash es más débil —no prueba origen— pero **el esquema entero cabe en la cabeza**, no hay secretos que custodiar y no puede dejar tirados a los usuarios instalados. Un mecanismo de seguridad que nadie consigue operar acaba desactivado, y ése es el fallo más caro de los dos |
+| 2026-07-26 | **Auto-actualización con SHA-256, como FormatDiskPro** | Decisión del usuario tras dos días peleándose con la clave minisign: se filtró, la rotación se atascó y el prompt de contraseña resultaba impegable. El hash es más débil —no prueba origen— pero **el esquema entero cabe en la cabeza**, no hay secretos que custodiar y no puede dejar tirados a los usuarios instalados. Un mecanismo de seguridad que nadie consigue operar acaba desactivado, y ése es el fallo más caro de los dos. **Se borran de esta tabla las 8 filas que describían el mecanismo de minisign** (2026-07-27): narraban un camino que ya no existe en el código. La lección que sí sigue valiendo —nunca volcar un archivo de clave a la consola, porque son una sola línea de base64 y `head -1` la imprime entera— está en [CLAUDE.md](.claude/CLAUDE.md), y el recorrido, en la [bitácora](docs/BITACORA.md) |
 | 2026-07-26 | Se descarta implementar la verificación **Authenticode** | FormatDiskPro la intenta antes del hash, pero allí ya existe el código. Aquí, sin certificado de firma, ningún instalador propio la pasaría: sería código muerto, y una comprobación que siempre falla acaba ignorándose |
 | 2026-07-26 | `install_update` solo acepta rutas de su carpeta de descargas | El comando queda expuesto al frontend y sin la guardia sería un "ejecuta lo que quieras". Mismo criterio que la guardia de PID de `kill_process` del Tier 1 |
 | 2026-07-26 | La red la usa **solo Rust**, no el frontend | Las capabilities gobiernan la superficie JS↔Rust, así que el frontend sigue sin ningún permiso que le deje salir a internet. Un XSS en la ventana no puede hacer peticiones arbitrarias en nombre de la app |
-| 2026-07-25 | ~~`release.ps1` valida la clave **antes** de compilar~~ | Enterarse de que falta después de veinte minutos de build es la peor forma de saberlo. Y si tras el build no aparece el `.sig`, el script para: publicar sin firma deja a todos los instalados sin poder actualizarse y no se nota hasta que alguien lo intenta |
-| 2026-07-25 | ~~El endpoint es `releases/latest/download/latest.json`~~ | Superada: sin plugin no hay `latest.json`. Ahora se consulta la API de GitHub (`/releases/latest`), que además da las notas y el tamaño del asset |
-| 2026-07-25 | `"createUpdaterArtifacts": true` en `bundle` | **Sin ella no se firma nada y Tauri no avisa.** Viene a `false` de fábrica; con la clave puesta en el entorno y el plugin configurado, el build salió igual de contento produciendo los dos instaladores sin `.sig`. Lo cazó la comprobación de `release.ps1`, con el release ya a medio camino |
 | 2026-07-27 | **La tabla de sockets se lee una vez por lote** (`kill_many`) | `kill_one` la enumeraba por cada PID: un "Nuke All" de quince procesos recorría todos los sockets del sistema quince veces. Leerlos antes de matar sigue siendo obligatorio; repetir la lectura, no. De paso la foto se toma con todo el lote aún vivo, en vez de degradarse conforme caen |
 | 2026-07-27 | **El poller espera en un `Condvar`, no sondeando cada 300 ms** | Con el refresco en "Off" y el Auto-Kill apagado, el hilo despertaba tres veces por segundo para nada; en una app que vive días en la bandeja son cientos de miles de despertares diarios. Guardar ajustes le avisa, así que reactivarlo sigue siendo instantáneo (medido: 2,2 s) |
 | 2026-07-27 | El testigo del `Condvar` se marca **dentro del candado** | Un `notify` a secas se pierde si llega entre que el poller lee los ajustes y entra a esperar, y entonces el hilo se queda los 60 s enteros. Es la carrera clásica del `Condvar`, y el `bool` es lo que la cierra. La cubre `un_aviso_anterior_a_la_espera_no_se_pierde` |
@@ -204,6 +156,19 @@ Dos cosas que cuestan una sesión si no se saben:
 | 2026-07-27 | Los formateadores van a `src/lib/format.ts`, **no a `lib/utils.ts`** | `utils.ts` lo genera el CLI de shadcn con `cn` dentro, y `shadcn init` lo reescribe. El CLI está en las dependencias del proyecto, así que no es hipotético. Salen de `types.ts` porque ese archivo tiene un test que lo declara **espejo** de Rust, y cuanto menos contenido no-espejo arrastre, más claro queda el contrato |
 | 2026-07-27 | Los mapas de etiquetas (`RUNTIMES`, `THEMES`, `KILL_SOURCES`) **se quedan** en `types.ts` | Cada uno es un `Record` indexado por un tipo espejo: TypeScript obliga a completarlos cuando Rust gana una variante. Separarlos perdería esa comprobación a cambio de un archivo más |
 | 2026-07-27 | `Sidebar.tsx` se lleva los tipos `View` y `Filter` | Es el componente que gobierna las dos cosas. `App` los importa de ahí en vez de declararlos y pasarlos |
+| 2026-07-27 | **Cada documento responde a una pregunta, y solo a una** | README: qué es y cómo se usa. `.claude/CLAUDE.md`: cómo se trabaja aquí. CONTEXT: en qué estado está y por qué se decidió así. ROADMAP: qué falta y qué enseñó lo hecho. [`docs/BITACORA.md`](docs/BITACORA.md): cómo se llegó hasta aquí. Lo que estaba contado en varios sitios pasa a estar en uno y enlazado desde los demás |
+| 2026-07-27 | **El registro de sesiones sale a `docs/BITACORA.md`** | 180 líneas creciendo por sesión dentro del documento que uno abre para saber en qué punto está el proyecto. Es historia, no estado; separarlo deja CONTEXT.md en la mitad y otra vez legible de un tirón |
+| 2026-07-27 | La documentación **se poda, no se archiva entera** | El criterio: no se borra información, se borra **repetición**. Lo que explica por qué algo raro está como está se queda íntegro; lo que narra un camino que ya no existe se va, conservando la lección si la tenía |
+| 2026-07-27 | El `baseUrl` de `tsconfig.json` **se quita, en vez de silenciar el aviso** | El IDE avisa de que está deprecado y deja de funcionar en TS 7, y **sugiere `"ignoreDeprecations": "6.0"`. Seguir esa sugerencia rompe el build**: ese valor solo lo acepta TS 6+, y aquí se compila con **TypeScript 5.8.3**, que responde `error TS5103: Invalid value for '--ignoreDeprecations'` y sale con código 2. Como `npm run build` es `tsc && vite build`, y `tauri build` lo invoca como `beforeBuildCommand`, eso deja **`release.ps1` sin poder cortar una versión**. Comprobado ejecutándolo, no deducido. La salida buena es quitar `baseUrl`: desde TS 4.1 los `paths` se resuelven contra la carpeta del propio `tsconfig.json`, y ningún import del proyecto usaba resolución no relativa contra la base. Verificado con `--traceResolution` que `@/` sigue resolviendo, y con `tsc`, `vite build` y las 115 pruebas en verde |
+| 2026-07-27 | **La tabla se ordena por columna**, con el desempate por PID sin invertir | El orden de fábrica sigue siendo el que manda Rust (RAM desc), pero el Administrador de tareas ordena por lo que quieras y por CPU era lo primero que se iba a pedir. **El desempate es lo que impide que las filas bailen**: Rust reenvía la lista cada 2 s ya ordenada por RAM, la RAM fluctúa, y ordenando por CPU —con media tabla a 0,0 %— sin desempatar las filas saltan de sitio solas. No se invierte con la dirección, o el problema volvería en descendente |
+| 2026-07-27 | El estado del orden vive en `App`, no en `ProcessTable` | La tabla se desmonta al filtrar a cero y al cambiar de vista; dentro, la elección del usuario se perdería cada vez que pasa por Historial y vuelve. Dos pruebas lo fijan |
+| 2026-07-27 | Los procesos **sin puerto** se van al final en las dos direcciones | Ordenar por puerto ascendente empezaría si no por veinte guiones, y habría que bajar hasta el final para ver el 3000 — justo lo que se venía a buscar |
+| 2026-07-27 | **El estado vacío distingue "no hay nada" de "tu filtro no deja pasar nada"** | Se parecen en pantalla y no tienen nada que ver. Con cero procesos se explica que Node, Python y .NET se vigilan siempre pero el resto hay que añadirlo, y se lleva a Ajustes de un clic: es lo primero que ve quien acaba de instalar la app, y quien trabaje con Go o Docker no vería nunca nada sin adivinarlo. Cuando es el filtro, **no** se ofrece Ajustes: mandaría a arreglar algo que no está roto |
+| 2026-07-27 | **`minWidth` sube de 720 a 900 px** | Decisión del usuario tras medirlo sobre el binario de release con 16 filas reales: a 720 px el sidebar se lleva 208 fijos y a la tabla le quedan **497** cuando necesita **672** — un 26 % del ancho detrás de un scroll lateral. Cabe entera a partir de 896. Se descartó colapsar el sidebar: recuperaría el espacio, pero es funcionalidad nueva (estados responsive, control para plegar, reubicar los filtros y el auto-refresco que viven ahí) para un tamaño que un gestor de procesos de escritorio casi nunca necesita. **El 900 sale de una medición, no de una estimación** |
+| 2026-07-28 | **El sidebar pasa a vertical y los filtros cuelgan de «Procesos»** | Petición del usuario viendo la app. Las tres pestañas en fila ya venían con un `px-1` a mano porque no cabían en 208 px, y los filtros por runtime flotaban debajo sin decir de qué dependían. El mismo botón navega y pliega según dónde estés: desde otra vista **navega y respeta el pliegue** —si volver de Ajustes lo desplegara, plegar no serviría de nada—; ya estando en Procesos, pliega |
+| 2026-07-28 | El pliegue vive en `Sidebar`; el orden de la tabla, en `App` | Parece incoherente y no lo es: el sidebar **no se desmonta nunca**, así que su estado no corre peligro y subirlo sería pasarle a `App` un detalle que no le importa. La tabla **sí** se desmonta al filtrar a cero y al cambiar de vista, y por eso el orden tuvo que subir |
+| 2026-07-28 | Plegado, «Procesos» recoge el total de procesos | Desplegado lo dice «Todos»; repetirlo dos líneas seguidas sobra. ⚠️ Eso hace que el **texto del botón cambie según el estado**, y rompió dos pruebas y el `Invoke-Boton` del script de capturas, que lo buscaban por texto exacto. Las pruebas pasan a expresión regular (como ya hacía la de `Node.js`) y el script prueba exacto y solo después por prefijo |
+| 2026-07-28 | **El script de capturas ordena por Puerto antes de capturar** | Al regenerar las capturas salió la principal con un solo puerto y trece guiones: los servidores de demostración son pequeños y con el orden de fábrica (RAM desc) se hunden en cuanto la máquina tiene unos cuantos `node` sueltos —18 ese día frente a 13 cuando se generaron las anteriores—. La columna de puertos es lo que justifica la app. Ordenando por puerto la captura deja de depender del estado de la máquina |
 | 2026-07-25 | El build se lanza con `ProcessStartInfo`, no con `& npm` | **En PowerShell `$env:VAR = ""` borra la variable en vez de dejarla vacía.** Con la clave sin contraseña hay que pasar un `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` vacío; al desaparecer, Tauri decide preguntar por consola y el build **se cuelga indefinidamente sin dar error**. `ProcessStartInfo.Environment` sí admite el valor vacío, y de paso la clave no toca la sesión de quien ejecuta el script |
 
 ## 5. Decisiones pendientes
@@ -224,204 +189,46 @@ Dos cosas que cuestan una sesión si no se saben:
 5. `npm test` (frontend) y `cd src-tauri && cargo test` (backend) para comprobar que todo sigue en pie.
 6. Leer este archivo (estado y decisiones) y el [ROADMAP.md](ROADMAP.md) (siguiente checkbox pendiente).
 
-> **Cortar un release desde otro equipo no necesita ningún secreto.** Basta con `gh` autenticado y el entorno de compilación. Fue así hasta el 2026-07-25, dejó de serlo con la firma minisign, y volvió a serlo el 2026-07-26 al cambiar a verificación SHA-256 — que era buena parte del motivo del cambio.
+> **Cortar un release desde otro equipo no necesita ningún secreto**: basta con `gh` autenticado y el
+> entorno de compilación. Lo único que hay que saber es que **el `.sha256` del instalador NSIS no es
+> decorativo** —es lo que la app compara antes de ejecutar una actualización, y sin él se niega a
+> actualizarse a esa versión—. Qué garantiza ese hash y qué no, en el
+> [README](README.md#el-modelo-de-confianza-y-qué-no-cubre).
 
-### Lo único delicado de un release: el `.sha256`
+### Si el entorno de compilación falla: el toolset MSVC
 
-`release.ps1` genera el hash de cada instalador y lo publica como asset. **El del `-setup.exe` no es
-cortesía: es lo que la app compara antes de ejecutar una actualización.** Un release sin él hace que
-la app se niegue a actualizarse a esa versión — correcto, pero conviene saberlo.
+Pasó en este equipo y cuesta un rato averiguarlo. Visual Studio 18 Community estaba instalado con
+`cl.exe` y `link.exe`, pero **sin directorio `VC\include`** (cero headers de C) y solo con librerías
+`lib\onecore\`, sin las de escritorio `lib\x64`. Síntomas: `LNK1104: no se puede abrir el archivo
+'msvcrt.lib'` y, al forzar rutas OneCore a mano, `C1083: no se puede abrir el archivo incluir
+'excpt.h'`.
 
-Lo que ese hash **sí** garantiza: que el instalador descargado es byte a byte el que se publicó.
-Lo que **no**: quién lo publicó, porque viaja en el mismo release. Para eso haría falta un
-certificado de firma de código, que está en las decisiones pendientes.
+Se resuelve añadiendo el componente que falta, desde PowerShell **como administrador**:
+
+```powershell
+& "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify `
+  --installPath "C:\Program Files\Microsoft Visual Studio\18\Community" `
+  --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --passive --norestart
+```
+
+Comprobación rápida de que está sano: debe existir `…\VC\Tools\MSVC\<versión>\include\excpt.h`.
+
+> `vswhere.exe` de este equipo no reporta VS 18 (`-products *` devuelve vacío) aunque la instalación
+> sí esté registrada. No impidió compilar, pero puede confundir a herramientas que dependan de él.
 
 ## 7. Convenciones
 
-> Desde el 2026-07-25 estas convenciones viven también en [.claude/CLAUDE.md](.claude/CLAUDE.md), que es lo que lee un agente automáticamente. Al cambiar una, cambiarla en los dos sitios.
+**Están en [.claude/CLAUDE.md](.claude/CLAUDE.md), y solo ahí.**
 
-- Comandos Tauri en Rust: `snake_case` (`get_processes`, `kill_process`).
-- Los checkboxes del ROADMAP.md se marcan `[x]` **solo cuando la funcionalidad está probada** en `tauri dev`.
-- Toda decisión técnica que contradiga o precise el roadmap se anota en la tabla de la sección 4 con fecha.
-- Commits en español, imperativo: "Añade comando get_processes".
-- `src/types.ts` es el espejo de los tipos de Rust: al tocar un `struct` o una constante de `storage.rs`, se toca aquí (hay una prueba que lo comprueba).
+Desde el 2026-07-25 esta sección las repetía, con una nota que pedía «cambiarlas en los dos sitios».
+Eso es una promesa que nadie cumple: la lista de aquí ya se había quedado corta. `CLAUDE.md` es la
+fuente única porque es lo que se carga solo al abrir una sesión de agente — el sitio donde una
+convención sirve de algo es aquel donde se lee sin buscarla.
 
 ## 8. Registro de sesiones
 
-> Añadir una entrada por sesión de trabajo, la más reciente arriba.
+Vive en [docs/BITACORA.md](docs/BITACORA.md), una entrada por sesión y la más reciente arriba.
 
-### 2026-07-25 (noche) — Tier 6.4, 6.5 y 6.6: se cierra el ROADMAP
-
-- **Tier 6.4 — 98 pruebas de frontend** donde antes había cero, con Vitest + Testing Library en jsdom. La que más importa: *Escape cancela el diálogo destructivo sin confirmar*, verificada a mano en tres tiers y por fin fijada. También la búsqueda por puerto, la poda de la selección, el suelo de 256 MB y que se copia con el plugin de Tauri.
-  - `src/types.test.ts` **lee el fuente de Rust** y compara las constantes espejo. `types.ts` decía ser un espejo sin que nada lo obligara.
-  - **Fallo real encontrado:** los dos campos numéricos de Ajustes no tenían nombre accesible, solo `aria-describedby`. Se les añadió `aria-label`.
-  - Dos tropiezos, ambos anotados en `src/test/setup.ts`: las fábricas de `vi.mock` se izan por encima de los imports (de ahí `tauri-mock.ts` aparte), y `AnimatePresence` mantiene montada la fila que sale, así que sin doblar Motion las aserciones median la animación en vez del filtro.
-- **Tier 6.5 — auto-actualización** con `tauri-plugin-updater`, firma minisign y `latest.json` publicado por `release.ps1`. La comprobación del arranque va en silencio; descargar e instalar exige pulsarlo.
-  - **Corregida una afirmación falsa del README**: la sección de privacidad decía que la app no tiene concedido ningún permiso de red, enlazando al `capabilities/default.json` como prueba. Con el actualizador eso quedaba desmentido por el propio archivo que se citaba.
-  - El modelo de confianza se documenta con lo que **no** cubre: no sustituye a la firma de código, no protege una instalación manual, no alcanza a la v1.0.0 y depende de que la clave privada siga existiendo.
-- **Tier 6.6 — `.claude/CLAUDE.md` y `.mcp.json`.** El CLAUDE.md recoge las convenciones y, sobre todo, las cinco cosas que cuestan una sesión si no se saben (PowerShell y el UTF-8, CDP, `SendKeys`, los toast y BitBlt, una sesión por repositorio).
-  - **La suposición del roadmap sobre codegraph era incorrecta:** daba por hecho que el índice existía y solo faltaba conectarlo. `.codegraph/` contiene únicamente su `.gitignore`. El `.mcp.json` queda puesto, pero el índice hay que construirlo con `codegraph init`, y eso se deja al usuario.
-- Verificado antes de cortar: 98 pruebas de frontend, 22 de `cargo test`, `tsc` sin errores y `release.ps1` sin errores de sintaxis.
-
-### 2026-07-26 — Fuera minisign: el actualizador pasa a SHA-256, como FormatDiskPro
-
-- **Decisión del usuario, y bien tomada.** Tras dos días de fricción con la clave de firma —se filtró, hubo que rotarla, la regeneración falló por estar en el directorio equivocado, y el prompt de contraseña resultó impegable— se cambia al modelo que ya funciona en FormatDiskPro: **GitHub Releases + verificación SHA-256 antes de ejecutar**.
-  - El hash es **criptográficamente más débil**: no demuestra quién publicó el archivo, porque viaja en el mismo release. Está dicho tal cual en el README y en el propio `update.rs`.
-  - A cambio, el esquema entero cabe en la cabeza, no hay secretos que custodiar y **no puede dejar tirados a los usuarios instalados**. Un mecanismo que nadie consigue operar acaba desactivado, y ése es el fallo más caro de los dos.
-- **`src-tauri/src/update.rs`**, calcado de `UpdateService.cs`: consulta la API, elige el instalador NSIS y su `.sha256`, descarga con progreso, **verifica y solo entonces ejecuta**. Si el hash no cuadra, borra el archivo.
-- Fuera `tauri-plugin-updater` y `tauri-plugin-process`; dentro `reqwest` (rustls) y `sha2`. La red la usa **solo Rust**: el frontend no tiene ningún permiso que le deje salir a internet.
-- **13 pruebas nuevas de Rust** (35 en total) sobre la lógica pura, y 11 de frontend reescritas (101 en total). Las que más valen: que `is_newer` no diga que sí ante una etiqueta ilegible, y que un `.sha256` que no sea un hash de 64 hexadecimales se rechace en vez de compararse —un "404: Not Found" guardado como hash daría "no coincide", pero por el motivo equivocado—.
-- **`sha2` 0.11 no vale**: es una preliberación cuya API ya no implementa `io::Write` ni `LowerHex` sobre la salida. Se fija la 0.10.
-- **El `.sha256` deja de ser cortesía y pasa a ser el mecanismo.** Anotado en `release.ps1`: un release sin él hace que la app se niegue a actualizarse a esa versión.
-- La clave minisign queda borrada del disco: ya no hay nada que firmar ni que custodiar.
-- **Fallo latente que salió al probarlo:** el dry run murió en `cargo test` **con los 35 tests en verde**. `cargo` emite un aviso del enlazador por stderr y PS 5.1 lo convierte en `NativeCommandError` cuando la salida está capturada. El script documentaba ese peligro desde el primer día y tenía `Invoke-Git` para git, pero cargo y npm estaban desprotegidos; ahora hay `Invoke-Nativo`.
-  - ⚠️ El primer arreglo **no funcionaba**: pasar un scriptblock y bajar `$ErrorActionPreference` dentro de la función no sirve, porque un scriptblock se evalúa con las variables de preferencia del ámbito donde se **definió**, no donde se invoca. Hay que ejecutar el comando dentro de la función, como hace `Invoke-Git`.
-- **v1.1.1 publicada y verificada contra el release real**: 4 assets, la API responde 200, la elección de assets acierta el `-setup.exe` y su `.sha256` (no el del MSI), y el instalador descargado coincide con el hash publicado.
-- **Retiradas la v1.0.0 y la v1.1.0**, releases y tags, por decisión del usuario: **la v1.1.1 pasa a ser la primera versión pública**. Ninguna de las dos podía actualizarse sola —una sin actualizador, la otra con el de minisign ya inexistente—, así que dejarlas descargables solo habría servido para instalar algo condenado a quedarse atrás. Sus URLs devuelven 404; los commits siguen en el historial y las entradas de este registro se conservan como tal.
-
-### 2026-07-26 — Rotación de la clave de firma (histórico, ya superado)
-
-> Se conserva porque explica por qué se abandonó el esquema de firma, y porque la lección sobre volcar secretos a la consola sigue valiendo.
-
-- **La clave privada de la v1.1.0 quedó expuesta y hubo que rotarla.** El agente ejecutó `head -1` sobre el archivo creyendo que leería solo la línea de comentario; el archivo es **una sola línea de base64**, así que volcó el secreto entero a la conversación. Sin contraseña —como se había decidido el día anterior— tener el archivo es poder firmar.
-  - **Riesgo real, medido:** para empujar una actualización maliciosa hacía falta *además* poder publicar assets en el repo de GitHub, porque el endpoint va por HTTPS contra `github.com`. La clave sola no bastaba. Pero la firma existe justo para el caso en que los archivos de GitHub sí se manipulen, y esa capa dejó de valer.
-  - **Se rotó de inmediato** porque el coste crece con el tiempo: cada instalación lleva grabada la pública con la que nació, así que rotar obliga a reinstalar a mano. Con la v1.1.0 recién publicada, eso era casi nadie.
-- **La clave nueva lleva contraseña**, que es la lección: el esquema anterior confiaba todo a que el archivo no se filtrara, y se filtró. `release.ps1` la pide por consola sin eco y la valida firmando un archivo de prueba antes de compilar.
-- **Tres cosas que costaron encontrarse durante la rotación**, y que no eran lo que parecían:
-  - El primer intento de regenerar **no llegó a ejecutarse**: la terminal estaba en `C:\WINDOWS\system32` y `npm run` no encontró el `package.json`. El error de npm es de ruta, no de la clave, y despista.
-  - Aun así el archivo de la clave **había cambiado y contenía 500 bytes que no eran una clave válida** (no empezaba por el `untrusted comment:` que debe). Se detectó comparando el formato, no el tamaño.
-  - Y sobre todo: la **`.pub` conservaba la fecha vieja**. Comprobar eso fue lo que evitó escribir en `tauri.conf.json` la clave pública del par comprometido, que habría dejado a la app rechazando sus propias actualizaciones. Se verificó en un directorio temporal que `-f` sí regenera la pública, así que la causa era el intento fallido, no el flag.
-- **Regla nueva, en CLAUDE.md:** nunca volcar el archivo de la clave a la consola. Para identificarla está el `key id` de la **pública**, que no es secreto.
-
-### 2026-07-26 — v1.1.0 publicada, con dos tropiezos que casi la estropean
-
-- **v1.1.0 publicada** con 6 assets. El corte falló **dos veces** antes de salir, y las dos merecen quedar escritas porque ninguna daba un error claro:
-  - **`createUpdaterArtifacts` viene a `false` de fábrica.** Con el plugin configurado y la clave en el entorno, `tauri build` compiló los dos instaladores **sin firmar y sin quejarse**. Lo cazó la comprobación de `release.ps1` («si no aparece el `.sig`, para»), con el release ya a medio camino. Sin esa guardia se habría publicado un `latest.json` cuya firma no existía, y no se habría notado hasta que alguien intentara actualizarse.
-  - **En PowerShell, `$env:VAR = ""` borra la variable.** No la deja vacía: la elimina, porque `SetEnvironmentVariable` trata la cadena vacía como `$null`. Como la clave se generó sin contraseña, Tauri necesitaba un `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` vacío; al desaparecer, el CLI decidió preguntar por consola y **el build se quedó colgado indefinidamente**, sin error y sin salir. Se arregla lanzando el build con `ProcessStartInfo.Environment`, que sí admite el valor vacío; de paso la clave ya no toca la sesión de quien ejecuta el script.
-- Antes de reintentar se **borró a mano el `.sig`** creado durante el diagnóstico: dejarlo habría hecho pasar la comprobación sobre un artefacto viejo, que es una verificación falsa.
-- **Verificación posterior a la publicación** (detalle en ROADMAP §Tier 6.5): endpoint 200 con la versión correcta, URL del instalador 200 con el tamaño exacto, las tres copias de la firma idénticas, el `key id` de la firma igual al de la clave pública compilada en el binario, y la app en ejecución contestando «Ya tienes la última versión».
-- Para esa última prueba se abrió el puerto de depuración en `tauri.conf.json`, y se restauró después **cerrando antes la app**: al revés, Tauri detecta el cambio y la reinicia en mitad de la limpieza. `git status` quedó limpio.
-
-### 2026-07-25 — Tier 6.3: README de producto, capturas y FUNDING
-
-- **README reescrito de 5 a 12 secciones**: el problema que resuelve (con el `EADDRINUSE` delante), qué hace, capturas, descarga e instalación, SmartScreen, verificación del `.sha256` —diciendo también qué **no** protege—, privacidad, arquitectura con diagrama Mermaid, stack, desarrollo, estructura, estado y licencia.
-- **`tools/capture-screenshots.ps1`**: lanza `tauri dev` con el puerto de depuración, conduce la ventana por CDP y guarda cuatro PNG en `docs/screenshots/`. Toca `tauri.conf.json` para abrir el puerto y restaura los bytes originales en el `finally`; **cierra la app antes de restaurar**, porque si no Tauri detecta el cambio y reinicia la app en mitad de la limpieza.
-- El script levanta dos servidores Node de verdad (3000, y 8080 con carga) para que la columna de puertos y las barras de CPU enseñen algo, y los cierra al acabar. También devuelve el tema a como estaba: cambiarlo es un ajuste del usuario, no un efecto secundario aceptable.
-- Cuatro tropiezos que costaron sus vueltas, todos anotados en el propio script:
-  - `Emulation.setDeviceMetricsOverride` **no encoge** el viewport si ya había uno más alto: la captura en claro salió con el alto de la de Ajustes. Se limpia el override antes de fijar el nuevo y la única captura alta va la última.
-  - `Start-Process` une los argumentos con espacios y **no entrecomilla nada**: el `node -e "…const t=…"` llegaba partido por el primer espacio y moría con *Unexpected end of input*.
-  - `.GetAwaiter().GetResult()` sobre un `Task` no genérico **emite un `VoidTaskResult`**: `return $ws` devolvía un array de dos elementos y el `SendAsync` fallaba con un error incomprensible.
-  - Para el clic derecho se usan eventos de ratón de CDP, pero para pulsar botones se usa `element.click()`: React responde igual y no hay que acertarle a un botón que puede estar fuera del área visible, que es el fallo de la sesión anterior.
-- **`.github/FUNDING.yml`** con el mismo destino que FormatDiskPro.
-- Verificado: 22 pruebas de `cargo test` en verde, la app queda como estaba (`tauri.conf.json` sin tocar según `git status`, `settings.json` con `"theme": "system"`) y no sobrevive ningún proceso del script.
-- **Detalle que faltaba del Tier 6.2:** el remoto local de esta carpeta seguía apuntando a la URL vieja. Queda anotado en §3 con el comando; el intento de cambiarlo desde la sesión lo bloqueó el clasificador de permisos.
-
-### 2026-07-24 (noche) — Tier 6.1: licencia GPL-3.0 y avisos de terceros
-
-- **GPL-3.0** elegida por el usuario, la misma que FormatDiskPro. `LICENSE` en la raíz, `license = "GPL-3.0-only"` en `package.json` y `Cargo.toml`, y sección de licencia en el README.
-- `THIRD-PARTY-NOTICES.txt` con lo que el instalador **empaqueta**, no con todo `node_modules`: las herramientas de compilación no viajan dentro del binario y meterlas solo habría inflado el archivo.
-- Dos cosas que salieron al reunir los datos y que no se sabían:
-  - La tipografía **Geist va embebida** en la app y su **OFL-1.1 obliga** a distribuir el aviso de copyright con ella. Es la única dependencia con una obligación que no se cumple sola.
-  - De los **515 crates** del árbol, **5 son MPL-2.0**. Es compatible con GPLv3 y su copyleft es por archivo; se usan sin modificar, así que no arrastran nada. Ninguna licencia del árbol es incompatible con la GPLv3, y como Apache-2.0 solo es compatible con la **v3** (no con la v2), la elección queda confirmada.
-- **Los avisos viajan ya dentro del instalador**: `LICENSE` y `THIRD-PARTY-NOTICES.txt` como `bundle.resources`, más una sección **Acerca de** en Ajustes que los abre y enlaza al repositorio. Dos cosas que costaron encontrarlas:
-  - La licencia se empaqueta renombrada a **`LICENSE.txt`**. Sin extensión, Windows no tiene asociación y pulsar el botón no hacía nada visible; el formato de mapa de `resources` permite renombrar al copiar, y el repositorio conserva `LICENSE` como espera GitHub.
-  - **`opener:default` no incluye `open_path`**, solo `open_url`. Se concede aparte y con ámbito acotado a esos dos archivos.
-- Aviso para verificar por CDP: la sección quedaba **por debajo del área visible** y los clics sintéticos no llegaban al botón. Hay que hacer `scrollIntoView` antes de calcular las coordenadas; si no, parece que la app no responde cuando el problema es la prueba.
-
-### 2026-07-24 (noche) — Tier 5.6: v1.0.0 publicada, y Tier 6 abierto
-
-- **`release.ps1` reescrito para este proyecto.** Se conserva del de FormatDiskPro lo que valía —`Invoke-Git` con su lección del `NativeCommandError`, validación de tags, rechazo de archivos sin rastrear, `-DryRun`, reutilización de la credencial de `gh`— y se cambia lo propio de Tauri: bump en los **tres** sitios más `cargo check` para que `Cargo.lock` no ensucie el árbol, `cargo test` + `npm run build` en vez de `dotnet test`, `npm run tauri build` en lugar del `build-installer.ps1` y los `.sha256` generados por el propio script. Fuera el bloque de `-UiTests`, la elevación y la USB.
-- Corregido el texto heredado: aquí el `.sha256` es **cortesía**, no un requisito, porque no hay auto-actualización que lo verifique.
-- **v1.0.0 publicada** (0.1.0 → 1.0.0: primera versión pública de una app completa y verificada en Windows). Commit `073209b`, tag `v1.0.0`, cuatro assets.
-- Tres tropiezos, todos de PowerShell 5.1, anotados en el propio script: escapar comillas con `\"` cierra la cadena; las comillas tipográficas `“ ”` **también** las trata como delimitador; y un `.ps1` sin BOM se lee como ANSI, pero añadir el BOM dos veces deja un `U+FEFF` suelto que rompe el parser.
-- **Tier 6 creado** tras comparar el repo con FormatDiskPro. Lo que falta, por orden: licencia y avisos de terceros (bloqueante), renombrar el repositorio, README de producto con capturas, pruebas del frontend, auto-actualización y herramientas del repo.
-
-### 2026-07-24 (noche) — Tier 5.5: instaladores
-
-- Metadatos de paquete en `tauri.conf.json` (`publisher`, `copyright`, `category`, descripciones) y autor real en `Cargo.toml`: **Ricky Angel Jiménez Bueno**. Sin esto el instalador sale sin autor.
-- NSIS en modo `currentUser`: instala en `%LOCALAPPDATA%\ProcessDevKill` sin UAC. `npm run tauri build` produce el `.exe` de NSIS (2,44 MB) y el `.msi` de WiX (3,54 MB).
-- Instalada y probada de verdad: arranca con su icono, lista procesos y responde.
-- **Cerrada la salvedad del atajo global** pulsándolo de verdad (ver §3). El detalle que costó descubrirlo: `SendKeys` no dispara un atajo de `RegisterHotKey`, hace falta `keybd_event`.
-- **Cerrada también la salvedad de las notificaciones**: el toast se ve, con icono y texto correctos. Antes se concluyó en falso que no salía, por comprobarlo con capturas por código; BitBlt no recoge los toast (ver §3).
-- Aviso para futuras sesiones: **no reescribir estos `.md` con PowerShell 5.1**. `Get-Content -Raw` los lee con la página de códigos ANSI y, al guardarlos como UTF-8, deja todos los acentos y emojis destrozados. Pasó en esta sesión y hubo que revertir el doble encoding a mano. Para editarlos, herramientas que respeten UTF-8.
-- La app quedó **instalada** en el equipo. Para quitarla: *Configuración → Aplicaciones → ProcessDevKill*, o el `uninstall.exe` de `%LOCALAPPDATA%\ProcessDevKill`.
-
-### 2026-07-24 (noche) — Tier 5.4: Zombie Finder
-
-- `ZombieWatch` en `processes.rs` recuerda desde cuándo lleva cada PID sin consumir CPU. Era lo que le faltaba a la app: cada `collect_processes` es una foto sin pasado.
-- Un proceso es zombi si lleva parado los minutos configurados **y además ocupa un puerto**. Sin la segunda condición la función no sirve: en la máquina de pruebas, 7 de 10 procesos `node` marcan 0 % de CPU estando perfectamente sanos.
-- `ProcessInfo` gana `idleSecs` y `zombie`; la regla la decide Rust y la UI solo la pinta (fila en ámbar + insignia con el tiempo y el puerto en el `title`).
-- `read_list` unifica lectura y marcado, así que el refresco manual, el hilo y el evento posterior a un cierre pintan lo mismo.
-- Seis tests nuevos (22 en total). Uno de ellos cazó un fallo real: `track` no limpiaba la marca anterior, de modo que un proceso que volvía a trabajar seguiría resaltado si la lista se reutilizaba. La marca es un dato calculado, no acumulado.
-- Verificado en vivo el ciclo entero, con el umbral en 1 minuto: se marca al cumplirlo, un proceso ocupado al 9,4 % nunca se marca, y al darle 65 000 peticiones al servidor parado pierde la marca en el refresco siguiente. Detalle en ROADMAP §Tier 5.4.
-
-### 2026-07-24 (noche) — Tier 5.4: Auto-Kill por umbral de RAM
-
-- Ajustes nuevos `autoKillEnabled` (false de fábrica) y `autoKillMb` (2048), con sección propia en Ajustes: interruptor, campo de MB y la advertencia de que cierra sin preguntar.
-- La vigilancia vive en el hilo que ya emitía `processes-updated`: `watch_cycle` lee la lista una vez, deja actuar al Auto-Kill y publica. Con el refresco en "Off" se sigue vigilando cada 2 s sin publicar nada.
-- Todo cierre automático pasa por `kill_and_record` con el origen nuevo `KillSource::Auto`, así que registra historial y refresca la UI como el resto. La notificación la compone el Auto-Kill (motivo, MB y puertos liberados) y por eso se calla la de puertos, que si no saldrían dos seguidas.
-- Tres tests nuevos (16 en total): el criterio del umbral con números exactos, el suelo de 256 MB y el formato de memoria de la notificación, que debe coincidir con el de la tabla.
-- Verificado con procesos `node` de mentira de 600 MB creados a propósito: mueren solos, los 7 `node` reales de la máquina no se tocan, el puerto se libera y el historial lo marca como Auto-Kill. Detalle en ROADMAP §Tier 5.4.
-- Un fallo de diseño detectado al probarlo: el campo del umbral estaba deshabilitado hasta encender el interruptor, lo que obligaba a armar el Auto-Kill con el valor por defecto para poder cambiarlo. Ahora es editable siempre.
-- Falsa alarma que conviene no repetir: los interruptores parecían no moverse al encenderse. Tailwind v4 usa la propiedad CSS `translate`, no `transform`; medido en el DOM, el pulsador pasa de 1 px a 15 px y cambia de color.
-
-### 2026-07-24 (tarde) — Cierre del Tier 5.1-5.3: segunda verificación y pulido
-
-> Sesión de repaso: dos sesiones de Claude Code trabajaron el mismo tier a la vez sobre este repo y se pisaron los archivos. Quedó una sola y esta entrada recoge lo que se comprobó y arregló después. **Lección: una sesión por repositorio**; dos agentes editando en paralelo se sobrescriben sin darse cuenta y el `tauri dev` de uno reinicia la app que el otro está inspeccionando.
-
-- **Verificación repetida desde cero** sobre la app recién compilada, porque los componentes se habían tocado después de la primera pasada. Detalle en ROADMAP §Tier 5.7. Lo que más importa: Escape sigue cancelando el diálogo destructivo sin matar nada, y confirmar mata de verdad, libera el puerto, avisa con el toast y lo registra en el historial.
-- **La bandeja ya usa `pids_of_runtime`.** Repetía el filtro por su cuenta, así que la función —y el test que la cubre— no protegían realmente al menú de la bandeja, que es el camino que mata procesos sin ventana delante. Ahora el test vale para lo que dice que vale.
-- **Textos en singular.** Cerrar un solo proceso decía "Se terminaran los 1 procesos seleccionados".
-- **`Checkbox` de shadcn** en la tabla: la casilla nativa era un cuadrado blanco macizo sobre el tema oscuro.
-- `cargo build` queda sin avisos de código muerto (`BUILT_INS` es de test, y `Runtime` solo lo usaba el módulo de tests de `lib.rs`).
-- Retirado de `tauri.conf.json` el `additionalBrowserArgs` con el puerto 9222 que hacía falta para inspeccionar la UI.
-
-### 2026-07-24 — Tier 5 (puntos 1-3): nombre, tema, shadcn/ui e icono
-- **La app pasa a llamarse ProcessDevKill.** Cambiados `productName`, título de ventana, menú y tooltip de la bandeja, título de la notificación, crate de Rust (`processdevkill_lib`), paquete npm e identificador (`com.processdevkill.app`). Los ajustes viven ahora en `%APPDATA%\com.processdevkill.app\`.
-- **Tema claro/oscuro** con las variables de shadcn, pero con paleta propia para conservar el azul oscuro de los tiers anteriores. Selector Sistema/Claro/Oscuro en Ajustes, persistido en `settings.json`; `src/theme.tsx` aplica la clase `dark` y escucha `prefers-color-scheme` cuando el modo es "Sistema".
-- **shadcn/ui** inicializado (estilo `base-nova`, sobre **Base UI**, no Radix). El diálogo de confirmación pasa a `AlertDialog`, cada fila tiene `ContextMenu` y los avisos van por **Sonner**. Se reescribió `sonner.tsx` para no depender de `next-themes`.
-- **Portapapeles:** el menú contextual copia PID, nombre, puertos y `http://localhost:PUERTO`. Se descubrió al probarlo que `navigator.clipboard.writeText` falla con `NotAllowedError: Document is not focused`, así que se añadió `tauri-plugin-clipboard-manager` (solo permiso de escritura).
-- **Icono propio** desde `app-icon.svg`. Dos tropiezos: un degradado no pinta sobre una línea de ancho cero (hay que usar `gradientUnits="userSpaceOnUse"`), y el adorno `>` que llevaba la primera versión era un borrón a 16 px.
-- Dos ajustes de estética salidos de mirar la captura: las tres pestañas del sidebar no cabían en 208 px y "Ajustes" se salía por el borde; y el rojo del `variant="destructive"` de shadcn es demasiado tenue para el botón que cierra toda la lista.
-- Verificado sobre la app en ejecución (ver ROADMAP §Tier 5.7): tema en los dos sentidos y persistido en disco, menú contextual con sus cinco opciones, copia real al portapapeles de Windows (`Get-Clipboard` lo confirma) y **Escape sigue cancelando el diálogo sin matar ningún proceso**.
-- 13 tests de `cargo test` (antes 12): el nuevo fija que un `settings.json` de una versión anterior, sin el campo `theme`, se sigue leyendo en vez de descartarse entero.
-
-### 2026-07-23 (noche) — Tier 4 completo
-- `lib.rs` dividido en cuatro módulos antes de crecer más; los tests subieron de 7 a 12 al poder probar cada pieza por separado.
-- Persistencia propia en `%APPDATA%\com.processvisor.app\{settings,history}.json`. Un JSON corrupto degrada a valores por defecto en vez de impedir el arranque, con test que lo cubre.
-- Vistas nuevas de Historial y Ajustes, con navegación en el sidebar.
-- El frontend ya no hace polling: Rust emite `processes-updated` desde un hilo propio.
-- Atajo `Ctrl+Alt+K` con interruptor en Ajustes. Verificado por registro/liberación, sin dispararlo (habría matado los procesos reales del equipo).
-
-### 2026-07-23 (noche) — Tier 3 completo
-- Puertos por PID con el crate `listeners` 0.6, filtrando TCP en escucha y deduplicando IPv4/IPv6. Columna "Puerto" en la tabla y búsqueda por número de puerto.
-- Notificaciones nativas desde Rust al liberar puertos; plugin registrado y permiso `notification:default` añadido.
-- System tray con menú (Mostrar / Cerrar todos los Node·Python·.NET / Salir), clic izquierdo restaura la ventana, y cerrar la ventana la esconde en la bandeja.
-- Verificado que la detección de puertos distingue escucha de conexión saliente, y que `WM_CLOSE` esconde la app sin matarla.
-- Dos tests nuevos: puertos sobre sockets reales y selección de PIDs por runtime (la del menú de la bandeja, que si se equivoca mata procesos sin ventana abierta para verlo).
-
-### 2026-07-23 (noche) — Tier 2 completo
-- Backend: comando `kill_processes` para lotes, con resultado por PID.
-- Frontend: iconos SVG por runtime, barras de CPU/RAM, animaciones de salida con Motion, auto-refresco conmutable (Off/2s/5s), buscador por nombre o PID, selección múltiple y "Nuke All" con diálogo de confirmación.
-- Código repartido en `src/icons.tsx`, `src/components/{UsageBar,ConfirmDialog,ProcessTable}.tsx` y `src/types.ts` (helpers de formato compartidos).
-- Verificado end-to-end vía CDP, incluida la parte que más importa: **Escape cancela el diálogo sin matar nada**, y confirmar sí mata los procesos de verdad.
-
-### 2026-07-23 (tarde) — Tier 1 desbloqueado, verificado y con un bug corregido
-- Reparado el toolset MSVC añadiendo el componente de C++ (ver §3). `cargo` ya compila.
-- **Bug encontrado y corregido: todos los procesos reportaban 0 % de CPU.** Los tests iniciales no lo cazaron porque los procesos de la máquina estaban ociosos y 0 % parecía plausible; se descubrió al lanzar un proceso `node` quemando un núcleo a propósito. Causa: `System::new()` deja vacía la lista de CPUs y sysinfo multiplica por `cpus.len()`. Añadido `reporta_cpu_de_un_proceso_ocupado` como test de regresión.
-- Descubierto además que sysinfo necesita **tres** muestras para dar un porcentaje real; el calentamiento pasó de una a dos muestras previas.
-- Añadidos tests de lectura del sistema real y del contrato JSON con `src/types.ts`. Total: 5 tests en verde.
-- Verificación end-to-end sobre la app en ejecución, inspeccionando el DOM real vía CDP: la tabla lista 13 procesos `node` con datos correctos y el botón "Kill" mata un proceso de verdad.
-
-### 2026-07-23 — Tier 1 implementado, bloqueado en compilación
-- Instalado Rust 1.97.1 vía `rustup` (no estaba en el equipo).
-- Proyecto creado con `create-tauri-app` (React + TS + Vite), renombrado a ProcessVisor (nombre provisional; en el Tier 5 pasó a ProcessDevKill), y Tailwind v4 configurado. `npm run build` pasa.
-- Backend `src-tauri/src/lib.rs`: comandos `get_processes` y `kill_process` con `sysinfo` 0.39, más dos tests de la función `classify`.
-- Frontend `src/App.tsx`: sidebar con filtros por runtime, botón de refresco y tabla con nombre, PID, CPU, RAM, tiempo activo y botón Kill.
-- `git init` + primer commit.
-- **La API de `sysinfo` que devolvió la documentación indexada era incorrecta** (mostraba `System::new_all()` devolviendo `Result`). Se verificó contra el código fuente real del crate en `~/.cargo/registry`. Conviene repetir esa comprobación en futuras actualizaciones del crate.
-- 🚧 Bloqueado: el toolset MSVC del equipo está incompleto y `cargo` no enlaza. Ver §3.
-
-### 2026-07-23 — Planificación inicial
-- Se revisó y verificó técnicamente la idea original del roadmap (correcciones: Tailwind v4, Motion, crate para puertos, estrategia de CI).
-- Se crearon `ROADMAP.md` (plan verificado) y `CONTEXT.md` (este documento).
+Se separó de aquí el 2026-07-27: eran 180 líneas —más que el resto de este archivo— creciendo por
+sesión dentro del documento que uno abre para saber en qué punto está el proyecto. **Es historia, no
+estado.** Lo que sigue vigente está en las secciones de arriba; lo que narra cómo se llegó ahí, allí.
