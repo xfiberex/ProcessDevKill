@@ -8,6 +8,39 @@
 
 ---
 
+### 2026-07-27/28 — Tier 7 entero, y la v1.2.0 publicada
+
+- **Revisión completa del repositorio** sobre la v1.1.1 publicada (código, seguridad, rendimiento,
+  estructura, accesibilidad, responsividad, ortografía y documentación), de la que sale el Tier 7.
+  Se cerró entero: 7.1 a 7.9.
+- **Un fallo de seguridad real**: la guardia de `install_update` se saltaba con un `..`, porque
+  `Path::starts_with` compara componentes literales y no normaliza. Comprobado antes de tocar nada.
+- **Dos fallos que encontró el usuario usando la app**: cerrar la ventana la escondía siempre en la
+  bandeja, y relanzarla abría otra instancia. Se retroalimentaban — llegó a haber cuatro iconos de
+  bandeja a la vez.
+- `lib.rs` volvió a partirse (860 → 635 líneas) en `auto_kill`, `notify` y `poller`, y los comandos
+  del actualizador se fueron a `update.rs`.
+- **Documentación compactada**: el registro de sesiones salió a este archivo y CONTEXT.md bajó de 427
+  líneas a 220. Una de las filas podadas afirmaba que se descartaba el modelo SHA-256 del
+  actualizador — decisión revertida el 2026-07-26, o sea que describía como descartado justo lo que
+  hoy se usa.
+- Producto: **ordenación por columna**, estado vacío que orienta, `minWidth` de 720 a 900 px (medido:
+  a 720 la tabla escondía un 26 %), y **sidebar vertical con «Procesos» plegable**, a petición del
+  usuario.
+- **Tres veces se leyó como fallo de la app algo que era del guion de pruebas**: usar la columna
+  "Activo" como latido cuando `formatUptime` da minutos, mandar `WM_CLOSE` antes de que la app
+  terminara de arrancar, y verificar sobre un binario de `cargo build --release`, que no embebe
+  `dist/` y arranca apuntando al `devUrl`. Mirar qué pinta la ventana antes de creerse nada.
+- **La sugerencia del IDE sobre `tsconfig.json` rompía el build.** Añadir `"ignoreDeprecations":
+  "6.0"` es válido en TS 6+, pero aquí se compila con 5.8.3: `error TS5103`, salida 2, y como
+  `npm run build` es `tsc && vite build`, dejaba a `release.ps1` sin poder cortar. Se quitó `baseUrl`,
+  que era lo que el aviso pedía silenciar.
+- **v1.2.0 publicada** con `release.ps1`. Verificado tras publicar que el instalador descargado del
+  release coincide con su `.sha256`. Minor y no patch: funciones nuevas y dos cambios de
+  comportamiento.
+- Balance de pruebas: **101 → 147** de frontend y **35 → 44** de `cargo test`.
+
+
 ### 2026-07-25 (noche) — Tier 6.4, 6.5 y 6.6: se cierra el ROADMAP
 
 - **Tier 6.4 — 98 pruebas de frontend** donde antes había cero, con Vitest + Testing Library en jsdom. La que más importa: *Escape cancela el diálogo destructivo sin confirmar*, verificada a mano en tres tiers y por fin fijada. También la búsqueda por puerto, la poda de la selección, el suelo de 256 MB y que se copia con el plugin de Tauri.

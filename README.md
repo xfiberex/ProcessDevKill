@@ -269,9 +269,9 @@ constantes espejo, para que el contrato entre los dos lados no se desincronice e
 
 ## Estado
 
-La **v1.1.1 es la primera versión pública**: las anteriores se retiraron porque su mecanismo de
-actualización ya no existía, y dejarlas descargables solo habría servido para instalar algo que no
-podía actualizarse.
+La versión actual es la **v1.2.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
+instalar algo que no podía actualizarse.
 
 Lo que todavía **no** hay, por si importa antes de instalarla: **firma de código** (de ahí el aviso
 de SmartScreen) y compilaciones para **macOS o Linux**. El plan está en el [ROADMAP](ROADMAP.md).

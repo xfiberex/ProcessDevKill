@@ -307,9 +307,12 @@ fallo de funcionamiento: la app hace lo que promete. Era lo que se rompe o estor
 `cargo test`** (antes 35). Lo único con consecuencias de seguridad —la guardia de rutas de
 `install_update`, que se saltaba con un `..`— se arregló en el 7.1.
 
-> ⚠️ **Nada de esto está publicado todavía.** El release vigente sigue siendo la v1.1.1, que no lleva
-> ni el CSP, ni el cierre de ventana configurable, ni la instancia única, ni la ordenación. Hace
-> falta cortar una versión nueva con `.\release.ps1 -Version X.Y.Z`.
+> ✅ **Publicado en la [v1.2.0](https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.2.0)**
+> (2026-07-28). Minor y no patch: trae funciones nuevas —ordenación, sidebar plegable, estado vacío,
+> `closeToTray`, instancia única— y **dos cambios de comportamiento** que van avisados en las notas
+> del release: la X ahora cierra la app, y la ventana no baja de 900 px.
+> Verificado tras publicar: 4 assets, la API devuelve `tag_name: v1.2.0`, y el instalador descargado
+> del release coincide con su `.sha256` publicado.
 
 ### 1. Seguridad — ✅ **completado y verificado**
 

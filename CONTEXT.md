@@ -39,9 +39,13 @@ compactación de los documentos y los tres puntos de producto.
 Nada de lo que recogía esa revisión era un fallo de funcionamiento —la app hace lo que promete—
 **salvo la guardia de rutas de `install_update`**, que se saltaba con un `..`; arreglada en el 7.1.
 
-**Publicado:** v1.1.1, la primera versión pública. 4 assets: instaladores NSIS y MSI con sus
-`.sha256`. Sin firma de código, así que SmartScreen sigue avisando. **Lo hecho en el Tier 7 todavía
-no está publicado**: hace falta cortar una versión nueva.
+**Publicado:** **v1.2.0** (2026-07-28), con todo el Tier 7 dentro. 4 assets: instaladores NSIS y MSI
+con sus `.sha256`. Sin firma de código, así que SmartScreen sigue avisando. La primera versión
+pública fue la v1.1.1.
+
+> Verificado tras publicar: los 4 assets están en el release, la API que consulta la app devuelve
+> `tag_name: v1.2.0`, y **el instalador descargado del release coincide con el `.sha256` publicado**
+> (`427c41be…`) — la cadena entera que recorre la auto-actualización, sobre los archivos reales.
 
 **Pruebas:** 147 de frontend (Vitest + Testing Library, en jsdom) y 44 de `cargo test`.
 
@@ -61,10 +65,14 @@ El detalle de cada verificación, con su fecha y lo que costó, está en [ROADMA
 al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 
 > ⚠️ **La única salvedad que sigue abierta: el último paso de la auto-actualización**, lanzar el
-> instalador para que reemplace la app. Necesita un release posterior al actual. Todo lo anterior sí
-> se verificó contra la v1.1.1 publicada: la API responde 200, la elección de assets acierta el
-> `-setup.exe` y su `.sha256` (no el del MSI), y el instalador descargado coincide con el hash
-> publicado.
+> instalador para que reemplace la app. Todo lo anterior está verificado contra los releases
+> publicados: la API responde 200, la elección de assets acierta el `-setup.exe` y su `.sha256` (no
+> el del MSI), y el instalador descargado coincide con el hash publicado.
+>
+> **Desde el 2026-07-28 ya se puede cerrar**, y hasta ahora no se podía: hacía falta un release
+> posterior al instalado. Con la v1.2.0 en la calle, basta instalar la **v1.1.1**, abrirla y dejar
+> que se actualice sola desde *Ajustes → Actualizaciones*. Es lo único del actualizador que nunca ha
+> corrido de principio a fin.
 
 
 ## 4. Decisiones tomadas
