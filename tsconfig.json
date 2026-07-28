@@ -8,8 +8,12 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
+    // Sin `baseUrl`: desde TS 4.1 los `paths` se resuelven contra la carpeta de
+    // este archivo, que es justo lo que queremos. `baseUrl` esta deprecado y deja
+    // de funcionar en TS 7; silenciarlo con `ignoreDeprecations` no valdria, porque
+    // ese valor solo lo acepta TS 6+ y aqui se compila con 5.8.
+    // El mismo alias vive tambien en vite.config.ts: uno resuelve tipos, el otro el
+    // bundle. Si falta en uno de los dos, falla el otro.
     "paths": {
       "@/*": ["./src/*"]
     },
