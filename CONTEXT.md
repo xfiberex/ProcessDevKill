@@ -39,17 +39,15 @@ compactación de los documentos y los tres puntos de producto.
 Nada de lo que recogía esa revisión era un fallo de funcionamiento —la app hace lo que promete—
 **salvo la guardia de rutas de `install_update`**, que se saltaba con un `..`; arreglada en el 7.1.
 
-**Publicado:** **v1.2.0** (2026-07-28), con todo el Tier 7 dentro. 4 assets: instaladores NSIS y MSI
-con sus `.sha256`. Sin firma de código, así que SmartScreen sigue avisando. La primera versión
-pública fue la v1.1.1.
+**Publicado:** **v1.3.0** (2026-08-07), con el Tier 8 dentro —el **medidor del entorno** en el
+sidebar—. 4 assets: instaladores NSIS y MSI con sus `.sha256`. Sin firma de código, así que
+SmartScreen sigue avisando. La primera versión pública fue la v1.1.1, y la anterior la v1.2.0
+(2026-07-28), que traía todo el Tier 7.
 
-> Verificado tras publicar: los 4 assets están en el release, la API que consulta la app devuelve
-> `tag_name: v1.2.0`, y **el instalador descargado del release coincide con el `.sha256` publicado**
-> (`427c41be…`) — la cadena entera que recorre la auto-actualización, sobre los archivos reales.
-
-**Después de la v1.2.0** entró el **medidor del entorno** en el sidebar (2026-08-07), sin publicar
-todavía: cuánta CPU y cuánta RAM del equipo se lleva el conjunto de procesos vigilados. Verificado en
-vivo sobre el binario de release; ver el Tier 8 de [ROADMAP.md](ROADMAP.md).
+> Verificado tras publicar, en las tres versiones con el mismo criterio: los 4 assets están en el
+> release, la API que consulta la app devuelve el `tag_name` correcto, y **el instalador descargado
+> del release coincide con el `.sha256` publicado** — la cadena entera que recorre la
+> auto-actualización, sobre los archivos reales. Para la v1.3.0, `0050ae80…`.
 
 **Pruebas:** 160 de frontend (Vitest + Testing Library, en jsdom) y 48 de `cargo test`.
 

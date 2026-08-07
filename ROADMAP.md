@@ -858,6 +858,12 @@ dependían.
 ## 📊 Tier 8: El medidor del entorno — ✅ **completado y verificado**
 *Objetivo: decir cuánto del equipo se está comiendo tu entorno de desarrollo.*
 
+> ✅ **Publicado en la [v1.3.0](https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.3.0)**
+> (2026-08-07). Minor y no patch: añade una función visible y **no cambia ningún comportamiento**,
+> al contrario que la v1.2.0. Verificado tras publicar: 4 assets, la API devuelve
+> `tag_name: v1.3.0`, y el instalador descargado del release coincide con su `.sha256`
+> (`0050ae80…`).
+
 Lo pidió el usuario el 2026-08-07 sobre el hueco vacío que deja el sidebar entre «Ajustes» y el
 auto-refresco. De las dos formas posibles se eligió la segunda:
 

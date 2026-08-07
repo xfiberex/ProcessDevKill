@@ -33,6 +33,9 @@
   una línea. Corregido a tres líneas por métrica, con «Equipo» nombrado y la instalada a la vista.
 - 160 pruebas de frontend (antes 147) y 48 de `cargo test` (antes 44), más la verificación en vivo
   sobre el binario de release por CDP.
+- **v1.3.0 publicada** con `release.ps1` (dry run antes, como siempre). Minor y no patch: función
+  nueva y ningún cambio de comportamiento. Verificado tras publicar que el instalador descargado del
+  release coincide con su `.sha256` (`0050ae80…`).
 
 ---
 
