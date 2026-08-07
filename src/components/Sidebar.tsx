@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { ChevronRightIcon, HistoryIcon, ListIcon, SettingsIcon } from "lucide-react";
 import { REFRESH_INTERVALS, RUNTIMES } from "../types";
-import type { ProcessInfo, Runtime } from "../types";
+import type { ProcessInfo, Runtime, SystemUsage } from "../types";
 import { RUNTIME_ICONS } from "../icons";
+import { UsageMeter } from "./UsageMeter";
 import { Button } from "@/components/ui/button";
 
 /** Las tres vistas de la app. Excluyentes: solo se pinta una a la vez. */
@@ -27,6 +28,8 @@ type SidebarProps = {
   processes: ProcessInfo[];
   refreshMs: number;
   onRefreshMsChange: (ms: number) => void;
+  /** Ultima medida que empujo Rust, o `null` si todavia no ha llegado ninguna. */
+  usage: SystemUsage | null;
 };
 
 export function Sidebar({
@@ -37,6 +40,7 @@ export function Sidebar({
   processes,
   refreshMs,
   onRefreshMsChange,
+  usage,
 }: SidebarProps) {
   /**
    * Si los filtros estan desplegados bajo "Procesos".
@@ -128,7 +132,13 @@ export function Sidebar({
         />
       </nav>
 
-      <div className="mt-auto border-t border-sidebar-border p-3">
+      {/* Abajo del todo, pegado al auto-refresco: los dos hablan del pulso de la
+          app, y el medidor depende de que ese pulso este encendido. */}
+      <div className="mt-auto">
+        <UsageMeter usage={usage} pausado={refreshMs === 0} />
+      </div>
+
+      <div className="border-t border-sidebar-border p-3">
         <p className="mb-2 text-xs text-muted-foreground">Auto-refresco</p>
         <div className="flex gap-1">
           {REFRESH_INTERVALS.map(({ label, ms }) => (

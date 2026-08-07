@@ -3,8 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { toast } from "sonner";
-import { PROCESSES_UPDATED } from "./types";
-import type { HistoryEntry, KillOutcome, ProcessInfo, Settings } from "./types";
+import { PROCESSES_UPDATED, SYSTEM_USAGE } from "./types";
+import type {
+  HistoryEntry,
+  KillOutcome,
+  ProcessInfo,
+  Settings,
+  SystemUsage,
+} from "./types";
 import { ThemeProvider } from "./theme";
 import { DEFAULT_SORT, FIRST_DIR, sortProcesses } from "./lib/sort";
 import type { SortKey } from "./lib/sort";
@@ -60,6 +66,7 @@ export default function App() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [killing, setKilling] = useState<Set<number>>(new Set());
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [usage, setUsage] = useState<SystemUsage | null>(null);
   const updater = useUpdater();
 
   const applyList = useCallback((list: ProcessInfo[]) => {
@@ -84,6 +91,23 @@ export default function App() {
       pending.then((unlisten) => unlisten());
     };
   }, [applyList]);
+
+  /**
+   * El medidor del sidebar, por su propio evento.
+   *
+   * No viaja con la lista porque no se publica desde los mismos sitios: la lista
+   * la reemiten tambien los cierres y el refresco manual, y el medidor solo sale
+   * del hilo del poller, que es el unico que corre a un ritmo conocido. Ver
+   * `medir` en poller.rs.
+   */
+  useEffect(() => {
+    const pending = listen<SystemUsage>(SYSTEM_USAGE, (event) =>
+      setUsage(event.payload),
+    );
+    return () => {
+      pending.then((unlisten) => unlisten());
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -274,6 +298,7 @@ export default function App() {
           processes={processes}
           refreshMs={settings.refreshMs}
           onRefreshMsChange={(ms) => saveSettings({ ...settings, refreshMs: ms })}
+          usage={usage}
         />
 
         <main className="flex min-w-0 flex-1 flex-col">

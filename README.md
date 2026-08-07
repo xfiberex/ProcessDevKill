@@ -46,6 +46,9 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 - **Zombie Finder** (opcional, apagado de fábrica): resalta los procesos que llevan minutos sin
   consumir CPU **y siguen ocupando un puerto** — el servidor de la semana pasada. No cierra nada,
   solo lo señala.
+- **Medidor del entorno** en el sidebar: cuánta CPU y cuánta RAM de tu equipo se está llevando el
+  entorno de desarrollo, sobre el total de la máquina. Las barras de la tabla comparan procesos
+  entre sí; ésta te dice si el problema es tuyo o del equipo.
 - **Historial** de cierres con el origen de cada uno: ventana, bandeja, atajo o Auto-Kill.
 - Tema claro/oscuro que sigue al de Windows, o fijo si lo prefieres.
 - **Avisa de versiones nuevas** al arrancar y las instala desde Ajustes, comprobando el hash del
@@ -230,9 +233,9 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 147 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 160 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
-cd src-tauri && cargo test    # 44 pruebas del backend
+cd src-tauri && cargo test    # 48 pruebas del backend
 ```
 
 Las pruebas de Rust leen los procesos reales del equipo y **solo matan procesos que lanzan ellas

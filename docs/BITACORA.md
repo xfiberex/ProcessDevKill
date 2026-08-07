@@ -8,6 +8,34 @@
 
 ---
 
+### 2026-08-07 — Tier 8: el medidor del entorno
+
+- El usuario propuso llenar el hueco del sidebar con **CPU y RAM en tiempo real**. De las dos formas
+  posibles se le planteó que la obvia —un medidor del equipo— **duplica el Administrador de tareas**,
+  y que lo que nadie más da es cuánto de eso pone su entorno de desarrollo. Eligió esa.
+- **La suposición de partida sobre sysinfo era falsa, y el primer test no lo cazó.** Se escribió el
+  calentamiento del CPU global creyendo que sin muestra previa la lectura sale a 0 %, y el test de
+  regresión comprobaba `> 0.0`. Al quitar el calentamiento para verlo fallar, **pasó igual**: la
+  lectura real es **100 %**, que también es mayor que cero. Se midió en vez de deducirlo (100,000 %
+  con la máquina al 10 %) y se reescribió el test a `< 100.0`, que sí falla.
+- Medir dos veces seguidas da el mismo 100 %. De ahí que el medidor salga **solo del hilo del
+  poller** —el único con ritmo conocido— y no de los demás caminos que publican la lista: emitirlo
+  desde `kill_and_record` habría disparado el medidor al tope en cada cierre.
+- **Cuarta vez que un fallo del guion de pruebas se lee como fallo de la app.** Dos comprobaciones en
+  rojo (la RAM del entorno no subía, la fila del `node` no aparecía) eran el `Start-Process` que une
+  argumentos sin entrecomillar, ya documentado en el Tier 6. El `node -e` moría al instante.
+- Al escribir la verificación, el paso «matar un proceso» pulsaba «Kill» a secas, que habría cerrado
+  **la primera fila de la tabla — un proceso del usuario**. Se corrigió a buscar la fila por el PID
+  del `node` que lanza el propio guion. La regla no se rompe ni en un guion de usar y tirar.
+- **El rótulo se leía mal, y lo cazó el usuario en el primer minuto.** «1008 MB de 15.6 GB» —lo suyo
+  frente a lo que usa la máquina— con el total solo en el tooltip. Lo leyó como su RAM instalada:
+  tiene 31,9 GB. Era la ambigüedad que se había identificado al diseñarlo y resuelto mal por ahorrar
+  una línea. Corregido a tres líneas por métrica, con «Equipo» nombrado y la instalada a la vista.
+- 160 pruebas de frontend (antes 147) y 48 de `cargo test` (antes 44), más la verificación en vivo
+  sobre el binario de release por CDP.
+
+---
+
 ### 2026-07-27/28 — Tier 7 entero, y la v1.2.0 publicada
 
 - **Revisión completa del repositorio** sobre la v1.1.1 publicada (código, seguridad, rendimiento,

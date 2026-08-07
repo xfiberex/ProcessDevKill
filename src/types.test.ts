@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { AUTO_KILL_MIN_MB, PROCESSES_UPDATED, ZOMBIE_MIN_MINUTES } from "./types";
+import {
+  AUTO_KILL_MIN_MB,
+  PROCESSES_UPDATED,
+  SYSTEM_USAGE,
+  ZOMBIE_MIN_MINUTES,
+} from "./types";
+import type { SystemUsage } from "./types";
 
 const raiz = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -41,6 +47,42 @@ describe("el contrato con Rust", () => {
     const m = rust.match(/const PROCESSES_UPDATED:\s*&str\s*=\s*"([^"]+)"/);
     expect(m, "no se encontro PROCESSES_UPDATED en lib.rs").not.toBeNull();
     expect(PROCESSES_UPDATED).toBe(m![1]);
+  });
+
+  it("escucha el mismo evento del medidor que emite lib.rs", () => {
+    const rust = leerRust("lib.rs");
+    const m = rust.match(/const SYSTEM_USAGE:\s*&str\s*=\s*"([^"]+)"/);
+    expect(m, "no se encontro SYSTEM_USAGE en lib.rs").not.toBeNull();
+    expect(SYSTEM_USAGE).toBe(m![1]);
+  });
+
+  /**
+   * El medidor no tiene ningun comando detras: si Rust renombra un campo, aqui
+   * llega `undefined` y la barra se pinta a cero **sin romper nada**. Un campo de
+   * menos en el struct pasaria igual de callado. Por eso se comparan los nombres.
+   */
+  it("mantiene los campos de SystemUsage que serializa processes.rs", () => {
+    const rust = leerRust("processes.rs");
+    const bloque = rust.match(/pub struct SystemUsage\s*\{([^}]+)\}/);
+    expect(bloque, "no se encontro el struct SystemUsage").not.toBeNull();
+
+    // El struct va con rename_all = "camelCase": lo que viaja en el JSON son los
+    // nombres convertidos, que es lo que declara types.ts.
+    const campos = [...bloque![1].matchAll(/^\s*pub (\w+):/gm)].map((m) =>
+      m[1].replace(/_(\w)/g, (_, letra: string) => letra.toUpperCase()),
+    );
+
+    // TypeScript obliga a que esta muestra este completa; el test compara que sea
+    // la misma lista que la de Rust.
+    const muestra: SystemUsage = {
+      cpu: 0,
+      devCpu: 0,
+      usedMemoryMb: 0,
+      totalMemoryMb: 0,
+      devMemoryMb: 0,
+    };
+
+    expect(campos.sort()).toEqual(Object.keys(muestra).sort());
   });
 
   it("cubre los cuatro origenes de KillSource", () => {

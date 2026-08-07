@@ -15,13 +15,23 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use poller::{MAX_REFRESH_MS, MIN_REFRESH_MS};
-use processes::{collect_processes, kill_many, new_system, warm_up_cpu, KillOutcome, ProcessInfo};
+use processes::{
+    collect_processes, collect_system_usage, kill_many, new_system, warm_up_cpu, KillOutcome,
+    ProcessInfo, SystemUsage,
+};
 use storage::{
     now_millis, HistoryEntry, KillSource, Settings, Storage, MIN_AUTO_KILL_MB, MIN_ZOMBIE_MINUTES,
 };
 
 /// Evento que recibe el frontend cada vez que hay una lista nueva de procesos.
 const PROCESSES_UPDATED: &str = "processes-updated";
+
+/// Evento con el consumo del equipo y la parte que se lleva el entorno.
+///
+/// Va en un evento propio y no dentro de `PROCESSES_UPDATED` para no cambiar el
+/// contrato de la lista, que es lo que escuchan la ventana y sus pruebas. Ademas
+/// se emite desde menos sitios: ver `poller::cycle`.
+const SYSTEM_USAGE: &str = "system-usage";
 
 pub struct AppState {
     sys: Mutex<System>,
@@ -150,6 +160,23 @@ fn atajo_nuke() -> Shortcut {
 pub(crate) fn publish(app: &AppHandle, list: Vec<ProcessInfo>) {
     if let Err(e) = app.emit(PROCESSES_UPDATED, list) {
         eprintln!("No se pudo emitir {PROCESSES_UPDATED}: {e}");
+    }
+}
+
+/// Mide el equipo y la parte que se llevan los vigilados de `list`.
+///
+/// Bloquea `sys` por segunda vez en el ciclo, despues de que `read_list` lo haya
+/// soltado —seguidos, nunca anidados—. Lo unico que puede cambiar entre los dos
+/// bloqueos es que muera un proceso, y entonces la parte del entorno sale de una
+/// lista de hace microsegundos: irrelevante para un medidor.
+pub(crate) fn measure_usage(state: &AppState, list: &[ProcessInfo]) -> Option<SystemUsage> {
+    let mut sys = state.sys.lock().ok()?;
+    Some(collect_system_usage(&mut sys, list))
+}
+
+pub(crate) fn publish_usage(app: &AppHandle, usage: SystemUsage) {
+    if let Err(e) = app.emit(SYSTEM_USAGE, usage) {
+        eprintln!("No se pudo emitir {SYSTEM_USAGE}: {e}");
     }
 }
 

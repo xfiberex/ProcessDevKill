@@ -855,6 +855,81 @@ dependían.
 ---
 
 
+## 📊 Tier 8: El medidor del entorno — ✅ **completado y verificado**
+*Objetivo: decir cuánto del equipo se está comiendo tu entorno de desarrollo.*
+
+Lo pidió el usuario el 2026-08-07 sobre el hueco vacío que deja el sidebar entre «Ajustes» y el
+auto-refresco. De las dos formas posibles se eligió la segunda:
+
+> **Un medidor de CPU/RAM del equipo duplica el Administrador de tareas**, con el que el README ya
+> invita a comparar. Lo que nadie más da es **qué parte de eso la pone tu entorno**. Y tapa un hueco
+> real: desde el Tier 2 las barras de la tabla se escalan al proceso que más consume **de la lista**,
+> así que una barra llena puede ser un proceso gastando el 2 % del equipo. Éste es el denominador que
+> faltaba.
+
+- [x] `SystemUsage` en `processes.rs`, con la parte del equipo (`cpu`, `usedMemoryMb`,
+      `totalMemoryMb`) y la del entorno (`devCpu`, `devMemoryMb`). `dev_totals` es función pura y
+      aparte, por lo mismo que `collect_processes` frente a `get_processes`.
+- [x] `UsageMeter.tsx` en el sidebar: dos barras de **dos capas** sobre el mismo carril, que es el
+      equipo entero. La tenue es lo que usa la máquina; la sólida, la parte del entorno.
+- [x] **Rótulo corregido el mismo día**, tras leerlo el usuario.
+  > ⚠️ **El primer rótulo se leía mal, y lo demostró el primero que lo vio.** Decía
+  > «1008 MB de 15.6 GB» —tu entorno frente a lo que usa la máquina— con el total solo en el
+  > tooltip, por ahorrar una línea. El usuario leyó ese 15,6 como su RAM instalada; **tiene 31,9 GB**.
+  > Era justo la ambigüedad que se identificó al diseñarlo y se resolvió mal.
+  > Ahora cada métrica lleva tres líneas: la tuya arriba, la barra, y **«Equipo» nombrado** con su
+  > cifra debajo — en RAM, las dos (`15.5 / 31.9 GB`), sin repetir la unidad si coinciden. Medido en
+  > la ventana: 154 px de alto y cero recortes en los 208 px del sidebar.
+- [x] Evento propio `system-usage`, y `types.test.ts` comparando los campos del struct de Rust con
+      los del tipo de TypeScript.
+
+> ⚠️ **La primera lectura de CPU global no falla hacia 0, falla hacia 100.** Se dio por hecho lo
+> contrario, y el primer test de regresión —`assert!(uso.cpu > 0.0)`— **pasaba igual con el
+> calentamiento quitado**: 100 también es mayor que cero. Medido: un `System` recién creado responde
+> `100.000 %` con la máquina al 10 % real, y **da igual cuánto se espere antes de preguntar** — no es
+> cuestión de dejar pasar `MINIMUM_CPU_UPDATE_INTERVAL`, es que falta la muestra anterior contra la
+> que comparar. Sin calentarlo, el sidebar se abre diciendo que el equipo está al tope.
+> ⚠️ **Preguntar dos veces seguidas da el mismo 100 %.** Medido repitiendo la medida a distintos
+> plazos con la máquina al 10 %: 0 ms → **100 %**; 10 ms → 11,6 %; 50 ms → 7,3 %; 100 ms → 3,3 %;
+> 200 ms → 12,2 %. Por eso el medidor sale **solo del hilo del poller**, que es el único que corre a
+> un ritmo conocido: emitirlo también desde `kill_and_record` lo habría disparado al tope cada vez
+> que se mata un proceso.
+> ⚠️ Con el refresco en **"Off" se dice "En pausa"** en vez de dejar la última cifra. No hace falta
+> estado nuevo: lo decide `refreshMs`, el mismo ajuste que para al poller.
+> ⚠️ La suma de los vigilados **puede pasarse** de lo que dice usar el equipo: la memoria residente
+> cuenta dos veces las páginas compartidas. El número se enseña tal cual —es el que da el sistema—,
+> pero la barra se recorta al 100 %.
+> ⚠️ **Volvió a morder `Start-Process`**, ya documentado en el Tier 6: une los argumentos con
+> espacios y no entrecomilla nada, así que el `node -e` del guion de verificación moría al instante.
+> Los dos fallos de la primera pasada —la RAM que no subía y la fila que no aparecía— eran ese, no
+> del medidor. **Cuarta vez en este repositorio que un fallo del guion se lee como fallo de la app.**
+
+**Verificación** (2026-08-07):
+
+- [x] **160 pruebas de frontend** (antes 147) y **48 de `cargo test`** (antes 44). Las dos últimas
+      son la regresión del rótulo: que la RAM instalada esté a la vista y que la unidad no se repita.
+- [x] **El test del calentamiento caza el fallo**: quitada a propósito la medida del equipo de
+      `warm_up_cpu`, falla con *"el equipo reportó 100 %"*. La primera versión del test no lo cazaba,
+      y por eso se reescribió.
+- [x] **En vivo, sobre el binario de release y por CDP**: el medidor recibe medidas y **cambia entre
+      ciclos** (4 lecturas distintas de 4), la CPU del equipo no se queda pegada al 100 %, levantar un
+      `node` de ~380 MB sube la RAM del entorno de **576 a 1.008 MB**, cerrarlo la devuelve a 576, y
+      «Off» pone «En pausa» mientras que volver a «2s» devuelve las cifras.
+- [x] **Matar un proceso no descuadra el medidor**: se comprobó cerrando desde la ventana el `node`
+      que había lanzado el propio guion —localizando su fila por PID en el nombre accesible del
+      botón—, porque la regla de la casa es que ninguna prueba toca los procesos del usuario y un
+      «Kill» a secas habría acertado la primera fila, que es suya.
+- [x] El puerto de depuración se quitó de `tauri.conf.json` después, cerrando antes la app, y se
+      recompiló sin él.
+
+> Limitación asumida, y visible en la verificación: **`devCpu` marca 0,0 % casi siempre**. No es un
+> fallo, es lo mismo que descubrió el Zombie Finder en el Tier 5 —7 de cada 10 procesos de desarrollo
+> en reposo marcan 0 % de CPU—. La fila de CPU sigue diciendo lo que usa el equipo, que es
+> información; el valor del medidor está sobre todo en la de RAM.
+
+---
+
+
 ## ✅ Resumen de la verificación técnica
 
 | Punto original | Estado | Corrección aplicada |

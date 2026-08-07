@@ -65,6 +65,78 @@ pub struct KillOutcome {
     pub name: String,
 }
 
+/// Cuanto se esta comiendo el entorno de desarrollo del total de la maquina.
+///
+/// Las barras de la tabla se escalan al proceso que mas consume de la lista, no a
+/// la capacidad del equipo (ver `UsageBar`), asi que un proceso puede pintar la
+/// barra llena gastando el 2 % de la RAM. Esto es el denominador que falta: la
+/// misma cifra, pero contra el equipo entero.
+#[derive(Serialize, Clone, Copy, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemUsage {
+    /// CPU del equipo entero, 0-100.
+    pub cpu: f32,
+    /// La parte de ese 0-100 que se llevan los procesos vigilados.
+    pub dev_cpu: f32,
+    /// RAM en uso en todo el equipo.
+    pub used_memory_mb: f64,
+    /// RAM instalada. Es el 100 % contra el que se pintan las dos barras.
+    pub total_memory_mb: f64,
+    /// La parte de `used_memory_mb` que se llevan los procesos vigilados.
+    pub dev_memory_mb: f64,
+}
+
+/// Intervalo minimo entre dos medidas del equipo.
+///
+/// sysinfo calcula el porcentaje de CPU comparando contra la lectura anterior, asi
+/// que preguntar dos veces seguidas no tiene contra que comparar. **Y no responde
+/// 0, responde 100**, igual que la primera lectura de un `System` sin calentar.
+///
+/// Medido el 2026-08-07 con la maquina al 10 % real, repitiendo la medida a
+/// distintos plazos: 0 ms → **100,000 %**; 10 ms → 11,6 %; 50 ms → 7,3 %;
+/// 100 ms → 3,3 %; 200 ms → 12,2 %. O sea que lo grave es el caso pegado —un 100 %
+/// falso, que ademas es la cifra mas alarmante posible— y por debajo de este plazo
+/// la lectura se va quedando corta.
+pub const MIN_USAGE_INTERVAL: std::time::Duration = sysinfo::MINIMUM_CPU_UPDATE_INTERVAL;
+
+/// Lo que suman los procesos vigilados: `(CPU, RAM en MB)`.
+///
+/// Funcion aparte y pura porque es la mitad interesante del medidor —la del
+/// equipo la da sysinfo— y asi se prueba sin leer la maquina.
+///
+/// Cada `cpu` ya viene dividido entre los nucleos en `collect_processes`, o sea
+/// que es porcentaje de la capacidad total: sumarlos da la parte del equipo que
+/// ocupa el entorno, en la misma escala que `SystemUsage::cpu`.
+pub fn dev_totals(list: &[ProcessInfo]) -> (f32, f64) {
+    list.iter()
+        .fold((0.0, 0.0), |(cpu, mb), p| (cpu + p.cpu, mb + p.memory_mb))
+}
+
+/// Mide el equipo y le pega lo que consumen los vigilados de `list`.
+///
+/// ⚠️ No llamarla mas a menudo que `MIN_USAGE_INTERVAL` —dos medidas pegadas dan
+/// un 100 % falso—; quien la use se encarga de espaciarla. Hoy solo la llama el
+/// hilo del poller, que corre a un ritmo conocido.
+///
+/// `dev_memory_mb` puede pasarse un poco de `used_memory_mb`: la memoria residente
+/// de dos procesos cuenta dos veces las paginas que comparten. Es un margen
+/// pequeño y se prefiere a inventarse una correccion; las barras se recortan al
+/// 100 % en la UI.
+pub fn collect_system_usage(sys: &mut System, list: &[ProcessInfo]) -> SystemUsage {
+    sys.refresh_cpu_usage();
+    sys.refresh_memory();
+
+    let (dev_cpu, dev_memory_mb) = dev_totals(list);
+
+    SystemUsage {
+        cpu: sys.global_cpu_usage(),
+        dev_cpu,
+        used_memory_mb: sys.used_memory() as f64 / 1_048_576.0,
+        total_memory_mb: sys.total_memory() as f64 / 1_048_576.0,
+        dev_memory_mb,
+    }
+}
+
 /// Clasifica un ejecutable por su nombre; `None` si no esta vigilado.
 ///
 /// Compara sin extension y en minusculas para que el mismo codigo sirva en
@@ -162,7 +234,16 @@ pub fn collect_processes(sys: &mut System, custom: &[String]) -> Vec<ProcessInfo
 /// mostrara 0 % durante sus dos primeros refrescos y se corregira solo.
 pub fn warm_up_cpu(sys: &mut System, custom: &[String]) {
     for _ in 0..2 {
-        collect_processes(sys, custom);
+        let list = collect_processes(sys, custom);
+        // El uso global del equipo necesita su propia muestra previa: `new_system()`
+        // enumera los nucleos con `CpuRefreshKind::nothing()` y no deja linea base
+        // de uso, asi que la primera lectura no se compara contra nada.
+        //
+        // ⚠️ **Y no falla hacia 0, sino hacia 100.** Medido el 2026-08-07: un
+        // `System` recien creado responde 100.000 % a la primera, con la maquina al
+        // 10 % de verdad, y da igual cuanto se espere antes de preguntar. Sin este
+        // calentamiento el sidebar se abriria diciendo que el equipo esta al tope.
+        collect_system_usage(sys, &list);
         std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     }
 }
@@ -662,6 +743,107 @@ mod tests {
                 "la lista no viene ordenada por memoria descendente"
             );
         }
+    }
+
+    /// Un `ProcessInfo` con lo justo para las cuentas del medidor.
+    fn con_consumo(pid: u32, cpu: f32, memory_mb: f64) -> ProcessInfo {
+        ProcessInfo {
+            pid,
+            name: "node.exe".into(),
+            runtime: Runtime::Node,
+            cpu,
+            memory_mb,
+            run_time_secs: 0,
+            ports: Vec::new(),
+            idle_secs: 0,
+            zombie: false,
+        }
+    }
+
+    #[test]
+    fn el_total_del_entorno_suma_lo_que_consume_cada_proceso() {
+        let lista = [
+            con_consumo(1, 2.5, 100.0),
+            con_consumo(2, 1.25, 250.5),
+            con_consumo(3, 0.0, 12.0),
+        ];
+
+        let (cpu, mb) = dev_totals(&lista);
+
+        assert!((cpu - 3.75).abs() < f32::EPSILON, "CPU sumada: {cpu}");
+        assert!((mb - 362.5).abs() < f64::EPSILON, "RAM sumada: {mb}");
+    }
+
+    /// Sin procesos vigilados el medidor tiene que decir cero, no heredar la
+    /// ultima cifra ni inventarse nada: es el caso de quien abre la app sin tener
+    /// levantado ningun servidor.
+    #[test]
+    fn sin_procesos_vigilados_el_entorno_no_consume_nada() {
+        assert_eq!(dev_totals(&[]), (0.0, 0.0));
+    }
+
+    #[test]
+    fn mide_el_equipo_con_cifras_creibles() {
+        let mut sys = new_system();
+        warm_up_cpu(&mut sys, SIN_EXTRAS);
+        let lista = collect_processes(&mut sys, SIN_EXTRAS);
+        let uso = collect_system_usage(&mut sys, &lista);
+
+        println!(
+            "equipo: {:.1} % CPU, {:.0} de {:.0} MB | entorno: {:.1} % CPU, {:.0} MB",
+            uso.cpu, uso.used_memory_mb, uso.total_memory_mb, uso.dev_cpu, uso.dev_memory_mb
+        );
+
+        assert!(
+            uso.total_memory_mb > 0.0,
+            "sin RAM instalada no hay contra que comparar: {}",
+            uso.total_memory_mb
+        );
+        assert!(
+            uso.used_memory_mb > 0.0 && uso.used_memory_mb <= uso.total_memory_mb,
+            "RAM en uso fuera de rango: {} de {}",
+            uso.used_memory_mb,
+            uso.total_memory_mb
+        );
+        assert!(
+            (0.0..=100.0).contains(&uso.cpu),
+            "CPU del equipo fuera de 0-100: {}",
+            uso.cpu
+        );
+
+        // La parte del entorno tiene que cuadrar con la lista que se acaba de leer,
+        // que es lo unico que se puede afirmar sin depender de la maquina.
+        let (cpu, mb) = dev_totals(&lista);
+        assert_eq!(uso.dev_cpu, cpu);
+        assert_eq!(uso.dev_memory_mb, mb);
+    }
+
+    /// Regresion del motivo por el que `warm_up_cpu` mide **tambien el equipo**.
+    ///
+    /// La primera lectura de un `System` recien creado no se compara contra nada, y
+    /// sysinfo la resuelve devolviendo **100 %**: no falla hacia cero, que es lo que
+    /// uno espera y lo que se dio por hecho al escribir esto. Medido el 2026-08-07
+    /// con la maquina al 10 % real, y da igual cuanto se espere antes de preguntar
+    /// —no es cuestion de dejar pasar `MINIMUM_CPU_UPDATE_INTERVAL`, es que falta la
+    /// muestra anterior—.
+    ///
+    /// Sin el calentamiento, el sidebar se abre diciendo que el equipo esta al tope.
+    /// La primera version de este test comprobaba `> 0.0` y **pasaba igual con el
+    /// calentamiento quitado**, porque 100 tambien es mayor que cero.
+    #[test]
+    fn el_calentamiento_deja_medible_la_cpu_del_equipo() {
+        let mut sys = new_system();
+        warm_up_cpu(&mut sys, SIN_EXTRAS);
+        let lista = collect_processes(&mut sys, SIN_EXTRAS);
+        let uso = collect_system_usage(&mut sys, &lista);
+
+        println!("CPU del equipo tras el calentamiento: {:.3} %", uso.cpu);
+        assert!(
+            uso.cpu < 100.0,
+            "el equipo reporto {} %: es la lectura pegada al tope de un System sin \
+             muestra previa, o sea que falta el calentamiento",
+            uso.cpu
+        );
     }
 
     /// Regresion de un bug real: con `System::new()` la lista de CPUs queda vacia,

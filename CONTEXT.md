@@ -30,7 +30,7 @@
 
 ## 3. Estado actual
 
-**Tiers 1 a 7 completos y verificados.** El 7 se abrió el 2026-07-27 con una revisión completa del
+**Tiers 1 a 8 completos y verificados.** El 7 se abrió el 2026-07-27 con una revisión completa del
 repositorio sobre la v1.1.1 ya publicada —código, seguridad, rendimiento, estructura, accesibilidad,
 responsividad, ortografía y documentación— y se cerró entero el mismo día: seguridad, arreglos
 rápidos, ortografía, comportamiento de la ventana y accesibilidad, rendimiento, refactor,
@@ -47,7 +47,11 @@ pública fue la v1.1.1.
 > `tag_name: v1.2.0`, y **el instalador descargado del release coincide con el `.sha256` publicado**
 > (`427c41be…`) — la cadena entera que recorre la auto-actualización, sobre los archivos reales.
 
-**Pruebas:** 147 de frontend (Vitest + Testing Library, en jsdom) y 44 de `cargo test`.
+**Después de la v1.2.0** entró el **medidor del entorno** en el sidebar (2026-08-07), sin publicar
+todavía: cuánta CPU y cuánta RAM del equipo se lleva el conjunto de procesos vigilados. Verificado en
+vivo sobre el binario de release; ver el Tier 8 de [ROADMAP.md](ROADMAP.md).
+
+**Pruebas:** 160 de frontend (Vitest + Testing Library, en jsdom) y 48 de `cargo test`.
 
 ### Lo que está verificado sobre la app en ejecución
 
@@ -59,7 +63,9 @@ cerrando un proceso de 651 MB sin tocar los 7 `node` reales de la máquina, `Ctr
 verdad (con `keybd_event`, no `SendKeys`), los toast apareciendo en pantalla, y —desde el Tier 7— el
 CSP activo, la X cerrando la app, la instancia única, el poller despertando al instante y la tabla
 ordenándose por columna sin que las filas bailen entre refrescos, y el sidebar plegándose
-sin sacar al usuario de la vista.
+sin sacar al usuario de la vista; y —desde el Tier 8— el medidor del entorno moviéndose entre ciclos,
+subiendo con un `node` de 380 MB levantado a propósito y poniéndose en pausa con el refresco en
+"Off".
 
 El detalle de cada verificación, con su fecha y lo que costó, está en [ROADMAP.md](ROADMAP.md) junto
 al tier correspondiente y en la [bitácora](docs/BITACORA.md).
@@ -177,6 +183,13 @@ al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 | 2026-07-28 | El pliegue vive en `Sidebar`; el orden de la tabla, en `App` | Parece incoherente y no lo es: el sidebar **no se desmonta nunca**, así que su estado no corre peligro y subirlo sería pasarle a `App` un detalle que no le importa. La tabla **sí** se desmonta al filtrar a cero y al cambiar de vista, y por eso el orden tuvo que subir |
 | 2026-07-28 | Plegado, «Procesos» recoge el total de procesos | Desplegado lo dice «Todos»; repetirlo dos líneas seguidas sobra. ⚠️ Eso hace que el **texto del botón cambie según el estado**, y rompió dos pruebas y el `Invoke-Boton` del script de capturas, que lo buscaban por texto exacto. Las pruebas pasan a expresión regular (como ya hacía la de `Node.js`) y el script prueba exacto y solo después por prefijo |
 | 2026-07-28 | **El script de capturas ordena por Puerto antes de capturar** | Al regenerar las capturas salió la principal con un solo puerto y trece guiones: los servidores de demostración son pequeños y con el orden de fábrica (RAM desc) se hunden en cuanto la máquina tiene unos cuantos `node` sueltos —18 ese día frente a 13 cuando se generaron las anteriores—. La columna de puertos es lo que justifica la app. Ordenando por puerto la captura deja de depender del estado de la máquina |
+| 2026-08-07 | **El medidor del sidebar enseña el entorno contra el equipo, no el equipo a secas** | Petición del usuario, elegida entre las dos opciones. Un medidor de CPU/RAM de la máquina duplica el Administrador de tareas; lo que nadie más da es **cuánto de eso lo pone tu entorno de desarrollo**. Y de paso tapa un hueco real: por la decisión del 2026-07-23 las barras de la tabla se escalan al mayor de la lista, así que una barra llena puede ser un proceso gastando el 2 % del equipo. El medidor es el denominador que faltaba |
+| 2026-08-07 | **La primera lectura de CPU global de un `System` no da 0, da 100** | Se dio por hecho lo contrario al escribir el código, y el primer test de regresión —que comprobaba `> 0.0`— **pasaba igual con el calentamiento quitado**, porque 100 también es mayor que cero. Medido: un `System` recién creado responde `100.000 %` a la primera con la máquina al 10 % real, y **da igual cuánto se espere antes de preguntar**: no es cuestión de dejar pasar `MINIMUM_CPU_UPDATE_INTERVAL`, es que falta la muestra anterior. Sin calentarlo, el sidebar se abre diciendo que el equipo está al tope, que es la cifra más alarmante posible. `warm_up_cpu` mide ahora también el equipo, y el test comprueba `< 100.0` |
+| 2026-08-07 | **El medidor se emite solo desde el hilo del poller**, no desde los otros caminos que publican la lista | Un porcentaje de CPU es el promedio entre dos muestras, no una foto: el poller es el único que corre a un ritmo conocido. Medir desde `kill_and_record` —milisegundos después de un ciclo— da otra vez **100 %**, así que el medidor se iría al tope cada vez que se mata un proceso. Medido repitiendo la medida a distintos plazos: 0 ms → 100 %; 10 ms → 11,6 %; 50 ms → 7,3 %; 100 ms → 3,3 %; 200 ms → 12,2 % |
+| 2026-08-07 | Con el auto-refresco en **"Off" el medidor dice "En pausa"**, no la última cifra | Rust deja de medir, y una cifra vieja con pinta de actual es peor que ninguna. No hace falta estado nuevo: lo decide `refreshMs`, que es el mismo ajuste que para al poller |
+| 2026-08-07 | **La cifra del equipo va nombrada y en su propia línea, con la RAM instalada a la vista** | El primer rótulo la pegaba a la del entorno —«1008 MB de 15.6 GB»— y dejaba el total solo en el tooltip, para ahorrar una línea. **El usuario lo leyó como su RAM instalada en el primer minuto**: tiene 31,9 GB, y 15,6 era lo que la máquina estaba usando. Ahora cada métrica lleva tres líneas —la tuya, la barra, y «Equipo» con su cifra—, y en RAM se enseñan las dos: `15.5 / 31.9 GB`. La unidad no se repite si ambas caen en la misma, que en 208 px se nota. Medido en la ventana: 154 px de alto, cero recortes | 
+| 2026-08-07 | La guarda del intervalo vive como **variable local del hilo del poller** | Es el único sitio que mide, así que no hay nada que compartir. La alternativa —meterla en `AppState`— obligaba a elegir entre anidar candados o meter el `System` y la marca de tiempo en la misma estructura, tocando los cinco sitios que bloquean `sys`, incluidos los que matan procesos |
+| 2026-08-07 | `SystemUsage` viaja en un **evento propio** (`system-usage`), no dentro de `processes-updated` | No se publican desde los mismos sitios (ver arriba), y meterlo en la lista habría cambiado un contrato del que dependen la ventana y sus pruebas. `types.test.ts` compara ahora los campos del struct de Rust con los del tipo de TypeScript: si Rust renombra uno, el frontend recibiría `undefined` y pintaría la barra a cero **sin romper nada** |
 | 2026-07-25 | El build se lanza con `ProcessStartInfo`, no con `& npm` | **En PowerShell `$env:VAR = ""` borra la variable en vez de dejarla vacía.** Con la clave sin contraseña hay que pasar un `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` vacío; al desaparecer, Tauri decide preguntar por consola y el build **se cuelga indefinidamente sin dar error**. `ProcessStartInfo.Environment` sí admite el valor vacío, y de paso la clave no toca la sesión de quien ejecuta el script |
 
 ## 5. Decisiones pendientes

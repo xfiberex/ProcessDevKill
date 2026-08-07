@@ -2,9 +2,15 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import App from "./App";
-import { invoke, listen, proceso, writeText } from "./test/tauri-mock";
-import { PROCESSES_UPDATED } from "./types";
-import type { ProcessInfo } from "./types";
+import {
+  DEFAULT_TEST_SETTINGS,
+  invoke,
+  listen,
+  proceso,
+  writeText,
+} from "./test/tauri-mock";
+import { PROCESSES_UPDATED, SYSTEM_USAGE } from "./types";
+import type { ProcessInfo, SystemUsage } from "./types";
 
 const LISTA: ProcessInfo[] = [
   proceso({ pid: 100, name: "node.exe", ports: [3000], cpu: 12.5, memoryMb: 210 }),
@@ -371,6 +377,65 @@ describe("auto-refresco", () => {
         settings: expect.objectContaining({ refreshMs: 5000 }),
       }),
     );
+  });
+});
+
+/**
+ * El medidor del sidebar llega por un evento propio, no con la lista: Rust solo lo
+ * publica desde el hilo del poller, que es el unico que corre a un ritmo conocido.
+ * Lo que se prueba aqui es esa integracion; el pintado, en `UsageMeter.test.tsx`.
+ */
+describe("el medidor del entorno", () => {
+  /** Empuja una medida por el mismo evento que emite Rust. */
+  async function medir(usage: SystemUsage) {
+    const suscripciones = listen.mock.calls.filter((c) => c[0] === SYSTEM_USAGE);
+    const handler = suscripciones[suscripciones.length - 1][1];
+    await act(async () => {
+      handler({ payload: usage });
+    });
+  }
+
+  const MEDIDA: SystemUsage = {
+    cpu: 40,
+    devCpu: 6.25,
+    usedMemoryMb: 12288,
+    totalMemoryMb: 32768,
+    devMemoryMb: 4096,
+  };
+
+  it("se suscribe al evento y pinta lo que llega", async () => {
+    await montar();
+
+    expect(listen).toHaveBeenCalledWith(SYSTEM_USAGE, expect.any(Function));
+    expect(screen.getByText("Midiendo…")).toBeInTheDocument();
+
+    await medir(MEDIDA);
+
+    expect(screen.getByText("6.3%")).toBeInTheDocument();
+    expect(screen.getByText("4.0 GB")).toBeInTheDocument();
+  });
+
+  /**
+   * Con el refresco en "Off" Rust deja de medir, asi que la ventana no puede
+   * seguir ensenando la ultima cifra como si fuera de ahora. El medidor no se
+   * apaga por su cuenta: lo decide `refreshMs`, que es el mismo ajuste que para
+   * al poller.
+   */
+  it("se pone en pausa con el auto-refresco apagado", async () => {
+    invoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "get_processes") return LISTA;
+      if (cmd === "get_settings" || cmd === "save_settings")
+        return { ...DEFAULT_TEST_SETTINGS, refreshMs: 0 };
+      if (cmd === "get_history" || cmd === "kill_processes") return [];
+      return null;
+    });
+
+    render(<App />);
+    await screen.findByLabelText(`Seleccionar PID ${LISTA[0].pid}`);
+    await medir(MEDIDA);
+
+    expect(screen.getByText("En pausa")).toBeInTheDocument();
+    expect(screen.queryByText("6.3%")).not.toBeInTheDocument();
   });
 });
 

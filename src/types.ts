@@ -26,6 +26,18 @@ export type KillOutcome = {
   name: string;
 };
 
+/** Espejo de `SystemUsage` en src-tauri/src/processes.rs. */
+export type SystemUsage = {
+  /** CPU del equipo entero, 0-100. */
+  cpu: number;
+  /** La parte de ese 0-100 que se llevan los procesos vigilados. */
+  devCpu: number;
+  usedMemoryMb: number;
+  /** RAM instalada: el 100 % contra el que se pintan las dos barras. */
+  totalMemoryMb: number;
+  devMemoryMb: number;
+};
+
 /** Espejo de `KillSource` en src-tauri/src/storage.rs. */
 export type KillSource = "window" | "tray" | "hotkey" | "auto";
 
@@ -64,6 +76,10 @@ export const ZOMBIE_MIN_MINUTES = 1;
 
 /** Evento que emite Rust con cada lista nueva de procesos. */
 export const PROCESSES_UPDATED = "processes-updated";
+
+/** Evento con el consumo del equipo. Solo lo emite el hilo del poller, y por eso
+ *  deja de llegar con el auto-refresco en "Off": ver `medir` en poller.rs. */
+export const SYSTEM_USAGE = "system-usage";
 
 /** Evento con el avance de la descarga de una actualizacion: `[bajado, total]`. */
 export const UPDATE_PROGRESS = "update-progress";
