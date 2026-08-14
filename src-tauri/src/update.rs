@@ -362,7 +362,23 @@ where
     Ok(destino)
 }
 
-/// Lanza el instalador descargado. El NSIS en modo `currentUser` no pide UAC.
+/// Argumentos con los que se lanza el instalador NSIS para que la actualización no
+/// enseñe ni una ventana. Los tres son de la plantilla de Tauri (`installer.nsi`), no
+/// inventados, y cada uno quita una parte de lo que se veía antes:
+///
+/// - `/S`: silencioso, el de NSIS. Sin él salía el asistente entero.
+/// - `/UPDATE`: le dice que es una actualización, no una instalación nueva. La plantilla
+///   entonces **no ejecuta el desinstalador** de la versión anterior (esa era la primera
+///   ventana que aparecía), conserva los accesos directos y no reinstala WebView2.
+/// - `/R`: relanza la app al terminar, vía `RunAsUser`. Solo lo mira en modo silencioso o
+///   pasivo, porque el asistente con interfaz ya tiene su casilla de «abrir al salir».
+///
+/// El instalador silencioso **mata la app él mismo** si aún la encuentra corriendo
+/// (`CheckIfAppIsRunning` en `utils.nsh`), así que no hay carrera con el `app.exit(0)` de
+/// `install_update`: si llega antes, se la encuentra ya cerrada; si llega después, la cierra.
+const ARGS_SILENCIOSOS: [&str; 3] = ["/S", "/UPDATE", "/R"];
+
+/// Lanza el instalador descargado, en silencio. El NSIS en modo `currentUser` no pide UAC.
 ///
 /// No se comprueba nada aquí: para cuando se llama, `download_and_verify` ya ha validado
 /// el hash y `ruta_de_instalador_valida` la carpeta. Llamarla con una ruta que no venga de
@@ -374,6 +390,7 @@ where
 /// habría notado hasta el siguiente release.
 pub fn launch_installer(ruta: &Path) -> Result<(), String> {
     std::process::Command::new(ruta)
+        .args(ARGS_SILENCIOSOS)
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("No se pudo ejecutar el instalador: {e}"))
@@ -433,7 +450,8 @@ pub fn install_update(app: AppHandle, path: String) -> Result<(), String> {
     launch_installer(&ruta)?;
 
     // El instalador necesita que la app no tenga los archivos abiertos. Se sale del todo,
-    // no se esconde en la bandeja: `exit` salta el manejador de CloseRequested.
+    // no se esconde en la bandeja: `exit` salta el manejador de CloseRequested. Volver a
+    // abrirla es cosa del `/R` de `ARGS_SILENCIOSOS`, ya con la versión nueva.
     app.exit(0);
     Ok(())
 }
@@ -621,6 +639,23 @@ mod tests {
 
         let _ = std::fs::remove_file(&dentro);
         let _ = std::fs::remove_file(&fuera);
+    }
+
+    /// Los tres flags son la actualizacion silenciosa entera: quitar cualquiera de ellos
+    /// devuelve al usuario alguna ventana (el asistente con `/S`, la desinstalacion de la
+    /// version vieja con `/UPDATE`, o la app sin volver a abrirse con `/R`). No se nota
+    /// hasta el siguiente release, y para entonces ya esta publicado.
+    #[test]
+    fn el_instalador_se_lanza_en_silencio() {
+        assert!(ARGS_SILENCIOSOS.contains(&"/S"), "sin /S sale el asistente");
+        assert!(
+            ARGS_SILENCIOSOS.contains(&"/UPDATE"),
+            "sin /UPDATE se ejecuta el desinstalador de la version anterior"
+        );
+        assert!(
+            ARGS_SILENCIOSOS.contains(&"/R"),
+            "sin /R la app no vuelve a abrirse tras actualizar"
+        );
     }
 
     /// El nombre del asset viene de la API de GitHub y acaba pegado a una ruta con `join`.

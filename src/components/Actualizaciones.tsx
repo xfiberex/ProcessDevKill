@@ -72,7 +72,8 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
             Descargar e instalar
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
-            La app se cerrará para instalar y volverá a abrirse sola.
+            Se instala en silencio: la app se cierra, se actualiza y vuelve a abrirse
+            sola. No hay que responder a ninguna ventana.
           </p>
         </div>
       )}
