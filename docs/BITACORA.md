@@ -8,6 +8,32 @@
 
 ---
 
+### 2026-08-14 — La actualización deja de pedir clics, y la v1.3.1 publicada
+
+- El usuario reportó que al pulsar «Instalar» **salían dos ventanas**: el desinstalador de la
+  versión anterior y el asistente de instalación. La app prometía en Ajustes que «volverá a abrirse
+  sola» y en realidad lo dejaba haciendo clic en «Siguiente».
+- La respuesta no salió de la documentación de Tauri sino **del `installer.nsi` que genera este
+  propio proyecto** (`target/release/nsis/x64/`): ahí están el `${GetOptions} $CMDLINE "/UPDATE"`, el
+  `${If} $UpdateMode = 1 → Goto reinst_done` que **salta la desinstalación previa** —la primera de
+  las dos ventanas— y el `/R` de `.onInstSuccess`. Leerlo evitó tener que adivinar cuál de los flags
+  hacía qué.
+- Dos detalles que solo se ven en la plantilla: **`/R` únicamente se mira en modo silencioso o
+  pasivo**, así que sin `/S` no serviría de nada; y el instalador silencioso **mata la app él mismo**
+  (`CheckIfAppIsRunning`), por lo que no hay carrera con el `app.exit(0)` de `install_update`.
+- **El arreglo no se puede probar en la versión que lo trae**, y se dijo antes de cortar: el
+  instalador lo lanza la app instalada, así que actualizar desde la v1.3.0 aún enseña las ventanas.
+  Se verá actualizando desde la v1.3.1.
+- 49 pruebas de `cargo test` (antes 48) y 160 de frontend. **v1.3.1 publicada** con `release.ps1`
+  (dry run antes, como siempre). Patch y no minor: arregla un comportamiento y no añade nada.
+  Verificado tras publicar que el instalador descargado del release coincide con su `.sha256`
+  (`121b228e…`).
+- La verificación del hash falló a la primera **por el guion, no por el release**: en PS 5.1
+  `Invoke-WebRequest` devolvió el `.sha256` como `byte[]` y la comparación leyó `49` —el byte de
+  `'1'`— en vez del hash. Decodificando a UTF-8, coincide.
+
+---
+
 ### 2026-08-07 — Tier 8: el medidor del entorno
 
 - El usuario propuso llenar el hueco del sidebar con **CPU y RAM en tiempo real**. De las dos formas

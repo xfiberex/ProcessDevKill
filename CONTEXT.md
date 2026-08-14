@@ -39,17 +39,24 @@ compactación de los documentos y los tres puntos de producto.
 Nada de lo que recogía esa revisión era un fallo de funcionamiento —la app hace lo que promete—
 **salvo la guardia de rutas de `install_update`**, que se saltaba con un `..`; arreglada en el 7.1.
 
-**Publicado:** **v1.3.0** (2026-08-07), con el Tier 8 dentro —el **medidor del entorno** en el
-sidebar—. 4 assets: instaladores NSIS y MSI con sus `.sha256`. Sin firma de código, así que
-SmartScreen sigue avisando. La primera versión pública fue la v1.1.1, y la anterior la v1.2.0
-(2026-07-28), que traía todo el Tier 7.
+**Publicado:** **v1.3.1** (2026-08-14), con **la actualización silenciosa** dentro: el instalador se
+lanza con `/S /UPDATE /R` y ya no enseña la ventana del desinstalador ni la del asistente. 4 assets:
+instaladores NSIS y MSI con sus `.sha256`. Sin firma de código, así que SmartScreen sigue avisando.
+La anterior fue la v1.3.0 (2026-08-07), con el Tier 8 —el **medidor del entorno** en el sidebar—, y
+la primera versión pública fue la v1.1.1.
 
-> Verificado tras publicar, en las tres versiones con el mismo criterio: los 4 assets están en el
+> Verificado tras publicar, en las cuatro versiones con el mismo criterio: los 4 assets están en el
 > release, la API que consulta la app devuelve el `tag_name` correcto, y **el instalador descargado
 > del release coincide con el `.sha256` publicado** — la cadena entera que recorre la
-> auto-actualización, sobre los archivos reales. Para la v1.3.0, `0050ae80…`.
+> auto-actualización, sobre los archivos reales. Para la v1.3.1, `121b228e…`; para la v1.3.0,
+> `0050ae80…`.
+>
+> ⚠️ Lo que **no** se ha podido verificar de la v1.3.1 es lo que arregla: el instalador lo lanza la
+> app **instalada**, así que actualizar desde la v1.3.0 aún enseña las ventanas una última vez. El
+> silencio se ve actualizando desde la v1.3.1 en adelante, y hasta entonces la evidencia es la
+> plantilla NSIS generada, no la app en marcha.
 
-**Pruebas:** 160 de frontend (Vitest + Testing Library, en jsdom) y 48 de `cargo test`.
+**Pruebas:** 160 de frontend (Vitest + Testing Library, en jsdom) y 49 de `cargo test`.
 
 ### Lo que está verificado sobre la app en ejecución
 

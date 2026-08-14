@@ -936,6 +936,42 @@ auto-refresco. De las dos formas posibles se eligió la segunda:
 ---
 
 
+## 🤫 Tier 9: La actualización, en silencio — ✅ **completado, verificado a medias**
+
+> ✅ **Publicado en la [v1.3.1](https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.3.1)**
+> (2026-08-14). Patch: arregla un comportamiento y no añade nada. Verificado tras publicar: 4
+> assets, la API devuelve `tag_name: v1.3.1`, y el instalador descargado del release coincide con
+> su `.sha256` (`121b228e…`).
+
+Lo reportó el usuario probando la auto-actualización: al pulsar «Instalar» **salían dos ventanas
+seguidas** —la del desinstalador de la versión anterior y la del asistente de instalación— y había
+que responder a las dos. La app decía «volverá a abrirse sola» y en realidad dejaba al usuario
+haciendo clic en «Siguiente».
+
+- [x] `launch_installer` pasa `/S /UPDATE /R` al instalador NSIS. Los tres flags son de la plantilla
+      de Tauri, **leídos del `installer.nsi` que genera este proyecto**, no de la documentación:
+      `/S` quita el asistente; **`/UPDATE` es el que quita la desinstalación previa** (la plantilla
+      salta ese paso en modo actualización, conserva los accesos directos y no reinstala WebView2);
+      `/R` vuelve a abrir la app al terminar, vía `RunAsUser`.
+- [x] Comprobado en la plantilla que **`/R` solo se mira en modo silencioso o pasivo**: sin `/S` no
+      haría nada, así que los flags van juntos o no van.
+- [x] Comprobado que no hay carrera con el `app.exit(0)` de `install_update`: el instalador
+      silencioso mata la app él mismo si aún la encuentra viva (`CheckIfAppIsRunning` en
+      `utils.nsh`), llegue antes o después.
+- [x] El texto de Ajustes deja de prometer lo que no pasaba: ahora dice que se instala en silencio y
+      que no hay que responder a ninguna ventana.
+- [x] Una prueba (`el_instalador_se_lanza_en_silencio`) fija los tres flags con el motivo de cada
+      uno. 49 de `cargo test` (antes 48) y 160 de frontend.
+
+> ⚠️ **Lo que arregla no se puede verificar en esta versión, y conviene decirlo.** El instalador lo
+> lanza la app **instalada**, así que actualizar desde la v1.3.0 sigue enseñando las dos ventanas
+> una última vez: el código nuevo solo entra en juego cuando la que actualiza es ya la v1.3.1.
+> Comprobarlo de verdad exige cortar una v1.3.2 y actualizar desde ésta. Hasta entonces la evidencia
+> es la plantilla NSIS generada, que es fuerte, pero no es la app en marcha.
+
+---
+
+
 ## ✅ Resumen de la verificación técnica
 
 | Punto original | Estado | Corrección aplicada |
