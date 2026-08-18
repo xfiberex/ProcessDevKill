@@ -987,3 +987,530 @@ haciendo clic en «Siguiente».
 | shadcn/ui | ⚠️ Cambió | Alias `@/` en Vite **y** tsconfig; hoy genera sobre **Base UI**, no Radix, y el Toast es **Sonner** |
 | Portapapeles del navegador | ❌ No sirve | `navigator.clipboard` exige foco; `tauri-plugin-clipboard-manager` |
 | CI en cada commit | ⚠️ Costoso | Descartado: release local con `release.ps1` (ver Tier 5.6) |
+
+---
+
+
+## 🔎 Revisión 2026-08-18 — backlog por severidad
+
+> Sale de una **auditoría estática completa** del repositorio sobre el commit `15d3004` (v1.3.1),
+> con las doce áreas del guion de revisión: código, seguridad, rendimiento, SEO, accesibilidad,
+> UI/UX, arquitectura, QA, limpieza, ortografía, documentación y DevOps. El informe entero, con el
+> problema, el impacto y la solución de cada punto, está en el
+> [artifact de la auditoría](https://claude.ai/code/artifact/7e41ed95-15a4-4112-9958-71a6255c51ac).
+>
+> **Los Tiers 1-9 de arriba no se tocan.** Aquellos son fases de desarrollo ya completadas y
+> verificadas; esto es deuda encontrada, ordenada por severidad y no por orden de trabajo. Los dos
+> numerados se distinguen por el prefijo: `Tier 4` es una fase, `T4-01` es una tarea de esta lista.
+>
+> Herramientas ejecutadas, no solo lectura: `cargo test` (49 ✓), `npm test` (160 ✓),
+> `cargo clippy --all-targets -- -D warnings` (limpio), `npm audit`, `npm run test:coverage`
+> (86,14 % de sentencias) y `git grep` sobre todo lo versionado buscando secretos (ninguno).
+
+### Índice
+
+| Tier | Qué es | Tareas | Esfuerzo agregado |
+|---|---|---|---|
+| **T0 — Crítico / bloqueante** | Nada. No se encontró ninguna vulnerabilidad explotable ni pérdida de datos en curso | **0** | — |
+| **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | 2 bajo |
+| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 7 bajo · 3 medio |
+| **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 20 bajo |
+| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 1 bajo · 3 medio · 1 alto |
+| | | **37** | 30 bajo · 6 medio · 1 alto |
+
+**Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
+**no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
+en `src/`, las notas del release se pintan como texto y no se carga contenido remoto. Hace falta que
+algo ejecute JavaScript dentro del webview para llegar ahí. Es defensa en profundidad, y por eso va
+en T1 y no en T0 — pero es lo primero que se hace.
+
+---
+
+### T1 — Alta prioridad
+
+- [ ] **[T1-01] Validar en Rust el origen de las URLs del actualizador**
+  - **Área:** Seguridad
+  - **Ubicación:** `src-tauri/src/update.rs:409-418`, `src-tauri/src/update.rs:284-362`
+  - **Qué hacer:** `download_update` recibe el `ReleaseInfo` entero del frontend, con `asset_url` y
+    `checksum_url`, y no mira a qué dominio apuntan. Como el hash esperado sale de esa segunda URL,
+    quien componga la llamada aporta **las dos mitades** de la verificación y esta pasa siempre; el
+    archivo aterriza justo en la carpeta que `install_update` tiene en su lista blanca. Añadir una
+    función pura que exija el prefijo `https://github.com/{REPO}/releases/download/` en las dos, al
+    lado de `ruta_de_instalador_valida` y con el mismo criterio. Alternativa mejor si se quiere ir a
+    fondo: que el comando reciba solo la etiqueta y vuelva a consultar la API él mismo, con lo que
+    el frontend deja de poder inyectar nada.
+  - **Criterio de aceptación:** una prueba negativa —como la de la guardia de rutas— comprueba que
+    una URL de otro dominio se rechaza sin descargar nada, y que la del repositorio se acepta. La
+    actualización real sigue funcionando de v1.3.1 a la siguiente.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T1-02] Prueba negativa de la guardia de PID**
+  - **Área:** QA y testing
+  - **Ubicación:** `src-tauri/src/processes.rs:393-395`
+  - **Qué hacer:** `kill_one` comprueba con `classify` que el PID sea de un runtime vigilado, y es lo
+    único que separa un comando expuesto al frontend de un «mata lo que quieras». Hoy las pruebas
+    solo ejercitan `kill_many` en positivo. Añadir un test que lance un proceso **no vigilado** desde
+    el propio test (`cmd /c timeout /t 30`), compruebe que `kill_many` devuelve `killed: false` con
+    el error que menciona «vigilado», y lo recoja él mismo al terminar.
+  - **Criterio de aceptación:** el test falla si se quita la comprobación de `classify` en
+    `kill_one`. Ningún proceso del usuario se toca: el que se lanza lo mata quien lo lanzó.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+---
+
+### T2 — Mejoras sustanciales
+
+- [ ] **[T2-01] `shadcn` a `devDependencies`**
+  - **Área:** Seguridad · Limpieza
+  - **Ubicación:** `package.json:22`, `src/index.css:3`
+  - **Qué hacer:** las 7 alertas de `npm audit` (5 altas, 2 moderadas) cuelgan **todas** de
+    `shadcn@3.8.3`, declarado como dependencia de producción; arrastra `@modelcontextprotocol/sdk`,
+    el servidor HTTP `hono`, `ts-morph` y `cosmiconfig`. No se puede quitar del todo —`index.css`
+    importa `shadcn/tailwind.css`, que vive en el paquete—, pero es una herramienta de compilación y
+    su sitio es `devDependencies`. Después, `npm audit fix`.
+  - **Criterio de aceptación:** `npm audit --omit=dev` no devuelve ninguna alerta y `npm run build`
+    sigue generando el mismo CSS.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T2-02] Análisis de dependencias y clippy dentro de `release.ps1`**
+  - **Área:** DevOps · Seguridad
+  - **Ubicación:** `release.ps1:235-257`
+  - **Qué hacer:** el corte ejecuta `cargo test`, `npm test` y `npm run build`, pero no `cargo
+    clippy`, ni `npm audit`, ni `cargo audit` —que además no está instalado en el equipo—. Las 566
+    entradas de `Cargo.lock` no se han contrastado nunca contra RustSec. Instalar `cargo-audit` y
+    añadir los tres pasos al bloque de pruebas, con `npm audit --audit-level=high` como aviso
+    mientras T2-01 no esté hecho.
+  - **Criterio de aceptación:** un `-DryRun` enseña los tres pasos nuevos, y clippy sigue pasando
+    limpio con `-D warnings`.
+  - **Esfuerzo:** bajo
+  - **Depende de:** T2-01 (para que `npm audit` pueda bloquear en vez de solo avisar)
+
+- [ ] **[T2-03] Log en archivo: en release, los `eprintln!` no llegan a ningún sitio**
+  - **Área:** Código · Observabilidad
+  - **Ubicación:** `src-tauri/src/main.rs:2`; llamadas en `lib.rs:162,179,227,340`,
+    `storage.rs:171,189`, `ports.rs:18`, `notify.rs:20`
+  - **Qué hacer:** el binario de release se compila con `windows_subsystem = "windows"`
+    —obligatorio, si no aparece una consola—, así que no hay stderr al que escribir. Los nueve
+    avisos del proyecto son la única señal cuando falla guardar el historial, escribir los ajustes o
+    leer los puertos, y en la versión que usa la gente no los ve nadie. Escribir a un archivo en
+    `app_data_dir()`, junto a `settings.json`, con tope de tamaño y rotación simple; o
+    `tauri-plugin-log`, que ya trae las dos cosas. Mencionar la ruta en Ajustes → Acerca de para
+    poder pedirlo.
+  - **Criterio de aceptación:** sobre el binario de release, provocar un fallo de escritura de
+    ajustes deja una línea fechada en el archivo de log, y el archivo no crece sin límite.
+  - **Esfuerzo:** medio
+  - **Depende de:** ninguna
+
+- [ ] **[T2-04] Escritura atómica de `settings.json` e `history.json`**
+  - **Área:** Código · Integridad de datos
+  - **Ubicación:** `src-tauri/src/storage.rs:197-200`
+  - **Qué hacer:** `write_json` hace `fs::write` directo sobre el archivo final: primero lo trunca y
+    luego lo rellena. Un corte a mitad deja un JSON truncado; el arranque siguiente lo detecta y no
+    tumba la app —bien—, pero **vuelve a los valores de fábrica sin avisar**, perdiendo los nombres
+    vigilados, el umbral del Auto-Kill y hasta 200 entradas de historial. Escribir a un temporal y
+    renombrar encima (en Windows `fs::rename` sobre un archivo existente falla: hace falta
+    `ReplaceFileW`, borrar-y-renombrar, o `tempfile::persist`). De paso, conservar el original como
+    `.corrupto` antes de sobrescribirlo con los valores por defecto.
+  - **Criterio de aceptación:** una prueba que interrumpe la escritura deja el archivo anterior
+    íntegro, y `un_archivo_corrupto_no_tumba_la_app` sigue en verde.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T2-05] ESLint para TypeScript y React**
+  - **Área:** Código · Limpieza
+  - **Ubicación:** raíz del repositorio, `package.json:7-15`
+  - **Qué hacer:** no hay configuración de ESLint, Biome ni Prettier, ni script de `lint`. Rust sí
+    tiene clippy y pasa limpio, así que la asimetría es solo del frontend: unas 4.000 líneas de TSX
+    con `tsc --strict` como única red. Añadir `typescript-eslint`, `eslint-plugin-react-hooks` y
+    `eslint-plugin-jsx-a11y`, y meterlo en el bloque de pruebas de `release.ps1`.
+  - **Criterio de aceptación:** `npm run lint` pasa limpio con las reglas recomendadas, y la primera
+    pasada de arreglos va en su propio commit, separada de la configuración.
+  - **Esfuerzo:** medio
+  - **Depende de:** ninguna
+
+- [ ] **[T2-06] Error boundary alrededor de la app**
+  - **Área:** Código · UI/UX
+  - **Ubicación:** `src/main.tsx:6-10`
+  - **Qué hacer:** no hay ninguno, así que una excepción no capturada en el render desmonta el árbol
+    entero. En el navegador eso se ve en la consola; aquí es una ventana de escritorio en release,
+    sin devtools y sin consola (ver T2-03): el usuario ve un rectángulo vacío y solo puede cerrar la
+    app. Pintar el error, ofrecer recargar la vista y —cuando exista T2-03— apuntar al log.
+  - **Criterio de aceptación:** una prueba que hace lanzar a un componente hijo enseña la pantalla de
+    error en vez de dejar el DOM vacío.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna (mejora con T2-03)
+
+- [ ] **[T2-07] Respetar `prefers-reduced-motion`**
+  - **Área:** Accesibilidad
+  - **Ubicación:** `src/components/ProcessTable.tsx:103-121`, `src/index.css`
+  - **Qué hacer:** no hay una sola aparición de `prefers-reduced-motion` ni de `MotionConfig` en todo
+    el proyecto. Las filas entran, salen desplazándose 24 px y tiñéndose de rojo, y las barras
+    animan su anchura cada dos segundos. Windows tiene su interruptor de «Efectos de animación» y
+    WebView2 lo traslada a esa media query. Envolver en `<MotionConfig reducedMotion="user">` y
+    añadir la regla equivalente en CSS para las transiciones de las barras.
+  - **Criterio de aceptación:** con la preferencia activada en Windows, las filas aparecen y
+    desaparecen sin desplazamiento y las barras saltan a su valor sin transición.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T2-08] Excluir dobles de prueba y código generado de la cobertura**
+  - **Área:** QA y testing
+  - **Ubicación:** `vitest.config.ts:17-25`
+  - **Qué hacer:** el 86,14 % actual incluye en el denominador `src/test/tauri-mock.ts` (65,62 %, que
+    es un doble: su código sin ejecutar son ramas de simulación que nadie pidió) y
+    `src/components/ui/` (68,57 %, con `context-menu.tsx` al 33,33 %, generado por shadcn). La cifra
+    infravalora el código propio y a la vez invita a escribir pruebas de componentes generados para
+    subir un número. Añadir `coverage.exclude` con `src/test/**`, `src/components/ui/**` y
+    `**/*.test.*`.
+  - **Criterio de aceptación:** el informe solo lista código propio, y el porcentaje resultante queda
+    anotado como referencia real en CONTEXT §3.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T2-09] Decidir qué se hace con los packs de skills de agente**
+  - **Área:** Limpieza · Licencias
+  - **Ubicación:** `.claude/skills/`, `.agents/skills/`, `skills-lock.json`
+  - **Qué hacer:** de los 373 archivos versionados, **271 son packs de skills** —CSV de paletas,
+    scripts de Python para generar logos, plantillas de presentaciones— que no intervienen en
+    compilar, probar ni publicar. Además, dos traen licencia propia
+    (`.claude/skills/ui-styling/LICENSE.txt`, `.agents/skills/frontend-design/LICENSE.txt`) que ni el
+    README ni `THIRD-PARTY-NOTICES.txt` mencionan. Elegir una de tres: sacarlos a `.gitignore` (se
+    reinstalan desde `skills-lock.json`), traerlos como submódulo, o dejarlos y documentar en el
+    README y en los avisos qué son y bajo qué licencia.
+  - **Criterio de aceptación:** la decisión está tomada y anotada en CONTEXT §4 con su fecha, y no
+    queda material de terceros sin declarar en un repositorio GPLv3.
+  - **Esfuerzo:** bajo la decisión; medio si se opta por documentarlos
+  - **Depende de:** ninguna
+
+- [ ] **[T2-10] Escribir el procedimiento para revertir un release malo**
+  - **Área:** DevOps
+  - **Ubicación:** `release.ps1` (cabecera), `src-tauri/src/update.rs:76-83`
+  - **Qué hacer:** `is_newer` es estrictamente mayor —correcto, evita el bucle de reinstalación—, así
+    que republicar la versión buena con un número anterior no llega a nadie: quien ya instaló la
+    mala no recibe la oferta. La única salida es cortar una versión superior, y eso no está escrito
+    en ningún sitio. Agrava el caso que desde la v1.3.1 la instalación es silenciosa y el usuario
+    tiene menos ocasiones de frenarla. Documentar: cortar X.Y.Z+1 con el código bueno, despublicar
+    el release malo para que `/releases/latest` deje de servirlo, y verificar después que la API
+    devuelve la etiqueta correcta.
+  - **Criterio de aceptación:** el procedimiento está en el README o en la cabecera de `release.ps1`,
+    con los tres pasos y en ese orden.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+---
+
+### T3 — Pulido y mantenimiento
+
+- [ ] **[T3-01] Restaurar `GH_TOKEN` al terminar el release**
+  - **Área:** Seguridad · DevOps
+  - **Ubicación:** `release.ps1:406-415`
+  - **Qué hacer:** cuando `gh` no está autenticado, el script saca la credencial cacheada de git y la
+    deja en `$env:GH_TOKEN`. Un script de PowerShell corre en el proceso de la consola que lo lanza,
+    así que la variable sobrevive al script y queda a la vista de todo lo que se ejecute después en
+    esa terminal — con alcance `repo` y `workflow`. Guardar el valor anterior y restaurarlo en el
+    `finally` que ya existe.
+  - **Criterio de aceptación:** tras un release, `Test-Path Env:\GH_TOKEN` devuelve lo mismo que
+    antes de lanzarlo.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-02] Techo de tamaño en la descarga del instalador**
+  - **Área:** Seguridad
+  - **Ubicación:** `src-tauri/src/update.rs:329-345`
+  - **Qué hacer:** el bucle de `bytes_stream()` escribe lo que llegue hasta que el flujo termine, sin
+    comparar con `asset_size` ni con un máximo absoluto. Abortar y borrar si se supera `asset_size`
+    por un margen razonable, o un tope fijo.
+  - **Criterio de aceptación:** una descarga que se pasa del tope se corta, borra el archivo parcial
+    y devuelve un error legible.
+  - **Esfuerzo:** bajo
+  - **Depende de:** T1-01 (se toca el mismo camino)
+
+- [ ] **[T3-03] Revertir los ajustes en la ventana si no se pudieron guardar**
+  - **Área:** Código · UI/UX
+  - **Ubicación:** `src/App.tsx:165-172`
+  - **Qué hacer:** `saveSettings` aplica el cambio de forma optimista y, si `invoke` lanza, enseña un
+    toast pero no revierte. Con el Auto-Kill de por medio esa divergencia importa: la ventana puede
+    decir 4096 MB mientras Rust sigue vigilando con 2048, y el toast se va en segundos. Recordar los
+    ajustes anteriores y restaurarlos en el `catch`.
+  - **Criterio de aceptación:** con `save_settings` rechazando, el control vuelve visualmente a su
+    valor anterior y el mensaje dice que no se guardó.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-04] Capturar el fallo al vaciar el historial**
+  - **Área:** Código
+  - **Ubicación:** `src/App.tsx:375-378`
+  - **Qué hacer:** es el único `invoke` del frontend sin `try/catch`. Si la escritura falla salta una
+    promesa rechazada sin gestionar y el diálogo se cierra como si hubiera funcionado. Envolverlo
+    igual que `refresh` y `loadHistory`.
+  - **Criterio de aceptación:** con `clear_history` rechazando, aparece un `toast.error` y el
+    historial sigue en pantalla.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-05] `vitest.config.ts` no lo comprueba ningún `tsconfig`**
+  - **Área:** Código
+  - **Ubicación:** `tsconfig.json:36`, `tsconfig.node.json:9`
+  - **Qué hacer:** el principal incluye solo `src` y el de Node solo `vite.config.ts`, así que la
+    configuración de Vitest queda sin verificar. Añadirla al `include` de `tsconfig.node.json`.
+  - **Criterio de aceptación:** un error de tipos introducido a propósito en `vitest.config.ts` hace
+    fallar `npm run build`.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-06] Quitar el `unwrap()` del icono al construir la bandeja**
+  - **Área:** Código
+  - **Ubicación:** `src-tauri/src/tray.rs:74`
+  - **Qué hacer:** `app.default_window_icon().unwrap()` entra en pánico si el icono no está, y un
+    pánico en el `setup` es una app que no arranca y no dice por qué. El resto del arranque degrada
+    con elegancia (`app_data_dir` cae a `temp_dir`, los ajustes corruptos a los de fábrica); esto
+    rompe esa coherencia. Propagar con `ok_or` hacia el `tauri::Result` que la función ya devuelve.
+  - **Criterio de aceptación:** `cargo build` sin `unwrap` en ese camino y la bandeja sigue
+    apareciendo.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-07] `HashSet` en la poda del Zombie Finder**
+  - **Área:** Rendimiento
+  - **Ubicación:** `src-tauri/src/processes.rs:305-306`
+  - **Qué hacer:** `retain` hace una búsqueda lineal en un `Vec` por cada entrada del mapa, en cada
+    refresco. Despreciable con decenas de procesos; se anota porque el arreglo es una palabra y el
+    bucle corre cada dos segundos durante días. Construir `vivos` como `HashSet<u32>`.
+  - **Criterio de aceptación:** `olvida_los_pids_que_desaparecen` sigue en verde.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-08] «En pausa» y «Midiendo…» por debajo del contraste mínimo**
+  - **Área:** Accesibilidad
+  - **Ubicación:** `src/components/UsageMeter.tsx:29`
+  - **Qué hacer:** es el único texto de la app con la opacidad rebajada (`text-muted-foreground/70`,
+    12 px). Calculado sobre los tokens de `index.css`, el contraste en tema claro ronda **2,9:1**,
+    por debajo del 4,5:1 de WCAG 2.2 AA — *pendiente de verificación con una herramienta sobre la
+    app en marcha; el cálculo es a mano desde los valores OKLCH*. Quitar el `/70`, que es el mismo
+    criterio que ya se aplicó al guion de «sin puertos».
+  - **Criterio de aceptación:** medido con una herramienta de contraste sobre la ventana, los dos
+    textos pasan de 4,5:1 en tema claro y oscuro.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-09] Etiqueta accesible en el buscador y en el campo de ejecutable**
+  - **Área:** Accesibilidad
+  - **Ubicación:** `src/App.tsx:307-312`, `src/components/SettingsView.tsx:179-186`
+  - **Qué hacer:** los dos se apoyan solo en el `placeholder`, que desaparece al escribir y no es
+    fiable como nombre accesible (WCAG 3.3.2). Los dos campos numéricos de la misma vista sí llevan
+    `aria-label` y `aria-describedby`, con su comentario, así que es un descuido y no un criterio.
+    Añadir `aria-label` a ambos.
+  - **Criterio de aceptación:** los dos campos se anuncian con su nombre aunque tengan texto escrito.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-10] El contador de la cabecera es un número sin nombre**
+  - **Área:** Accesibilidad
+  - **Ubicación:** `src/App.tsx:314-316`
+  - **Qué hacer:** entre el buscador y «Refrescar» hay un `<span>` con `{visible.length}` y nada más;
+    leído en voz alta es un número suelto, y además cambia al filtrar sin anunciarse. Añadir un
+    `aria-label` del tipo «12 procesos en la lista» y `aria-live="polite"`.
+  - **Criterio de aceptación:** al filtrar, el lector de pantalla anuncia el recuento nuevo.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-11] `caption` en las tablas y rol en la barra de descarga**
+  - **Área:** Accesibilidad
+  - **Ubicación:** `src/components/ProcessTable.tsx:59`, `src/components/HistoryView.tsx:35`,
+    `src/components/Actualizaciones.tsx:87-100`
+  - **Qué hacer:** ninguna de las dos tablas tiene `<caption>` ni `aria-label`, así que se anuncian
+    como «tabla, 8 columnas» sin decir de qué. La barra de descarga es un `div` con la anchura
+    animada, sin `role="progressbar"`. Añadir un `<caption class="sr-only">` a cada tabla y el rol
+    con `aria-valuenow/min/max` cuando hay porcentaje.
+  - **Criterio de aceptación:** las dos tablas se anuncian con nombre y la barra reporta su avance.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-12] Un solo aviso por acción desde la bandeja y el atajo global**
+  - **Área:** UI/UX
+  - **Ubicación:** `src-tauri/src/lib.rs:232-240`, `src-tauri/src/tray.rs:44-49`
+  - **Qué hacer:** «Cerrar todos los Node» pasa por `kill_and_record`, que notifica los puertos
+    liberados, y al volver notifica otra vez el recuento: dos toasts de Windows para un clic, y
+    justo en el camino que se usa sin ventana delante. El Auto-Kill ya evita el duplicado con una
+    guarda explícita; extender ese mismo criterio, componiendo el mensaje completo con
+    `notify::freed_ports_sentence`.
+  - **Criterio de aceptación:** cerrar desde la bandeja o con Ctrl+Alt+K saca **un** aviso que
+    incluye el recuento y los puertos liberados.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-13] Pruebas de los caminos de fallo del frontend**
+  - **Área:** QA y testing
+  - **Ubicación:** `src/App.test.tsx`, `src/components/SettingsView.test.tsx`
+  - **Qué hacer:** hay pruebas del caso feliz y del parcial de `kill_processes`, pero ninguna simula
+    que `save_settings` o `clear_history` fallen — que son justo los caminos de T3-03 y T3-04.
+    Añadir dos con el `invoke` doblado rechazando.
+  - **Criterio de aceptación:** las dos fallan si se quitan los arreglos de T3-03 y T3-04.
+  - **Esfuerzo:** bajo
+  - **Depende de:** T3-03, T3-04
+
+- [ ] **[T3-14] Singular y plural en las notificaciones de Rust**
+  - **Área:** Ortografía y redacción
+  - **Ubicación:** `src-tauri/src/tray.rs:46-49`, `src-tauri/src/lib.rs:364-366`
+  - **Qué hacer:** cerrar un único Node desde la bandeja produce «1 procesos Node cerrados.». Es el
+    mismo descuido que el frontend ya arregló dos veces —hay una prueba llamada «usa el singular al
+    cerrar un solo proceso» y un comentario sobre «1 cierre registrados»—. Aplicar el patrón de
+    `freed_ports_sentence`, que ya resuelve las dos formas con su prueba al lado.
+  - **Criterio de aceptación:** una prueba fija las dos redacciones, en singular y en plural.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-15] Las dos tildes que faltan en los avisos del Auto-Kill**
+  - **Área:** Ortografía y redacción
+  - **Ubicación:** `src-tauri/src/auto_kill.rs:65`, `src-tauri/src/auto_kill.rs:71`
+  - **Qué hacer:** «por encima del limite de …. Cerrado automaticamente.» y «… cerrados
+    automaticamente por pasar de …». Faltan «límite» y «automáticamente», en el aviso de la única
+    función que cierra procesos sin preguntar. El resto de cadenas de cara al usuario sí las llevan
+    (`update.rs` las acentúa todas), así que es una inconsistencia y no un criterio.
+  - **Criterio de aceptación:** las dos cadenas acentuadas y `cargo test` en verde (las pruebas
+    comparan fragmentos que no incluyen esas palabras).
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-16] README: son 49 pruebas de backend, no 48**
+  - **Área:** Documentación
+  - **Ubicación:** `README.md:238`
+  - **Qué hacer:** la v1.3.1 añadió `el_instalador_se_lanza_en_silencio` y el número no se actualizó.
+    El de frontend (160) sí está bien.
+  - **Criterio de aceptación:** la cifra coincide con la salida de `cargo test`.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-17] README: contar que la actualización ya es silenciosa**
+  - **Área:** Documentación
+  - **Ubicación:** `README.md:118`
+  - **Qué hacer:** «Al terminar, la app se cierra para que el instalador la reemplace» era exacto
+    hasta la v1.3.1, que hizo el proceso silencioso y añadió la reapertura automática. Ajustes ya lo
+    dice dentro de la app; el README no, y es lo que lee quien decide si instalar. Añadir la frase,
+    con la nota de que quien venga de la v1.3.0 aún verá las ventanas una última vez.
+  - **Criterio de aceptación:** la sección describe el comportamiento real de la v1.3.1 en adelante.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-18] Regenerar `THIRD-PARTY-NOTICES.txt`**
+  - **Área:** Documentación · Licencias
+  - **Ubicación:** `THIRD-PARTY-NOTICES.txt:51`, `THIRD-PARTY-NOTICES.txt:19`
+  - **Qué hacer:** declara `shadcn 4.14.1` cuando la instalada y la declarada en `package.json` es la
+    **3.8.3**, y habla de «los 515 crates del árbol de Rust» cuando `Cargo.lock` tiene 566 entradas.
+    Es un documento legal que viaja dentro del instalador como recurso y al que la app enlaza desde
+    Ajustes: su valor entero está en ser exacto. Regenerarlo con los comandos que el propio archivo
+    documenta y añadir el paso a `release.ps1`, o al menos un aviso si `package.json` cambió desde la
+    última regeneración. Con T2-01 hecho, `shadcn` deja además de tener que aparecer.
+  - **Criterio de aceptación:** cada versión listada coincide con la instalada, y la fecha de
+    generación es la del último corte.
+  - **Esfuerzo:** bajo
+  - **Depende de:** T2-01
+
+- [x] **[T3-20] `coverage/` ignorado por git** — hecho el 2026-08-18
+  - **Área:** DevOps
+  - **Ubicación:** `.gitignore:13-19`
+  - **Qué hacer:** salió al ejecutar `npm run test:coverage` durante la propia auditoría: la carpeta
+    que genera **no estaba ignorada**. Dos problemas, y el segundo muerde: es un informe distinto en
+    cada equipo —el proyecto se trabaja desde varios—, y `release.ps1` **aborta el corte** al
+    encontrar archivos sin rastrear, así que medir la cobertura antes de publicar dejaba el release
+    bloqueado hasta borrar la carpeta a mano.
+  - **Criterio de aceptación:** tras `npm run test:coverage`, la carpeta existe en disco y
+    `git status --porcelain` no devuelve ninguna entrada `??`.
+  - **Verificado:** generada la cobertura (86,41 % de líneas) y comprobado que `git status` solo ve
+    los archivos editados a mano. El corte de versión ya no se bloquea.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+- [ ] **[T3-19] Atar `-SkipTests` al `-DryRun` que lo justifica**
+  - **Área:** DevOps
+  - **Ubicación:** `release.ps1:70`, `release.ps1:235-237`
+  - **Qué hacer:** el modificador existe para no repetir las pruebas cuando el *dry run* acaba de
+    pasarlas —así se cortó la v1.3.1— pero nada relaciona las dos ejecuciones: el script no recuerda
+    que hubo un *dry run*, ni sobre qué commit. Un `-SkipTests` sobre un árbol que cambió después
+    publica sin haber probado ese código. Que el *dry run* deje una marca con el `HEAD` sobre el que
+    corrió y que `-SkipTests` avise —o se niegue— si no coincide. Como mínimo, documentar la
+    condición en la ayuda del parámetro.
+  - **Criterio de aceptación:** `-SkipTests` sobre un `HEAD` distinto del último *dry run* avisa
+    antes de compilar nada.
+  - **Esfuerzo:** bajo
+  - **Depende de:** ninguna
+
+---
+
+### T4 — Futuro / opcional
+
+Explícitamente fuera del alcance inmediato. Están aquí para no perderlos, no para hacerlos ahora.
+
+- [ ] **[T4-01] Internacionalización**
+  - **Área:** UI/UX
+  - **Ubicación:** todo `src/`, `src-tauri/src/{lib,tray,auto_kill,notify,update}.rs`
+  - **Qué hacer:** todo el texto está incrustado en español, en los dos lados. Es coherente con el
+    producto tal como está; sacar las cadenas a un catálogo solo tiene sentido si se decide publicar
+    en más idiomas.
+  - **Criterio de aceptación:** decisión tomada y anotada; si se hace, ninguna cadena de cara al
+    usuario queda incrustada.
+  - **Esfuerzo:** alto
+  - **Depende de:** ninguna
+
+- [ ] **[T4-02] Firma de código Authenticode**
+  - **Área:** Seguridad · Distribución
+  - **Ubicación:** `src-tauri/tauri.conf.json` (`bundle.windows.certificateThumbprint`)
+  - **Qué hacer:** es lo que quitaría el aviso de SmartScreen y lo que permitiría una verificación
+    fuerte de origen, con el SHA-256 como respaldo. Requiere un certificado de pago. Ya está
+    contemplado en el roadmap histórico y en el README; se repite aquí para que la lista de deuda
+    esté completa.
+  - **Criterio de aceptación:** el instalador firmado no dispara el aviso de editor desconocido.
+  - **Esfuerzo:** medio (más el coste del certificado)
+  - **Depende de:** ninguna
+
+- [ ] **[T4-03] Medir el rendimiento de verdad**
+  - **Área:** Rendimiento
+  - **Ubicación:** `src-tauri/src/poller.rs`, arranque de `lib.rs`
+  - **Qué hacer:** no hay ninguna medición propia del coste del ciclo (que enumera todos los procesos
+    del sistema y toda la tabla de sockets cada dos segundos), del tiempo de arranque, ni del
+    consumo con la app viviendo días en la bandeja. Las decisiones de diseño son correctas, pero
+    nadie ha puesto una cifra.
+  - **Criterio de aceptación:** las tres cifras medidas y anotadas en CONTEXT §3, con el método y la
+    máquina en que se midieron.
+  - **Esfuerzo:** medio
+  - **Depende de:** ninguna
+
+- [ ] **[T4-04] Revisitar la decisión de no tener CI**
+  - **Área:** DevOps
+  - **Ubicación:** CONTEXT §4 (2026-07-24)
+  - **Qué hacer:** la publicación local con `release.ps1` está asumida y documentada. Su coste real:
+    nada garantiza que las pruebas pasen fuera de este equipo, y el corte depende de un entorno
+    concreto (MSVC, Windows SDK) documentado solo en prosa. Un workflow que solo ejecute
+    `cargo test` y `npm test` en cada push cubriría lo primero sin tocar el corte de versión.
+  - **Criterio de aceptación:** decisión revisada y anotada con su fecha, se cambie o no.
+  - **Esfuerzo:** medio
+  - **Depende de:** ninguna
+
+- [ ] **[T4-05] Dividir el bundle, solo si la medición lo justifica**
+  - **Área:** Rendimiento
+  - **Ubicación:** `vite.config.ts`
+  - **Qué hacer:** el bundle sale en 574,92 kB de JavaScript (185,98 kB comprimido) y Vite avisa de
+    que pasa de 500 kB. En una app de escritorio con los assets embebidos no hay descarga que
+    optimizar: solo cuenta el parseo local. Hacerlo únicamente si T4-03 demuestra que el arranque lo
+    nota.
+  - **Criterio de aceptación:** o bien se mide que no importa y se cierra la tarea con esa nota, o
+    bien se divide y se mide la mejora.
+  - **Esfuerzo:** bajo
+  - **Depende de:** T4-03
+
+---
+
+### Progreso
+
+Se marca `[x]` **solo cuando está probado**, no cuando está escrito — la regla de la casa. Si algo se
+probó a medias, se dice aquí qué quedó fuera.
+
+| Fecha | Tareas cerradas | Nota |
+|---|---|---|
+| 2026-08-18 | — | Auditoría completada; backlog abierto con 37 tareas (0 T0 · 2 T1 · 10 T2 · 20 T3 · 5 T4) |
+| 2026-08-18 | T3-20 | `coverage/` ignorado. Apareció ejecutando la cobertura durante la propia auditoría: sin ignorar, bloqueaba el corte de versión en cualquier equipo que la midiera antes de publicar |
+
+**Pendientes: 36 de 37.**

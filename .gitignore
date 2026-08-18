@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Salida de `npm run test:coverage`. Se ignora por dos motivos, y el segundo muerde:
+# es un informe distinto en cada equipo —el proyecto se trabaja desde varios—, y
+# `release.ps1` **aborta el corte** al encontrar archivos sin rastrear (ver su
+# comprobacion de `git status --porcelain`). Sin esta linea, medir la cobertura antes
+# de publicar deja el release bloqueado hasta borrar la carpeta a mano.
+coverage
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
