@@ -8,7 +8,7 @@
 
 ---
 
-### 2026-08-18 — Auditoría del repositorio, Tier 1 cerrado y la v1.3.2 publicada
+### 2026-08-18 — Auditoría del repositorio, Tiers 1 y 2, y la v1.3.2 publicada
 
 - **Revisión completa de las doce áreas** sobre el commit `15d3004` (v1.3.1): además de leer el
   código se ejecutaron `cargo test`, `npm test`, `cargo clippy -D warnings`, `npm audit`, la
@@ -42,6 +42,35 @@
 - Un hallazgo salió de la propia auditoría al ejecutar la cobertura: `coverage/` no estaba ignorada,
   y `release.ps1` **aborta el corte** al encontrar archivos sin rastrear. Con el proyecto trabajándose
   desde varios equipos, era cuestión de tiempo.
+- **La actualización silenciosa quedó verificada en la app en marcha**, actualizando de la v1.3.1 a
+  la v1.3.2. Con eso se cierra **la última salvedad abierta del proyecto entero**: lanzar el
+  instalador era el único paso del actualizador que nunca había corrido de principio a fin, y lo
+  arrastrábamos desde julio porque hacía falta un release posterior al instalado.
+- **Seis tareas más, del Tier 2.** La que más enseñó no fue ninguna de las que estaban en la lista:
+  al atar `cargo audit` al corte de versión (T2-02) y correrlo por primera vez, **apareció una
+  vulnerabilidad de verdad** —`h2` 0.4.15, RUSTSEC-2026-0258, publicada el día anterior y en el
+  árbol vía `reqwest`—. 567 crates que nunca se habían contrastado contra RustSec; a la primera,
+  algo. Arreglada con `cargo update -p h2`.
+- **La escritura atómica de los ajustes (T2-04) se escribió mal y lo destapó su propia prueba.** La
+  primera versión borraba el destino antes de renombrar, dando por hecho que en Windows
+  `fs::rename` falla si el archivo existe. Se quitó el borrado para ver fallar la prueba y **siguió
+  pasando**: el `rename` de Rust usa `MoveFileExW` con `MOVEFILE_REPLACE_EXISTING`. O sea que el
+  borrado no defendía de nada y encima abría un instante sin ningún archivo bueno en disco — justo
+  lo que la atomicidad venía a cerrar. Tercera vez en el proyecto que una suposición sobre la API
+  del sistema resulta falsa al medirla, después de las dos de sysinfo.
+- Las 7 alertas de `npm audit` salían todas de `shadcn`, declarado en `dependencies` (T2-01). No se
+  puede quitar —`index.css` importa su `tailwind.css`— pero sí mover a `devDependencies`: el árbol
+  de producción queda a cero y **el CSS compilado sale idéntico byte a byte**, que es la prueba de
+  que no cambió nada de lo que se distribuye.
+- El *error boundary* (T2-06) va **fuera** de `App`: dentro no se montaría si el fallo estuviera en
+  el propio `App`. Y dice explícitamente que no se ha cerrado ningún proceso, porque en un gestor
+  de procesos ese es el susto por defecto de una ventana que se rompe.
+- La cobertura contaba los dobles de Tauri y los componentes de shadcn. Excluidos (T2-08), el código
+  propio está al **89,61 %**, no al 86,14 %.
+- Dos tareas se quedan **sin marcar aunque el código esté escrito**, y se dice por qué: el tope de
+  descarga (T3-02) pediría un servidor de mentira que devuelva 100 MB, y `prefers-reduced-motion`
+  (T2-07) pide encender el ajuste de Windows y mirar la app. Marcar `[x]` algo comprobado solo
+  leyéndolo es justo lo que prohíbe la regla de la casa.
 
 ---
 
