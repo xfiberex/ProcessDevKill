@@ -115,7 +115,12 @@ El resultado tiene que coincidir con el contenido del `.sha256` que acompaña al
 
 La app comprueba al arrancar si hay una versión nueva y avisa con un toast. La descarga y la
 instalación **no ocurren solas**: se lanzan desde *Ajustes → Actualizaciones*, con el número de
-versión y las notas delante. Al terminar, la app se cierra para que el instalador la reemplace.
+versión y las notas delante.
+
+Desde la v1.3.1, cuando lo confirmas **la instalación es silenciosa**: no aparece ningún asistente
+ni ninguna ventana de desinstalación, la app se cierra, se actualiza y vuelve a abrirse sola. No hay
+nada que responder. (Quien venga de la v1.3.0 verá las ventanas una última vez: el instalador lo
+lanza la versión que ya está instalada, no la nueva.)
 
 ### El modelo de confianza, y qué no cubre
 
@@ -235,7 +240,7 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```bash
 npm test                      # 160 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
-cd src-tauri && cargo test    # 48 pruebas del backend
+cd src-tauri && cargo test    # 52 pruebas del backend
 ```
 
 Las pruebas de Rust leen los procesos reales del equipo y **solo matan procesos que lanzan ellas

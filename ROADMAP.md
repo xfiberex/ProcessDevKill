@@ -1009,14 +1009,14 @@ haciendo clic en «Siguiente».
 
 ### Índice
 
-| Tier | Qué es | Tareas | Esfuerzo agregado |
-|---|---|---|---|
-| **T0 — Crítico / bloqueante** | Nada. No se encontró ninguna vulnerabilidad explotable ni pérdida de datos en curso | **0** | — |
-| **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | 2 bajo |
-| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 7 bajo · 3 medio |
-| **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 20 bajo |
-| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 1 bajo · 3 medio · 1 alto |
-| | | **37** | 30 bajo · 6 medio · 1 alto |
+| Tier | Qué es | Tareas | Cerradas | Esfuerzo agregado |
+|---|---|---|---|---|
+| **T0 — Crítico / bloqueante** | Nada. No se encontró ninguna vulnerabilidad explotable ni pérdida de datos en curso | **0** | — | — |
+| **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
+| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 0 | 7 bajo · 3 medio |
+| **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 3 | 20 bajo |
+| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 0 | 1 bajo · 3 medio · 1 alto |
+| | | **37** | **5** | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
@@ -1028,7 +1028,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
 
 ### T1 — Alta prioridad
 
-- [ ] **[T1-01] Validar en Rust el origen de las URLs del actualizador**
+- [x] **[T1-01] Validar en Rust el origen de las URLs del actualizador** — hecho el 2026-08-18
   - **Área:** Seguridad
   - **Ubicación:** `src-tauri/src/update.rs:409-418`, `src-tauri/src/update.rs:284-362`
   - **Qué hacer:** `download_update` recibe el `ReleaseInfo` entero del frontend, con `asset_url` y
@@ -1042,10 +1042,20 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Criterio de aceptación:** una prueba negativa —como la de la guardia de rutas— comprueba que
     una URL de otro dominio se rechaza sin descargar nada, y que la del repositorio se acepta. La
     actualización real sigue funcionando de v1.3.1 a la siguiente.
+  - **Verificado:** `url_de_release_valida` (`update.rs:204-238`) compara sobre la URL **parseada**,
+    no sobre la cadena, y se llama en `download_and_verify` **antes de pedir nada**. Dos pruebas
+    nuevas: `solo_se_descarga_de_un_release_de_este_repositorio` cubre los ocho casos, incluidos los
+    dos que un `starts_with` de texto sí se habría tragado —el `..` que normaliza a
+    `/xfiberex/evil.exe` y el `https://github.com@malo.example/…`—, y
+    `una_url_ajena_no_llega_ni_a_descargarse` fija que la comprobación va antes de la descarga.
+    **Comprobado que la prueba falla si se quita la guardia** (mutación aplicada y revertida). Y
+    comprobado contra la API real que las dos URLs que devuelve GitHub hoy
+    (`…/releases/download/v1.3.1/…exe` y su `.sha256`) pasan la validación: era lo único que podía
+    romper la actualización entera sin que se notara hasta el siguiente release.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T1-02] Prueba negativa de la guardia de PID**
+- [x] **[T1-02] Prueba negativa de la guardia de PID** — hecho el 2026-08-18
   - **Área:** QA y testing
   - **Ubicación:** `src-tauri/src/processes.rs:393-395`
   - **Qué hacer:** `kill_one` comprueba con `classify` que el PID sea de un runtime vigilado, y es lo
@@ -1055,6 +1065,13 @@ en T1 y no en T0 — pero es lo primero que se hace.
     el error que menciona «vigilado», y lo recoja él mismo al terminar.
   - **Criterio de aceptación:** el test falla si se quita la comprobación de `classify` en
     `kill_one`. Ningún proceso del usuario se toca: el que se lanza lo mata quien lo lanzó.
+  - **Verificado:** `la_guardia_se_niega_a_matar_lo_que_no_esta_vigilado` (`processes.rs:716-806`).
+    **Comprobado que falla si se quita la comprobación de `classify`** (mutación aplicada y
+    revertida). Prueba las dos mitades a propósito: con `cmd.exe` sin vigilar, `kill_many` devuelve
+    `killed: false` con el error que menciona «vigilado», sin liberar puertos, y **el proceso sigue
+    vivo** —se comprueba antes de limpiar—; declarando `cmd` como nombre vigilado, el mismo PID
+    muere. Sin esa segunda mitad, la prueba pasaría igual si el proceso resultara inmatable por
+    cualquier otro motivo, que es la forma de que este test no probara nada.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
@@ -1225,6 +1242,11 @@ en T1 y no en T0 — pero es lo primero que se hace.
     por un margen razonable, o un tope fijo.
   - **Criterio de aceptación:** una descarga que se pasa del tope se corta, borra el archivo parcial
     y devuelve un error legible.
+  - **Estado:** código escrito el 2026-08-18 junto con T1-01, que toca el mismo bucle
+    (`update.rs:376-395`, tope de 100 MB frente a los ~4 MB que ocupa el instalador). **Se queda
+    sin marcar a propósito: no tiene prueba automática.** Ejercitarlo pide un servidor de mentira
+    que devuelva más de 100 MB, y montarlo es más trabajo que el arreglo entero. Marcar `[x]` algo
+    verificado solo leyéndolo sería justo lo que la regla de la casa prohíbe.
   - **Esfuerzo:** bajo
   - **Depende de:** T1-01 (se toca el mismo camino)
 
@@ -1375,16 +1397,17 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-16] README: son 49 pruebas de backend, no 48**
+- [x] **[T3-16] README: el recuento de pruebas del backend** — hecho el 2026-08-18 (48 -> 52)
   - **Área:** Documentación
   - **Ubicación:** `README.md:238`
   - **Qué hacer:** la v1.3.1 añadió `el_instalador_se_lanza_en_silencio` y el número no se actualizó.
     El de frontend (160) sí está bien.
   - **Criterio de aceptación:** la cifra coincide con la salida de `cargo test`.
+  - **Verificado:** dice 52, que es lo que devuelve `cargo test` tras cerrar el Tier 1.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-17] README: contar que la actualización ya es silenciosa**
+- [x] **[T3-17] README: contar que la actualización ya es silenciosa** — hecho el 2026-08-18
   - **Área:** Documentación
   - **Ubicación:** `README.md:118`
   - **Qué hacer:** «Al terminar, la app se cierra para que el instalador la reemplace» era exacto
@@ -1392,6 +1415,8 @@ en T1 y no en T0 — pero es lo primero que se hace.
     dice dentro de la app; el README no, y es lo que lee quien decide si instalar. Añadir la frase,
     con la nota de que quien venga de la v1.3.0 aún verá las ventanas una última vez.
   - **Criterio de aceptación:** la sección describe el comportamiento real de la v1.3.1 en adelante.
+  - **Verificado:** `README.md:114-125`, con la advertencia de que quien venga de la v1.3.0 verá las
+    ventanas una última vez porque el instalador lo lanza la versión ya instalada.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
@@ -1512,5 +1537,7 @@ probó a medias, se dice aquí qué quedó fuera.
 |---|---|---|
 | 2026-08-18 | — | Auditoría completada; backlog abierto con 37 tareas (0 T0 · 2 T1 · 10 T2 · 20 T3 · 5 T4) |
 | 2026-08-18 | T3-20 | `coverage/` ignorado. Apareció ejecutando la cobertura durante la propia auditoría: sin ignorar, bloqueaba el corte de versión en cualquier equipo que la midiera antes de publicar |
+| 2026-08-18 | T3-16, T3-17 | El README, al día antes de publicar: 52 pruebas de backend y la actualización silenciosa contada donde la lee quien decide si instalar |
+| 2026-08-18 | **T1-01, T1-02** | **Tier 1 cerrado entero.** Las dos guardias que faltaban, cada una con su prueba negativa, y **las dos pruebas comprobadas con una mutación**: se quitó la guardia, se vio fallar el test y se restauró. 52 de `cargo test` (antes 49) y clippy limpio. Publicado en la v1.3.2 |
 
-**Pendientes: 36 de 37.**
+**Pendientes: 32 de 37.** T3-02 lleva el código escrito pero se queda sin marcar hasta tener prueba.
