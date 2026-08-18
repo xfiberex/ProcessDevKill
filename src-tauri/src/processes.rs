@@ -712,6 +712,107 @@ mod tests {
         );
     }
 
+    /// **La prueba obligatoria de la casa, que le faltaba justo a la guardia mas importante.**
+    ///
+    /// `kill_one` comprueba con `classify` que el PID recibido sea de un runtime vigilado, y es lo
+    /// unico que separa un comando expuesto al frontend de un "mata cualquier proceso del sistema".
+    /// Hasta la revision del 2026-08-18 las pruebas solo ejercitaban `kill_many` **en positivo**:
+    /// un refactor de `classify`, del orden de las comprobaciones o del refresco previo podia
+    /// desactivar la guardia y dejar los 49 tests en verde.
+    ///
+    /// Se prueba con las dos mitades, y la segunda es la que da valor a la primera: con `cmd.exe`
+    /// **sin** vigilar, `kill_many` tiene que negarse y el proceso seguir vivo; declarandolo como
+    /// nombre propio, el mismo PID muere. Asi queda demostrado que lo que bloquea es la guardia y
+    /// no que el proceso fuera inmatable por otro motivo (permisos, por ejemplo), que es como esta
+    /// prueba podria pasar sin probar nada.
+    ///
+    /// El proceso lo lanza y lo recoge el propio test: la regla de que ninguna prueba toca los
+    /// procesos del usuario no se rompe ni aqui.
+    #[test]
+    fn la_guardia_se_niega_a_matar_lo_que_no_esta_vigilado() {
+        // `ping` a la direccion local: dura lo suficiente, no necesita consola ni entrada -que es
+        // lo que descarta a `timeout` y a `pause`- y su padre es un cmd.exe, que NO esta vigilado.
+        let Ok(mut ajeno) = std::process::Command::new("cmd")
+            .args(["/c", "ping", "-n", "60", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+        else {
+            println!("no se pudo lanzar cmd.exe: se omite");
+            return;
+        };
+        let pid = ajeno.id();
+        let target = Pid::from_u32(pid);
+
+        let mut sys = new_system();
+        let mut visible = false;
+        for _ in 0..40 {
+            sys.refresh_processes_specifics(
+                ProcessesToUpdate::Some(&[target]),
+                true,
+                ProcessRefreshKind::nothing(),
+            );
+            if sys.process(target).is_some() {
+                visible = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        if !visible {
+            let _ = ajeno.kill();
+            let _ = ajeno.wait();
+            println!("el proceso de prueba no llego a verse; se omite");
+            return;
+        }
+
+        // 1. Sin vigilar: la guardia tiene que cortar.
+        let rechazo = kill_many(&mut sys, SIN_EXTRAS, vec![pid]);
+
+        // ¿Sigue vivo? Se mira ANTES de limpiar, que es la comprobacion que de verdad importa:
+        // que la guardia no solo devolviera un error, sino que ademas no matara nada.
+        sys.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&[target]),
+            true,
+            ProcessRefreshKind::nothing(),
+        );
+        let sigue_vivo = sys.process(target).is_some();
+
+        // 2. Declarandolo vigilado, el mismo PID si muere.
+        let permitido = vec!["cmd".to_string()];
+        let aceptado = kill_many(&mut sys, &permitido, vec![pid]);
+
+        // Recoger al hijo pase lo que pase, antes de cualquier asercion.
+        let _ = ajeno.kill();
+        let _ = ajeno.wait();
+
+        assert_eq!(rechazo.len(), 1);
+        assert!(
+            !rechazo[0].killed,
+            "cmd.exe no es un runtime vigilado y no deberia haberse podido matar"
+        );
+        assert!(
+            rechazo[0]
+                .error
+                .as_deref()
+                .unwrap_or_default()
+                .contains("vigilado"),
+            "el error deberia decir que no esta vigilado, y dijo {:?}",
+            rechazo[0].error
+        );
+        assert!(
+            rechazo[0].freed_ports.is_empty(),
+            "un cierre rechazado no libera ningun puerto"
+        );
+        assert!(
+            sigue_vivo,
+            "la guardia devolvio error pero el proceso murio igual"
+        );
+        assert!(
+            aceptado[0].killed,
+            "con el nombre vigilado el mismo PID tiene que morir; si no, esta prueba no demuestra \
+             que lo que bloquea sea la guardia"
+        );
+    }
+
     #[test]
     fn lee_procesos_reales_del_sistema() {
         let mut sys = new_system();

@@ -35,3 +35,9 @@ tauri-plugin-clipboard-manager = "2.3.2"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "stream", "json", "http2"] }
 futures-util = { version = "0.3.33", default-features = false, features = ["std"] }
 sha2 = "0.10"
+
+[dev-dependencies]
+# Solo para las pruebas: `download_and_verify` es async y hace falta un runtime que la ejecute.
+# tokio ya estaba en el arbol (lo traen tauri y reqwest), asi que no añade ninguna descarga; se
+# declara para poder usar `#[tokio::test]`, y con las dos features minimas que eso necesita.
+tokio = { version = "1", features = ["macros", "rt"] }

@@ -202,6 +202,44 @@ pub fn carpeta_descargas() -> PathBuf {
     std::env::temp_dir().join("ProcessDevKill_update")
 }
 
+/// Comprueba que una URL apunte de verdad a un asset de un release **de este repositorio**.
+///
+/// La hermana de `ruta_de_instalador_valida`, y por el mismo motivo: `download_update` recibe el
+/// `ReleaseInfo` entero desde la ventana, así que las dos URLs que usa —el instalador y su
+/// `.sha256`— son entrada del frontend, no datos de confianza. Sin esta guardia, quien compusiera
+/// la llamada aportaría **las dos mitades** de la verificación —el archivo y el hash contra el que
+/// se compara— y esta pasaría siempre; el resultado aterrizaría además justo en la carpeta que
+/// `install_update` tiene en su lista blanca. Es el mismo criterio que la guardia de PID de
+/// `kill_process` y la de rutas de aquí abajo: un comando de Tauri acepta lo que le manden.
+///
+/// **Se compara sobre la URL ya parseada, no sobre la cadena.** `Url::parse` normaliza los `..`
+/// del camino y resuelve la sintaxis rara, así que
+/// `https://github.com/xfiberex/ProcessDevKill/releases/download/../../../evil.exe` se queda en
+/// `/xfiberex/evil.exe` y no pasa, y `https://github.com@malo.example/…` tiene por anfitrión
+/// `malo.example`, no `github.com`. Un `starts_with` sobre el texto se habría tragado los dos: es
+/// exactamente el fallo que ya tuvo la guardia de rutas con `Path::starts_with`.
+///
+/// Se valida **la URL que se pide**, no a dónde acabe llevando: GitHub redirige las descargas a
+/// `objects.githubusercontent.com`, y exigir que el destino final sea github.com rompería la
+/// actualización entera. La cadena de redirecciones ya la decide GitHub.
+pub fn url_de_release_valida(url: &str) -> Result<(), String> {
+    const HOST: &str = "github.com";
+
+    let parsed = reqwest::Url::parse(url).map_err(|_| "La URL de la descarga no es válida.")?;
+
+    if parsed.scheme() != "https" {
+        return Err("La descarga tiene que ir por HTTPS.".into());
+    }
+    if parsed.host_str() != Some(HOST) {
+        return Err("La descarga no viene de github.com.".into());
+    }
+    if !parsed.path().starts_with(&format!("/{REPO}/releases/download/")) {
+        return Err("La descarga no es un asset de un release de este proyecto.".into());
+    }
+
+    Ok(())
+}
+
 /// Comprueba que `candidata` sea un archivo dentro de la carpeta de descargas y devuelve su
 /// ruta canónica, que es la única que se debe ejecutar.
 ///
@@ -299,6 +337,11 @@ where
         );
     }
 
+    // Las dos URLs vienen del frontend: se comprueban **antes de pedir nada**. Verificar el
+    // instalador contra un hash que trajera el mismo mensaje no verifica absolutamente nada.
+    url_de_release_valida(&info.asset_url)?;
+    url_de_release_valida(&info.checksum_url)?;
+
     let http = cliente()?;
 
     // El hash esperado se pide ANTES de bajar 4 MB: si no está, no merece la pena.
@@ -334,14 +377,26 @@ where
         let mut archivo = std::fs::File::create(&destino)
             .map_err(|e| format!("No se pudo escribir en {destino:?}: {e}"))?;
 
+        // Techo de lo que se acepta escribir. El instalador ronda los 4 MB, así que 100 MB deja
+        // muchísimo margen para crecer y sigue impidiendo que una respuesta interminable llene
+        // el %TEMP% del usuario. Sin él, el bucle escribe lo que llegue hasta que el otro lado
+        // se canse.
+        const MAX_DESCARGA: u64 = 100 * 1024 * 1024;
+
         let mut bajado: u64 = 0;
         let mut stream = resp.bytes_stream();
         while let Some(trozo) = stream.next().await {
             let trozo = trozo.map_err(|e| format!("Descarga interrumpida: {e}"))?;
+            bajado += trozo.len() as u64;
+            if bajado > MAX_DESCARGA {
+                // El archivo a medias no se deja en el disco: nadie debe poder ejecutarlo a mano.
+                drop(archivo);
+                let _ = std::fs::remove_file(&destino);
+                return Err("La descarga se pasa del tamaño razonable y se ha cancelado.".into());
+            }
             archivo
                 .write_all(&trozo)
                 .map_err(|e| format!("No se pudo escribir el instalador: {e}"))?;
-            bajado += trozo.len() as u64;
             progreso(bajado, total);
         }
         archivo
@@ -639,6 +694,94 @@ mod tests {
 
         let _ = std::fs::remove_file(&dentro);
         let _ = std::fs::remove_file(&fuera);
+    }
+
+    /// **La guardia que faltaba, encontrada en la revision del 2026-08-18.**
+    ///
+    /// `download_update` recibe el `ReleaseInfo` entero desde la ventana, asi que la URL del
+    /// instalador y la del `.sha256` son entrada del frontend. Sin comprobarlas, quien compusiera
+    /// la llamada aportaria **las dos mitades** de la verificacion —el archivo y el hash contra el
+    /// que se compara— y esta pasaria siempre, dejando ademas el resultado en la carpeta que
+    /// `install_update` tiene en su lista blanca. O sea, ejecucion de lo que quisiera.
+    #[test]
+    fn solo_se_descarga_de_un_release_de_este_repositorio() {
+        let buena = format!(
+            "https://github.com/{REPO}/releases/download/v1.3.1/ProcessDevKill_1.3.1_x64-setup.exe"
+        );
+        assert!(
+            url_de_release_valida(&buena).is_ok(),
+            "la URL real de un asset tiene que valer: {buena}"
+        );
+        assert!(url_de_release_valida(&format!("{buena}.sha256")).is_ok());
+
+        // Otro anfitrion, aunque el camino imite al bueno.
+        assert!(url_de_release_valida(&format!(
+            "https://malo.example/{REPO}/releases/download/v1.3.1/setup.exe"
+        ))
+        .is_err());
+
+        // Sin cifrar: un intermediario podria cambiar instalador y hash a la vez.
+        assert!(url_de_release_valida(&format!(
+            "http://github.com/{REPO}/releases/download/v1.3.1/setup.exe"
+        ))
+        .is_err());
+
+        // Otro repositorio del mismo GitHub.
+        assert!(url_de_release_valida(
+            "https://github.com/otro/proyecto/releases/download/v1.0.0/setup.exe"
+        )
+        .is_err());
+
+        // Dentro del repo pero fuera de los assets de un release.
+        assert!(url_de_release_valida(&format!(
+            "https://github.com/{REPO}/raw/main/algo.exe"
+        ))
+        .is_err());
+
+        // ⚠️ Los dos que un `starts_with` sobre la cadena si se habria tragado, que es el fallo
+        // que ya tuvo la guardia de rutas con `Path::starts_with`. Se comprueban a proposito.
+        //
+        // El `..` normalizado: el camino acaba siendo /xfiberex/evil.exe.
+        assert!(url_de_release_valida(&format!(
+            "https://github.com/{REPO}/releases/download/../../../evil.exe"
+        ))
+        .is_err());
+        // El truco del usuario en la autoridad: el anfitrion real es malo.example.
+        assert!(url_de_release_valida(&format!(
+            "https://github.com@malo.example/{REPO}/releases/download/v1.3.1/setup.exe"
+        ))
+        .is_err());
+
+        assert!(url_de_release_valida("no soy una url").is_err());
+        assert!(url_de_release_valida("").is_err());
+    }
+
+    /// Que la comprobacion este **antes de pedir nada**: si se colara despues de la descarga, el
+    /// archivo ya estaria escrito en la carpeta desde la que se ejecuta.
+    #[tokio::test]
+    async fn una_url_ajena_no_llega_ni_a_descargarse() {
+        let info = ReleaseInfo {
+            tag: "v9.9.9".into(),
+            version: "9.9.9".into(),
+            notes: String::new(),
+            html_url: String::new(),
+            asset_url: "https://malo.example/evil-setup.exe".into(),
+            asset_name: "evil-setup.exe".into(),
+            asset_size: 10,
+            checksum_url: "https://malo.example/evil-setup.exe.sha256".into(),
+        };
+
+        let mut hubo_progreso = false;
+        let error = download_and_verify(&info, |_, _| hubo_progreso = true)
+            .await
+            .expect_err("una URL ajena no puede descargarse");
+
+        assert!(error.contains("github.com"), "{error}");
+        assert!(!hubo_progreso, "no deberia haber empezado ninguna descarga");
+        assert!(
+            !carpeta_descargas().join("evil-setup.exe").exists(),
+            "no puede quedar nada escrito en la carpeta desde la que se ejecuta"
+        );
     }
 
     /// Los tres flags son la actualizacion silenciosa entera: quitar cualquiera de ellos
