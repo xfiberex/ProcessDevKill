@@ -316,10 +316,65 @@ pub fn sha256_de_archivo(ruta: &Path) -> Result<String, String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-/// Descarga el instalador, informa del progreso y **lo verifica antes de devolverlo**.
+/// Techo de lo que se acepta escribir en una descarga.
 ///
-/// El `File` se cierra antes de calcular el hash: con el descriptor todavía abierto, la
-/// lectura para verificar podría chocar con nuestra propia escritura.
+/// El instalador ronda los 4 MB, así que 100 MB deja muchísimo margen para crecer y sigue
+/// impidiendo que una respuesta interminable llene el `%TEMP%` del usuario.
+pub const MAX_DESCARGA: u64 = 100 * 1024 * 1024;
+
+/// Vuelca el cuerpo de una respuesta en `destino` **sin pasar de `tope` bytes**.
+///
+/// Sale de dentro de `download_and_verify` para poder probarse: allí el bucle era inalcanzable
+/// desde una prueba, porque `download_and_verify` valida la URL contra github.com antes de pedir
+/// nada —y debe seguir haciéndolo—, así que ningún servidor local llegaba a ejercitarlo. Con el
+/// tope como parámetro, la prueba usa uno pequeño y no hay que mover 100 MB para ver saltar la
+/// guardia; la constante de producción se comprueba aparte.
+///
+/// El archivo se cierra al salir, antes de que quien llama lo lea para verificar el hash: con el
+/// descriptor todavía abierto, esa lectura podría chocar con nuestra propia escritura.
+async fn volcar_con_tope<F>(
+    resp: reqwest::Response,
+    destino: &Path,
+    tamano_esperado: u64,
+    tope: u64,
+    progreso: &mut F,
+) -> Result<(), String>
+where
+    F: FnMut(u64, u64),
+{
+    use futures_util::StreamExt;
+    use std::io::Write;
+
+    if !resp.status().is_success() {
+        return Err(format!("La descarga respondió {}", resp.status()));
+    }
+
+    let total = resp.content_length().unwrap_or(tamano_esperado);
+    let mut archivo = std::fs::File::create(destino)
+        .map_err(|e| format!("No se pudo escribir en {destino:?}: {e}"))?;
+
+    let mut bajado: u64 = 0;
+    let mut stream = resp.bytes_stream();
+    while let Some(trozo) = stream.next().await {
+        let trozo = trozo.map_err(|e| format!("Descarga interrumpida: {e}"))?;
+        bajado += trozo.len() as u64;
+        if bajado > tope {
+            // El archivo a medias no se deja en el disco: nadie debe poder ejecutarlo a mano.
+            drop(archivo);
+            let _ = std::fs::remove_file(destino);
+            return Err("La descarga se pasa del tamaño razonable y se ha cancelado.".into());
+        }
+        archivo
+            .write_all(&trozo)
+            .map_err(|e| format!("No se pudo escribir el instalador: {e}"))?;
+        progreso(bajado, total);
+    }
+    archivo
+        .flush()
+        .map_err(|e| format!("No se pudo cerrar el instalador: {e}"))
+}
+
+/// Descarga el instalador, informa del progreso y **lo verifica antes de devolverlo**.
 pub async fn download_and_verify<F>(info: &ReleaseInfo, mut progreso: F) -> Result<PathBuf, String>
 where
     F: FnMut(u64, u64),
@@ -359,50 +414,22 @@ where
 
     let destino = preparar_carpeta()?.join(nombre_seguro(&info.asset_name));
 
-    {
-        use futures_util::StreamExt;
-        use std::io::Write;
+    let resp = http
+        .get(&info.asset_url)
+        .send()
+        .await
+        .map_err(|e| format!("No se pudo descargar el instalador: {e}"))?;
 
-        let resp = http
-            .get(&info.asset_url)
-            .send()
-            .await
-            .map_err(|e| format!("No se pudo descargar el instalador: {e}"))?;
-
-        if !resp.status().is_success() {
-            return Err(format!("La descarga respondió {}", resp.status()));
-        }
-
-        let total = resp.content_length().unwrap_or(info.asset_size);
-        let mut archivo = std::fs::File::create(&destino)
-            .map_err(|e| format!("No se pudo escribir en {destino:?}: {e}"))?;
-
-        // Techo de lo que se acepta escribir. El instalador ronda los 4 MB, así que 100 MB deja
-        // muchísimo margen para crecer y sigue impidiendo que una respuesta interminable llene
-        // el %TEMP% del usuario. Sin él, el bucle escribe lo que llegue hasta que el otro lado
-        // se canse.
-        const MAX_DESCARGA: u64 = 100 * 1024 * 1024;
-
-        let mut bajado: u64 = 0;
-        let mut stream = resp.bytes_stream();
-        while let Some(trozo) = stream.next().await {
-            let trozo = trozo.map_err(|e| format!("Descarga interrumpida: {e}"))?;
-            bajado += trozo.len() as u64;
-            if bajado > MAX_DESCARGA {
-                // El archivo a medias no se deja en el disco: nadie debe poder ejecutarlo a mano.
-                drop(archivo);
-                let _ = std::fs::remove_file(&destino);
-                return Err("La descarga se pasa del tamaño razonable y se ha cancelado.".into());
-            }
-            archivo
-                .write_all(&trozo)
-                .map_err(|e| format!("No se pudo escribir el instalador: {e}"))?;
-            progreso(bajado, total);
-        }
-        archivo
-            .flush()
-            .map_err(|e| format!("No se pudo cerrar el instalador: {e}"))?;
-    } // aquí se cierra el archivo, antes de verificarlo
+    // El archivo se cierra dentro de `volcar_con_tope`, antes de que aquí se verifique: con el
+    // descriptor todavía abierto, leerlo para el hash podría chocar con nuestra propia escritura.
+    volcar_con_tope(
+        resp,
+        &destino,
+        info.asset_size,
+        MAX_DESCARGA,
+        &mut progreso,
+    )
+    .await?;
 
     let real = sha256_de_archivo(&destino)?;
     if real != esperado {
@@ -837,5 +864,142 @@ mod tests {
         );
 
         let _ = std::fs::remove_file(&f);
+    }
+
+    // ── El tope de la descarga ─────────────────────────────────────────────────────────────
+    //
+    // Todo el testing de este proyecto es local: nada de CI. Aqui el "servidor de mentira" es un
+    // `TcpListener` en un hilo, no un contenedor: son treinta lineas, arranca en microsegundos y
+    // corre en cualquier equipo con `cargo test` y nada mas. Docker haria falta el dia que se
+    // necesite un servicio de verdad (una API, una base de datos), no para escupir bytes.
+
+    /// Servidor de un solo uso que devuelve `cuerpo_total` bytes y cierra.
+    ///
+    /// **Sin `Content-Length` a proposito.** Una respuesta HTTP/1.1 sin esa cabecera se lee hasta
+    /// que el otro lado cierre, y ese es justo el caso peor contra el que protege el tope: el
+    /// servidor que no dice cuanto ocupa lo que manda, asi que no hay nada que comparar por
+    /// adelantado y solo queda contar lo que va llegando.
+    fn servidor_que_escupe(cuerpo_total: usize) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read, Write};
+
+        // Puerto 0: lo elige el sistema. Fijar uno haria que dos pruebas en paralelo —o cualquier
+        // cosa que ya escuche ahi— se pisaran.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("no se pudo abrir puerto");
+        let puerto = listener.local_addr().unwrap().port();
+
+        let hilo = std::thread::spawn(move || {
+            let Ok((mut sock, _)) = listener.accept() else {
+                return;
+            };
+
+            // **Sin este timeout la prueba se cuelga**, y costo verlo. Cuando el tope corta la
+            // descarga, el cliente deja de leer, pero el socket no se cierra al instante: hyper lo
+            // suelta cuando el runtime vuelve a moverse, y en un `#[tokio::test]` el runtime solo
+            // avanza mientras se hace `await`. Para entonces este hilo ya se quedo bloqueado en
+            // `write_all` con los buffers de TCP llenos —512 KB no caben en los ~64 KB del socket—
+            // y el `join` de abajo esperaba a un hilo que no iba a volver nunca. Con el timeout,
+            // la escritura falla, el hilo sale y el `join` termina.
+            let _ = sock.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+            // La peticion se lee y se tira: siempre se responde lo mismo.
+            let mut buf = [0u8; 1024];
+            let _ = sock.read(&mut buf);
+            if sock.write_all(b"HTTP/1.1 200 OK\r\n\r\n").is_err() {
+                return;
+            }
+
+            let trozo = vec![0u8; 16 * 1024];
+            let mut escrito = 0;
+            while escrito < cuerpo_total {
+                let n = trozo.len().min(cuerpo_total - escrito);
+                // Cuando el cliente aborta por el tope, este write falla. Es la señal de que la
+                // guardia hizo su trabajo, no un fallo de la prueba.
+                if sock.write_all(&trozo[..n]).is_err() {
+                    return;
+                }
+                escrito += n;
+            }
+        });
+
+        (format!("http://127.0.0.1:{puerto}/"), hilo)
+    }
+
+    /// La prueba del criterio **negativo** del tope: que no se escriba lo que no debe.
+    ///
+    /// El tope va por parametro para no tener que mover 100 MB por el loopback ni escribirlos en
+    /// el disco de quien ejecute las pruebas. Lo que se verifica es el mecanismo —contar, cortar y
+    /// borrar—, que es lo mismo a 64 KB que a 100 MB; el valor de produccion se comprueba aparte.
+    #[tokio::test]
+    async fn una_descarga_que_se_pasa_del_tope_se_corta_y_no_deja_el_archivo_a_medias() {
+        let (url, hilo) = servidor_que_escupe(512 * 1024);
+        let destino = std::env::temp_dir().join("pdk-prueba-tope-descarga.bin");
+        let _ = std::fs::remove_file(&destino);
+
+        let resp = reqwest::get(&url).await.expect("el servidor local responde");
+
+        let mut ultimo_progreso = 0u64;
+        let error = volcar_con_tope(resp, &destino, 0, 64 * 1024, &mut |bajado, _| {
+            ultimo_progreso = bajado
+        })
+        .await
+        .expect_err("512 KB con un tope de 64 KB tienen que cortarse");
+
+        assert!(error.contains("tamaño razonable"), "{error}");
+        assert!(
+            !destino.exists(),
+            "el archivo a medias no puede quedarse en el disco: se ejecuta desde esa carpeta"
+        );
+        assert!(
+            ultimo_progreso <= 64 * 1024,
+            "no debio informarse de mas progreso que el tope, y se informo de {ultimo_progreso}"
+        );
+
+        let _ = hilo.join();
+    }
+
+    /// La otra mitad: el tope no puede romper la descarga normal, que es la que corre de verdad
+    /// en cada actualizacion.
+    #[tokio::test]
+    async fn una_descarga_por_debajo_del_tope_llega_entera() {
+        let (url, hilo) = servidor_que_escupe(32 * 1024);
+        let destino = std::env::temp_dir().join("pdk-prueba-descarga-normal.bin");
+        let _ = std::fs::remove_file(&destino);
+
+        let resp = reqwest::get(&url).await.expect("el servidor local responde");
+
+        volcar_con_tope(resp, &destino, 0, MAX_DESCARGA, &mut |_, _| {})
+            .await
+            .expect("32 KB caben de sobra bajo el tope de produccion");
+
+        assert_eq!(
+            std::fs::metadata(&destino).unwrap().len(),
+            32 * 1024,
+            "tiene que escribirse el cuerpo entero"
+        );
+
+        let _ = std::fs::remove_file(&destino);
+        let _ = hilo.join();
+    }
+
+    /// El tope de produccion, en su propia prueba porque es lo unico que las dos de arriba no
+    /// tocan. No se compara con el literal —seria repetir la linea— sino con lo que tiene que
+    /// cumplir: margen de sobra sobre el instalador (~4 MB) sin dejar de ser un techo.
+    ///
+    /// En `const` porque los dos lados son constantes y clippy lo señalo: asi no se comprueba al
+    /// ejecutar la prueba sino **al compilar**, y bajar el tope a 4 MB deja de compilar en vez de
+    /// fallar un test.
+    #[test]
+    fn el_tope_de_produccion_deja_margen_al_instalador_sin_dejar_de_ser_un_techo() {
+        const {
+            assert!(
+                MAX_DESCARGA > 20 * 1024 * 1024,
+                "muy justo: el instalador ronda los 4 MB y tiene que poder crecer"
+            )
+        };
+        const {
+            assert!(
+                MAX_DESCARGA < 1024 * 1024 * 1024,
+                "un techo de 1 GB ya no protege el %TEMP% de nadie"
+            )
+        };
     }
 }

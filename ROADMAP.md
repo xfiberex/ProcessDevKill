@@ -1017,10 +1017,10 @@ haciendo clic en «Siguiente».
 |---|---|---|---|---|
 | **T0 — Crítico / bloqueante** | Nada. No se encontró ninguna vulnerabilidad explotable ni pérdida de datos en curso | **0** | — | — |
 | **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
-| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 6 | 7 bajo · 3 medio |
-| **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 3 | 20 bajo |
-| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 0 | 1 bajo · 3 medio · 1 alto |
-| | | **37** | **11** | 30 bajo · 6 medio · 1 alto |
+| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 7 | 7 bajo · 3 medio |
+| **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 4 | 20 bajo |
+| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 1 | 1 bajo · 3 medio · 1 alto |
+| | | **37** | **14** | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
@@ -1161,7 +1161,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T2-05] ESLint para TypeScript y React**
+- [x] **[T2-05] ESLint para TypeScript y React** — hecho el 2026-08-18
   - **Área:** Código · Limpieza
   - **Ubicación:** raíz del repositorio, `package.json:7-15`
   - **Qué hacer:** no hay configuración de ESLint, Biome ni Prettier, ni script de `lint`. Rust sí
@@ -1169,7 +1169,24 @@ en T1 y no en T0 — pero es lo primero que se hace.
     con `tsc --strict` como única red. Añadir `typescript-eslint`, `eslint-plugin-react-hooks` y
     `eslint-plugin-jsx-a11y`, y meterlo en el bloque de pruebas de `release.ps1`.
   - **Criterio de aceptación:** `npm run lint` pasa limpio con las reglas recomendadas, y la primera
-    pasada de arreglos va en su propio commit, separada de la configuración.
+    pasada de arreglos va en su propio commit, separada de la configuración. ✅
+  - **Resultado de la primera pasada:** 148 avisos, de los que **142 eran de `.claude/skills/**`** —
+    los `.cjs` de los packs, código de terceros mirado con reglas de navegador—. Ignorados: qué
+    hacer con esos 271 archivos es T2-09, pero mientras tanto no pueden tapar lo del código propio.
+    Quedaron **5 reales, todos `react-hooks/set-state-in-effect`**, una regla que `tsc --strict` no
+    puede ver ni de lejos. Tres eran estado derivado de una prop sincronizado con un `useEffect`
+    —el diálogo de confirmación y los dos campos de Ajustes—: pintaban el valor viejo y solo después
+    el nuevo, un render de más por cada apertura o cada cambio. Reescritos al patrón que React
+    documenta, ajustando el estado **durante el render**. Los otros dos son cargas asíncronas al
+    montar (`refresh`, `loadHistory`), donde la regla es un falso positivo: el estado se toca
+    después de un `await`, no en el cuerpo del efecto. Silenciados uno a uno con su motivo, nunca
+    la regla entera.
+  - **Notas:** ESLint **9, no 10**: `eslint-plugin-jsx-a11y` 6.10.2 declara como peer `eslint@^3 …
+    ^9` y npm aborta con la 10; forzarlo con `--legacy-peer-deps` dejaría el plugin sobre una API
+    que no dice soportar. Sin comprobación con tipos, que multiplicaría el tiempo de cada corte y
+    aporta poco sobre `tsc --strict`. Atado a `release.ps1`, y este **aborta** en vez de avisar
+    —a diferencia de clippy o `cargo audit`—: ESLint viaja en `devDependencies`, así que si falta
+    es que falta `npm install`, y entonces tampoco iban a correr los tests.
   - **Esfuerzo:** medio
   - **Depende de:** ninguna
 
@@ -1278,19 +1295,27 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-02] Techo de tamaño en la descarga del instalador**
+- [x] **[T3-02] Techo de tamaño en la descarga del instalador** — probado el 2026-08-18
   - **Área:** Seguridad
   - **Ubicación:** `src-tauri/src/update.rs:329-345`
   - **Qué hacer:** el bucle de `bytes_stream()` escribe lo que llegue hasta que el flujo termine, sin
     comparar con `asset_size` ni con un máximo absoluto. Abortar y borrar si se supera `asset_size`
     por un margen razonable, o un tope fijo.
   - **Criterio de aceptación:** una descarga que se pasa del tope se corta, borra el archivo parcial
-    y devuelve un error legible.
-  - **Estado:** código escrito el 2026-08-18 junto con T1-01, que toca el mismo bucle
-    (`update.rs:376-395`, tope de 100 MB frente a los ~4 MB que ocupa el instalador). **Se queda
-    sin marcar a propósito: no tiene prueba automática.** Ejercitarlo pide un servidor de mentira
-    que devuelva más de 100 MB, y montarlo es más trabajo que el arreglo entero. Marcar `[x]` algo
-    verificado solo leyéndolo sería justo lo que la regla de la casa prohíbe.
+    y devuelve un error legible. ✅ **Comprobado con una mutación:** se anuló la comparación
+    (`if false && bajado > tope`), la prueba negativa falló y la positiva siguió pasando — o sea que
+    lo que corta es el tope y no otra cosa. Restaurada después.
+  - **Estado:** código escrito el 2026-08-18 junto con T1-01, que toca el mismo bucle (tope de
+    100 MB frente a los ~4 MB que ocupa el instalador). Estuvo sin marcar hasta tener prueba, y
+    **el obstáculo no era el servidor sino dónde vivía el bucle:** dentro de `download_and_verify`,
+    que valida la URL contra github.com antes de pedir nada —y debe seguir haciéndolo—, así que
+    ningún servidor local llegaba a ejercitarlo. Extraído a `volcar_con_tope` con el tope **por
+    parámetro**: la prueba usa 64 KB contra un servidor que escupe 512 KB y verifica el mecanismo
+    —contar, cortar y borrar el parcial— sin mover 100 MB por el loopback ni escribirlos en el
+    disco de nadie. Tres pruebas: la negativa, la positiva (el tope no puede romper la descarga
+    normal) y el valor de producción. El servidor es un `TcpListener` en un hilo, **no un
+    contenedor**: treinta líneas, arranca en microsegundos y no pide daemon. Docker queda para
+    cuando haga falta un servicio de verdad (ver T4-04).
   - **Esfuerzo:** bajo
   - **Depende de:** T1-01 (se toca el mismo camino)
 
@@ -1547,14 +1572,23 @@ Explícitamente fuera del alcance inmediato. Están aquí para no perderlos, no 
   - **Esfuerzo:** medio
   - **Depende de:** ninguna
 
-- [ ] **[T4-04] Revisitar la decisión de no tener CI**
+- [x] **[T4-04] Revisitar la decisión de no tener CI** — *revisada y confirmada el 2026-08-18*
   - **Área:** DevOps
-  - **Ubicación:** CONTEXT §4 (2026-07-24)
+  - **Ubicación:** CONTEXT §4 (2026-07-24, ratificada el 2026-08-18)
   - **Qué hacer:** la publicación local con `release.ps1` está asumida y documentada. Su coste real:
     nada garantiza que las pruebas pasen fuera de este equipo, y el corte depende de un entorno
     concreto (MSVC, Windows SDK) documentado solo en prosa. Un workflow que solo ejecute
     `cargo test` y `npm test` en cada push cubriría lo primero sin tocar el corte de versión.
-  - **Criterio de aceptación:** decisión revisada y anotada con su fecha, se cambie o no.
+  - **Decisión:** **no hay CI, y no la va a haber.** Todo el testing se hace en local. La tarea
+    pedía revisar y anotar, no montar nada, así que se cierra con la decisión tomada en vez de
+    quedarse abierta esperando un cambio de idea. Lo que el workflow habría cubierto —que las
+    pruebas pasen antes de publicar— ya lo cubre el corte: desde T2-02, `release.ps1` ejecuta
+    `cargo test`, `npm test`, clippy y las dos auditorías, y **aborta** si algo falla. Lo que
+    queda sin cubrir es honesto decirlo: nadie comprueba que el proyecto compile en un equipo
+    limpio. Cuando algo necesite un servicio de verdad para probarse, se levanta con Docker en
+    local; un servidor HTTP de usar y tirar dentro de una prueba sale más barato como
+    `TcpListener` (ver T3-02).
+  - **Criterio de aceptación:** decisión revisada y anotada con su fecha, se cambie o no. ✅
   - **Esfuerzo:** medio
   - **Depende de:** ninguna
 
@@ -1586,6 +1620,8 @@ probó a medias, se dice aquí qué quedó fuera.
 | 2026-08-18 | **Tier 9 verificado** | La actualización silenciosa, comprobada por el usuario actualizando de la v1.3.1 a la v1.3.2. Cierra además **la última salvedad abierta del proyecto**: lanzar el instalador era el único paso del actualizador que nunca había corrido de principio a fin |
 | 2026-08-18 | **T1-01, T1-02** | **Tier 1 cerrado entero.** Las dos guardias que faltaban, cada una con su prueba negativa, y **las dos pruebas comprobadas con una mutación**: se quitó la guardia, se vio fallar el test y se restauró. 52 de `cargo test` (antes 49) y clippy limpio. Publicado en la v1.3.2 |
 
-**Pendientes: 26 de 37.** Tres llevan el código escrito y se quedan sin marcar hasta poder
-comprobarlas de verdad: **T3-02** (tope de descarga, pediría un servidor de mentira) y **T2-07**
-(`prefers-reduced-motion`, pediría encender el ajuste de Windows y mirar la app).
+| 2026-08-18 | **T2-05, T3-02, T4-04** | **ESLint**, que el frontend no tenía y el backend sí (clippy): 148 avisos en la primera pasada, **142 de los packs de skills** y 5 reales, todos de una regla de hooks que `tsc` no puede ver. **El tope de la descarga**, que llevaba escrito sin marcar desde la auditoría: el obstáculo no era el servidor sino que el bucle vivía dentro de `download_and_verify`, detrás de la validación de URL, así que ninguna prueba lo alcanzaba. Y **la decisión de no tener CI, ratificada**: todo el testing es local, por decisión del usuario. 56 de `cargo test` (antes 53) |
+
+**Pendientes: 23 de 37.** Una lleva el código escrito y se queda sin marcar hasta poder comprobarla
+de verdad: **T2-07** (`prefers-reduced-motion`), que pide encender el ajuste de Windows y mirar la
+app — el doble de Motion de las pruebas quita las animaciones, así que desde ahí no se ve nada.
