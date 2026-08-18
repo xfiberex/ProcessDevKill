@@ -6,7 +6,7 @@
     Flujo completo en un paso:
       1. Valida la versión y el árbol de trabajo.
       2. Ejecuta las comprobaciones (salvo -SkipTests): `cargo test`, `cargo clippy`, `cargo audit`,
-         `npm audit --omit=dev`, `npm test` y `npm run build`.
+         `npm audit --omit=dev`, `npm run lint`, `npm test` y `npm run build`.
       3. Actualiza la versión en los TRES sitios donde vive.
       4. Compila los instaladores con `npm run tauri build` (NSIS + MSI).
       5. Genera el .sha256 de cada instalador — con el que la app verifica la actualización.
@@ -307,6 +307,14 @@ try {
         }
         Ok "Dependencias npm de produccion sin vulnerabilidades altas."
 
+        # ESLint: el equivalente de clippy en el frontend, y hasta 2026-08-18 no habia ninguno.
+        # Aborta, no avisa: a diferencia de clippy o cargo-audit, esto no depende de una
+        # herramienta instalada en la maquina — viaja en devDependencies, asi que si falta es que
+        # falta `npm install`, y entonces tampoco iban a correr los tests.
+        Info "Pasando ESLint..."
+        if ((Invoke-Nativo npm @('run','lint')) -ne 0) { Die "ESLint encontro problemas. Release abortado." }
+        Ok "Frontend sin avisos de ESLint."
+
         # Pruebas del frontend (Vitest + Testing Library, Tier 6.4). Corren en jsdom con los
         # modulos de Tauri doblados, asi que no tocan procesos reales ni necesitan la ventana:
         # son seguras dentro de un corte de release, igual que las de Rust.
@@ -368,7 +376,7 @@ try {
         Write-Host "    6. gh release create $tag con 4 assets:" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256)" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
-        if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + npm test + npm run build" -ForegroundColor DarkGray }
+        if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + eslint + npm test + npm run build" -ForegroundColor DarkGray }
         if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
         Ok "Dry run completado."
         return
