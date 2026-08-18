@@ -8,6 +8,43 @@
 
 ---
 
+### 2026-08-18 — Auditoría del repositorio, Tier 1 cerrado y la v1.3.2 publicada
+
+- **Revisión completa de las doce áreas** sobre el commit `15d3004` (v1.3.1): además de leer el
+  código se ejecutaron `cargo test`, `npm test`, `cargo clippy -D warnings`, `npm audit`, la
+  cobertura y un `git grep` de secretos. 36 hallazgos, **ninguno crítico**. El backlog quedó como
+  sección de ROADMAP.md —no como documento aparte, que habría abierto un quinto sitio donde mirar—
+  con IDs T0-T4 para poder citarlos en commits.
+- **El patrón que salió de la revisión:** la doctrina de «un comando de Tauri acepta lo que le
+  manden» estaba aplicada en dos de los tres sitios que la necesitan. Faltaba la tercera, y era la
+  única que acaba ejecutando un binario.
+- **T1-01.** `download_update` se fiaba de las URLs que le pasaba la ventana: el instalador se
+  verificaba contra un hash que venía en el mismo mensaje, o sea que quien compusiera la llamada
+  aportaba las dos mitades de la comprobación. **La validación va sobre la URL parseada, no sobre la
+  cadena**: `Url::parse` normaliza los `..` y resuelve la autoridad, así que ni
+  `…/releases/download/../../../evil.exe` ni `https://github.com@malo.example/…` pasan. Un
+  `starts_with` de texto se habría tragado los dos — que es exactamente el fallo que ya tuvo la
+  guardia de rutas con `Path::starts_with` en julio.
+- **T1-02.** La guardia de PID no tenía prueba negativa: solo se ejercitaba en positivo, así que un
+  refactor podía desactivarla dejando los 49 tests en verde. La prueba nueva comprueba las dos
+  mitades, y la segunda es la que da valor a la primera: sin vigilar, `kill_many` se niega y el
+  proceso **sigue vivo**; declarando el nombre, el mismo PID muere. Sin eso, la prueba pasaría igual
+  si el proceso resultara inmatable por cualquier otro motivo.
+- **Las dos pruebas se validaron con una mutación**: quitar la guardia, ver fallar el test,
+  restaurarla. Una prueba negativa que nunca se ha visto fallar no prueba nada, y las dos anteriores
+  de esta familia se escribieron sin ese paso.
+- Comprobado contra la API real que las URLs que devuelve GitHub hoy pasan la guardia nueva. Era lo
+  único que podía romper la actualización entera sin notarse hasta el siguiente release, igual que
+  pasó con la canonicalización de rutas.
+- 52 de `cargo test` (antes 49) y 160 de frontend. **v1.3.2 publicada** con `release.ps1` (dry run
+  antes, como siempre). Patch: refuerzo sin funciones nuevas. Verificado tras publicar que el
+  instalador descargado coincide con su `.sha256` (`d4030bb7…`).
+- Un hallazgo salió de la propia auditoría al ejecutar la cobertura: `coverage/` no estaba ignorada,
+  y `release.ps1` **aborta el corte** al encontrar archivos sin rastrear. Con el proyecto trabajándose
+  desde varios equipos, era cuestión de tiempo.
+
+---
+
 ### 2026-08-14 — La actualización deja de pedir clics, y la v1.3.1 publicada
 
 - El usuario reportó que al pulsar «Instalar» **salían dos ventanas**: el desinstalador de la
