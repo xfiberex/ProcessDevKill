@@ -5,7 +5,8 @@
 .DESCRIPTION
     Flujo completo en un paso:
       1. Valida la versión y el árbol de trabajo.
-      2. Ejecuta las pruebas (salvo -SkipTests): `cargo test`, `npm test` y `npm run build`.
+      2. Ejecuta las comprobaciones (salvo -SkipTests): `cargo test`, `cargo clippy`, `cargo audit`,
+         `npm audit --omit=dev`, `npm test` y `npm run build`.
       3. Actualiza la versión en los TRES sitios donde vive.
       4. Compila los instaladores con `npm run tauri build` (NSIS + MSI).
       5. Genera el .sha256 de cada instalador — con el que la app verifica la actualización.
@@ -44,6 +45,29 @@
     Las pruebas de Rust son seguras para un corte de release: leen los procesos del sistema y
     solo matan procesos que ellas mismas lanzan. Ninguna toca los del usuario.
 
+    SI HAY QUE REVERTIR UNA VERSIÓN MALA: NO SE PUBLICA UNA ANTERIOR.
+
+    `is_newer` (src-tauri/src/update.rs) es ESTRICTAMENTE mayor, y eso es correcto: evita el bucle
+    de reinstalación si un release se republica. Pero tiene una consecuencia que hay que saber
+    antes de necesitarla: republicar la versión buena con un número anterior NO llega a nadie.
+    Quien ya instaló la mala no recibe ninguna oferta de actualizar, porque para su app no hay
+    nada más nuevo. Y desde la v1.3.1 la instalación es silenciosa, así que tuvo menos ocasiones
+    de frenarla.
+
+    El procedimiento, en este orden:
+
+      1. Cortar X.Y.Z+1 con el código bueno (revertir el commit malo y volver a lanzar este
+         script). Es lo único que alcanza a quien ya actualizó.
+      2. Despublicar el release malo en GitHub para que deje de servirse:
+             gh release delete vX.Y.Z --yes
+         Con eso `/releases/latest` —que es lo que consulta la app— deja de devolverlo. Borrar
+         solo los assets también vale y conserva las notas.
+      3. Comprobar que la API ya devuelve la etiqueta correcta:
+             gh api repos/xfiberex/ProcessDevKill/releases/latest --jq .tag_name
+         Es la misma llamada que hace la app, así que responde exactamente lo que ella verá.
+
+    El tag de git se puede dejar: es historia y no lo consulta nadie en tiempo de ejecución.
+
 .PARAMETER Version
     Versión a publicar (X.Y.Z). Si se omite, usa la de tauri.conf.json.
 
@@ -51,7 +75,9 @@
     Ruta a un archivo Markdown con las notas del release. Si se omite, se genera una plantilla.
 
 .PARAMETER SkipTests
-    Omite `cargo test`, `npm test` y `npm run build`.
+    Omite todas las comprobaciones del paso 2. Solo tiene sentido justo despues de un -DryRun que
+    las haya pasado sobre este mismo codigo; si el arbol cambio desde entonces, se publica sin
+    haber probado ese cambio.
 
 .PARAMETER AllowDirty
     Permite continuar con archivos sin rastrear en el árbol de trabajo.
@@ -242,6 +268,45 @@ try {
         } finally { Pop-Location }
         Ok "Tests de Rust correctos."
 
+        # Clippy y las auditorias de dependencias. Antes no estaban, y el arbol de Rust —567
+        # entradas en Cargo.lock— no se habia contrastado NUNCA contra la base de RustSec: la
+        # primera vez que se corrio, el 2026-08-18, aparecio una vulnerabilidad real (h2, DoS por
+        # DATA frames vacios, publicada el dia antes). Sin este paso eso se publica sin que nadie
+        # lo mencione.
+        #
+        # ⚠️ **Las herramientas que faltan avisan, no abortan.** El proyecto se trabaja desde
+        # varios equipos y clippy o cargo-audit pueden no estar instalados en uno; que eso impida
+        # cortar una version seria peor que el riesgo que cubren. Lo que si aborta es una
+        # herramienta presente que encuentra algo.
+        Info "Pasando clippy..."
+        Push-Location (Join-Path $root "src-tauri")
+        try {
+            if ((Invoke-Nativo cargo @('clippy','--all-targets','--quiet','--','-D','warnings')) -ne 0) {
+                Die "Clippy encontro avisos. Release abortado."
+            }
+            Ok "Clippy limpio."
+
+            # `cargo audit` sale con 0 aunque haya avisos de crates sin mantener (18 hoy, casi
+            # todos bindings de GTK que en Windows ni se compilan) y con 1 si hay vulnerabilidad.
+            & cargo audit --version *> $null
+            if ($LASTEXITCODE -ne 0) {
+                Warn "cargo-audit no esta instalado; no se auditan los crates. Para tenerlo: cargo install cargo-audit --locked"
+            } elseif ((Invoke-Nativo cargo @('audit')) -ne 0) {
+                Die "cargo audit encontro una vulnerabilidad. Release abortado."
+            } else {
+                Ok "Crates de Rust sin vulnerabilidades conocidas."
+            }
+        } finally { Pop-Location }
+
+        # Solo el arbol de produccion: las herramientas de compilacion no viajan en el instalador,
+        # y bloquear un release por un aviso de algo que solo corre en esta maquina es ruido. Con
+        # `shadcn` movido a devDependencies (2026-08-18) este arbol esta a cero.
+        Info "Auditando las dependencias npm de produccion..."
+        if ((Invoke-Nativo npm @('audit','--omit=dev','--audit-level=high')) -ne 0) {
+            Die "npm audit encontro vulnerabilidades en dependencias de produccion. Release abortado."
+        }
+        Ok "Dependencias npm de produccion sin vulnerabilidades altas."
+
         # Pruebas del frontend (Vitest + Testing Library, Tier 6.4). Corren en jsdom con los
         # modulos de Tauri doblados, asi que no tocan procesos reales ni necesitan la ventana:
         # son seguras dentro de un corte de release, igual que las de Rust.
@@ -303,7 +368,7 @@ try {
         Write-Host "    6. gh release create $tag con 4 assets:" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256)" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
-        if (-not $SkipTests) { Write-Host "    Pruebas ya ejecutadas en este dry run: cargo test + npm test + npm run build" -ForegroundColor DarkGray }
+        if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + npm test + npm run build" -ForegroundColor DarkGray }
         if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
         Ok "Dry run completado."
         return

@@ -74,6 +74,10 @@ vi.mock("motion/react", async () => {
 
   return {
     AnimatePresence: ({ children }: { children?: unknown }) => children,
+    // Envuelve la app entera para respetar `prefers-reduced-motion`. Aqui no hay animaciones que
+    // configurar —el doble las quita todas— pero tiene que existir, o `App` no llega a montarse:
+    // sin este export, vitest corta con "No MotionConfig export is defined on the mock".
+    MotionConfig: ({ children }: { children?: unknown }) => children,
     motion: new Proxy(
       {},
       {

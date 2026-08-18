@@ -936,7 +936,7 @@ auto-refresco. De las dos formas posibles se eligió la segunda:
 ---
 
 
-## 🤫 Tier 9: La actualización, en silencio — ✅ **completado, verificado a medias**
+## 🤫 Tier 9: La actualización, en silencio — ✅ **completado y verificado**
 
 > ✅ **Publicado en la [v1.3.1](https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.3.1)**
 > (2026-08-14). Patch: arregla un comportamiento y no añade nada. Verificado tras publicar: 4
@@ -963,11 +963,15 @@ haciendo clic en «Siguiente».
 - [x] Una prueba (`el_instalador_se_lanza_en_silencio`) fija los tres flags con el motivo de cada
       uno. 49 de `cargo test` (antes 48) y 160 de frontend.
 
-> ⚠️ **Lo que arregla no se puede verificar en esta versión, y conviene decirlo.** El instalador lo
-> lanza la app **instalada**, así que actualizar desde la v1.3.0 sigue enseñando las dos ventanas
-> una última vez: el código nuevo solo entra en juego cuando la que actualiza es ya la v1.3.1.
-> Comprobarlo de verdad exige cortar una v1.3.2 y actualizar desde ésta. Hasta entonces la evidencia
-> es la plantilla NSIS generada, que es fuerte, pero no es la app en marcha.
+> ✅ **Verificado en la app en marcha el 2026-08-18.** Se dijo al publicarlo que no se podía
+> comprobar desde la propia v1.3.1 —el instalador lo lanza la app **instalada**— y que haría falta
+> cortar una v1.3.2 y actualizar desde ésta. Es exactamente lo que pasó: el usuario actualizó de la
+> v1.3.1 a la v1.3.2 desde *Ajustes → Actualizaciones* y **no apareció ninguna ventana**; la app se
+> cerró, se actualizó y volvió a abrirse sola. Hasta ese momento la evidencia era la plantilla NSIS
+> generada, que es fuerte, pero no es la app funcionando.
+>
+> De paso cierra **la última salvedad abierta del proyecto entero**: lanzar el instalador era el
+> único paso del actualizador que nunca había corrido de principio a fin (ver CONTEXT §3).
 
 ---
 
@@ -1013,10 +1017,10 @@ haciendo clic en «Siguiente».
 |---|---|---|---|---|
 | **T0 — Crítico / bloqueante** | Nada. No se encontró ninguna vulnerabilidad explotable ni pérdida de datos en curso | **0** | — | — |
 | **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
-| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 0 | 7 bajo · 3 medio |
+| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 6 | 7 bajo · 3 medio |
 | **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 3 | 20 bajo |
 | **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 0 | 1 bajo · 3 medio · 1 alto |
-| | | **37** | **5** | 30 bajo · 6 medio · 1 alto |
+| | | **37** | **11** | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
@@ -1079,7 +1083,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
 
 ### T2 — Mejoras sustanciales
 
-- [ ] **[T2-01] `shadcn` a `devDependencies`**
+- [x] **[T2-01] `shadcn` a `devDependencies`** — hecho el 2026-08-18
   - **Área:** Seguridad · Limpieza
   - **Ubicación:** `package.json:22`, `src/index.css:3`
   - **Qué hacer:** las 7 alertas de `npm audit` (5 altas, 2 moderadas) cuelgan **todas** de
@@ -1089,10 +1093,15 @@ en T1 y no en T0 — pero es lo primero que se hace.
     su sitio es `devDependencies`. Después, `npm audit fix`.
   - **Criterio de aceptación:** `npm audit --omit=dev` no devuelve ninguna alerta y `npm run build`
     sigue generando el mismo CSS.
+  - **Verificado:** `npm audit --omit=dev` devuelve **0 vulnerabilidades** (antes las 7), y
+    `npm audit fix` cerró también las del árbol de herramientas sin tocar la versión de `shadcn`
+    (sigue en 3.8.3; se movieron 7 transitivas). El CSS compilado sale **idéntico byte a byte**
+    —mismo hash de contenido, 90.986 bytes—, que es la prueba de que mover el paquete no cambió
+    nada de lo que se distribuye.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T2-02] Análisis de dependencias y clippy dentro de `release.ps1`**
+- [x] **[T2-02] Análisis de dependencias y clippy dentro de `release.ps1`** — hecho el 2026-08-18
   - **Área:** DevOps · Seguridad
   - **Ubicación:** `release.ps1:235-257`
   - **Qué hacer:** el corte ejecuta `cargo test`, `npm test` y `npm run build`, pero no `cargo
@@ -1102,6 +1111,14 @@ en T1 y no en T0 — pero es lo primero que se hace.
     mientras T2-01 no esté hecho.
   - **Criterio de aceptación:** un `-DryRun` enseña los tres pasos nuevos, y clippy sigue pasando
     limpio con `-D warnings`.
+  - **Verificado:** los tres pasos están en el bloque de pruebas (`release.ps1:238-277`) y se
+    ejecutaron a mano antes de atarlos. **`cargo audit` encontró una vulnerabilidad real a la
+    primera**: `h2` 0.4.15, RUSTSEC-2026-0258 (DoS por *DATA frames* vacíos), publicada el día
+    anterior y en el árbol vía `reqwest`. Arreglada con `cargo update -p h2` → 0.4.16; la
+    auditoría queda limpia salvo 18 avisos de crates sin mantener, casi todos *bindings* de GTK
+    que en Windows ni se compilan. **Las herramientas que faltan avisan en vez de abortar**: el
+    proyecto se trabaja desde varios equipos y que un `cargo-audit` sin instalar impida cortar
+    una versión sería peor que el riesgo que cubre.
   - **Esfuerzo:** bajo
   - **Depende de:** T2-01 (para que `npm audit` pueda bloquear en vez de solo avisar)
 
@@ -1121,7 +1138,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** medio
   - **Depende de:** ninguna
 
-- [ ] **[T2-04] Escritura atómica de `settings.json` e `history.json`**
+- [x] **[T2-04] Escritura atómica de `settings.json` e `history.json`** — hecho el 2026-08-18
   - **Área:** Código · Integridad de datos
   - **Ubicación:** `src-tauri/src/storage.rs:197-200`
   - **Qué hacer:** `write_json` hace `fs::write` directo sobre el archivo final: primero lo trunca y
@@ -1133,6 +1150,14 @@ en T1 y no en T0 — pero es lo primero que se hace.
     `.corrupto` antes de sobrescribirlo con los valores por defecto.
   - **Criterio de aceptación:** una prueba que interrumpe la escritura deja el archivo anterior
     íntegro, y `un_archivo_corrupto_no_tumba_la_app` sigue en verde.
+  - **Verificado:** `write_json` escribe en un `.tmp` y renombra encima
+    (`storage.rs:197-228`), con la prueba `guardar_encima_de_lo_guardado_funciona_y_no_deja_temporales`.
+  - ⚠️ **La prueba desmintió a la implementación, que es para lo que está.** La primera versión
+    borraba el destino antes de renombrar, dando por hecho que en Windows `fs::rename` falla si
+    existe. Se quitó el borrado para verla fallar y **siguió pasando**: el `rename` de Rust usa
+    `MoveFileExW` con `MOVEFILE_REPLACE_EXISTING` y reemplaza sin quejarse. O sea que el borrado
+    no defendía de nada y **abría justo el hueco que esto venía a cerrar** —un instante sin
+    ningún archivo bueno en disco—. Se quitó.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
@@ -1148,7 +1173,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** medio
   - **Depende de:** ninguna
 
-- [ ] **[T2-06] Error boundary alrededor de la app**
+- [x] **[T2-06] Error boundary alrededor de la app** — hecho el 2026-08-18
   - **Área:** Código · UI/UX
   - **Ubicación:** `src/main.tsx:6-10`
   - **Qué hacer:** no hay ninguno, así que una excepción no capturada en el render desmonta el árbol
@@ -1157,6 +1182,11 @@ en T1 y no en T0 — pero es lo primero que se hace.
     app. Pintar el error, ofrecer recargar la vista y —cuando exista T2-03— apuntar al log.
   - **Criterio de aceptación:** una prueba que hace lanzar a un componente hijo enseña la pantalla de
     error en vez de dejar el DOM vacío.
+  - **Verificado:** `src/components/ErrorBoundary.tsx`, montado **fuera de `App`** en `main.tsx`
+    —una barrera dentro no se montaría si el fallo estuviera en el propio `App`—. Cuatro pruebas
+    en `ErrorBoundary.test.tsx`: que no estorba sin fallo, que ante uno enseña la salida con el
+    mensaje del error, que **dice explícitamente que no se ha cerrado ningún proceso** —es un
+    gestor de procesos: ese es el susto por defecto— y que el botón recarga la ventana.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna (mejora con T2-03)
 
@@ -1170,10 +1200,16 @@ en T1 y no en T0 — pero es lo primero que se hace.
     añadir la regla equivalente en CSS para las transiciones de las barras.
   - **Criterio de aceptación:** con la preferencia activada en Windows, las filas aparecen y
     desaparecen sin desplazamiento y las barras saltan a su valor sin transición.
+  - **Estado:** código escrito el 2026-08-18: `<MotionConfig reducedMotion="user">` envolviendo la
+    app (`App.tsx:291-302`) para lo que anima Motion, y la regla `@media (prefers-reduced-motion:
+    reduce)` en `index.css:161-176` para las transiciones de CSS de las barras, que Motion no
+    gobierna. **Se queda sin marcar**: comprobarlo pide encender «Efectos de animación» en
+    Accesibilidad de Windows y mirar la app, y eso no se ha hecho. El doble de Motion de las
+    pruebas quita las animaciones, así que desde ahí no se puede verificar.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T2-08] Excluir dobles de prueba y código generado de la cobertura**
+- [x] **[T2-08] Excluir dobles de prueba y código generado de la cobertura** — hecho el 2026-08-18
   - **Área:** QA y testing
   - **Ubicación:** `vitest.config.ts:17-25`
   - **Qué hacer:** el 86,14 % actual incluye en el denominador `src/test/tauri-mock.ts` (65,62 %, que
@@ -1184,6 +1220,9 @@ en T1 y no en T0 — pero es lo primero que se hace.
     `**/*.test.*`.
   - **Criterio de aceptación:** el informe solo lista código propio, y el porcentaje resultante queda
     anotado como referencia real en CONTEXT §3.
+  - **Verificado:** con `coverage.exclude` puesto (`vitest.config.ts:27-45`), la cobertura real del
+    código propio es **89,61 % de sentencias y 90,21 % de líneas**, frente al 86,14 / 86,41 que
+    salía mezclando los dobles de Tauri y los componentes generados por shadcn.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
@@ -1202,7 +1241,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo la decisión; medio si se opta por documentarlos
   - **Depende de:** ninguna
 
-- [ ] **[T2-10] Escribir el procedimiento para revertir un release malo**
+- [x] **[T2-10] Escribir el procedimiento para revertir un release malo** — hecho el 2026-08-18
   - **Área:** DevOps
   - **Ubicación:** `release.ps1` (cabecera), `src-tauri/src/update.rs:76-83`
   - **Qué hacer:** `is_newer` es estrictamente mayor —correcto, evita el bucle de reinstalación—, así
@@ -1214,6 +1253,11 @@ en T1 y no en T0 — pero es lo primero que se hace.
     devuelve la etiqueta correcta.
   - **Criterio de aceptación:** el procedimiento está en el README o en la cabecera de `release.ps1`,
     con los tres pasos y en ese orden.
+  - **Verificado:** en la cabecera de `release.ps1`, que es donde mira quien va a publicar. Tres
+    pasos en orden: cortar X.Y.Z+1 con el código bueno —lo único que alcanza a quien ya
+    actualizó—, despublicar el release malo para que `/releases/latest` deje de servirlo, y
+    comprobar con `gh api … --jq .tag_name` que la API devuelve ya la etiqueta correcta. Esa
+    última llamada es la misma que hace la app, y se ejecutó al verificar la v1.3.2.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
@@ -1538,6 +1582,10 @@ probó a medias, se dice aquí qué quedó fuera.
 | 2026-08-18 | — | Auditoría completada; backlog abierto con 37 tareas (0 T0 · 2 T1 · 10 T2 · 20 T3 · 5 T4) |
 | 2026-08-18 | T3-20 | `coverage/` ignorado. Apareció ejecutando la cobertura durante la propia auditoría: sin ignorar, bloqueaba el corte de versión en cualquier equipo que la midiera antes de publicar |
 | 2026-08-18 | T3-16, T3-17 | El README, al día antes de publicar: 52 pruebas de backend y la actualización silenciosa contada donde la lee quien decide si instalar |
+| 2026-08-18 | **T2-01, T2-02, T2-04, T2-06, T2-08, T2-10** | **Seis de las diez de T2.** `shadcn` fuera de producción (0 alertas de npm), clippy y las dos auditorías atadas al corte —y `cargo audit` **encontró una vulnerabilidad real a la primera**, `h2` RUSTSEC-2026-0258, arreglada—, escritura atómica de los ajustes, error boundary, cobertura real del código propio (89,61 %) y el procedimiento de reversión escrito |
+| 2026-08-18 | **Tier 9 verificado** | La actualización silenciosa, comprobada por el usuario actualizando de la v1.3.1 a la v1.3.2. Cierra además **la última salvedad abierta del proyecto**: lanzar el instalador era el único paso del actualizador que nunca había corrido de principio a fin |
 | 2026-08-18 | **T1-01, T1-02** | **Tier 1 cerrado entero.** Las dos guardias que faltaban, cada una con su prueba negativa, y **las dos pruebas comprobadas con una mutación**: se quitó la guardia, se vio fallar el test y se restauró. 52 de `cargo test` (antes 49) y clippy limpio. Publicado en la v1.3.2 |
 
-**Pendientes: 32 de 37.** T3-02 lleva el código escrito pero se queda sin marcar hasta tener prueba.
+**Pendientes: 26 de 37.** Tres llevan el código escrito y se quedan sin marcar hasta poder
+comprobarlas de verdad: **T3-02** (tope de descarga, pediría un servidor de mentira) y **T2-07**
+(`prefers-reduced-motion`, pediría encender el ajuste de Windows y mirar la app).

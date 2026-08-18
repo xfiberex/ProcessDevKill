@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { MotionConfig } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -288,6 +289,17 @@ export default function App() {
   }
 
   return (
+    /*
+     * `reducedMotion="user"` respeta el interruptor de "Efectos de animación" de Windows, que
+     * WebView2 traslada a `prefers-reduced-motion`. Motion desactiva entonces las animaciones de
+     * transformación —el desplazamiento de las filas al salir— y deja las de opacidad, que no
+     * provocan vértigo. Va aquí arriba y no en cada animación porque es una preferencia del
+     * usuario, no una decisión de cada componente.
+     *
+     * Las transiciones de las barras son CSS y Motion no las gobierna: esas las apaga la regla de
+     * `index.css`. Las dos hacen falta.
+     */
+    <MotionConfig reducedMotion="user">
     <ThemeProvider theme={settings.theme}>
       <div className="flex h-full">
         <Sidebar
@@ -407,5 +419,6 @@ export default function App() {
         <Toaster position="bottom-right" />
       </div>
     </ThemeProvider>
+    </MotionConfig>
   );
 }

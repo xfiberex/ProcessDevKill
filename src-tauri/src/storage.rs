@@ -194,9 +194,36 @@ impl Storage {
         })
     }
 
+    /// Escribe el JSON **sin dejar nunca el archivo bueno a medias**.
+    ///
+    /// `fs::write` trunca el archivo destino y luego lo rellena, así que un corte de corriente,
+    /// un cierre forzado o un disco lleno en ese hueco dejan un JSON incompleto. La app no se
+    /// caería —`read_json` lo detecta— pero **volvería a los valores de fábrica en silencio**, y
+    /// con eso se van los nombres vigilados, el umbral del Auto-Kill y hasta 200 entradas de
+    /// historial. El usuario no se entera hasta que echa algo en falta.
+    ///
+    /// Se escribe en un archivo aparte y se renombra encima, que es una operación atómica: o está
+    /// el contenido viejo entero, o el nuevo entero. Nunca medio archivo.
+    ///
+    /// ⚠️ **Sin borrar el destino antes, y eso importa.** La primera versión de esto lo borraba,
+    /// dando por hecho que en Windows `fs::rename` falla si el destino existe. **Es falso**: el
+    /// `rename` de Rust usa `MoveFileExW` con `MOVEFILE_REPLACE_EXISTING` y reemplaza sin
+    /// quejarse. Lo destapó la prueba de abajo, que siguió pasando al quitar el borrado — o sea
+    /// que el borrado no defendía de nada y **abría justo el hueco que esto venía a cerrar**: un
+    /// instante en el que ya no está el archivo viejo y todavía no está el nuevo. Comprobado
+    /// midiéndolo, no leyéndolo.
     fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
         let json = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
-        fs::write(path, json).map_err(|e| format!("No se pudo escribir {}: {e}", path.display()))
+
+        let temporal = path.with_extension("json.tmp");
+        fs::write(&temporal, json)
+            .map_err(|e| format!("No se pudo escribir {}: {e}", temporal.display()))?;
+
+        fs::rename(&temporal, path).map_err(|e| {
+            // Si el renombrado falla, el temporal se queda por ahí y confunde: se limpia.
+            let _ = fs::remove_file(&temporal);
+            format!("No se pudo guardar {}: {e}", path.display())
+        })
     }
 
     pub fn load_settings(&self) -> Settings {
@@ -252,6 +279,47 @@ mod tests {
         };
 
         assert_eq!(settings.normalized_names(), vec!["docker", "go"]);
+    }
+
+    /// La escritura pasa por un temporal y un renombrado, para no dejar nunca el archivo bueno a
+    /// medias. Eso mete dos formas nuevas de romperlo, y las dos se prueban aqui: que el
+    /// renombrado **sobre un archivo que ya existe** funcione, y que no quede ningun `.tmp`
+    /// olvidado en la carpeta de datos del usuario, junto a sus ajustes.
+    ///
+    /// ⚠️ **Esta prueba ya se gano el sueldo el 2026-08-18.** La primera version de `write_json`
+    /// borraba el destino antes de renombrar, creyendo que en Windows `fs::rename` falla si
+    /// existe. Se quito el borrado para ver fallar la prueba y **siguio pasando**: el `rename` de
+    /// Rust reemplaza igual. O sea que el borrado no defendia de nada y encima abria un instante
+    /// sin ningun archivo bueno en disco. Se quito.
+    #[test]
+    fn guardar_encima_de_lo_guardado_funciona_y_no_deja_temporales() {
+        let storage = temp_storage("atomico");
+        let temporal = storage.settings_file().with_extension("json.tmp");
+
+        // Primera escritura: el destino todavia no existe.
+        storage.save_settings(&Settings::default()).unwrap();
+        assert_eq!(storage.load_settings(), Settings::default());
+
+        // Segunda: el destino YA existe, que es donde falla el renombrado en Windows.
+        let otros = Settings {
+            refresh_ms: 5000,
+            custom_names: vec!["go".into()],
+            ..Settings::default()
+        };
+        storage
+            .save_settings(&otros)
+            .expect("reemplazar un settings.json que ya existe tiene que funcionar");
+
+        assert_eq!(
+            storage.load_settings(),
+            otros,
+            "se guardo el contenido nuevo, no el viejo"
+        );
+        assert!(
+            !temporal.exists(),
+            "quedo un {} suelto en la carpeta de datos del usuario",
+            temporal.display()
+        );
     }
 
     #[test]

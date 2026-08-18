@@ -54,12 +54,13 @@ pública fue la v1.1.1.
 > devuelve la API pasan la guardia nueva**: era lo único que podía romper la actualización entera sin
 > notarse hasta el siguiente release.
 >
-> ⚠️ **La actualización silenciosa por fin se puede verificar de verdad.** No se pudo con la v1.3.1
-> porque el instalador lo lanza la app **instalada**: actualizar desde la v1.3.0 aún enseñaba las
-> ventanas. Con la v1.3.2 publicada, actualizar desde una v1.3.1 instalada es el primer caso real, y
-> queda pendiente de hacerlo.
+> ✅ **Y la actualización silenciosa quedó verificada con esta misma versión**: actualizar de la
+> v1.3.1 a la v1.3.2 es el primer caso en que el instalador lo lanza una app que ya lleva los flags,
+> y salió sin una sola ventana. Ver la nota de más abajo.
 
-**Pruebas:** 160 de frontend (Vitest + Testing Library, en jsdom) y 52 de `cargo test`. Las tres
+**Pruebas:** 164 de frontend (Vitest + Testing Library, en jsdom) y 53 de `cargo test`, con una
+cobertura del **89,61 %** de sentencias sobre el código propio —sin contar los dobles de prueba ni
+los componentes que genera shadcn, que antes diluían la cifra al 86,14 %—. Las tres
 últimas son las guardias del Tier 1 de la revisión, y **las tres se comprobaron con una mutación**:
 quitar la guardia, ver fallar el test, restaurarla. Una prueba negativa que nunca se ha visto fallar
 no prueba nada.
@@ -81,15 +82,17 @@ subiendo con un `node` de 380 MB levantado a propósito y poniéndose en pausa c
 El detalle de cada verificación, con su fecha y lo que costó, está en [ROADMAP.md](ROADMAP.md) junto
 al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 
-> ⚠️ **La única salvedad que sigue abierta: el último paso de la auto-actualización**, lanzar el
-> instalador para que reemplace la app. Todo lo anterior está verificado contra los releases
-> publicados: la API responde 200, la elección de assets acierta el `-setup.exe` y su `.sha256` (no
-> el del MSI), y el instalador descargado coincide con el hash publicado.
+> ✅ **La auto-actualización ya ha corrido de principio a fin, el 2026-08-18.** Era la última
+> salvedad abierta del proyecto y llevaba así desde julio: lanzar el instalador para que reemplace
+> la app es el único paso que no se puede simular, porque hace falta un release posterior al
+> instalado. El usuario actualizó de la **v1.3.1 a la v1.3.2** desde *Ajustes → Actualizaciones* y
+> **la instalación fue silenciosa**: sin asistente, sin ventana de desinstalación y con la app
+> volviendo a abrirse sola.
 >
-> **Desde el 2026-07-28 ya se puede cerrar**, y hasta ahora no se podía: hacía falta un release
-> posterior al instalado. Con la v1.2.0 en la calle, basta instalar la **v1.1.1**, abrirla y dejar
-> que se actualice sola desde *Ajustes → Actualizaciones*. Es lo único del actualizador que nunca ha
-> corrido de principio a fin.
+> Eso cierra de golpe las dos cosas: la cadena entera del actualizador —consulta, elección de
+> assets, descarga, verificación del hash, ejecución y reapertura— y los flags `/S /UPDATE /R` del
+> Tier 9, que hasta ahora solo estaban respaldados por la plantilla NSIS generada y no por la app en
+> marcha.
 
 
 ## 4. Decisiones tomadas
@@ -201,6 +204,10 @@ al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 | 2026-08-07 | **La cifra del equipo va nombrada y en su propia línea, con la RAM instalada a la vista** | El primer rótulo la pegaba a la del entorno —«1008 MB de 15.6 GB»— y dejaba el total solo en el tooltip, para ahorrar una línea. **El usuario lo leyó como su RAM instalada en el primer minuto**: tiene 31,9 GB, y 15,6 era lo que la máquina estaba usando. Ahora cada métrica lleva tres líneas —la tuya, la barra, y «Equipo» con su cifra—, y en RAM se enseñan las dos: `15.5 / 31.9 GB`. La unidad no se repite si ambas caen en la misma, que en 208 px se nota. Medido en la ventana: 154 px de alto, cero recortes | 
 | 2026-08-07 | La guarda del intervalo vive como **variable local del hilo del poller** | Es el único sitio que mide, así que no hay nada que compartir. La alternativa —meterla en `AppState`— obligaba a elegir entre anidar candados o meter el `System` y la marca de tiempo en la misma estructura, tocando los cinco sitios que bloquean `sys`, incluidos los que matan procesos |
 | 2026-08-07 | `SystemUsage` viaja en un **evento propio** (`system-usage`), no dentro de `processes-updated` | No se publican desde los mismos sitios (ver arriba), y meterlo en la lista habría cambiado un contrato del que dependen la ventana y sus pruebas. `types.test.ts` compara ahora los campos del struct de Rust con los del tipo de TypeScript: si Rust renombra uno, el frontend recibiría `undefined` y pintaría la barra a cero **sin romper nada** |
+| 2026-08-18 | **`shadcn` sale de `dependencies`, pero no del proyecto** | Era el origen de las **7 alertas de `npm audit`** —arrastra un SDK de MCP, el servidor HTTP `hono` y `ts-morph`—, y sin embargo no se puede quitar: `src/index.css` importa `shadcn/tailwind.css`, que vive dentro del paquete. Movido a `devDependencies`, el árbol de producción queda a cero y el CSS compilado sale idéntico byte a byte |
+| 2026-08-18 | **Las herramientas que faltan avisan; lo que encuentran, aborta** | `release.ps1` pasa ahora clippy, `cargo audit` y `npm audit --omit=dev`. Pero **el proyecto se trabaja desde varios equipos** y `cargo-audit` puede no estar instalado en uno: que eso impida cortar una versión sería peor que el riesgo que cubre. Se avisa y se sigue. Lo que sí aborta es una herramienta presente que encuentra algo — y encontró: `h2` 0.4.15 (RUSTSEC-2026-0258) la primera vez que se corrió |
+| 2026-08-18 | **Los ajustes se escriben en un `.tmp` y se renombra encima** | `fs::write` trunca el destino antes de rellenarlo: un corte ahí dejaba el JSON a medias y el arranque siguiente volvía a los valores de fábrica **en silencio**, perdiendo los nombres vigilados, el umbral del Auto-Kill y hasta 200 entradas de historial. ⚠️ **Sin borrar el destino antes**, aunque la primera versión lo hacía: se creía que en Windows `fs::rename` falla si el destino existe y **es falso** —usa `MoveFileExW` con `MOVEFILE_REPLACE_EXISTING`—. Lo destapó la prueba, que siguió pasando al quitar el borrado; o sea que el borrado no defendía de nada y abría un instante sin ningún archivo bueno en disco |
+| 2026-08-18 | El *error boundary* va **fuera** de `App`, en `main.tsx` | Si el fallo estuviera en el propio `App` —o en el `ThemeProvider` que lo envuelve—, una barrera puesta dentro no llegaría a montarse. Y es el único componente de clase del proyecto porque React no da equivalente en hooks para `getDerivedStateFromError` |
 | 2026-08-18 | **La URL de la descarga se valida sobre la URL parseada, no sobre la cadena** | Tercera guardia de la misma familia que la de PID y la de rutas: `download_update` recibe el `ReleaseInfo` desde la ventana, así que la URL del instalador y la del `.sha256` son entrada del frontend — y verificar un archivo contra un hash que trae el mismo mensaje no verifica nada. **Se compara con `reqwest::Url::parse` y no con `starts_with` sobre el texto**, porque `Url::parse` normaliza los `..` del camino y resuelve la autoridad: sin eso, `…/releases/download/../../../evil.exe` y `https://github.com@malo.example/…` pasaban los dos. Es literalmente el fallo que ya tuvo la guardia de rutas con `Path::starts_with` el 2026-07-27, y por eso las dos están en los tests. Se valida **la URL que se pide, no a dónde acaba llevando**: GitHub redirige las descargas a `objects.githubusercontent.com`, así que exigir que el destino final sea github.com rompería la actualización entera |
 | 2026-08-18 | **El backlog de la auditoría vive como una sección de ROADMAP.md, no como documento aparte** | Salió de una revisión completa del repositorio (12 áreas, 36 hallazgos, ninguno crítico) que pedía un ROADMAP por severidad —Tiers 0-4—, mientras que el de aquí son fases de desarrollo ya verificadas a las que apuntan CLAUDE.md y este mismo archivo. Sobrescribirlo habría borrado esa historia; un documento aparte habría abierto un quinto sitio donde mirar, en contra de la regla de «cada cosa vive en uno solo». Se añade al final, sin tocar una línea de los Tiers 1-9. **Los dos numerados se distinguen por el prefijo:** `Tier 4` es una fase, `T4-01` es una tarea del backlog. El informe completo, con problema, impacto y solución de cada punto, está en un [artifact](https://claude.ai/code/artifact/7e41ed95-15a4-4112-9958-71a6255c51ac); lo accionable está en el ROADMAP, que es lo que se mantiene |
 | 2026-08-14 | **El instalador se lanza con `/S /UPDATE /R`: la actualización es silenciosa** | Reportado por el usuario probándolo: al pulsar «Instalar» salían dos ventanas seguidas, la del desinstalador de la versión anterior y la del asistente de instalación. Los tres flags son de la plantilla NSIS de Tauri (`installer.nsi`, verificados en el `.nsi` generado en `target/release/nsis/x64/`) y cada uno quita una parte: `/S` el asistente, **`/UPDATE` la desinstalación previa** —la plantilla salta ese paso en modo actualización, y de paso conserva los accesos directos y no reinstala WebView2—, y `/R` vuelve a abrir la app al terminar, vía `RunAsUser`. `/R` **solo se mira en modo silencioso o pasivo**, así que sin `/S` no serviría de nada. No hay carrera con el `app.exit(0)` de `install_update`: el instalador silencioso mata la app él mismo si aún la encuentra viva (`CheckIfAppIsRunning` en `utils.nsh`) |

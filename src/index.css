@@ -158,6 +158,24 @@ body {
   --runtime-other: #94a3b8;
 }
 
+/* Windows tiene su propio interruptor de "Efectos de animación" en Accesibilidad, y WebView2 lo
+   traslada a esta media query. Quien lo apaga por vértigo o sensibilidad vestibular no debería
+   seguir viendo aquí lo que pidió no ver, y menos en una ventana que se refresca sola cada dos
+   segundos: son las barras de la tabla y del medidor, que animan su anchura en cada ciclo.
+
+   Esto cubre las transiciones de CSS. Las de Motion —las filas que entran y salen— las apaga el
+   `<MotionConfig reducedMotion="user">` de App.tsx; ninguna de las dos vale por la otra. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -24,5 +24,24 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     css: false,
+
+    /**
+     * Lo que NO cuenta como codigo propio.
+     *
+     * Sin esto el porcentaje mide dos cosas que no son de nadie: `src/test/**` son los dobles de
+     * Tauri —su codigo sin ejecutar son ramas de simulacion que ninguna prueba pidio— y
+     * `src/components/ui/**` lo genera el CLI de shadcn (`context-menu.tsx` marcaba un 33 %).
+     * Colandose en el denominador, la cifra infravalora la cobertura real y de paso invita a
+     * escribir pruebas de codigo generado para subir un numero.
+     */
+    coverage: {
+      exclude: [
+        "src/test/**",
+        "src/components/ui/**",
+        "**/*.test.{ts,tsx}",
+        "src/main.tsx",
+        "src/vite-env.d.ts",
+      ],
+    },
   },
 });
