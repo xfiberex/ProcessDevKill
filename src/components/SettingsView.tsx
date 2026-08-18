@@ -40,7 +40,16 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
 
   // Los ajustes tambien llegan de Rust (carga inicial, o el valor ya corregido si
   // se escribio uno por debajo del minimo): el campo tiene que seguirlos.
-  useEffect(() => setMbDraft(String(settings.autoKillMb)), [settings.autoKillMb]);
+  //
+  // Se sincroniza **durante el render** comparando con el valor anterior, no con un `useEffect`.
+  // Se guarda el valor de antes en vez de comparar contra `mbDraft` porque son cosas distintas:
+  // `mbDraft` es lo que hay escrito en el campo, y mientras se teclea difiere del ajuste sin que
+  // eso signifique que Rust haya mandado nada. Compararlos pisaria lo tecleado en cada pulsacion.
+  const [mbPrevio, setMbPrevio] = useState(settings.autoKillMb);
+  if (settings.autoKillMb !== mbPrevio) {
+    setMbPrevio(settings.autoKillMb);
+    setMbDraft(String(settings.autoKillMb));
+  }
 
   /** Guarda el umbral al salir del campo, con el mismo suelo que aplica Rust. */
   function commitMb() {
@@ -96,11 +105,13 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
     }
   }
 
+  // Mismo criterio que el umbral de arriba, y por el mismo motivo.
   const [minutosDraft, setMinutosDraft] = useState(String(settings.zombieMinutes));
-  useEffect(
-    () => setMinutosDraft(String(settings.zombieMinutes)),
-    [settings.zombieMinutes],
-  );
+  const [minutosPrevio, setMinutosPrevio] = useState(settings.zombieMinutes);
+  if (settings.zombieMinutes !== minutosPrevio) {
+    setMinutosPrevio(settings.zombieMinutes);
+    setMinutosDraft(String(settings.zombieMinutes));
+  }
 
   /** Mismo criterio que el umbral del Auto-Kill: se guarda al salir del campo. */
   function commitMinutos() {

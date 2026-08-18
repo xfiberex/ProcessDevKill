@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { TriangleAlertIcon } from "lucide-react";
 import {
   AlertDialog,
@@ -38,10 +38,14 @@ export function ConfirmDialog({ request, onCancel }: ConfirmDialogProps) {
   // El contenido sobrevive a que `request` vuelva a null para que la animacion de
   // cierre tenga algo que pintar; si se desmontara de golpe, el dialogo
   // desapareceria a saltos.
+  //
+  // Se ajusta **durante el render**, no en un `useEffect`. Es el patron que React documenta para
+  // el estado que se deriva de una prop: el efecto pintaba primero el contenido viejo y solo
+  // despues el nuevo, un render de mas por cada apertura del dialogo. Poner el `setShown` aqui
+  // hace que React repita el render antes de tocar el DOM, asi que ese paso intermedio no llega a
+  // verse. La guardia `request !== shown` es obligatoria: sin ella es un bucle infinito.
   const [shown, setShown] = useState<ConfirmRequest | null>(request);
-  useEffect(() => {
-    if (request) setShown(request);
-  }, [request]);
+  if (request && request !== shown) setShown(request);
 
   return (
     <AlertDialog

@@ -127,6 +127,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // `refresh` es async: el estado se toca despues de un `await`, no en el cuerpo del efecto. La
+    // regla no distingue la llamada sincrona de la funcion de lo que esa funcion hace luego.
+    // Pedirle datos a Rust al montar es exactamente para lo que sirve un efecto, y aqui no hay
+    // render en cascada que evitar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
     invoke<Settings>("get_settings").then(setSettings).catch(() => {});
   }, [refresh]);
@@ -134,6 +139,8 @@ export default function App() {
   // El historial cambia al matar procesos desde cualquier sitio, asi que se
   // recarga al entrar en la vista en vez de mantenerlo sincronizado siempre.
   useEffect(() => {
+    // Mismo caso que arriba: `loadHistory` es async y el `setHistory` cae despues del `await`.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (view === "history") loadHistory();
   }, [view, loadHistory]);
 
