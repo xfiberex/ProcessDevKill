@@ -140,3 +140,66 @@ Los textos completos de las demas licencias, por su extension, se consultan en:
     OFL-1.1       https://openfontlicense.org
     BSD, Zlib, BSL-1.0, Unicode-3.0, CC0-1.0, 0BSD, MIT-0, Unlicense
                   https://spdx.org/licenses/
+
+
+-------------------------------------------------------------------------------
+5. PACKS DE SKILLS DE AGENTE (viven en el repositorio, NO se distribuyen)
+-------------------------------------------------------------------------------
+
+Anadido el 2026-08-18. Esta seccion es distinta de las cuatro de arriba: lo de
+aqui NO viaja dentro del instalador ni toca al usuario de la app. Son 272 de los
+376 archivos versionados —guias, CSV de paletas, scripts de generacion de logos,
+plantillas de presentaciones— que usan los agentes al trabajar en el proyecto y
+que no intervienen en compilar, probar ni publicar.
+
+Se declaran igualmente porque el repositorio es GPLv3 y estos archivos se
+redistribuyen con el al clonarlo.
+
+18 packs de dos procedencias distintas:
+
+  .agents/skills/  (11 packs, registrados en skills-lock.json con su hash)
+
+      accessibility, seo                    addyosmani/web-quality-skills
+      composition-patterns,                 vercel-labs/agent-skills
+        react-best-practices
+      frontend-design                       anthropics/skills  [Apache-2.0]
+      nodejs-backend-patterns,              wshobson/agents
+        typescript-advanced-types
+      nodejs-best-practices                 sickn33/antigravity-awesome-skills
+      tailwind-css-patterns                 giuseppe-trisciuoglio/developer-kit
+      tauri-v2                              nodnarbnitram/claude-code-extensions
+      vite                                  antfu/skills
+
+  .claude/skills/  (7 packs, NO estan en skills-lock.json)
+
+      banner-design, brand, design, design-system, slides, ui-styling
+                                            author: claudekit (en su SKILL.md)
+      ui-ux-pro-max                         sin autor ni licencia declarados
+
+LICENCIAS, CON LO QUE SE PUEDE AFIRMAR Y LO QUE NO:
+
+  - Dos packs traen texto de licencia propio, y los dos son Apache-2.0:
+        .agents/skills/frontend-design/LICENSE.txt
+        .claude/skills/ui-styling/LICENSE.txt
+    Ninguno de los dos rellena la linea de titular del copyright de la
+    plantilla de Apache.
+
+  - Nueve declaran `license: MIT` en el frontmatter de su SKILL.md, sin
+    adjuntar el texto: accessibility, banner-design, composition-patterns,
+    design, design-system, react-best-practices, seo, ui-styling.
+
+  - CONTRADICCION SIN RESOLVER: ui-styling declara `license: MIT` en su
+    SKILL.md y a la vez incluye un LICENSE.txt de Apache-2.0. No se elige una
+    por el autor: se anota que estan las dos y prevalece lo que diga el
+    repositorio de origen.
+
+  - Los demas no declaran licencia en ninguna parte: brand, slides,
+    ui-ux-pro-max, nodejs-backend-patterns, nodejs-best-practices,
+    tailwind-css-patterns, tauri-v2, typescript-advanced-types.
+
+ALCANCE HONESTO: esto se ha construido leyendo los archivos que hay en el
+repositorio, no consultando los repositorios de origen. MIT y Apache-2.0 son
+compatibles con la GPLv3; lo que no declara licencia no se ha verificado, y
+seguirlo usando como material de trabajo interno no es lo mismo que
+redistribuirlo. Si alguna vez se empaquetara algo de aqui dentro de la app,
+habria que revisarlo antes uno a uno.

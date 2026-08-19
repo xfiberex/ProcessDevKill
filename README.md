@@ -271,13 +271,14 @@ constantes espejo, para que el contrato entre los dos lados no se desincronice e
 | `src-tauri/src/update.rs` | Actualizaciones: consulta a GitHub, descarga y verificación SHA-256 |
 | `src-tauri/capabilities/` | Permisos concedidos a la ventana |
 | `tools/`, `docs/screenshots/` | Utilidades del repositorio y capturas del README |
+| `.claude/skills/`, `.agents/skills/` | Packs de skills de agente (material de terceros; ni se compila ni se distribuye) |
 | `app-icon.svg` | Icono fuente del que salen todos los tamaños |
 | [ROADMAP.md](ROADMAP.md) | Plan de desarrollo por fases, con lo verificado en cada una |
 | [CONTEXT.md](CONTEXT.md) | Estado actual, decisiones tomadas y registro de sesiones |
 
 ## Estado
 
-La versión actual es la **v1.3.1**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.3.2**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
 instalar algo que no podía actualizarse.
 
@@ -293,3 +294,10 @@ publiquen su código fuente**. Se ofrece **sin ninguna garantía**.
 Las licencias de los componentes de terceros que el instalador empaqueta —incluida la tipografía
 Geist, con su licencia OFL-1.1— están en [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Todas
 son permisivas y compatibles con la GPLv3.
+
+El repositorio incluye además **18 packs de skills de agente** en `.claude/skills/` y
+`.agents/skills/` —272 de los 376 archivos versionados—. **No forman parte de la app**: no se
+compilan, no se distribuyen en el instalador y no intervienen en las pruebas ni en el corte de
+versión; son material de trabajo para quien desarrolle con un agente. Su procedencia y sus licencias
+están en la sección 5 de [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), incluido lo que **no**
+se ha podido verificar: ocho no declaran licencia por ninguna parte.

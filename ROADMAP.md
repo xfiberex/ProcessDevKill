@@ -1017,10 +1017,10 @@ haciendo clic en «Siguiente».
 |---|---|---|---|---|
 | **T0 — Crítico / bloqueante** | Nada. No se encontró ninguna vulnerabilidad explotable ni pérdida de datos en curso | **0** | — | — |
 | **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
-| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 7 | 7 bajo · 3 medio |
+| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 8 | 7 bajo · 3 medio |
 | **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 4 | 20 bajo |
 | **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 1 | 1 bajo · 3 medio · 1 alto |
-| | | **37** | **14** | 30 bajo · 6 medio · 1 alto |
+| | | **37** | **15** | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
@@ -1243,7 +1243,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T2-09] Decidir qué se hace con los packs de skills de agente**
+- [x] **[T2-09] Decidir qué se hace con los packs de skills de agente** — decidido el 2026-08-18
   - **Área:** Limpieza · Licencias
   - **Ubicación:** `.claude/skills/`, `.agents/skills/`, `skills-lock.json`
   - **Qué hacer:** de los 373 archivos versionados, **271 son packs de skills** —CSV de paletas,
@@ -1254,7 +1254,21 @@ en T1 y no en T0 — pero es lo primero que se hace.
     reinstalan desde `skills-lock.json`), traerlos como submódulo, o dejarlos y documentar en el
     README y en los avisos qué son y bajo qué licencia.
   - **Criterio de aceptación:** la decisión está tomada y anotada en CONTEXT §4 con su fecha, y no
-    queda material de terceros sin declarar en un repositorio GPLv3.
+    queda material de terceros sin declarar en un repositorio GPLv3. ✅
+  - **Decisión del usuario (2026-08-18): se quedan**, «porque puede servir en caso de necesitarlos».
+    Ni `.gitignore` ni submódulo: la tercera opción, dejarlos y documentarlos.
+  - **Lo que apareció al documentarlos, y respalda la decisión:** `skills-lock.json` **solo registra
+    los 11 packs de `.agents/skills/`**. Los **7 de `.claude/skills/`** —`banner-design`, `brand`,
+    `design`, `design-system`, `slides`, `ui-styling`, `ui-ux-pro-max`— no están en el lock, así que
+    la opción de ignorarlos **no era reversible para ellos**: se habrían perdido sin forma de
+    reinstalarlos. La tarea daba por hecho que el lock los cubría todos y no era cierto.
+  - **Licencias, declaradas en la sección 5 de `THIRD-PARTY-NOTICES.txt`** —sección aparte, porque
+    las otras cuatro cubren solo lo que el instalador empaqueta y esto no viaja con la app—: dos
+    traen texto propio y los dos son **Apache-2.0** (`frontend-design`, `ui-styling`), nueve
+    declaran `license: MIT` en el frontmatter sin adjuntar el texto, y **ocho no declaran licencia
+    en ninguna parte**. `ui-styling` se contradice a sí mismo: dice MIT en el SKILL.md y trae un
+    LICENSE.txt de Apache-2.0; se anota la contradicción en vez de elegir una. Se ha leído lo que
+    hay en el repositorio, sin consultar los repos de origen — dicho así en el propio archivo.
   - **Esfuerzo:** bajo la decisión; medio si se opta por documentarlos
   - **Depende de:** ninguna
 
@@ -1622,6 +1636,8 @@ probó a medias, se dice aquí qué quedó fuera.
 
 | 2026-08-18 | **T2-05, T3-02, T4-04** | **ESLint**, que el frontend no tenía y el backend sí (clippy): 148 avisos en la primera pasada, **142 de los packs de skills** y 5 reales, todos de una regla de hooks que `tsc` no puede ver. **El tope de la descarga**, que llevaba escrito sin marcar desde la auditoría: el obstáculo no era el servidor sino que el bucle vivía dentro de `download_and_verify`, detrás de la validación de URL, así que ninguna prueba lo alcanzaba. Y **la decisión de no tener CI, ratificada**: todo el testing es local, por decisión del usuario. 56 de `cargo test` (antes 53) |
 
-**Pendientes: 23 de 37.** Una lleva el código escrito y se queda sin marcar hasta poder comprobarla
+| 2026-08-18 | **T2-09** | Los packs de skills **se quedan**, por decisión del usuario, y quedan documentados con sus licencias. Documentarlos destapó que `skills-lock.json` solo cubre 11 de los 18: ignorarlos habría perdido los otros 7 sin forma de reinstalarlos |
+
+**Pendientes: 22 de 37.** Una lleva el código escrito y se queda sin marcar hasta poder comprobarla
 de verdad: **T2-07** (`prefers-reduced-motion`), que pide encender el ajuste de Windows y mirar la
 app — el doble de Motion de las pruebas quita las animaciones, así que desde ahí no se ve nada.
