@@ -1017,10 +1017,10 @@ haciendo clic en «Siguiente».
 |---|---|---|---|---|
 | **T0 — Crítico / bloqueante** | Nada. No se encontró ninguna vulnerabilidad explotable ni pérdida de datos en curso | **0** | — | — |
 | **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
-| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 9 | 7 bajo · 3 medio |
+| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | **10** ✅ | 7 bajo · 3 medio |
 | **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 4 | 20 bajo |
 | **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 1 | 1 bajo · 3 medio · 1 alto |
-| | | **37** | **16** | 30 bajo · 6 medio · 1 alto |
+| | | **37** | **17** | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
@@ -1237,7 +1237,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna (mejora con T2-03)
 
-- [ ] **[T2-07] Respetar `prefers-reduced-motion`**
+- [x] **[T2-07] Respetar `prefers-reduced-motion`** — verificado el 2026-08-18
   - **Área:** Accesibilidad
   - **Ubicación:** `src/components/ProcessTable.tsx:103-121`, `src/index.css`
   - **Qué hacer:** no hay una sola aparición de `prefers-reduced-motion` ni de `MotionConfig` en todo
@@ -1246,13 +1246,25 @@ en T1 y no en T0 — pero es lo primero que se hace.
     WebView2 lo traslada a esa media query. Envolver en `<MotionConfig reducedMotion="user">` y
     añadir la regla equivalente en CSS para las transiciones de las barras.
   - **Criterio de aceptación:** con la preferencia activada en Windows, las filas aparecen y
-    desaparecen sin desplazamiento y las barras saltan a su valor sin transición.
-  - **Estado:** código escrito el 2026-08-18: `<MotionConfig reducedMotion="user">` envolviendo la
-    app (`App.tsx:291-302`) para lo que anima Motion, y la regla `@media (prefers-reduced-motion:
-    reduce)` en `index.css:161-176` para las transiciones de CSS de las barras, que Motion no
-    gobierna. **Se queda sin marcar**: comprobarlo pide encender «Efectos de animación» en
-    Accesibilidad de Windows y mirar la app, y eso no se ha hecho. El doble de Motion de las
-    pruebas quita las animaciones, así que desde ahí no se puede verificar.
+    desaparecen sin desplazamiento y las barras saltan a su valor sin transición. ✅
+  - **Cómo está resuelto:** `<MotionConfig reducedMotion="user">` envolviendo la app para lo que
+    anima Motion, y la regla `@media (prefers-reduced-motion: reduce)` en `index.css` para las
+    transiciones de CSS de las barras, que Motion no gobierna. **Ninguna de las dos vale por la
+    otra**, y por eso están las dos.
+  - **⚠️ El ajuste de Windows va al revés de como suena, y esto costó una vuelta:**
+    `prefers-reduced-motion: reduce` se activa cuando **«Efectos de animación» está APAGADO**.
+    Encendido —el estado normal— significa «sí quiero animaciones» y la app debe animar como
+    siempre. Esta ficha decía «encender» y era incorrecto; el usuario lo comprobó con el ajuste
+    encendido, vio que todo animaba y lo reportó, que es exactamente lo que tenía que pasar.
+  - **Verificado el 2026-08-18 por el usuario, apagando el ajuste en la app en marcha:** las barras
+    de la tabla y del medidor **saltan** al valor nuevo en vez de deslizarse, y las filas filtradas
+    **desaparecen de golpe** sin desvanecerse en rojo. Al volver a encenderlo, las dos cosas
+    animan otra vez. Se comprobaron las dos mitades a propósito: las barras son CSS y las filas son
+    Motion, así que un solo síntoma no habría distinguido cuál de las dos piezas funciona.
+  - **No se puede verificar desde las pruebas ni emulando:** el doble de Motion quita las
+    animaciones, y por CDP solo se puede *leer* la media query, no imponerla (`emulate` cubre el
+    modo claro/oscuro, no esta). Y lo que de verdad había que probar era el eslabón que ninguna
+    emulación demuestra: **que WebView2 traduzca el ajuste de Windows a la media query**.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
@@ -1670,6 +1682,7 @@ probó a medias, se dice aquí qué quedó fuera.
 
 | 2026-08-18 | **T2-03** | **El log en archivo**, que era el ultimo agujero de observabilidad: en release no hay stderr, asi que los 8 avisos del proyecto no los leia nadie. Modulo propio en vez de `tauri-plugin-log`, con rotacion acotada a 1 MB y marca en UTC. Lo alimenta tambien el *error boundary* del frontend, que hasta ahora escribia a una consola que en release no existe. Rotacion comprobada con mutacion |
 
-**Pendientes: 21 de 37.** Una lleva el código escrito y se queda sin marcar hasta poder comprobarla
-de verdad: **T2-07** (`prefers-reduced-motion`), que pide encender el ajuste de Windows y mirar la
-app — el doble de Motion de las pruebas quita las animaciones, así que desde ahí no se ve nada.
+| 2026-08-18 | **T2-07** | **Tier 2 cerrado entero (10 de 10).** `prefers-reduced-motion`, verificado por el usuario apagando «Efectos de animación» en Windows: las barras saltan y las filas desaparecen de golpe. De paso se corrigió la ficha, que decía «encender» el ajuste cuando lo que activa la media query es **apagarlo** |
+
+**Pendientes: 20 de 37**, todas de los Tiers 3 y 4. **No queda ninguna con el código escrito y sin
+verificar**: era la última.

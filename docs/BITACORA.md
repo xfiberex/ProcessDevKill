@@ -44,8 +44,17 @@
   `opener:allow-open-path` está acotado a los dos avisos legales, y en las pruebas `openPath` está
   doblado. En vez de ensanchar el permiso a `$APPDATA`, lo abre Rust con una ruta que calcula él:
   la ventana no gana ningún permiso nuevo. La prueba comprueba además que `openPath` **no** se use.
+- **T2-07, `prefers-reduced-motion`, verificado — y el ajuste va al revés de como suena.** La ficha
+  decía «encender Efectos de animación» para comprobarlo, y es al contrario: la media query se
+  activa cuando ese interruptor está **apagado**. El usuario lo comprobó con el ajuste encendido y
+  reportó que todo animaba, que es exactamente lo correcto. Apagándolo, las barras saltan y las
+  filas desaparecen de golpe. Corregida la redacción de la ficha. **No es verificable desde las
+  pruebas ni emulando**: el doble de Motion quita las animaciones, y por CDP solo se puede leer la
+  media query, no imponerla — y lo que había que probar era el eslabón que ninguna emulación
+  demuestra, que WebView2 traduzca el ajuste del sistema.
 - Cuatro guardias comprobadas con mutación en total esta sesión. 61 de `cargo test` (antes 53) y
-  170 de frontend (antes 164). **Tier 2 cerrado entero: 16 de 37.**
+  170 de frontend (antes 164). **Tier 2 cerrado entero, 10 de 10: van 17 de 37**, y no queda
+  ninguna tarea con el código escrito pendiente de verificar.
 
 ### 2026-08-18 — Auditoría del repositorio, Tiers 1 y 2, y la v1.3.2 publicada
 
