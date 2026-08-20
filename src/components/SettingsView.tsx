@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { resolveResource } from "@tauri-apps/api/path";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
@@ -9,6 +11,7 @@ import {
   MonitorIcon,
   MoonIcon,
   ScaleIcon,
+  ScrollTextIcon,
   SunIcon,
   XIcon,
 } from "lucide-react";
@@ -77,6 +80,44 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
       .then((v) => setVersion(`v${v}`))
       .catch(() => {});
   }, []);
+
+  // Ruta del log de avisos. La da Rust, que es quien sabe donde cayo `app_data_dir()`; tenerla
+  // aqui a mano evita que el usuario tenga que buscarla para poder mandarla en un issue.
+  const [logPath, setLogPath] = useState("");
+  useEffect(() => {
+    invoke<string>("log_path")
+      .then(setLogPath)
+      .catch(() => {});
+  }, []);
+
+  /**
+   * Abre la carpeta del log, **pidiendoselo a Rust**.
+   *
+   * No se usa `openPath` aqui, y no es un capricho: el permiso `opener:allow-open-path` esta
+   * acotado a los dos avisos legales (`capabilities/default.json`), asi que desde la ventana este
+   * boton fallaria — y arreglarlo por ahi obligaria a ensanchar el permiso a `$APPDATA` entero.
+   * Con el comando, la ruta la calcula Rust y la ventana no gana ningun permiso nuevo.
+   *
+   * Se abre la carpeta y no el archivo porque un `.log` no tiene asociacion en Windows y sacaria
+   * el dialogo de "como quieres abrir esto" — el mismo motivo por el que la licencia se empaqueta
+   * como `.txt` unas lineas mas abajo. Desde la carpeta se ve ademas el `.1` de la rotacion.
+   */
+  async function abrirCarpetaDelLog() {
+    try {
+      await invoke("open_log_dir");
+    } catch (e) {
+      toast.error("No se pudo abrir la carpeta", { description: String(e) });
+    }
+  }
+
+  async function copiarRutaDelLog() {
+    try {
+      await writeText(logPath);
+      toast.success("Ruta copiada");
+    } catch (e) {
+      toast.error("No se pudo copiar la ruta", { description: String(e) });
+    }
+  }
 
   /**
    * Abre uno de los archivos legales que el instalador empaqueta.
@@ -365,6 +406,34 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             Repositorio
           </Button>
         </div>
+
+        {logPath && (
+          <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
+            <p className="text-sm">
+              <strong className="font-medium">Registro de avisos</strong>
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cuando algo falla por dentro —guardar los ajustes, leer los puertos—, la app lo
+              anota aquí. Es un archivo local:{" "}
+              <strong className="font-medium text-foreground">
+                no se envía a ninguna parte
+              </strong>{" "}
+              y puedes borrarlo cuando quieras. Si abres un issue, adjuntarlo ayuda.
+            </p>
+            <p className="mt-2 font-mono text-xs break-all text-muted-foreground">
+              {logPath}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="outline" onClick={abrirCarpetaDelLog}>
+                <ScrollTextIcon />
+                Abrir la carpeta
+              </Button>
+              <Button variant="ghost" onClick={copiarRutaDelLog}>
+                Copiar la ruta
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
 
       <section>

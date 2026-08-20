@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 
@@ -28,9 +29,15 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // A la consola del webview: en `tauri dev` se ve, y en release no hay donde mirar todavia.
-    // Cuando exista el log en archivo (T2-03) este es el sitio desde el que llamarlo.
+    // A la consola del webview: en `tauri dev` se ve.
     console.error("Error no capturado en el render:", error, info.componentStack);
+
+    // Y al log en archivo, que es lo unico que queda en release. `catch` vacio a proposito: si el
+    // puente con Rust es justo lo que ha fallado, esta llamada tambien fallara, y entonces lo que
+    // el usuario necesita ver es la pantalla de error — no un fallo encima del fallo.
+    invoke("log_error", {
+      mensaje: `${error.message}\n${info.componentStack ?? "sin pila"}`,
+    }).catch(() => {});
   }
 
   render() {

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { invoke } from "../test/tauri-mock";
 
 /**
  * React escribe el error por consola aunque la barrera lo capture, y eso ensucia la salida de las
@@ -57,6 +58,34 @@ describe("ErrorBoundary", () => {
     const consola = pintarConFallo("boom");
 
     expect(screen.getByText(/Ningún proceso se ha cerrado/)).toBeInTheDocument();
+
+    consola.mockRestore();
+  });
+
+  /**
+   * En release no hay consola ni devtools, asi que el `console.error` de arriba no lo lee nadie:
+   * el log en archivo es el unico rastro que queda de por que se rompio la ventana.
+   */
+  it("manda el error al log en archivo de Rust", () => {
+    const consola = pintarConFallo("boom");
+
+    expect(invoke).toHaveBeenCalledWith(
+      "log_error",
+      expect.objectContaining({ mensaje: expect.stringContaining("boom") }),
+    );
+
+    consola.mockRestore();
+  });
+
+  /**
+   * Si el puente con Rust es justo lo que ha fallado, la llamada al log tambien falla. Lo que no
+   * puede pasar es que ese fallo tape la pantalla de error, que es lo unico que ve el usuario.
+   */
+  it("ensena la pantalla aunque el log falle", () => {
+    invoke.mockRejectedValueOnce(new Error("el puente con Rust no responde"));
+    const consola = pintarConFallo("boom");
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
 
     consola.mockRestore();
   });

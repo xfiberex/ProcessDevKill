@@ -8,6 +8,45 @@
 
 ---
 
+### 2026-08-18 (noche) — Tier 2 cerrado, y dos cosas que las pruebas no veían
+
+- **Decisión del usuario: todo el testing es local, nada de CI, workflows ni GitHub Actions.** Para
+  lo que necesite un servidor, Docker está autorizado. Cierra **T4-04** con la decisión tomada, no
+  como pendiente de revisar. Anotado lo que deja descubierto: nadie comprueba que el proyecto
+  compile en un equipo limpio.
+- **T3-02, el tope de la descarga.** Llevaba escrito sin marcar desde la auditoría, y el obstáculo
+  no era el servidor: el bucle vivía **dentro de `download_and_verify`, detrás de la validación de
+  URL contra github.com**, así que ninguna prueba lo alcanzaba. Extraído a `volcar_con_tope` con el
+  tope por parámetro. El servidor de prueba es un `TcpListener` en un hilo, no un contenedor —
+  Docker está disponible pero aquí habría sido peor: ataría el corte de versión a que alguien
+  recuerde levantar el daemon. **Necesitó un `set_write_timeout` o la prueba se colgaba**: cuando el
+  tope corta, el cliente deja de leer pero el socket no se cierra hasta que el runtime vuelve a
+  moverse, y para entonces el hilo del servidor ya está bloqueado con los buffers de TCP llenos.
+  Se vio colgado más de un minuto antes de entender por qué.
+- **T2-05, ESLint.** 148 avisos en la primera pasada, **142 de los `.cjs` de `.claude/skills/`** —
+  código de terceros mirado con reglas de navegador—. Los 5 reales, todos `set-state-in-effect`.
+  Tres eran estado derivado de props sincronizado con `useEffect`; reescritos al patrón que React
+  documenta (ajustar durante el render). Los otros dos son cargas asíncronas al montar, donde la
+  regla se equivoca. **ESLint 9 y no 10**: `jsx-a11y` declara peer hasta la 9.
+- **Clippy corrigió una prueba mía:** la del tope de producción comparaba dos constantes, así que va
+  en un bloque `const` y ahora **falla al compilar**, no al ejecutar.
+- **T2-09: los packs de skills se quedan**, por decisión del usuario. Documentarlos destapó que
+  **`skills-lock.json` solo cubre 11 de los 18**: ignorarlos —la opción que se vendía como
+  reversible— habría perdido los 7 de `.claude/skills/` sin forma de reinstalarlos. Licencias en una
+  sección 5 aparte de `THIRD-PARTY-NOTICES.txt`: dos Apache-2.0, nueve MIT declarado sin texto,
+  **ocho sin declarar nada**, y `ui-styling` contradiciéndose consigo mismo.
+- **T2-03, el log en archivo**, el último agujero de observabilidad: en release no hay stderr, así
+  que los 8 avisos del proyecto no los leía nadie. Módulo propio en vez de `tauri-plugin-log`, por
+  el mismo criterio con el que aquí se escribió el actualizador a mano. Rotación acotada a 1 MB, y
+  **se rota antes de escribir**, porque hacerlo después dejaría el archivo por encima del tope todo
+  el rato que va de un aviso al siguiente. Marca en UTC con la `Z` puesta.
+- ⚠️ **El botón «Abrir la carpeta» habría fallado en la app real y las pruebas no lo habrían visto.**
+  `opener:allow-open-path` está acotado a los dos avisos legales, y en las pruebas `openPath` está
+  doblado. En vez de ensanchar el permiso a `$APPDATA`, lo abre Rust con una ruta que calcula él:
+  la ventana no gana ningún permiso nuevo. La prueba comprueba además que `openPath` **no** se use.
+- Cuatro guardias comprobadas con mutación en total esta sesión. 61 de `cargo test` (antes 53) y
+  170 de frontend (antes 164). **Tier 2 cerrado entero: 16 de 37.**
+
 ### 2026-08-18 — Auditoría del repositorio, Tiers 1 y 2, y la v1.3.2 publicada
 
 - **Revisión completa de las doce áreas** sobre el commit `15d3004` (v1.3.1): además de leer el

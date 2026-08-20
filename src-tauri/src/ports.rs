@@ -15,7 +15,7 @@ pub fn listening_ports() -> HashMap<u32, Vec<u16>> {
     let all = match listeners::get_all() {
         Ok(all) => all,
         Err(e) => {
-            eprintln!("No se pudieron leer los puertos en escucha: {e}");
+            crate::avisar!("No se pudieron leer los puertos en escucha: {e}");
             return HashMap::new();
         }
     };

@@ -1017,10 +1017,10 @@ haciendo clic en «Siguiente».
 |---|---|---|---|---|
 | **T0 — Crítico / bloqueante** | Nada. No se encontró ninguna vulnerabilidad explotable ni pérdida de datos en curso | **0** | — | — |
 | **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
-| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 8 | 7 bajo · 3 medio |
+| **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | 9 | 7 bajo · 3 medio |
 | **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 4 | 20 bajo |
 | **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 1 | 1 bajo · 3 medio · 1 alto |
-| | | **37** | **15** | 30 bajo · 6 medio · 1 alto |
+| | | **37** | **16** | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
@@ -1122,7 +1122,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** T2-01 (para que `npm audit` pueda bloquear en vez de solo avisar)
 
-- [ ] **[T2-03] Log en archivo: en release, los `eprintln!` no llegan a ningún sitio**
+- [x] **[T2-03] Log en archivo: en release, los `eprintln!` no llegan a ningún sitio** — hecho el 2026-08-18
   - **Área:** Código · Observabilidad
   - **Ubicación:** `src-tauri/src/main.rs:2`; llamadas en `lib.rs:162,179,227,340`,
     `storage.rs:171,189`, `ports.rs:18`, `notify.rs:20`
@@ -1135,6 +1135,36 @@ en T1 y no en T0 — pero es lo primero que se hace.
     poder pedirlo.
   - **Criterio de aceptación:** sobre el binario de release, provocar un fallo de escritura de
     ajustes deja una línea fechada en el archivo de log, y el archivo no crece sin límite.
+  - **Cómo se hizo:** módulo propio `src-tauri/src/logging.rs`, no `tauri-plugin-log`. Mismo
+    criterio con el que aquí se escribió el actualizador en vez de usar `tauri-plugin-updater`: son
+    ~100 líneas, la rotación se puede probar con `cargo test` sin montar una `App` —y todo el
+    testing de este proyecto es local—, y no añade una dependencia que habría que declarar en
+    `THIRD-PARTY-NOTICES.txt` por viajar dentro del instalador. Los 8 `eprintln!` pasan a un macro
+    `avisar!` que escribe **a los dos sitios**: al archivo y a stderr, que en `tauri dev` sí existe.
+  - **Rotación:** una sola generación (`processdevkill.log` + `.log.1`), 512 KB cada una, así que lo
+    que ocupa está acotado a 1 MB **pase lo que pase**. Se rota **antes** de escribir, no después:
+    rotar después dejaría el archivo por encima del tope durante todo el rato que va de una línea a
+    la siguiente, que en una app que puede estar horas sin avisar de nada es casi todo el tiempo.
+  - **Marca de tiempo en UTC, con la `Z` puesta.** La hora local exigiría preguntarle a Windows por
+    la zona horaria —otra dependencia, o `unsafe`— para un archivo que lee quien desarrolla. La `Z`
+    evita el malentendido de leerlo como hora local y situar un aviso dos horas antes de cuando
+    ocurrió. La conversión es el `civil_from_days` de Hinnant, ~12 líneas, en vez de `chrono`
+    entero para formatear una fecha; probada contra el epoch, un 29 de febrero y una fecha real.
+  - **También lo alimenta el frontend:** el *error boundary* de T2-06 llamaba a `console.error`, que
+    en release no la ve nadie — el mismo agujero. Ahora invoca `log_error`, que **recorta a 2.000
+    caracteres**: una pila de React ocupa kilobytes, y un componente fallando en bucle rotaría el
+    log entero llevándose por delante los avisos anteriores, que son los que explican cómo se llegó
+    ahí. Si el puente con Rust es justo lo que falló, la llamada se traga el error: lo que el
+    usuario necesita ver es la pantalla, no un fallo encima del fallo. Hay prueba de las dos cosas.
+  - **La ruta se enseña en Ajustes → Acerca de**, con botón para abrir **la carpeta** —un `.log` no
+    tiene asociación en Windows y abrirlo sacaría el diálogo de «cómo quieres abrir esto», el mismo
+    motivo por el que la licencia se empaqueta como `.txt`— y otro para copiarla. Se dice ahí mismo
+    que **no se envía a ninguna parte**, porque en un gestor de procesos esa duda es razonable.
+  - **Verificado:** 5 pruebas nuevas de Rust y 6 de frontend. La de la rotación, **comprobada con
+    una mutación**: anulada la comparación con el tope, falla solo esa y las otras cuatro siguen
+    pasando. ⚠️ **Lo que queda pendiente de comprobar es el criterio literal**: forzar un fallo de
+    escritura de ajustes *sobre el binario de release* y ver la línea. Las pruebas cubren el
+    mecanismo, no ese camino concreto.
   - **Esfuerzo:** medio
   - **Depende de:** ninguna
 
@@ -1638,6 +1668,8 @@ probó a medias, se dice aquí qué quedó fuera.
 
 | 2026-08-18 | **T2-09** | Los packs de skills **se quedan**, por decisión del usuario, y quedan documentados con sus licencias. Documentarlos destapó que `skills-lock.json` solo cubre 11 de los 18: ignorarlos habría perdido los otros 7 sin forma de reinstalarlos |
 
-**Pendientes: 22 de 37.** Una lleva el código escrito y se queda sin marcar hasta poder comprobarla
+| 2026-08-18 | **T2-03** | **El log en archivo**, que era el ultimo agujero de observabilidad: en release no hay stderr, asi que los 8 avisos del proyecto no los leia nadie. Modulo propio en vez de `tauri-plugin-log`, con rotacion acotada a 1 MB y marca en UTC. Lo alimenta tambien el *error boundary* del frontend, que hasta ahora escribia a una consola que en release no existe. Rotacion comprobada con mutacion |
+
+**Pendientes: 21 de 37.** Una lleva el código escrito y se queda sin marcar hasta poder comprobarla
 de verdad: **T2-07** (`prefers-reduced-motion`), que pide encender el ajuste de Windows y mirar la
 app — el doble de Motion de las pruebas quita las animaciones, así que desde ahí no se ve nada.

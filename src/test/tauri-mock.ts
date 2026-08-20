@@ -93,6 +93,12 @@ export function resetTauriMocks() {
         return "C:\\Temp\\ProcessDevKill_update\\setup.exe";
       case "install_update":
         return null;
+      case "log_error":
+        return null;
+      case "open_log_dir":
+        return null;
+      case "log_path":
+        return String.raw`C:\Users\test\AppData\Roaming\ProcessDevKill\processdevkill.log`;
       default:
         throw new Error(`Comando no simulado: ${cmd}`);
     }

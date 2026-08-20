@@ -17,7 +17,7 @@ pub fn show(app: &AppHandle, body: String) {
         .body(body)
         .show()
     {
-        eprintln!("No se pudo mostrar la notificacion: {e}");
+        crate::avisar!("No se pudo mostrar la notificacion: {e}");
     }
 }
 

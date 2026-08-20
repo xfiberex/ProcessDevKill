@@ -1,4 +1,6 @@
 mod auto_kill;
+// `pub` porque el macro `avisar!` que exporta se resuelve como `$crate::logging::escribir`.
+pub mod logging;
 mod notify;
 mod poller;
 mod ports;
@@ -159,7 +161,7 @@ fn atajo_nuke() -> Shortcut {
 
 pub(crate) fn publish(app: &AppHandle, list: Vec<ProcessInfo>) {
     if let Err(e) = app.emit(PROCESSES_UPDATED, list) {
-        eprintln!("No se pudo emitir {PROCESSES_UPDATED}: {e}");
+        crate::avisar!("No se pudo emitir {PROCESSES_UPDATED}: {e}");
     }
 }
 
@@ -176,7 +178,7 @@ pub(crate) fn measure_usage(state: &AppState, list: &[ProcessInfo]) -> Option<Sy
 
 pub(crate) fn publish_usage(app: &AppHandle, usage: SystemUsage) {
     if let Err(e) = app.emit(SYSTEM_USAGE, usage) {
-        eprintln!("No se pudo emitir {SYSTEM_USAGE}: {e}");
+        crate::avisar!("No se pudo emitir {SYSTEM_USAGE}: {e}");
     }
 }
 
@@ -224,7 +226,7 @@ pub(crate) fn kill_and_record(
         })
         .collect();
     if let Err(e) = state.storage.append_history(entries) {
-        eprintln!("No se pudo guardar el historial: {e}");
+        crate::avisar!("No se pudo guardar el historial: {e}");
     }
 
     // El Auto-Kill compone su propio aviso, que ya incluye los puertos ademas del
@@ -337,7 +339,7 @@ fn apply_hotkey(app: &AppHandle, enabled: bool) {
     };
 
     if let Err(e) = result {
-        eprintln!("No se pudo cambiar el atajo global: {e}");
+        crate::avisar!("No se pudo cambiar el atajo global: {e}");
     }
 }
 
@@ -404,6 +406,11 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::env::temp_dir().join("processdevkill"));
+            // Antes que nada: si `Storage::new` no puede crear la carpeta, ese aviso es
+            // precisamente uno de los que hay que poder leer despues.
+            logging::iniciar(&dir);
+            crate::avisar!("--- ProcessDevKill v{} arrancando ---", env!("CARGO_PKG_VERSION"));
+
             let storage = Storage::new(dir);
             let settings = storage.load_settings();
 
@@ -470,7 +477,12 @@ pub fn run() {
             // delegan y a la guardia de rutas que protege a `install_update`.
             update::check_update,
             update::download_update,
-            update::install_update
+            update::install_update,
+            // Igual que los del actualizador: viven junto a su logica, y el nombre por IPC lo da
+            // el ultimo segmento, asi que desde el frontend siguen siendo `log_error` y `log_path`.
+            logging::log_error,
+            logging::log_path,
+            logging::open_log_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

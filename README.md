@@ -154,6 +154,12 @@ Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz a
 - Los ajustes y el historial se guardan **en tu equipo**, en `%APPDATA%\com.processdevkill.app\`
   (`settings.json` e `history.json`). Se pueden abrir, copiar entre equipos o borrar; el historial
   se puede vaciar desde la propia app y tiene un tope de 200 entradas.
+- En esa misma carpeta la app deja un **registro de avisos** (`processdevkill.log`) cuando algo le
+  falla por dentro: no se pudo guardar el historial, no se pudieron leer los puertos. Anota el
+  fallo, no lo que corre en tu equipo, y **tampoco sale de tu máquina**: está ahí para que puedas
+  adjuntarlo si abres un issue, y puedes borrarlo cuando quieras. Ocupa **como mucho 1 MB**: se
+  rota cada 512 KB y solo se conserva una generación anterior (`.log.1`). La ruta, con botones para
+  abrir la carpeta y copiarla, está en **Ajustes → Acerca de**.
 - **La única petición de red que hace la app** es la comprobación de actualizaciones: al arrancar
   consulta la API de `github.com` para comparar versiones. Es una descarga normal, sin
   identificador ni cuenta; GitHub verá tu IP como la vería si abrieras la página. No se descarga
@@ -163,7 +169,8 @@ Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz a
 Los permisos concedidos a la ventana son comprobables, y son los mínimos para lo anterior:
 [`capabilities/default.json`](src-tauri/capabilities/default.json). El del portapapeles es de
 **escritura únicamente**, y el de abrir archivos está acotado a los dos avisos legales, no a una
-carpeta. La red la usa **solo Rust**, para las actualizaciones; el frontend no tiene ningún permiso
+carpeta — por eso el botón que abre la carpeta del registro se lo pide a Rust en vez de usar ese
+permiso: así la ventana no gana la capacidad de abrir nada más. La red la usa **solo Rust**, para las actualizaciones; el frontend no tiene ningún permiso
 que le permita salir a internet por su cuenta.
 
 ## Cómo funciona
@@ -269,6 +276,7 @@ constantes espejo, para que el contrato entre los dos lados no se desincronice e
 | `src-tauri/src/{processes,ports,storage,tray}.rs` | Procesos, puertos, persistencia y bandeja |
 | `src-tauri/src/{poller,auto_kill,notify}.rs` | Hilo de refresco, cierre automático por RAM y avisos nativos |
 | `src-tauri/src/update.rs` | Actualizaciones: consulta a GitHub, descarga y verificación SHA-256 |
+| `src-tauri/src/logging.rs` | Registro de avisos en archivo, con rotación (en release no hay consola) |
 | `src-tauri/capabilities/` | Permisos concedidos a la ventana |
 | `tools/`, `docs/screenshots/` | Utilidades del repositorio y capturas del README |
 | `.claude/skills/`, `.agents/skills/` | Packs de skills de agente (material de terceros; ni se compila ni se distribuye) |

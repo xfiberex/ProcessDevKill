@@ -168,7 +168,7 @@ pub struct Storage {
 impl Storage {
     pub fn new(dir: PathBuf) -> Self {
         if let Err(e) = fs::create_dir_all(&dir) {
-            eprintln!("No se pudo crear {}: {e}", dir.display());
+            crate::avisar!("No se pudo crear {}: {e}", dir.display());
         }
         Self { dir }
     }
@@ -186,7 +186,7 @@ impl Storage {
             return T::default(); // Todavia no existe: primera ejecucion.
         };
         serde_json::from_str(&raw).unwrap_or_else(|e| {
-            eprintln!(
+            crate::avisar!(
                 "{} esta corrupto ({e}); se usan los valores por defecto",
                 path.display()
             );

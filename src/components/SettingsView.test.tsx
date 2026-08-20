@@ -2,7 +2,13 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsView } from "./SettingsView";
-import { DEFAULT_TEST_SETTINGS, updaterFalso } from "../test/tauri-mock";
+import {
+  DEFAULT_TEST_SETTINGS,
+  invoke,
+  openPath,
+  updaterFalso,
+  writeText,
+} from "../test/tauri-mock";
 import { AUTO_KILL_MIN_MB, ZOMBIE_MIN_MINUTES } from "../types";
 import type { Settings } from "../types";
 import type { UpdateState } from "../hooks/useUpdater";
@@ -340,5 +346,57 @@ describe("tema", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ theme: "light" }),
     );
+  });
+});
+
+/**
+ * Sin esto, el log no sirve de nada: en release nadie sabe donde cayo `app_data_dir()`, y pedirle
+ * a alguien que adjunte un archivo que no puede encontrar es lo mismo que no tener log.
+ */
+describe("registro de avisos", () => {
+  it("ensena la ruta del log, que la da Rust", async () => {
+    pintar();
+
+    expect(
+      await screen.findByText(/processdevkill\.log/),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * **Se lo pide a Rust, no usa `openPath`.** El permiso `opener:allow-open-path` esta acotado a
+   * los dos avisos legales, asi que abrir la carpeta desde la ventana fallaria en la app real — y
+   * aqui no se notaria, porque `openPath` esta doblado. De ahi que la prueba mire que NO se use.
+   */
+  it("le pide a Rust que abra la carpeta, sin usar el permiso de la ventana", async () => {
+    const { user } = pintar();
+    await screen.findByText(/processdevkill\.log/);
+
+    await user.click(screen.getByRole("button", { name: /Abrir la carpeta/ }));
+
+    expect(invoke).toHaveBeenCalledWith("open_log_dir");
+    expect(openPath).not.toHaveBeenCalled();
+  });
+
+  it("copia la ruta con el portapapeles de Tauri", async () => {
+    const { user } = pintar();
+    await screen.findByText(/processdevkill\.log/);
+
+    await user.click(screen.getByRole("button", { name: /Copiar la ruta/ }));
+
+    expect(writeText).toHaveBeenCalledWith(
+      String.raw`C:\Users\test\AppData\Roaming\ProcessDevKill\processdevkill.log`,
+    );
+  });
+
+  /**
+   * Es un gestor de procesos que lee todo lo que corre en el equipo: decir que el log **no sale
+   * de aqui** importa tanto como tenerlo. Lo mismo que ya promete el README.
+   */
+  it("deja claro que el log no se envia a ninguna parte", async () => {
+    pintar();
+
+    expect(
+      await screen.findByText(/no se envía a ninguna parte/),
+    ).toBeInTheDocument();
   });
 });
