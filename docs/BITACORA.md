@@ -8,6 +8,29 @@
 
 ---
 
+### 2026-08-18 — Las primeras cifras propias, y el bundle que no se divide
+
+- **T4-03: medido.** Hasta ahora nadie había puesto un número al coste de la app. El ciclo del
+  poller cuesta **~16 ms en release —el 0,8 % de un núcleo—** con el refresco a 2 s; en *debug* son
+  25,6 ms, de los cuales **8,9 son leer la tabla de sockets**. El arranque, 31-152 ms hasta la
+  ventana en caliente y 632 ms en frío. Y en 6 minutos en la bandeja (180 ciclos) el proceso de Rust
+  pasó de 41,0 a 41,5 MB, o sea nada.
+- **La medición vive como pruebas `#[ignore]` que imprimen en vez de afirmar.** Un umbral de tiempo
+  en una prueba es inestable por definición y acaba quitándose; aquí lo que hacía falta era la cifra
+  para decidir, no una guardia.
+- **Dos intentos de medir el arranque hasta la UI pintada fallaron, y por eso no se usan.** El
+  handle de ventana aparece antes de que se pinte nada, y esperar a que se aplane la CPU del proceso
+  de Rust no sirve: **el JavaScript lo ejecuta el hijo de WebView2**, así que esa CPU no lo captura.
+  Dos vueltas seguidas dieron 314 ms y 1235 ms. Queda dicho como limitación en vez de publicar una
+  cifra que no significa lo que parece.
+- **T4-05: no se divide el bundle**, y ahora con un número detrás. Compilarlo entero cuesta ~12,5 ms
+  en frío, y **V8 ni siquiera lo compila entero**: pre-parsea y va compilando cada función cuando se
+  llama. El aviso de Vite habla de un coste de descarga que en una app de escritorio con los assets
+  embebidos **no existe**.
+- **T4-01: el usuario decide hacerla**, con dos idiomas —español e inglés—. Es la de esfuerzo alto
+  de toda la lista. Primer paso dado: `Language` en `Settings`, con `#[serde(default)]` para que un
+  `settings.json` de una versión anterior se lea sin perder nada.
+
 ### 2026-08-18 — T4-02 descartada
 
 - **La firma Authenticode no se va a hacer**, por decisión del usuario. Cerrada con el porqué

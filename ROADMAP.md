@@ -1019,8 +1019,8 @@ haciendo clic en «Siguiente».
 | **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
 | **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | **10** ✅ | 7 bajo · 3 medio |
 | **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | **20** ✅ | 20 bajo |
-| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 2 | 1 bajo · 3 medio · 1 alto |
-| | | **37** | **34** | 30 bajo · 6 medio · 1 alto |
+| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 4 | 1 bajo · 3 medio · 1 alto |
+| | | **37** | **36** | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
@@ -1677,7 +1677,7 @@ Explícitamente fuera del alcance inmediato. Están aquí para no perderlos, no 
   - **Esfuerzo:** medio (más el coste del certificado)
   - **Depende de:** ninguna
 
-- [ ] **[T4-03] Medir el rendimiento de verdad**
+- [x] **[T4-03] Medir el rendimiento de verdad** — medido el 2026-08-18
   - **Área:** Rendimiento
   - **Ubicación:** `src-tauri/src/poller.rs`, arranque de `lib.rs`
   - **Qué hacer:** no hay ninguna medición propia del coste del ciclo (que enumera todos los procesos
@@ -1685,7 +1685,22 @@ Explícitamente fuera del alcance inmediato. Están aquí para no perderlos, no 
     consumo con la app viviendo días en la bandeja. Las decisiones de diseño son correctas, pero
     nadie ha puesto una cifra.
   - **Criterio de aceptación:** las tres cifras medidas y anotadas en CONTEXT §3, con el método y la
-    máquina en que se midieron.
+    máquina en que se midieron. ✅ La tabla está en CONTEXT §3, con la máquina y el método de cada
+    una.
+  - **Lo medido:** el ciclo cuesta **~16 ms en release, el 0,8 % de un núcleo** a 2 s de refresco
+    —de los 25,6 ms de *debug*, **8,9 son leer la tabla de sockets**—; el arranque son **31-152 ms**
+    hasta la ventana en caliente y **632 ms** en frío; y en 6 minutos viviendo en la bandeja el
+    proceso de Rust pasó de **41,0 a 41,5 MB**, sin tendencia.
+  - **La medición vive como pruebas `#[ignore]` en `processes.rs`**, no como un script aparte: se
+    ejecutan con `cargo test --lib medicion -- --ignored --nocapture` y **imprimen en vez de
+    afirmar**. Un umbral de tiempo en una prueba es inestable por definición —depende de la máquina
+    y de lo que esté corriendo— y acabaría quitándose o ignorándose; lo que hace falta aquí es la
+    cifra para decidir con ella, no una guardia.
+  - **⚠️ Dos cosas que no se pudieron medir y quedan dichas:** el arranque es hasta que **existe la
+    ventana, no hasta que la interfaz está pintada** —el handle aparece antes, y el JavaScript corre
+    en el proceso hijo de WebView2, así que la CPU del proceso de Rust no lo captura; intentarlo por
+    ahí dio vueltas incoherentes—, y **seis minutos no son días**: se puede afirmar que en 180
+    ciclos no hay tendencia de crecimiento, no que no la haya en una semana.
   - **Esfuerzo:** medio
   - **Depende de:** ninguna
 
@@ -1709,7 +1724,7 @@ Explícitamente fuera del alcance inmediato. Están aquí para no perderlos, no 
   - **Esfuerzo:** medio
   - **Depende de:** ninguna
 
-- [ ] **[T4-05] Dividir el bundle, solo si la medición lo justifica**
+- [x] **[T4-05] Dividir el bundle, solo si la medición lo justifica** — ❌ **no se divide**, medido el 2026-08-18
   - **Área:** Rendimiento
   - **Ubicación:** `vite.config.ts`
   - **Qué hacer:** el bundle sale en 574,92 kB de JavaScript (185,98 kB comprimido) y Vite avisa de
@@ -1717,7 +1732,21 @@ Explícitamente fuera del alcance inmediato. Están aquí para no perderlos, no 
     optimizar: solo cuenta el parseo local. Hacerlo únicamente si T4-03 demuestra que el arranque lo
     nota.
   - **Criterio de aceptación:** o bien se mide que no importa y se cierra la tarea con esa nota, o
-    bien se divide y se mide la mejora.
+    bien se divide y se mide la mejora. ✅ Se midió, y **no importa**.
+  - **La medición:** el bundle son 565 kB que generan **248 kB de bytecode**, y **compilarlo entero
+    cuesta ~12,5 ms en frío** (V8, forzando compilación completa con `produceCachedData`). Sin
+    forzarla no cuesta prácticamente nada, porque **V8 compila de forma perezosa**: no procesa el
+    archivo entero al cargarlo, solo pre-parsea y va compilando cada función cuando se llama. Ese
+    detalle es la mitad de la respuesta — el aviso de Vite habla de un coste de descarga que aquí
+    no existe.
+  - **Decisión: no se divide.** Partir el bundle podría ahorrar una fracción de esos 12,5 ms, y a
+    cambio añade configuración de `manualChunks` que hay que mantener. En una app de escritorio con
+    los assets embebidos **no hay red que optimizar**: no hay descarga, no hay latencia, y el
+    archivo ya está en disco junto al ejecutable. El aviso de Vite («chunks larger than 500 kB»)
+    está pensado para la web y aquí es ruido.
+  - **Lo honesto:** esto mide **compilar**, no el tiempo hasta que la interfaz está usable, que no
+    se pudo medir (ver T4-03). Aun así acota lo que la división podría mejorar, que es de lo que
+    trata la tarea.
   - **Esfuerzo:** bajo
   - **Depende de:** T4-03
 
@@ -1752,7 +1781,13 @@ probó a medias, se dice aquí qué quedó fuera.
 
 | 2026-08-18 | **T4-02 descartada** | La firma Authenticode **no se va a hacer**: pide un certificado de pago y no se va a comprar. Se cierra con la decisión escrita en vez de quedarse abierta fingiendo que algún día se hará. Quedan anotadas las consecuencias — SmartScreen seguirá avisando y el `.sha256` es el único mecanismo de integridad, lo que lo hace más importante, no menos |
 
-**Pendientes: 3 de 37.** Los Tiers 1, 2 y 3 están cerrados enteros; del 4 solo quedan las dos de
-medición (T4-03 y T4-05, que depende de ella) y T4-01. **Dos de las cerradas del Tier 4 lo están
-por decisión, no por trabajo**: no hay CI (T4-04) y no habrá firma de código (T4-02). Una tarea que
-se decide no hacer está tan cerrada como una hecha, siempre que quede dicho por qué.
+| 2026-08-18 | **T4-03 y T4-05** | **Las primeras cifras propias del proyecto.** El ciclo del poller cuesta **~16 ms en release, el 0,8 % de un núcleo**; el arranque, 31-152 ms en caliente; y en 6 minutos en la bandeja la memoria no se mueve (41,0 → 41,5 MB). Con eso, **T4-05 se cierra sin dividir el bundle**: compilarlo entero son ~12,5 ms, y V8 ni siquiera lo compila entero —lo hace perezosamente—. El aviso de Vite habla de un coste de descarga que en una app de escritorio no existe |
+
+**Pendiente: 1 de 37.** Los Tiers 1, 2 y 3 están cerrados enteros, y del 4 solo queda **T4-01, la
+internacionalización**, que el usuario decidió **hacer** el 2026-08-18 con dos idiomas: español e
+inglés. Es la de esfuerzo alto de toda la lista y está en marcha.
+
+**Tres de las cuatro cerradas del Tier 4 lo están por decisión o por medición, no por escribir
+código**: no hay CI (T4-04), no habrá firma (T4-02) y el bundle no se divide porque se midió que no
+compensa (T4-05). Una tarea que se decide no hacer está tan cerrada como una hecha, siempre que
+quede dicho por qué.

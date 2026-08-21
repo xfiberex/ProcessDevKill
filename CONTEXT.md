@@ -76,6 +76,32 @@ niega si el `HEAD` no es el del último *dry run*. **No hay CI ni la
 va a haber**: todo el testing se hace en local (decisión del 2026-08-18, cierra T4-04). Lo que eso
 deja descubierto, dicho claro: nadie comprueba que el proyecto compile en un equipo limpio.
 
+### Rendimiento medido (2026-08-18)
+
+Hasta esta fecha **nadie había puesto una cifra** al coste de la app: las decisiones de diseño eran
+correctas pero no estaban respaldadas por ninguna medición propia. Estas se tomaron en **AMD Ryzen 7
+5800XT (8 núcleos / 16 hilos), 32 GB de RAM, Windows 11 Pro 26200**, con unos 360-400 procesos vivos
+en el equipo y 26 vigilados por la app.
+
+| Qué | Cifra | Cómo se midió |
+|---|---|---|
+| **Ciclo del poller** (enumerar procesos + tabla de sockets) | **~16 ms** en release, **el 0,8 % de un núcleo** con el refresco a 2 s | Deducido de la CPU real consumida: 2,86 s en 6 minutos = 180 ciclos. En *debug* son 25,6 ms de media y 34,6 el peor (`cargo test --lib medicion -- --ignored --nocapture`), de los cuales **8,9 ms son leer los sockets** |
+| **Arranque** | **31-152 ms** hasta el handle de ventana en caliente; **632 ms** la primera vez en frío | Lanzar el .exe instalado y esperar a `MainWindowHandle` |
+| **Memoria viviendo en la bandeja** | proceso Rust **41,0 → 41,5 MB en 6 minutos** (180 ciclos). Con los 6 procesos de WebView2, el árbol entero oscila entre **440 y 480 MB** sin tendencia | Muestreo cada 30 s del árbol completo, atado por PID de padre |
+| **El árbol de sysinfo no crece** | 359 procesos conocidos antes y después de **100 refrescos seguidos** | Prueba `el_arbol_de_procesos_no_crece_con_los_refrescos` |
+| **Compilar el bundle de JS** (565 kB) | **~12,5 ms** en frío, forzando compilación completa | `new vm.Script(src, {produceCachedData:true})` en V8 |
+
+⚠️ **Lo que estas cifras NO dicen**, para no leerlas de más:
+
+- El arranque medido es **hasta que existe la ventana, no hasta que la interfaz está pintada**. El
+  handle aparece antes de que el webview renderice nada, y el JavaScript lo ejecuta el proceso hijo
+  de WebView2, así que la CPU del proceso de Rust tampoco lo captura. Intentarlo por ahí dio
+  resultados incoherentes entre vueltas, y por eso no se usa.
+- **Seis minutos no son días.** Lo que se puede afirmar es que en 180 ciclos no hay una tendencia de
+  crecimiento, no que no la haya en una semana.
+- Es **una máquina**. En un equipo más lento el ciclo costará más, aunque el margen sobre 2 s es
+  amplio.
+
 ### Lo que está verificado sobre la app en ejecución
 
 Todo lo del producto se ha comprobado con la app corriendo, no solo con pruebas: la lista de

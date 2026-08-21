@@ -1038,3 +1038,97 @@ mod tests_puertos_liberados {
         assert!(freed_ports(&[]).is_empty());
     }
 }
+
+#[cfg(test)]
+mod medicion {
+    use super::*;
+    use std::time::Instant;
+
+    /// Cuanto cuesta un ciclo del poller, que es lo que corre cada dos segundos durante dias.
+    ///
+    /// **`#[ignore]` a proposito: mide e imprime, no afirma nada.** Un umbral de tiempo en una
+    /// prueba es inestable por definicion —depende de la maquina, de lo que este corriendo y de si
+    /// el disco esta ocupado— y acabaria ignorandose o quitandose. Lo que se busca aqui es la cifra
+    /// para poder decidir con ella, no una guardia.
+    ///
+    /// Se ejecuta a mano:
+    ///
+    /// ```text
+    /// cargo test --lib medicion -- --ignored --nocapture
+    /// ```
+    #[test]
+    #[ignore = "medicion, no asercion"]
+    fn cuanto_cuesta_un_ciclo() {
+        const VUELTAS: u32 = 20;
+        let custom: Vec<String> = Vec::new();
+
+        let mut sys = crate::processes::new_system();
+
+        // Primera pasada aparte: sysinfo necesita una muestra previa para el % de CPU, y ademas
+        // la primera enumera el arbol entero en frio. Contarla con las demas mezclaria dos cosas.
+        let t = Instant::now();
+        let _ = collect_processes(&mut sys, &custom);
+        let primera = t.elapsed();
+
+        let mut total_ciclo = std::time::Duration::ZERO;
+        let mut total_puertos = std::time::Duration::ZERO;
+        let mut peor = std::time::Duration::ZERO;
+        let mut cuantos = 0usize;
+
+        for _ in 0..VUELTAS {
+            let t = Instant::now();
+            let puertos = crate::ports::listening_ports();
+            total_puertos += t.elapsed();
+
+            let t = Instant::now();
+            let lista = collect_processes(&mut sys, &custom);
+            let d = t.elapsed();
+            total_ciclo += d;
+            peor = peor.max(d);
+            cuantos = lista.len();
+
+            let _ = puertos;
+        }
+
+        let medio = total_ciclo / VUELTAS;
+        let medio_puertos = total_puertos / VUELTAS;
+
+        println!("--- coste de un ciclo del poller ---");
+        println!("procesos totales del equipo : {}", sys.processes().len());
+        println!("procesos vigilados en la lista: {cuantos}");
+        println!("primera pasada (en frio)    : {primera:?}");
+        println!("ciclo completo, media de {VUELTAS} : {medio:?}");
+        println!("ciclo completo, el peor     : {peor:?}");
+        println!("de eso, leer los sockets    : {medio_puertos:?}");
+        println!(
+            "porcentaje del intervalo de 2 s: {:.2} %",
+            medio.as_secs_f64() / 2.0 * 100.0
+        );
+    }
+
+    /// Lo que ocupa en memoria el `System` de sysinfo, que es la estructura que la app mantiene
+    /// viva mientras esta en la bandeja. No mide el proceso entero -eso se hace desde fuera-, sino
+    /// que el arbol de procesos no crezca por acumular refrescos.
+    #[test]
+    #[ignore = "medicion, no asercion"]
+    fn el_arbol_de_procesos_no_crece_con_los_refrescos() {
+        let custom: Vec<String> = Vec::new();
+        let mut sys = crate::processes::new_system();
+
+        let _ = collect_processes(&mut sys, &custom);
+        let al_principio = sys.processes().len();
+
+        for _ in 0..100 {
+            let _ = collect_processes(&mut sys, &custom);
+        }
+        let al_final = sys.processes().len();
+
+        println!("--- 100 refrescos seguidos ---");
+        println!("procesos conocidos al principio: {al_principio}");
+        println!("procesos conocidos al final    : {al_final}");
+        println!(
+            "diferencia: {} (lo normal es que fluctue: la maquina abre y cierra procesos)",
+            al_final as i64 - al_principio as i64
+        );
+    }
+}

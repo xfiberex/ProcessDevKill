@@ -53,6 +53,9 @@ export type HistoryEntry = {
 /** Espejo de `Theme` en src-tauri/src/storage.rs. */
 export type Theme = "system" | "light" | "dark";
 
+/** Espejo de `Language` en src-tauri/src/storage.rs. */
+export type Language = "es" | "en";
+
 /** Espejo de `Settings` en src-tauri/src/storage.rs. */
 export type Settings = {
   customNames: string[];
@@ -65,6 +68,8 @@ export type Settings = {
   autoKillMb: number;
   zombieEnabled: boolean;
   zombieMinutes: number;
+  /** Lo usan los dos lados: la ventana para pintarse y Rust para la bandeja y las notificaciones. */
+  language: Language;
 };
 
 /** Espejo de `MIN_AUTO_KILL_MB` en src-tauri/src/storage.rs. Rust lo impone; aqui
@@ -117,13 +122,14 @@ export const KILL_SOURCES: Record<KillSource, string> = {
   auto: "Auto-Kill",
 };
 
-export const THEMES: { value: Theme; label: string }[] = [
-  { value: "system", label: "Sistema" },
-  { value: "light", label: "Claro" },
-  { value: "dark", label: "Oscuro" },
-];
+export const THEMES: Theme[] = ["system", "light", "dark"];
 
-/** Intervalos ofrecidos para el refresco automatico, en milisegundos. */
+/**
+ * Intervalos ofrecidos para el refresco automatico, en milisegundos.
+ *
+ * Las etiquetas no se traducen y por eso siguen aqui: "Off", "2s" y "5s" se escriben igual en los
+ * dos idiomas. Las de los temas si se movieron al catalogo, que es donde estan las que cambian.
+ */
 export const REFRESH_INTERVALS = [
   { label: "Off", ms: 0 },
   { label: "2s", ms: 2000 },

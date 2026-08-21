@@ -27,6 +27,24 @@ pub const MIN_AUTO_KILL_MB: u64 = 256;
 /// mas verlo y el aviso no distinguiria nada.
 pub const MIN_ZOMBIE_MINUTES: u64 = 1;
 
+/// Idioma de la interfaz y de los avisos.
+///
+/// **No se detecta del sistema, y es deliberado.** Detectarlo pediria otra dependencia
+/// (`sys-locale`, o el plugin `os` de Tauri) para algo que se elige una vez, y el proyecto se
+/// publica primero para hispanohablantes. El selector de Ajustes se rotula **«Idioma / Language»**
+/// justo para que lo encuentre quien abra la app y no entienda la otra mitad.
+///
+/// El idioma llega hasta Rust —y no se queda en el frontend— porque hay texto que la ventana no
+/// pinta: el menu de la bandeja y las notificaciones de Windows, que ademas son lo unico que se ve
+/// cuando la app corre sin ventana.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Language {
+    #[default]
+    Es,
+    En,
+}
+
 /// Preferencia de apariencia. `System` sigue al tema de Windows.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
@@ -69,6 +87,8 @@ pub struct Settings {
     pub zombie_enabled: bool,
     /// Minutos sin CPU que hacen falta para considerar zombi a un proceso.
     pub zombie_minutes: u64,
+    /// Idioma de la interfaz, de la bandeja y de las notificaciones.
+    pub language: Language,
 }
 
 impl Default for Settings {
@@ -89,6 +109,9 @@ impl Default for Settings {
             // 10 minutos: por debajo de eso todavia puede ser un servidor esperando
             // a que alguien recargue el navegador.
             zombie_minutes: 10,
+            // Espanol por defecto: `#[serde(default)]` en el struct hace que un settings.json de
+            // una version anterior -que no tiene el campo- se lea sin perder nada y caiga aqui.
+            language: Language::default(),
         }
     }
 }
@@ -344,6 +367,9 @@ mod tests {
             auto_kill_mb: 4096,
             zombie_enabled: true,
             zombie_minutes: 30,
+            // Ingles y no el valor por defecto: si el campo no viajara al disco, la prueba pasaria
+            // igual comparando dos veces el mismo `Language::Es`.
+            language: Language::En,
         };
 
         storage.save_settings(&settings).unwrap();
