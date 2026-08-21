@@ -1162,9 +1162,16 @@ en T1 y no en T0 — pero es lo primero que se hace.
     que **no se envía a ninguna parte**, porque en un gestor de procesos esa duda es razonable.
   - **Verificado:** 5 pruebas nuevas de Rust y 6 de frontend. La de la rotación, **comprobada con
     una mutación**: anulada la comparación con el tope, falla solo esa y las otras cuatro siguen
-    pasando. ⚠️ **Lo que queda pendiente de comprobar es el criterio literal**: forzar un fallo de
-    escritura de ajustes *sobre el binario de release* y ver la línea. Las pruebas cubren el
-    mecanismo, no ese camino concreto.
+    pasando.
+  - **Y verificado sobre el binario de release el 2026-08-18**, con la v1.4.0 ya instalada: el
+    archivo existe en `%APPDATA%\com.processdevkill.app\`, la sección de Ajustes → Acerca de enseña
+    su ruta real, y dentro está la línea fechada que escribió la app al arrancar. La escribe **el
+    mismo `escribir_en`** que usan los avisos de fallo, así que el camino de escritura está
+    ejercitado de punta a punta fuera de las pruebas. Lo único que no se ha provocado es un fallo
+    de verdad —hacer que falle guardar los ajustes— y por eso no se marca como comprobado eso.
+  - **La `Z` del UTC demostró servir para algo:** la línea del arranque de la v1.4.0 dice
+    `02:32:19Z` y el archivo se escribió a las **22:32 locales**. Cuatro horas de diferencia; sin la
+    marca, cualquiera situaría los avisos en otro momento del día.
   - **Esfuerzo:** medio
   - **Depende de:** ninguna
 
@@ -1723,6 +1730,7 @@ probó a medias, se dice aquí qué quedó fuera.
 
 | 2026-08-18 | **Tier 3 entero (16 tareas)** | Cerrado de una tanda. Lo que no estaba en las fichas: **`tsc` a secas no construye las referencias de proyecto**, asi que meter `vitest.config.ts` en el `include` no bastaba para T3-05 — hubo que pasar el build a `tsc -b`, y eso destapo un `@ts-expect-error` que ya sobraba en `vite.config.ts` y una emision de `.js`/`.d.ts` en la raiz que **habria abortado el propio `release.ps1`**. Y T3-18 no era solo una version desfasada: al documento legal **le faltaban cuatro dependencias directas** que si van dentro del binario |
 
+| 2026-08-18 | **v1.4.0 verificada en sitio** | El usuario actualizó de la v1.3.2 a la v1.4.0: **silenciosa**, y el registro de avisos aparece en Acerca de con su ruta real. **El propio log documenta el salto** —`v1.3.2 arrancando` y después `v1.4.0 arrancando`—, escrito por el binario instalado |
 | 2026-08-18 | **v1.4.0 publicada** | Sale con la revisión entera dentro: 33 de 37. Verificada como las anteriores sobre los archivos reales del release — 4 assets, la API devuelve `v1.4.0`, y el instalador **descargado de GitHub** coincide con su `.sha256` (`a8738197…`). Comprobado además que las URLs reales de los assets pasan la guardia de origen de T1-01 |
 
 **Pendientes: 4 de 37**, todas del Tier 4 (lo explícitamente aplazado). Los Tiers 1, 2 y 3 están

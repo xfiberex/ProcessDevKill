@@ -92,6 +92,13 @@ subiendo con un `node` de 380 MB levantado a propósito y poniéndose en pausa c
 apagado, las barras saltan a su valor sin deslizarse y las filas filtradas desaparecen sin
 desvanecerse; al encenderlo, las dos vuelven a animar.
 
+> ✅ **El log en archivo, verificado sobre el binario de release (2026-08-18).** Con la v1.4.0 ya
+> instalada: el archivo está en `%APPDATA%\com.processdevkill.app\`, Ajustes → Acerca de enseña su
+> ruta real, y dentro está la línea del arranque — escrita por el mismo camino que usan los avisos
+> de fallo. **El propio log documenta la actualización en sitio**: `v1.3.2 arrancando` y luego
+> `v1.4.0 arrancando`. Y confirmó que la `Z` del UTC sirve: `02:32:19Z` es un `22:32` local, cuatro
+> horas de diferencia que sin la marca despistarían a quien lea el archivo.
+
 El detalle de cada verificación, con su fecha y lo que costó, está en [ROADMAP.md](ROADMAP.md) junto
 al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 

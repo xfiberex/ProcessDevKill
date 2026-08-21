@@ -22,6 +22,10 @@
   pasan la guardia de origen** de T1-01 — es lo único que podría romper la actualización entera sin
   notarse hasta el siguiente release.
 - Notas del release escritas a mano, no la plantilla: la versión lo merecía.
+- **Actualización en sitio verificada por el usuario**: de la v1.3.2 a la v1.4.0, silenciosa, y el
+  registro de avisos visible en Acerca de con su ruta real. **El propio log documenta el salto**
+  (`v1.3.2 arrancando` → `v1.4.0 arrancando`), escrito por el binario instalado y no por una
+  prueba. De paso confirmó que la `Z` del UTC no era paranoia: `02:32:19Z` fue un `22:32` local.
 
 ### 2026-08-18 (madrugada) — Tier 3 entero, y tres arreglos que no eran lo que decía la ficha
 
