@@ -26,7 +26,10 @@ export function UsageMeter({ usage, pausado }: UsageMeterProps) {
       <p className="mb-2 text-xs text-muted-foreground">Tu entorno</p>
 
       {pausado || !usage ? (
-        <p className="text-xs text-muted-foreground/70">
+        // Sin el `/70` que tenia: era el unico texto de la app con la opacidad rebajada, y sobre
+        // 12 px dejaba el contraste por debajo del 4,5:1 de WCAG 2.2 AA en tema claro. Mismo
+        // criterio que ya se aplico al guion de "sin puertos".
+        <p className="text-xs text-muted-foreground">
           {pausado ? "En pausa" : "Midiendo…"}
         </p>
       ) : (

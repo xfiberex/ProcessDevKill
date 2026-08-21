@@ -33,6 +33,8 @@ export function HistoryView({ entries, onClear }: HistoryViewProps) {
       </div>
 
       <table className="w-full text-sm">
+        {/* Mismo motivo que en ProcessTable: sin `caption` la tabla no dice de que es. */}
+        <caption className="sr-only">Procesos cerrados, del mas reciente al mas antiguo</caption>
         <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
           <tr>
             <th scope="col" className="px-5 py-2 text-left font-medium">

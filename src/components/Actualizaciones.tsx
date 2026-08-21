@@ -84,7 +84,18 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
             Descargando…
             {state.porcentaje !== null && ` ${state.porcentaje} %`}
           </p>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+          {/* `progressbar` en el contenedor, no en la barra interior: el rol va en el elemento que
+              representa el control entero, y la de dentro es solo el relleno. Sin `aria-valuenow`
+              —cuando el servidor no manda Content-Length y no hay porcentaje— queda como barra
+              indeterminada, que es exactamente lo que es. */}
+          <div
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-label="Progreso de la descarga"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={state.porcentaje ?? undefined}
+          >
             <div
               className={`h-full bg-primary transition-[width] ${
                 // Sin Content-Length no hay porcentaje: barra al 100 % y a media

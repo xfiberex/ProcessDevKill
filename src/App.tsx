@@ -171,11 +171,17 @@ export default function App() {
   }, [buscarActualizacion]);
 
   async function saveSettings(next: Settings) {
+    // Se guarda el estado de antes **antes** de pintar el nuevo: si Rust rechaza, la ventana tiene
+    // que volver a lo que de verdad esta vigente. Sin esto, la divergencia se queda para siempre y
+    // el unico aviso -un toast- se va en segundos: la ventana podria decir 4096 MB mientras el
+    // Auto-Kill sigue cerrando a los 2048, que es justo el ajuste que no puede mentir.
+    const anterior = settings;
     setSettings(next); // Optimista: la UI responde al instante.
     try {
       setSettings(await invoke<Settings>("save_settings", { settings: next }));
     } catch (e) {
-      toast.error(String(e));
+      setSettings(anterior);
+      toast.error("No se pudieron guardar los ajustes", { description: String(e) });
     }
   }
 
@@ -327,10 +333,22 @@ export default function App() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar por nombre, PID o puerto…"
+                // El placeholder desaparece en cuanto se escribe, asi que no vale como nombre
+                // accesible (WCAG 3.3.2): con texto dentro, el campo se anunciaba sin decir que es.
+                aria-label="Buscar procesos"
                 className="min-w-0 flex-1"
               />
 
-              <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
+              {/* Sin el aria-label esto es un numero suelto leido en voz alta, y ademas cambia al
+                  filtrar sin que nada lo anuncie. `polite` y no `assertive`: interesa que se diga,
+                  no que interrumpa lo que se estuviera leyendo. */}
+              <span
+                className="shrink-0 text-sm text-muted-foreground tabular-nums"
+                aria-label={`${visible.length} ${
+                  visible.length === 1 ? "proceso en la lista" : "procesos en la lista"
+                }`}
+                aria-live="polite"
+              >
                 {visible.length}
               </span>
 
@@ -392,8 +410,18 @@ export default function App() {
                       "Se borrará el registro de procesos cerrados. No afecta a ningún proceso en ejecución.",
                     confirmLabel: "Vaciar",
                     onConfirm: async () => {
-                      await invoke("clear_history");
-                      loadHistory();
+                      // El unico `invoke` del frontend que estaba sin `try`: si la escritura
+                      // fallaba, saltaba una promesa rechazada sin gestionar y el dialogo se
+                      // cerraba como si hubiera funcionado. El historial seguia entero en disco y
+                      // en pantalla, sin que nada lo dijera.
+                      try {
+                        await invoke("clear_history");
+                        loadHistory();
+                      } catch (e) {
+                        toast.error("No se pudo vaciar el historial", {
+                          description: String(e),
+                        });
+                      }
                     },
                   })
                 }

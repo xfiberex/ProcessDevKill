@@ -632,3 +632,108 @@ describe("sidebar plegable", () => {
     expect(procesos()).toHaveAttribute("aria-expanded", "false");
   });
 });
+
+/**
+ * Los caminos de fallo, que hasta la revision no probaba nadie: habia pruebas del caso feliz y del
+ * parcial de `kill_processes`, pero ninguna simulaba que Rust rechazara. Son justo los dos sitios
+ * donde el frontend puede quedarse diciendo algo que no es verdad.
+ */
+describe("cuando Rust rechaza", () => {
+  /**
+   * El ajuste que no puede mentir es el del Auto-Kill: si la ventana dice 4096 MB y Rust sigue
+   * vigilando con 2048, lo que se lleva por delante procesos es el segundo, y el unico aviso -un
+   * toast- se va en segundos.
+   */
+  it("los ajustes vuelven a su valor anterior si no se pudieron guardar", async () => {
+    const user = await montar();
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+
+    const interruptor = await screen.findByRole("switch", {
+      name: /Cerrar solos los procesos que se pasen de RAM/,
+    });
+    expect(interruptor).toHaveAttribute("aria-checked", "false");
+
+    invoke.mockRejectedValueOnce(new Error("disco lleno"));
+    await user.click(interruptor);
+
+    // Vuelve a estar apagado: es lo que de verdad esta vigente en Rust.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", {
+          name: /Cerrar solos los procesos que se pasen de RAM/,
+        }),
+      ).toHaveAttribute("aria-checked", "false"),
+    );
+    expect(
+      await screen.findByText("No se pudieron guardar los ajustes"),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * Era el unico `invoke` del frontend sin `try`: la promesa rechazada no la recogia nadie y el
+   * dialogo se cerraba como si el historial se hubiera vaciado.
+   */
+  it("avisa si no se pudo vaciar el historial", async () => {
+    const user = await montar();
+
+    // Con el historial vacio no hay boton de vaciar, que es lo coherente: `HistoryView` devuelve
+    // el mensaje de "todavia no se ha cerrado ningun proceso" y nada mas.
+    invoke.mockResolvedValueOnce([
+      {
+        pid: 100,
+        name: "node.exe",
+        freedPorts: [3000],
+        killedAt: 1_787_000_000_000,
+        source: "window",
+      },
+    ]);
+    await user.click(screen.getByRole("button", { name: /^Historial/ }));
+
+    await user.click(await screen.findByRole("button", { name: /Vaciar historial/ }));
+
+    invoke.mockRejectedValueOnce(new Error("no se pudo escribir history.json"));
+    const dialogo = await screen.findByRole("alertdialog");
+    await user.click(within(dialogo).getByRole("button", { name: "Vaciar" }));
+
+    expect(
+      await screen.findByText("No se pudo vaciar el historial"),
+    ).toBeInTheDocument();
+  });
+});
+
+/**
+ * Lo accesible se pierde en el primer refactor si no hay nada que lo sujete: son atributos que no
+ * se ven en pantalla y que nadie echa de menos mirando la ventana.
+ */
+describe("nombres accesibles de la cabecera", () => {
+  it("el buscador se anuncia aunque tenga texto escrito", async () => {
+    const user = await montar();
+
+    // El placeholder desaparece al escribir; el nombre accesible no puede depender de el.
+    await user.type(buscador(), "node");
+
+    expect(screen.getByRole("textbox", { name: "Buscar procesos" })).toHaveValue(
+      "node",
+    );
+  });
+
+  it("el contador dice de que es el numero, y en singular cuando toca", async () => {
+    const user = await montar();
+
+    expect(screen.getByLabelText("4 procesos en la lista")).toBeInTheDocument();
+
+    await user.type(buscador(), "python");
+
+    expect(
+      await screen.findByLabelText("1 proceso en la lista"),
+    ).toBeInTheDocument();
+  });
+
+  it("la tabla de procesos se anuncia con nombre", async () => {
+    await montar();
+
+    expect(
+      screen.getByRole("table", { name: "Procesos de desarrollo activos" }),
+    ).toBeInTheDocument();
+  });
+});

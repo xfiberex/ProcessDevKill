@@ -57,6 +57,10 @@ export function ProcessTable({
 
   return (
     <table className="w-full text-sm">
+      {/* Sin esto la tabla se anuncia como "tabla, 8 columnas" y nada mas. `sr-only` porque el
+          titulo ya esta a la vista en la cabecera: es informacion que le falta al lector de
+          pantalla, no a la ventana. */}
+      <caption className="sr-only">Procesos de desarrollo activos</caption>
       <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
         <tr>
           {/* scope="col": en una tabla de ocho columnas es lo que hace que un
