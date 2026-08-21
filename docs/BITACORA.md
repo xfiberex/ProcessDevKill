@@ -8,6 +8,21 @@
 
 ---
 
+### 2026-08-18 — v1.4.0 publicada
+
+- **Cortada con `release.ps1`**, dry run primero como manda la casa. Minor y no parche: trae
+  funcionalidad nueva de cara al usuario (el registro de avisos, la pantalla de error) y cambia
+  comportamiento (un solo aviso por acción).
+- **El mecanismo de T3-19 se estrenó en el camino real**: el dry run anotó el `HEAD` `5c643c9`, y el
+  corte con `-SkipTests` lo reconoció y omitió las pruebas nombrando ese commit. Es justo para lo
+  que se escribió, unas horas antes.
+- Verificado sobre los archivos reales del release, con el mismo criterio de siempre: 4 assets, la
+  API que consulta la app devuelve `v1.4.0`, y **el instalador descargado de GitHub coincide con su
+  `.sha256`** (`a8738197…`, 4.040.227 bytes). Comprobado además que **las URLs reales de los assets
+  pasan la guardia de origen** de T1-01 — es lo único que podría romper la actualización entera sin
+  notarse hasta el siguiente release.
+- Notas del release escritas a mano, no la plantilla: la versión lo merecía.
+
 ### 2026-08-18 (madrugada) — Tier 3 entero, y tres arreglos que no eran lo que decía la ficha
 
 - **Las 16 tareas del Tier 3, cerradas.** Con los Tiers 1 y 2 ya enteros, quedan **33 de 37**; lo

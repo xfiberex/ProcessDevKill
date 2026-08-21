@@ -286,7 +286,7 @@ constantes espejo, para que el contrato entre los dos lados no se desincronice e
 
 ## Estado
 
-La versión actual es la **v1.3.2**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.4.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
 instalar algo que no podía actualizarse.
 

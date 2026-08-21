@@ -39,17 +39,20 @@ compactación de los documentos y los tres puntos de producto.
 Nada de lo que recogía esa revisión era un fallo de funcionamiento —la app hace lo que promete—
 **salvo la guardia de rutas de `install_update`**, que se saltaba con un `..`; arreglada en el 7.1.
 
-**Publicado:** **v1.3.2** (2026-08-18), de refuerzo y sin funciones nuevas: cierra el **Tier 1 de la
-revisión** —la validación del origen de la descarga y la prueba negativa de la guardia de PID—. 4
-assets: instaladores NSIS y MSI con sus `.sha256`. Sin firma de código, así que SmartScreen sigue
-avisando. La anterior fue la v1.3.1 (2026-08-14), con la **actualización silenciosa** (`/S /UPDATE
-/R`), y antes la v1.3.0 (2026-08-07) con el Tier 8 —el medidor del entorno—. La primera versión
-pública fue la v1.1.1.
+**Publicado:** **v1.4.0** (2026-08-18), la versión que recoge la revisión entera: **33 de las 37
+tareas**, con los Tiers 1, 2 y 3 cerrados enteros. Sube a minor y no a parche porque trae
+funcionalidad nueva de cara al usuario —el **registro de avisos** en Ajustes → Acerca de y la
+pantalla de error en vez de la ventana en blanco— y cambia comportamiento: **un solo aviso** por
+acción desde la bandeja y el atajo, donde antes salían dos. 4 assets: NSIS y MSI con sus `.sha256`.
+Sin firma de código, así que SmartScreen sigue avisando. Antes: la v1.3.2 (Tier 1 de la revisión),
+la v1.3.1 con la **actualización silenciosa** (`/S /UPDATE /R`) y la v1.3.0 con el medidor del
+entorno. La primera versión pública fue la v1.1.1.
 
 > Verificado tras publicar, en las cuatro versiones con el mismo criterio: los 4 assets están en el
 > release, la API que consulta la app devuelve el `tag_name` correcto, y **el instalador descargado
 > del release coincide con el `.sha256` publicado** — la cadena entera que recorre la
-> auto-actualización, sobre los archivos reales. Para la v1.3.2, `d4030bb7…`; para la v1.3.1,
+> auto-actualización, sobre los archivos reales. Para la v1.4.0, `a8738197…`; para la v1.3.2,
+> `d4030bb7…`; para la v1.3.1,
 > `121b228e…`; para la v1.3.0, `0050ae80…`. En la v1.3.2 se comprobó además que **las URLs reales que
 > devuelve la API pasan la guardia nueva**: era lo único que podía romper la actualización entera sin
 > notarse hasta el siguiente release.

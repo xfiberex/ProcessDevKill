@@ -1723,5 +1723,7 @@ probó a medias, se dice aquí qué quedó fuera.
 
 | 2026-08-18 | **Tier 3 entero (16 tareas)** | Cerrado de una tanda. Lo que no estaba en las fichas: **`tsc` a secas no construye las referencias de proyecto**, asi que meter `vitest.config.ts` en el `include` no bastaba para T3-05 — hubo que pasar el build a `tsc -b`, y eso destapo un `@ts-expect-error` que ya sobraba en `vite.config.ts` y una emision de `.js`/`.d.ts` en la raiz que **habria abortado el propio `release.ps1`**. Y T3-18 no era solo una version desfasada: al documento legal **le faltaban cuatro dependencias directas** que si van dentro del binario |
 
+| 2026-08-18 | **v1.4.0 publicada** | Sale con la revisión entera dentro: 33 de 37. Verificada como las anteriores sobre los archivos reales del release — 4 assets, la API devuelve `v1.4.0`, y el instalador **descargado de GitHub** coincide con su `.sha256` (`a8738197…`). Comprobado además que las URLs reales de los assets pasan la guardia de origen de T1-01 |
+
 **Pendientes: 4 de 37**, todas del Tier 4 (lo explícitamente aplazado). Los Tiers 1, 2 y 3 están
 cerrados enteros.
