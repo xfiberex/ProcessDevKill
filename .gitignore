@@ -34,3 +34,7 @@ coverage
 # SHA-256), pero si alguna vez vuelve a haberlas, que no entren aqui por descuido.
 *.key
 *.key.pub
+
+# Cache incremental de `tsc -b` (npm run build). Es estado local de la compilacion: nada que
+# versionar, y ademas ensuciaria el arbol que release.ps1 exige limpio antes de cortar.
+*.tsbuildinfo

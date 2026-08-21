@@ -8,6 +8,43 @@
 
 ---
 
+### 2026-08-18 (madrugada) — Tier 3 entero, y tres arreglos que no eran lo que decía la ficha
+
+- **Las 16 tareas del Tier 3, cerradas.** Con los Tiers 1 y 2 ya enteros, quedan **33 de 37**; lo
+  que falta es solo Tier 4, lo explícitamente aplazado.
+- **T3-05 no se arreglaba con lo que pedía la ficha.** Añadir `vitest.config.ts` al `include` de
+  `tsconfig.node.json` no cambiaba nada: **`tsc` a secas no construye las referencias de proyecto**,
+  así que el error de tipos inyectado a propósito seguía sin romper `npm run build`. Se comprobó
+  inyectándolo, no leyendo. El build pasa a `tsc -b`, y de ahí salieron dos cosas más: el
+  `@ts-expect-error` de `vite.config.ts` ya sobraba —con `-b` es **error** TS2578, no aviso— y
+  `composite: true` **obliga a emitir**, así que `tsc -b` dejaba un `.js` y un `.d.ts` junto a cada
+  config en la raíz. Eso no era ruido cosmético: **son archivos sin rastrear y `release.ps1` aborta
+  con el árbol sucio**, o sea que el arreglo habría roto el corte de versión. `noEmit` no vale
+  (TS6310 en un proyecto referenciado), así que la emisión va a `node_modules/.tmp/`.
+- **T3-18 no era una versión desfasada: al documento legal le faltaban cuatro dependencias
+  directas.** `reqwest`, `futures-util`, `sha2` y `tauri-plugin-single-instance`, todas dentro del
+  binario, entraron con el actualizador y la instancia única después de generarse el archivo.
+  Regenerado contra `cargo metadata` y los `package.json` **instalados**, no contra lo declarado:
+  566 crates, no 515. Aparecieron dos familias de licencia sin declarar —**CDLA-Permissive-2.0**
+  (`webpki-root-certs`) y la LGPL como una de tres opciones en `r-efi`, que se toma bajo MIT— y se
+  anotaron. La versión de `shadcn` que declaraba el archivo, 4.14.1, **nunca estuvo instalada**.
+  Atado al corte: `release.ps1` avisa si `package.json` o `Cargo.lock` son más recientes.
+- **T3-19 se resuelve negándose, no avisando**, que la ficha dejaba a elección. El dry run anota el
+  `HEAD` en `%TEMP%` y `-SkipTests` lo compara: sin marca o con otro `HEAD`, aborta. Un aviso se lo
+  lleva el scroll y al otro lado está publicar código sin probar, que es lo único que no se deshace.
+  Probados los tres casos de verdad ejecutando el script.
+- **T3-12: dos notificaciones de Windows por un clic.** La bandeja y el atajo global sacaban la de
+  puertos liberados y la del recuento, justo en los caminos que se usan sin ventana delante. La
+  guarda de `kill_and_record` pasa de «todos menos el Auto-Kill» a **«solo la ventana»**.
+- **T3-01 comprobado en los dos casos**, y con la trampa de PowerShell delante: `$env:VAR = ""`
+  **borra** la variable, así que restaurar asignando no es simétrico y hay que distinguir «no
+  existía» de «existía». ⚠️ Solo se ejercitó por el camino del dry run: el del release real, que es
+  el único que llega a escribir el token, pediría publicar una versión.
+- Un `cargo test` murió con **error 1114 del enlazador**, que es de entorno y no del código —clippy
+  compiló lo mismo sin quejarse—. Repetido y en verde; se anota para no confundirlo con un fallo
+  real la próxima vez.
+- 175 pruebas de frontend (antes 170) y 65 de `cargo test` (antes 61). Clippy y ESLint limpios.
+
 ### 2026-08-18 (noche) — Tier 2 cerrado, y dos cosas que las pruebas no veían
 
 - **Decisión del usuario: todo el testing es local, nada de CI, workflows ni GitHub Actions.** Para

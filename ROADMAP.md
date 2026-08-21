@@ -1018,9 +1018,9 @@ haciendo clic en «Siguiente».
 | **T0 — Crítico / bloqueante** | Nada. No se encontró ninguna vulnerabilidad explotable ni pérdida de datos en curso | **0** | — | — |
 | **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
 | **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | **10** ✅ | 7 bajo · 3 medio |
-| **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | 4 | 20 bajo |
+| **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | **20** ✅ | 20 bajo |
 | **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 1 | 1 bajo · 3 medio · 1 alto |
-| | | **37** | **17** | 30 bajo · 6 medio · 1 alto |
+| | | **37** | **33** | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
@@ -1338,7 +1338,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
 
 ### T3 — Pulido y mantenimiento
 
-- [ ] **[T3-01] Restaurar `GH_TOKEN` al terminar el release**
+- [x] **[T3-01] Restaurar `GH_TOKEN` al terminar el release** — restaurado y comprobado el 2026-08-18
   - **Área:** Seguridad · DevOps
   - **Ubicación:** `release.ps1:406-415`
   - **Qué hacer:** cuando `gh` no está autenticado, el script saca la credencial cacheada de git y la
@@ -1347,7 +1347,12 @@ en T1 y no en T0 — pero es lo primero que se hace.
     esa terminal — con alcance `repo` y `workflow`. Guardar el valor anterior y restaurarlo en el
     `finally` que ya existe.
   - **Criterio de aceptación:** tras un release, `Test-Path Env:\GH_TOKEN` devuelve lo mismo que
-    antes de lanzarlo.
+    antes de lanzarlo. ✅ Probados los dos casos: sin la variable de antes, después sigue sin
+    existir; con un valor puesto, vuelve con ese mismo valor.
+  - **Se distingue «no existía» de «existía vacía»** porque en PowerShell `$env:VAR = ""` **borra**
+    la variable, así que restaurar asignando no es simétrico: si no existía se usa `Remove-Item`.
+    ⚠️ Lo ejercitado es el camino del *dry run*; el del release real, que es el único que llega a
+    escribir el token, no se ha corrido — haría falta publicar una versión.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
@@ -1375,7 +1380,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** T1-01 (se toca el mismo camino)
 
-- [ ] **[T3-03] Revertir los ajustes en la ventana si no se pudieron guardar**
+- [x] **[T3-03] Revertir los ajustes en la ventana si no se pudieron guardar** — hecho el 2026-08-18
   - **Área:** Código · UI/UX
   - **Ubicación:** `src/App.tsx:165-172`
   - **Qué hacer:** `saveSettings` aplica el cambio de forma optimista y, si `invoke` lanza, enseña un
@@ -1387,7 +1392,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-04] Capturar el fallo al vaciar el historial**
+- [x] **[T3-04] Capturar el fallo al vaciar el historial** — hecho el 2026-08-18
   - **Área:** Código
   - **Ubicación:** `src/App.tsx:375-378`
   - **Qué hacer:** es el único `invoke` del frontend sin `try/catch`. Si la escritura falla salta una
@@ -1398,17 +1403,26 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-05] `vitest.config.ts` no lo comprueba ningún `tsconfig`**
+- [x] **[T3-05] `vitest.config.ts` no lo comprueba ningún `tsconfig`** — hecho el 2026-08-18
   - **Área:** Código
   - **Ubicación:** `tsconfig.json:36`, `tsconfig.node.json:9`
   - **Qué hacer:** el principal incluye solo `src` y el de Node solo `vite.config.ts`, así que la
     configuración de Vitest queda sin verificar. Añadirla al `include` de `tsconfig.node.json`.
   - **Criterio de aceptación:** un error de tipos introducido a propósito en `vitest.config.ts` hace
-    fallar `npm run build`.
+    fallar `npm run build`. ✅ Comprobado inyectando `const x: number = "texto"`: el build sale con
+    código 2 y lo nombra. Restaurado después.
+  - **⚠️ El `include` no bastaba, y ese era el arreglo que pedía la ficha.** `tsc` a secas **no
+    construye las referencias de proyecto**: con `vitest.config.ts` ya incluido, el error inyectado
+    seguía sin romper nada. El build pasa a `tsc -b`, y eso arrastró dos cosas más: un
+    `@ts-expect-error` que ya sobraba en `vite.config.ts` (con `-b` es error TS2578, no aviso), y
+    que `composite: true` **obliga a emitir** — `tsc -b` dejaba un `.js` y un `.d.ts` junto a cada
+    config, en la raíz. Eso no es solo ruido: son archivos sin rastrear, y `release.ps1` aborta con
+    el árbol sucio, así que **el arreglo habría roto el corte de versión**. `noEmit` no vale
+    (TS6310 en un proyecto referenciado); la emisión se manda a `node_modules/.tmp/`.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-06] Quitar el `unwrap()` del icono al construir la bandeja**
+- [x] **[T3-06] Quitar el `unwrap()` del icono al construir la bandeja** — hecho el 2026-08-18
   - **Área:** Código
   - **Ubicación:** `src-tauri/src/tray.rs:74`
   - **Qué hacer:** `app.default_window_icon().unwrap()` entra en pánico si el icono no está, y un
@@ -1420,7 +1434,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-07] `HashSet` en la poda del Zombie Finder**
+- [x] **[T3-07] `HashSet` en la poda del Zombie Finder** — hecho el 2026-08-18
   - **Área:** Rendimiento
   - **Ubicación:** `src-tauri/src/processes.rs:305-306`
   - **Qué hacer:** `retain` hace una búsqueda lineal en un `Vec` por cada entrada del mapa, en cada
@@ -1430,7 +1444,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-08] «En pausa» y «Midiendo…» por debajo del contraste mínimo**
+- [x] **[T3-08] «En pausa» y «Midiendo…» por debajo del contraste mínimo** — hecho el 2026-08-18
   - **Área:** Accesibilidad
   - **Ubicación:** `src/components/UsageMeter.tsx:29`
   - **Qué hacer:** es el único texto de la app con la opacidad rebajada (`text-muted-foreground/70`,
@@ -1443,7 +1457,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-09] Etiqueta accesible en el buscador y en el campo de ejecutable**
+- [x] **[T3-09] Etiqueta accesible en el buscador y en el campo de ejecutable** — hecho el 2026-08-18
   - **Área:** Accesibilidad
   - **Ubicación:** `src/App.tsx:307-312`, `src/components/SettingsView.tsx:179-186`
   - **Qué hacer:** los dos se apoyan solo en el `placeholder`, que desaparece al escribir y no es
@@ -1454,7 +1468,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-10] El contador de la cabecera es un número sin nombre**
+- [x] **[T3-10] El contador de la cabecera es un número sin nombre** — hecho el 2026-08-18
   - **Área:** Accesibilidad
   - **Ubicación:** `src/App.tsx:314-316`
   - **Qué hacer:** entre el buscador y «Refrescar» hay un `<span>` con `{visible.length}` y nada más;
@@ -1464,7 +1478,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-11] `caption` en las tablas y rol en la barra de descarga**
+- [x] **[T3-11] `caption` en las tablas y rol en la barra de descarga** — hecho el 2026-08-18
   - **Área:** Accesibilidad
   - **Ubicación:** `src/components/ProcessTable.tsx:59`, `src/components/HistoryView.tsx:35`,
     `src/components/Actualizaciones.tsx:87-100`
@@ -1476,7 +1490,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-12] Un solo aviso por acción desde la bandeja y el atajo global**
+- [x] **[T3-12] Un solo aviso por acción desde la bandeja y el atajo global** — hecho el 2026-08-18
   - **Área:** UI/UX
   - **Ubicación:** `src-tauri/src/lib.rs:232-240`, `src-tauri/src/tray.rs:44-49`
   - **Qué hacer:** «Cerrar todos los Node» pasa por `kill_and_record`, que notifica los puertos
@@ -1485,11 +1499,16 @@ en T1 y no en T0 — pero es lo primero que se hace.
     guarda explícita; extender ese mismo criterio, componiendo el mensaje completo con
     `notify::freed_ports_sentence`.
   - **Criterio de aceptación:** cerrar desde la bandeja o con Ctrl+Alt+K saca **un** aviso que
-    incluye el recuento y los puertos liberados.
+    incluye el recuento y los puertos liberados. ✅ Con prueba de la frase compuesta.
+  - La guarda pasa de «todos menos el Auto-Kill» a **«solo la ventana»**: los otros tres caminos
+    componen su mensaje entero. Con la ventana delante sí tiene sentido el aviso suelto de puertos,
+    porque el recuento ya se ve en pantalla. El `dedup` de puertos sale a `processes::freed_ports`
+    para que los cuatro caminos usen el mismo, con su prueba de que no repite un puerto que dos
+    procesos soltaron a la vez.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-13] Pruebas de los caminos de fallo del frontend**
+- [x] **[T3-13] Pruebas de los caminos de fallo del frontend** — hecho el 2026-08-18
   - **Área:** QA y testing
   - **Ubicación:** `src/App.test.tsx`, `src/components/SettingsView.test.tsx`
   - **Qué hacer:** hay pruebas del caso feliz y del parcial de `kill_processes`, pero ninguna simula
@@ -1499,7 +1518,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** T3-03, T3-04
 
-- [ ] **[T3-14] Singular y plural en las notificaciones de Rust**
+- [x] **[T3-14] Singular y plural en las notificaciones de Rust** — hecho el 2026-08-18
   - **Área:** Ortografía y redacción
   - **Ubicación:** `src-tauri/src/tray.rs:46-49`, `src-tauri/src/lib.rs:364-366`
   - **Qué hacer:** cerrar un único Node desde la bandeja produce «1 procesos Node cerrados.». Es el
@@ -1510,7 +1529,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-15] Las dos tildes que faltan en los avisos del Auto-Kill**
+- [x] **[T3-15] Las dos tildes que faltan en los avisos del Auto-Kill** — hecho el 2026-08-18
   - **Área:** Ortografía y redacción
   - **Ubicación:** `src-tauri/src/auto_kill.rs:65`, `src-tauri/src/auto_kill.rs:71`
   - **Qué hacer:** «por encima del limite de …. Cerrado automaticamente.» y «… cerrados
@@ -1545,7 +1564,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-18] Regenerar `THIRD-PARTY-NOTICES.txt`**
+- [x] **[T3-18] Regenerar `THIRD-PARTY-NOTICES.txt`** — regenerado el 2026-08-18
   - **Área:** Documentación · Licencias
   - **Ubicación:** `THIRD-PARTY-NOTICES.txt:51`, `THIRD-PARTY-NOTICES.txt:19`
   - **Qué hacer:** declara `shadcn 4.14.1` cuando la instalada y la declarada en `package.json` es la
@@ -1555,7 +1574,19 @@ en T1 y no en T0 — pero es lo primero que se hace.
     documenta y añadir el paso a `release.ps1`, o al menos un aviso si `package.json` cambió desde la
     última regeneración. Con T2-01 hecho, `shadcn` deja además de tener que aparecer.
   - **Criterio de aceptación:** cada versión listada coincide con la instalada, y la fecha de
-    generación es la del último corte.
+    generación es la del último corte. ✅ Regenerado contra `cargo metadata` y los `package.json`
+    instalados, no contra lo declarado.
+  - **⚠️ Lo desfasado no era lo peor: al documento le faltaban cuatro dependencias directas** que
+    sí van dentro del binario — `reqwest`, `futures-util`, `sha2` y `tauri-plugin-single-instance`,
+    que entraron con el actualizador y la instancia única después de generarse el archivo. También
+    aparecieron dos familias de licencia que no estaban declaradas: **CDLA-Permissive-2.0**
+    (`webpki-root-certs`, la lista de CA raíz de reqwest) y la LGPL **como una de tres opciones**
+    en `r-efi` — se toma bajo MIT, así que no aporta requisitos de enlazado. Ambas anotadas.
+  - `shadcn` se queda declarado pese a ser `devDependency`: `src/index.css` importa su
+    `tailwind.css`, así que sus reglas acaban en el CSS empaquetado. La versión que declaraba el
+    archivo (4.14.1) **nunca estuvo instalada**; es y era la 3.8.3.
+  - **Atado al corte:** `release.ps1` avisa —no aborta— si `package.json` o `Cargo.lock` son más
+    recientes que el archivo de avisos. Nada relacionaba las dos cosas, y por eso se quedó viejo.
   - **Esfuerzo:** bajo
   - **Depende de:** T2-01
 
@@ -1574,7 +1605,7 @@ en T1 y no en T0 — pero es lo primero que se hace.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
-- [ ] **[T3-19] Atar `-SkipTests` al `-DryRun` que lo justifica**
+- [x] **[T3-19] Atar `-SkipTests` al `-DryRun` que lo justifica** — hecho y probado el 2026-08-18
   - **Área:** DevOps
   - **Ubicación:** `release.ps1:70`, `release.ps1:235-237`
   - **Qué hacer:** el modificador existe para no repetir las pruebas cuando el *dry run* acaba de
@@ -1584,7 +1615,13 @@ en T1 y no en T0 — pero es lo primero que se hace.
     corrió y que `-SkipTests` avise —o se niegue— si no coincide. Como mínimo, documentar la
     condición en la ayuda del parámetro.
   - **Criterio de aceptación:** `-SkipTests` sobre un `HEAD` distinto del último *dry run* avisa
-    antes de compilar nada.
+    antes de compilar nada. ✅ Probados los tres casos: sin marca previa se niega, con un `HEAD`
+    que no coincide se niega diciendo ambos, y con el correcto sigue adelante nombrándolo.
+  - **Se niega en vez de avisar**, que la ficha dejaba a elección: un aviso se lo lleva el scroll y
+    al otro lado está publicar código sin haberlo probado — lo único que no se puede deshacer,
+    porque `is_newer` es estrictamente mayor. Salir de ahí cuesta quitar el modificador.
+  - La marca va en `%TEMP%`, no en el repositorio: es estado de una máquina y un momento, y en el
+    árbol ensuciaría justo lo que el propio script exige limpio.
   - **Esfuerzo:** bajo
   - **Depende de:** ninguna
 
@@ -1684,5 +1721,7 @@ probó a medias, se dice aquí qué quedó fuera.
 
 | 2026-08-18 | **T2-07** | **Tier 2 cerrado entero (10 de 10).** `prefers-reduced-motion`, verificado por el usuario apagando «Efectos de animación» en Windows: las barras saltan y las filas desaparecen de golpe. De paso se corrigió la ficha, que decía «encender» el ajuste cuando lo que activa la media query es **apagarlo** |
 
-**Pendientes: 20 de 37**, todas de los Tiers 3 y 4. **No queda ninguna con el código escrito y sin
-verificar**: era la última.
+| 2026-08-18 | **Tier 3 entero (16 tareas)** | Cerrado de una tanda. Lo que no estaba en las fichas: **`tsc` a secas no construye las referencias de proyecto**, asi que meter `vitest.config.ts` en el `include` no bastaba para T3-05 — hubo que pasar el build a `tsc -b`, y eso destapo un `@ts-expect-error` que ya sobraba en `vite.config.ts` y una emision de `.js`/`.d.ts` en la raiz que **habria abortado el propio `release.ps1`**. Y T3-18 no era solo una version desfasada: al documento legal **le faltaban cuatro dependencias directas** que si van dentro del binario |
+
+**Pendientes: 4 de 37**, todas del Tier 4 (lo explícitamente aplazado). Los Tiers 1, 2 y 3 están
+cerrados enteros.

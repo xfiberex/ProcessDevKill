@@ -76,8 +76,11 @@
 
 .PARAMETER SkipTests
     Omite todas las comprobaciones del paso 2. Solo tiene sentido justo despues de un -DryRun que
-    las haya pasado sobre este mismo codigo; si el arbol cambio desde entonces, se publica sin
+    las haya pasado sobre este mismo codigo; si el arbol cambio desde entonces, se publicaria sin
     haber probado ese cambio.
+
+    Desde 2026-08-18 eso ya no depende de recordarlo: el dry run anota el HEAD sobre el que corrio
+    las comprobaciones y -SkipTests SE NIEGA a seguir si no hay marca o si HEAD es otro.
 
 .PARAMETER AllowDirty
     Permite continuar con archivos sin rastrear en el árbol de trabajo.
@@ -104,6 +107,24 @@ function Info($m)  { Write-Host "==> $m" -ForegroundColor Cyan }
 function Ok($m)    { Write-Host "[OK] $m" -ForegroundColor Green }
 function Warn($m)  { Write-Host "[!] $m" -ForegroundColor Yellow }
 function Die($m)   { Write-Host "[X] $m" -ForegroundColor Red; exit 1 }
+
+<#
+.SYNOPSIS
+    Archivo donde el dry run deja constancia de sobre qué commit corrió las pruebas.
+
+.DESCRIPTION
+    `-SkipTests` existe para no repetir las comprobaciones cuando un dry run acaba de pasarlas, pero
+    hasta 2026-08-18 nada relacionaba las dos ejecuciones: el script no recordaba que hubiera habido
+    un dry run, ni sobre qué código. Un `-SkipTests` sobre un árbol que cambió después publicaba sin
+    haber probado ese cambio — y publicar es lo único que no se puede deshacer, porque `is_newer` es
+    estrictamente mayor y una versión anterior ya no alcanza a quien instaló la mala.
+
+    Va en %TEMP% y no en el repositorio a propósito: es estado de una máquina y de un momento, no
+    algo que deba viajar en un commit ni ensuciar el árbol que el propio script exige limpio.
+#>
+function Get-DryRunMarkerPath {
+    Join-Path $env:TEMP "pdk_dryrun_head.txt"
+}
 
 <#
 .SYNOPSIS
@@ -231,6 +252,15 @@ $setup = Join-Path $bundleDir "nsis\ProcessDevKill_${Version}_x64-setup.exe"
 $msi   = Join-Path $bundleDir "msi\ProcessDevKill_${Version}_x64_en-US.msi"
 
 # ── Validaciones de git ──────────────────────────────────────────────────────
+# Valor de GH_TOKEN antes de que el script lo toque, para poder devolverlo tal cual al terminar.
+# Un script de PowerShell corre en el proceso de la consola que lo lanza, asi que lo que se meta
+# aqui sobrevive al script y queda a la vista de todo lo que se ejecute despues en esa terminal.
+# Mas abajo puede escribirse la credencial cacheada de git, que tiene alcance `repo` y `workflow`.
+# OJO: `$env:VAR = ""` BORRA la variable en vez de dejarla vacia, asi que restaurar hay que hacerlo
+# distinguiendo "no existia" de "existia": ver el finally.
+$ghTokenPrevio = if (Test-Path Env:\GH_TOKEN) { $env:GH_TOKEN } else { $null }
+$ghTokenExistia = Test-Path Env:\GH_TOKEN
+
 Push-Location $root
 try {
     & git rev-parse --is-inside-work-tree *> $null
@@ -259,7 +289,22 @@ try {
 
     # ── Pruebas ──────────────────────────────────────────────────────────────
     if ($SkipTests) {
-        Warn "Pruebas omitidas (-SkipTests)."
+        # Se niega en vez de solo avisar: un aviso se lo lleva el scroll, y lo que hay al otro lado
+        # es publicar código sin haber probado ese código. Salir de aquí cuesta quitar el
+        # modificador; el error que evita no se puede deshacer.
+        $marca = Get-DryRunMarkerPath
+        $headActual = (& git rev-parse HEAD).Trim()
+
+        if (-not (Test-Path $marca)) {
+            Die "-SkipTests sin un dry run previo en esta maquina. Lanza el mismo comando con -DryRun primero, o quita -SkipTests."
+        }
+
+        $headProbado = (Get-Content $marca -TotalCount 1).Trim()
+        if ($headProbado -ne $headActual) {
+            Die "-SkipTests: el ultimo dry run corrio sobre $($headProbado.Substring(0,7)) y HEAD es $($headActual.Substring(0,7)). Ese codigo no se ha probado. Repite el dry run o quita -SkipTests."
+        }
+
+        Warn "Pruebas omitidas (-SkipTests), ya pasadas en el dry run sobre $($headActual.Substring(0,7))."
     } else {
         Info "Ejecutando los tests de Rust..."
         Push-Location (Join-Path $root "src-tauri")
@@ -314,6 +359,19 @@ try {
         Info "Pasando ESLint..."
         if ((Invoke-Nativo npm @('run','lint')) -ne 0) { Die "ESLint encontro problemas. Release abortado." }
         Ok "Frontend sin avisos de ESLint."
+
+        # Aviso -no aborta- si las dependencias cambiaron despues de generarse los avisos de
+        # terceros. THIRD-PARTY-NOTICES.txt viaja DENTRO del instalador como recurso y la app enlaza
+        # a el desde Ajustes: su valor entero esta en ser exacto. Se quedo viejo una vez -declaraba
+        # una version de shadcn que nunca estuvo instalada y le faltaban cuatro crates que si van en
+        # el binario- porque nada relacionaba las dos cosas.
+        $avisos = Join-Path $root "THIRD-PARTY-NOTICES.txt"
+        foreach ($manifiesto in @("package.json", "src-tauri/Cargo.lock")) {
+            $ruta = Join-Path $root $manifiesto
+            if ((Get-Item $ruta).LastWriteTime -gt (Get-Item $avisos).LastWriteTime) {
+                Warn "$manifiesto es mas reciente que THIRD-PARTY-NOTICES.txt: revisa si hay que regenerarlo (ver la cabecera de ese archivo)."
+            }
+        }
 
         # Pruebas del frontend (Vitest + Testing Library, Tier 6.4). Corren en jsdom con los
         # modulos de Tauri doblados, asi que no tocan procesos reales ni necesitan la ventana:
@@ -378,6 +436,15 @@ try {
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
         if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + eslint + npm test + npm run build" -ForegroundColor DarkGray }
         if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
+
+        # Constancia de sobre qué HEAD se pasaron las comprobaciones, para que un `-SkipTests`
+        # posterior pueda comprobar que sigue siendo el mismo código. Solo si se ejecutaron.
+        if (-not $SkipTests) {
+            $head = (& git rev-parse HEAD).Trim()
+            Set-Content -Path (Get-DryRunMarkerPath) -Value $head -Encoding utf8
+            Write-Host "    Comprobaciones anotadas para -SkipTests sobre $($head.Substring(0,7))" -ForegroundColor DarkGray
+        }
+
         Ok "Dry run completado."
         return
     }
@@ -498,4 +565,12 @@ try {
 }
 finally {
     Pop-Location
+
+    # Devolver GH_TOKEN a como estaba. Si no existia se elimina, y no basta con asignarle "": en
+    # PowerShell eso ya la borra, pero dejarlo escrito asi confunde a quien lo lea despues.
+    if ($ghTokenExistia) {
+        $env:GH_TOKEN = $ghTokenPrevio
+    } elseif (Test-Path Env:\GH_TOKEN) {
+        Remove-Item Env:\GH_TOKEN
+    }
 }

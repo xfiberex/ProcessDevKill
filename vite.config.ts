@@ -4,7 +4,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// @ts-expect-error process is a nodejs global
+// Sin `@ts-expect-error`: lo llevaba de la plantilla de create-tauri-app, pero `process` ya está
+// tipado aquí y la directiva sobraba. Con `tsc -b` eso deja de ser inocuo — una directiva sin uso
+// es error TS2578 — y ahora este archivo sí lo comprueba un tsconfig.
 const host = process.env.TAURI_DEV_HOST;
 
 const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "src");
