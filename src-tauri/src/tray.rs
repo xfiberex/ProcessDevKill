@@ -45,7 +45,10 @@ fn kill_all_of(app: &AppHandle, runtime: Runtime) {
     let killed = outcomes.iter().filter(|o| o.killed).count();
     notify::show(
         app,
-        format!("{killed} procesos {} cerrados.", runtime.label()),
+        notify::con_puertos(
+            notify::closed_sentence(killed, runtime.label(), ""),
+            &crate::processes::freed_ports(&outcomes),
+        ),
     );
 }
 
@@ -70,8 +73,17 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         ])
         .build()?;
 
+    // Sin `unwrap`: un panico en el `setup` es una app que no arranca y no dice por que. El resto
+    // del arranque degrada con elegancia -`app_data_dir` cae a `temp_dir`, unos ajustes corruptos a
+    // los de fabrica-, y esto rompia esa coherencia. Se propaga por el `tauri::Result` que la
+    // funcion ya devuelve.
+    let icono = app
+        .default_window_icon()
+        .ok_or_else(|| tauri::Error::AssetNotFound("icono de la ventana".into()))?
+        .clone();
+
     TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(icono)
         .tooltip("ProcessDevKill")
         // Sin esto, el clic izquierdo abre el menu en vez de llegar al handler.
         .show_menu_on_left_click(false)

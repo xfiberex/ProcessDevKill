@@ -62,13 +62,13 @@ fn mensaje(
             .find(|(pid, _, _)| *pid == cerrados[0].pid)
             .expect("el cierre viene de esta misma lista");
         format!(
-            "{name} (PID {}) usaba {}, por encima del limite de {limite}. Cerrado automaticamente.",
+            "{name} (PID {}) usaba {}, por encima del límite de {limite}. Cerrado automáticamente.",
             cerrados[0].pid,
             format_mb(*mb)
         )
     } else {
         format!(
-            "{} procesos cerrados automaticamente por pasar de {limite}.",
+            "{} procesos cerrados automáticamente por pasar de {limite}.",
             cerrados.len()
         )
     };

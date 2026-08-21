@@ -65,6 +65,21 @@ pub struct KillOutcome {
     pub name: String,
 }
 
+/// Puertos que ha liberado un lote de cierres, ordenados y sin repetir.
+///
+/// Sale aparte porque lo necesitan dos sitios: el aviso automatico de `kill_and_record` y los
+/// mensajes que la bandeja y el atajo global componen ellos mismos. Dos copias de este `dedup` se
+/// habrian separado a la primera.
+pub fn freed_ports(outcomes: &[KillOutcome]) -> Vec<u16> {
+    let mut puertos: Vec<u16> = outcomes
+        .iter()
+        .flat_map(|o| o.freed_ports.iter().copied())
+        .collect();
+    puertos.sort_unstable();
+    puertos.dedup();
+    puertos
+}
+
 /// Cuanto se esta comiendo el entorno de desarrollo del total de la maquina.
 ///
 /// Las barras de la tabla se escalan al proceso que mas consume de la lista, no a
@@ -302,7 +317,10 @@ impl ZombieWatch {
 
         // Olvidar los PIDs que ya no estan, o el mapa creceria sin fin en una app
         // que vive en la bandeja durante dias.
-        let vivos: Vec<u32> = list.iter().map(|p| p.pid).collect();
+        // `HashSet` y no `Vec`: `contains` sobre un `Vec` es busqueda lineal, y esto corre por cada
+        // entrada del mapa en cada refresco -cada dos segundos, durante dias-. Con decenas de
+        // procesos da igual; se cambia porque el arreglo es una palabra.
+        let vivos: std::collections::HashSet<u32> = list.iter().map(|p| p.pid).collect();
         self.idle_since.retain(|pid, _| vivos.contains(pid));
 
         let umbral_secs = minutes.saturating_mul(60);
@@ -984,5 +1002,39 @@ mod tests {
             "un proceso quemando un nucleo entero reporto {} %",
             busy.cpu
         );
+    }
+}
+
+#[cfg(test)]
+mod tests_puertos_liberados {
+    use super::*;
+
+    fn salida(pid: u32, ports: &[u16]) -> KillOutcome {
+        KillOutcome {
+            pid,
+            killed: true,
+            error: None,
+            freed_ports: ports.to_vec(),
+            name: "node.exe".into(),
+        }
+    }
+
+    /// Dos procesos pueden soltar el mismo puerto -uno escuchando en IPv4 y otro en IPv6, o un
+    /// padre y su hijo-, y anunciarlo dos veces en la misma notificacion queda a medio hacer.
+    #[test]
+    fn los_puertos_salen_ordenados_y_sin_repetir() {
+        let outcomes = vec![
+            salida(100, &[5173, 3000]),
+            salida(200, &[3000]),
+            salida(300, &[]),
+        ];
+
+        assert_eq!(freed_ports(&outcomes), vec![3000, 5173]);
+    }
+
+    #[test]
+    fn sin_puertos_no_hay_nada_que_anunciar() {
+        assert!(freed_ports(&[salida(100, &[])]).is_empty());
+        assert!(freed_ports(&[]).is_empty());
     }
 }

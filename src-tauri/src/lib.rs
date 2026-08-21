@@ -229,16 +229,13 @@ pub(crate) fn kill_and_record(
         crate::avisar!("No se pudo guardar el historial: {e}");
     }
 
-    // El Auto-Kill compone su propio aviso, que ya incluye los puertos ademas del
-    // motivo del cierre; sin esta guarda soltaria dos notificaciones seguidas.
-    if source != KillSource::Auto {
-        let mut freed: Vec<u16> = outcomes
-            .iter()
-            .flat_map(|o| o.freed_ports.clone())
-            .collect();
-        freed.sort_unstable();
-        freed.dedup();
-        notify::freed_ports(app, &freed);
+    // **Solo la ventana recibe aqui el aviso de los puertos.** Los otros tres caminos componen su
+    // mensaje entero -recuento mas puertos- y lo mandan ellos: el Auto-Kill ya lo hacia, y desde
+    // T3-12 tambien la bandeja y el atajo global, que antes sacaban dos notificaciones de Windows
+    // por un solo clic. Con la ventana delante no aplica: ahi el recuento se ve en la propia
+    // pantalla y la notificacion solo aporta los puertos.
+    if source == KillSource::Window {
+        notify::freed_ports(app, &processes::freed_ports(&outcomes));
     }
 
     // La lista cambio: que la ventana lo refleje sin esperar al siguiente ciclo.
@@ -365,7 +362,13 @@ fn nuke_everything(app: &AppHandle) {
 
     let outcomes = kill_and_record(app, pids, KillSource::Hotkey);
     let killed = outcomes.iter().filter(|o| o.killed).count();
-    notify::show(app, format!("{killed} procesos cerrados con Ctrl+Alt+K."));
+    notify::show(
+        app,
+        notify::con_puertos(
+            notify::closed_sentence(killed, "", "con Ctrl+Alt+K"),
+            &processes::freed_ports(&outcomes),
+        ),
+    );
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
