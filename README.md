@@ -135,8 +135,9 @@ Dicho claramente, esto **detecta una descarga corrupta o manipulada en tránsito
   que quien pudiera sustituir el `.exe` podría sustituir también el `.sha256`. No protege frente a
   un compromiso de la cuenta de GitHub.
 - **No sustituye a la firma de código.** SmartScreen seguirá avisando la primera vez: eso requiere
-  un certificado Authenticode de pago que el proyecto todavía no tiene. El día que lo haya, esa
-  sería la comprobación fuerte y el hash pasaría a ser el respaldo.
+  un certificado Authenticode de pago, y **el proyecto ha decidido no comprarlo** (2026-08-18). Así
+  que esto no es un paso intermedio hacia otra cosa: el `.sha256` **es** el mecanismo de integridad
+  del proyecto, no un respaldo provisional.
 - **Si un release no publicara su `.sha256`, la app se negaría a actualizarse a él.** Es
   deliberado: sin nada con que verificar, no se ejecuta un binario descargado.
 
@@ -290,8 +291,13 @@ La versión actual es la **v1.4.0**. La primera pública fue la **v1.1.1**: las 
 porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
 instalar algo que no podía actualizarse.
 
-Lo que todavía **no** hay, por si importa antes de instalarla: **firma de código** (de ahí el aviso
-de SmartScreen) y compilaciones para **macOS o Linux**. El plan está en el [ROADMAP](ROADMAP.md).
+Lo que **no** hay, por si importa antes de instalarla: **firma de código** —de ahí el aviso de
+SmartScreen— y compilaciones para **macOS o Linux**.
+
+Lo de la firma **no está en el plan**: se descartó el 2026-08-18 porque exige un certificado
+Authenticode de pago. Dicho claro para no dejar la impresión de que llegará en la siguiente versión:
+**SmartScreen va a seguir avisando**, y la comprobación de integridad seguirá siendo el `.sha256`
+que se publica con cada instalador. Lo demás del plan está en el [ROADMAP](ROADMAP.md).
 
 ## Licencia
 

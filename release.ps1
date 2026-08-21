@@ -37,10 +37,15 @@
     de la cuenta de GitHub, porque quien pudiera sustituir el .exe podría sustituir también
     el hash. Es el compromiso habitual de un proyecto sin certificado de firma de código.
 
-    FIRMA DE CÓDIGO AUTHENTICODE: no la hay. Es la que quitaría el aviso de SmartScreen
-    ("editor desconocido") y la que permitiría una verificación fuerte de origen. Requiere
-    un certificado de pago; en Tauri se configuraría con `bundle.windows.certificateThumbprint`,
-    no llamando a signtool a mano.
+    FIRMA DE CÓDIGO AUTHENTICODE: no la hay, Y NO LA VA A HABER (decidido el 2026-08-18).
+
+    Es la que quitaría el aviso de SmartScreen ("editor desconocido") y la que permitiría una
+    verificación fuerte de origen, pero exige un certificado de pago que el proyecto no va a
+    comprar. Consecuencia para quien publique: cada release avisará de editor desconocido, y eso
+    es normal, no un fallo del corte ni una detección de nada.
+
+    Si algún día cambia la decisión, se configura con `bundle.windows.certificateThumbprint` en
+    tauri.conf.json, no llamando a signtool a mano.
 
     Las pruebas de Rust son seguras para un corte de release: leen los procesos del sistema y
     solo matan procesos que ellas mismas lanzan. Ninguna toca los del usuario.

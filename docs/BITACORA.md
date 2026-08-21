@@ -8,6 +8,20 @@
 
 ---
 
+### 2026-08-18 — T4-02 descartada
+
+- **La firma Authenticode no se va a hacer**, por decisión del usuario. Cerrada con el porqué
+  escrito en vez de dejarla abierta: era la única tarea de la lista cuyo obstáculo no era técnico
+  —el código está previsto, falta el gasto recurrente del certificado—.
+- Anotadas las consecuencias, que es lo que de verdad aporta cerrarla: SmartScreen seguirá avisando
+  siempre, y **el `.sha256` deja de ser «el respaldo hasta que haya firma» para ser el mecanismo de
+  integridad definitivo**. Eso lo vuelve más importante, no menos.
+- Corregido el README, que decía que el plan estaba en el ROADMAP y dejaba la impresión de que la
+  firma llegaría en alguna versión próxima.
+- Con esto van **34 de 37**, y **dos de las cerradas del Tier 4 lo están por decisión, no por
+  trabajo**: no hay CI y no habrá firma. Una tarea que se decide no hacer está tan cerrada como una
+  hecha, siempre que quede dicho por qué.
+
 ### 2026-08-18 — v1.4.0 publicada
 
 - **Cortada con `release.ps1`**, dry run primero como manda la casa. Minor y no parche: trae

@@ -1019,8 +1019,8 @@ haciendo clic en «Siguiente».
 | **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
 | **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | **10** ✅ | 7 bajo · 3 medio |
 | **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | **20** ✅ | 20 bajo |
-| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 1 | 1 bajo · 3 medio · 1 alto |
-| | | **37** | **33** | 30 bajo · 6 medio · 1 alto |
+| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 2 | 1 bajo · 3 medio · 1 alto |
+| | | **37** | **34** | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`
@@ -1649,7 +1649,7 @@ Explícitamente fuera del alcance inmediato. Están aquí para no perderlos, no 
   - **Esfuerzo:** alto
   - **Depende de:** ninguna
 
-- [ ] **[T4-02] Firma de código Authenticode**
+- [x] **[T4-02] Firma de código Authenticode** — ❌ **descartada** el 2026-08-18
   - **Área:** Seguridad · Distribución
   - **Ubicación:** `src-tauri/tauri.conf.json` (`bundle.windows.certificateThumbprint`)
   - **Qué hacer:** es lo que quitaría el aviso de SmartScreen y lo que permitiría una verificación
@@ -1657,6 +1657,23 @@ Explícitamente fuera del alcance inmediato. Están aquí para no perderlos, no 
     contemplado en el roadmap histórico y en el README; se repite aquí para que la lista de deuda
     esté completa.
   - **Criterio de aceptación:** el instalador firmado no dispara el aviso de editor desconocido.
+  - **Decisión (2026-08-18): descartada.** No se va a comprar certificado, así que la tarea se cierra
+    en vez de quedarse abierta fingiendo que algún día se hará. Es la única de la lista cuyo
+    obstáculo no es técnico: el código está previsto —`bundle.windows.certificateThumbprint` en
+    `tauri.conf.json`, sin llamar a `signtool` a mano— y lo que falta es el gasto recurrente.
+  - **Consecuencias, que conviene tener escritas:**
+    - **SmartScreen seguirá avisando** de «editor desconocido» en cada instalación. No es un fallo
+      ni una detección: le pasa a cualquier ejecutable sin certificado.
+    - **El `.sha256` se queda como único mecanismo de integridad**, y eso lo hace *más* importante,
+      no menos: es lo que detecta una descarga corrupta o manipulada en tránsito. Su límite sigue
+      siendo el de siempre —instalador y hash salen del mismo release, así que no protege frente a
+      un compromiso de la cuenta de GitHub— y por eso `release.ps1` publica el `.sha256` de cada
+      instalador y la app se niega a actualizarse a un release que no lo traiga.
+    - La comprobación fuerte de origen (`WinVerifyTrust`) **no se implementa**: sin certificado sería
+      código muerto, y una comprobación que siempre falla enseña a ignorarla. Está dicho así en la
+      cabecera de `update.rs` desde el principio.
+  - **Si alguna vez cambia la decisión**, lo que hay que tocar está identificado y es poco: el
+    `certificateThumbprint` del bundle y volver a redactar lo que el README promete.
   - **Esfuerzo:** medio (más el coste del certificado)
   - **Depende de:** ninguna
 
@@ -1733,5 +1750,9 @@ probó a medias, se dice aquí qué quedó fuera.
 | 2026-08-18 | **v1.4.0 verificada en sitio** | El usuario actualizó de la v1.3.2 a la v1.4.0: **silenciosa**, y el registro de avisos aparece en Acerca de con su ruta real. **El propio log documenta el salto** —`v1.3.2 arrancando` y después `v1.4.0 arrancando`—, escrito por el binario instalado |
 | 2026-08-18 | **v1.4.0 publicada** | Sale con la revisión entera dentro: 33 de 37. Verificada como las anteriores sobre los archivos reales del release — 4 assets, la API devuelve `v1.4.0`, y el instalador **descargado de GitHub** coincide con su `.sha256` (`a8738197…`). Comprobado además que las URLs reales de los assets pasan la guardia de origen de T1-01 |
 
-**Pendientes: 4 de 37**, todas del Tier 4 (lo explícitamente aplazado). Los Tiers 1, 2 y 3 están
-cerrados enteros.
+| 2026-08-18 | **T4-02 descartada** | La firma Authenticode **no se va a hacer**: pide un certificado de pago y no se va a comprar. Se cierra con la decisión escrita en vez de quedarse abierta fingiendo que algún día se hará. Quedan anotadas las consecuencias — SmartScreen seguirá avisando y el `.sha256` es el único mecanismo de integridad, lo que lo hace más importante, no menos |
+
+**Pendientes: 3 de 37.** Los Tiers 1, 2 y 3 están cerrados enteros; del 4 solo quedan las dos de
+medición (T4-03 y T4-05, que depende de ella) y T4-01. **Dos de las cerradas del Tier 4 lo están
+por decisión, no por trabajo**: no hay CI (T4-04) y no habrá firma de código (T4-02). Una tarea que
+se decide no hacer está tan cerrada como una hecha, siempre que quede dicho por qué.

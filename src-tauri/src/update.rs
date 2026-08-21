@@ -13,10 +13,12 @@
 //! hash. Es el compromiso habitual de un proyecto sin certificado de firma de código, y
 //! es exactamente la garantía que sustituye a la firma.
 //!
-//! El día que haya certificado, la comprobación fuerte sería la **firma Authenticode**
-//! (`WinVerifyTrust`), con el hash como respaldo — que es como lo tiene FormatDiskPro.
-//! Aquí no se implementa porque sin certificado sería código muerto: ningún instalador
-//! propio la pasaría, y una comprobación que siempre falla induce a ignorarla.
+//! **No es un apaño provisional: es el mecanismo definitivo.** La firma Authenticode
+//! —que sería la comprobación fuerte, con el hash como respaldo, como la tiene
+//! FormatDiskPro— se **descartó el 2026-08-18**: exige un certificado de pago que el
+//! proyecto no va a comprar. Así que `WinVerifyTrust` no se implementa, y no por dejarlo
+//! para después: sin certificado sería código muerto, ningún instalador propio la pasaría,
+//! y una comprobación que siempre falla induce a ignorarla.
 
 use std::path::{Path, PathBuf};
 
