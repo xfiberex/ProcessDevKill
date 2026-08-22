@@ -8,6 +8,56 @@
 
 ---
 
+### 2026-08-21 — La app habla dos idiomas, y con esto se cierran las 37
+
+- **T4-01 hecha: español e inglés.** Era la de esfuerzo alto de toda la lista y la última que
+  quedaba. Con ella, **0 pendientes de 37**.
+- **El idioma llega hasta Rust, y ése era el fondo del asunto.** Hay texto de la app que la ventana
+  no pinta —el menú de la bandeja y las notificaciones de Windows—, y resulta ser **lo único que se
+  ve cuando la app corre escondida**. Traducir solo el frontend habría traducido justo la mitad que
+  ya se entendía. De ahí `src-tauri/src/textos.rs` además de `src/i18n.tsx`.
+- **En los dos lados, una clave sin traducir no compila.** En TypeScript `Catalogo` es literalmente
+  `typeof es` y `en` se declara de ese tipo; en Rust `Textos` es un `struct` con una constante por
+  idioma. Un mapa de claves habría dado `undefined`/`None` en tiempo de ejecución.
+- **Las frases con número son funciones, no plantillas, y no por elegancia.** Los dos idiomas no
+  ordenan igual: «3 procesos Node cerrados» mete el runtime entre el sustantivo y el participio, y
+  «3 Node processes closed» lo pone delante. Una plantilla con huecos habría dado «3 processes Node
+  closed». `closed_sentence` se rehízo con una firma semántica —`runtime: Option<&str>`,
+  `con_atajo: bool`— en vez de los huecos de texto que tenía, porque con dos idiomas la bandeja
+  habría tenido que saber decir «con Ctrl+Alt+K» en inglés.
+- **El texto con énfasis viaja marcado (`**negrita**`, `` `código` ``) y lo resuelve `Marcado`.**
+  Guardar JSX en el catálogo obligaba a escribir cada párrafo con su marcado dos veces, una por
+  idioma. Los `<strong>` de esta app no son adorno: llevan «sin pedir confirmación» y «Ningún
+  proceso se ha cerrado».
+- **Las 175 pruebas que ya existían pasan sin tocar una sola aserción.** El español se copió
+  carácter a carácter y el contexto arranca con el catálogo español, así que un componente
+  renderizado suelto sigue hablando español. Era la condición de partida.
+- **La prueba que de verdad hacía falta no era la obvia.** Buscar acentos en el catálogo inglés no
+  caza «Historial» copiado tal cual —no lleva acento—: se comprobó con una mutación y pasaba. Hizo
+  falta comparar entrada por entrada y **escribir a mano las 16 que coinciden con motivo** (siglas,
+  nombres de producto, lo que ya estaba en inglés). Con eso, la mutación falla.
+- **Verificado en vivo sobre el binario de release**, que era lo único que podía cerrar esto:
+  - La ventana entera cambia al pulsar «English», con la app abierta.
+  - **El menú de la bandeja se retraduce en caliente.** Leído del `HMENU` real —clic derecho de
+    verdad sobre el icono, `MN_GETHMENU` y `GetMenuString`—, mismo PID: antes «Cerrar todos los
+    Node», después «Close all Node». Windows no retraduce un menú solo, así que `save_settings`
+    lo rehace cuando cambia el idioma.
+  - **La notificación nativa salió en inglés**, confirmado por el usuario. No conseguí leerla por
+    automatización: ni `CopyFromScreen` la recoge —eso ya se sabía— ni UI Automation la alcanzó.
+  - El `settings.json` que había en el equipo **no tenía el campo `language`** y arrancó en español
+    sin perder nada: el `#[serde(default)]` aguantó, que era justo el caso que se quería probar.
+- **Lo que se deja sin traducir, y está escrito en el test:** «Off / 2s / 5s», los nombres de
+  runtime, las siglas y lo que ya estaba en inglés en la versión española.
+- **Queda pendiente una deuda que esto ha empeorado, y se anota para no perderla:** `lib.rs` está
+  en **524 líneas de código** sin contar su `mod tests`, y la regla de CLAUDE.md manda partirlo al
+  pasar de ~450. Ya iba en 493 antes de esta sesión —o sea que el umbral estaba cruzado de antes— y
+  el idioma le ha sumado 31. Partirlo no es parte de T4-01 y habría hinchado un cambio que ya toca
+  20 archivos, así que se deja dicho en vez de hacerlo de tapadillo. Sería la tercera vez.
+- Un tropiezo del camino: la asignación a la copia del catálogo para `ErrorBoundary` —que vive
+  **fuera** del proveedor porque envuelve a `App`— se hacía durante el render y ESLint la paró con
+  razón. Pasó a un efecto; el desfase no importa porque en el primer render el idioma es el de
+  fábrica, que es el mismo que ya tiene esa copia.
+
 ### 2026-08-18 — Las primeras cifras propias, y el bundle que no se divide
 
 - **T4-03: medido.** Hasta ahora nadie había puesto un número al coste de la app. El ciclo del

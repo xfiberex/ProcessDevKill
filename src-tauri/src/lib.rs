@@ -6,6 +6,7 @@ mod poller;
 mod ports;
 mod processes;
 mod storage;
+mod textos;
 mod tray;
 mod update;
 
@@ -22,7 +23,8 @@ use processes::{
     ProcessInfo, SystemUsage,
 };
 use storage::{
-    now_millis, HistoryEntry, KillSource, Settings, Storage, MIN_AUTO_KILL_MB, MIN_ZOMBIE_MINUTES,
+    now_millis, HistoryEntry, KillSource, Language, Settings, Storage, MIN_AUTO_KILL_MB,
+    MIN_ZOMBIE_MINUTES,
 };
 
 /// Evento que recibe el frontend cada vez que hay una lista nueva de procesos.
@@ -60,6 +62,15 @@ impl AppState {
             .lock()
             .map(|s| s.normalized_names())
             .unwrap_or_default()
+    }
+
+    /// Idioma vigente, para el texto que escribe Rust: la bandeja, las notificaciones y los
+    /// errores que acaban en un toast.
+    ///
+    /// Ante un candado envenenado cae al de fabrica en vez de propagar el error: quedarse sin
+    /// notificacion por no poder leer un ajuste seria perder el aviso de un proceso ya muerto.
+    pub(crate) fn language(&self) -> Language {
+        self.settings.lock().map(|s| s.language).unwrap_or_default()
     }
 
     fn refresh_ms(&self) -> u64 {
@@ -144,7 +155,7 @@ pub(crate) fn read_list(state: &AppState) -> Result<Vec<ProcessInfo>, String> {
         let mut sys = state
             .sys
             .lock()
-            .map_err(|_| "Estado del sistema corrupto".to_string())?;
+            .map_err(|_| textos::de(state.language()).estado_corrupto.to_string())?;
         collect_processes(&mut sys, &custom)
     };
 
@@ -235,7 +246,7 @@ pub(crate) fn kill_and_record(
     // por un solo clic. Con la ventana delante no aplica: ahi el recuento se ve en la propia
     // pantalla y la notificacion solo aporta los puertos.
     if source == KillSource::Window {
-        notify::freed_ports(app, &processes::freed_ports(&outcomes));
+        notify::freed_ports(app, state.language(), &processes::freed_ports(&outcomes));
     }
 
     // La lista cambio: que la ventana lo refleje sin esperar al siguiente ciclo.
@@ -255,12 +266,20 @@ fn kill_process(pid: u32, app: AppHandle) -> Result<Vec<u16>, String> {
     let mut outcomes = kill_and_record(&app, vec![pid], KillSource::Window);
     let outcome = outcomes
         .pop()
-        .ok_or_else(|| "No se pudo acceder al estado del sistema".to_string())?;
+        .ok_or_else(|| {
+            textos::de(app.state::<AppState>().language())
+                .sin_acceso_al_sistema
+                .to_string()
+        })?;
 
     if outcome.killed {
         Ok(outcome.freed_ports)
     } else {
-        Err(outcome.error.unwrap_or_else(|| "Fallo desconocido".into()))
+        Err(outcome.error.unwrap_or_else(|| {
+            textos::de(app.state::<AppState>().language())
+                .fallo_desconocido
+                .into()
+        }))
     }
 }
 
@@ -300,7 +319,17 @@ fn save_settings(
 
     state.storage.save_settings(&settings)?;
     apply_hotkey(&app, settings.hotkey_enabled);
-    *state.settings.lock().map_err(|_| "Ajustes corruptos")? = settings.clone();
+    // El menu de la bandeja se arma una vez y Windows no lo retraduce solo: si cambio el idioma,
+    // hay que rehacerlo. Se hace **antes** de escribir el ajuste nuevo para poder comparar con el
+    // que habia; despues ya no habria con que.
+    if state.language() != settings.language {
+        tray::retraducir(&app, settings.language);
+    }
+
+    *state
+        .settings
+        .lock()
+        .map_err(|_| textos::de(settings.language).ajustes_corruptos)? = settings.clone();
 
     // El hilo puede estar esperando con el refresco en "Off": sin este aviso
     // tardaria hasta poller::PAUSA_MS en enterarse de que lo han vuelto a encender.
@@ -344,6 +373,7 @@ fn apply_hotkey(app: &AppHandle, enabled: bool) {
 fn nuke_everything(app: &AppHandle) {
     let state = app.state::<AppState>();
     let custom = state.custom_names();
+    let lang = state.language();
 
     let pids: Vec<u32> = {
         let Ok(mut sys) = state.sys.lock() else {
@@ -356,7 +386,7 @@ fn nuke_everything(app: &AppHandle) {
     };
 
     if pids.is_empty() {
-        notify::show(app, "No hay procesos de desarrollo activos.".into());
+        notify::show(app, textos::de(lang).sin_procesos.into());
         return;
     }
 
@@ -364,8 +394,9 @@ fn nuke_everything(app: &AppHandle) {
     let killed = outcomes.iter().filter(|o| o.killed).count();
     notify::show(
         app,
-        notify::con_puertos(
-            notify::closed_sentence(killed, "", "con Ctrl+Alt+K"),
+        textos::con_puertos(
+            lang,
+            textos::closed_sentence(lang, killed, None, true),
             &processes::freed_ports(&outcomes),
         ),
     );
@@ -427,7 +458,7 @@ pub fn run() {
                 senal: (Mutex::new(false), Condvar::new()),
             });
 
-            tray::build(&handle)?;
+            tray::build(&handle, settings.language)?;
             apply_hotkey(&handle, settings.hotkey_enabled);
 
             // Calentamiento en segundo plano para que la primera lectura de la UI

@@ -1638,14 +1638,52 @@ en T1 y no en T0 — pero es lo primero que se hace.
 
 Explícitamente fuera del alcance inmediato. Están aquí para no perderlos, no para hacerlos ahora.
 
-- [ ] **[T4-01] Internacionalización**
+- [x] **[T4-01] Internacionalización** — hecha el 2026-08-21, con **español e inglés**
   - **Área:** UI/UX
-  - **Ubicación:** todo `src/`, `src-tauri/src/{lib,tray,auto_kill,notify,update}.rs`
-  - **Qué hacer:** todo el texto está incrustado en español, en los dos lados. Es coherente con el
+  - **Ubicación:** `src/i18n.tsx` y `src-tauri/src/textos.rs` (nuevos), más los 10 componentes,
+    `types.ts`, `lib/sort.ts`, `lib.rs`, `tray.rs`, `notify.rs`, `auto_kill.rs` y `poller.rs`
+  - **Qué hacer:** todo el texto estaba incrustado en español, en los dos lados. Es coherente con el
     producto tal como está; sacar las cadenas a un catálogo solo tiene sentido si se decide publicar
     en más idiomas.
-  - **Criterio de aceptación:** decisión tomada y anotada; si se hace, ninguna cadena de cara al
-    usuario queda incrustada.
+  - **Decisión (2026-08-18): se hace, con dos idiomas y solo dos** — español, que es el original, e
+    inglés.
+  - **Cómo quedó:**
+    - **El idioma llega hasta Rust y no se queda en la ventana.** Hay texto de la app que la ventana
+      no pinta —el menú de la bandeja y las notificaciones de Windows—, y es justo lo único que se
+      ve cuando la app corre escondida. Dejarlo en español mientras la ventana habla inglés habría
+      traducido la mitad que ya se entendía.
+    - **Una clave sin traducir no compila, en los dos lados.** En TypeScript, `Catalogo` es
+      literalmente `typeof es` y `en` se declara de ese tipo; en Rust, `Textos` es un `struct` con
+      una constante por idioma. Un mapa de claves habría dado `undefined`/`None` en tiempo de
+      ejecución, que es enterarse cuando ya lo ve el usuario.
+    - **Las frases con número son funciones, no plantillas.** Los dos idiomas no ordenan igual:
+      «3 procesos Node cerrados» mete el runtime entre el sustantivo y el participio, y
+      «3 Node processes closed» lo pone delante. Una plantilla con huecos daría «3 processes Node
+      closed». Es además el descuido que este proyecto ya había cometido tres veces.
+    - **El texto con `<strong>` dentro viaja marcado, no como JSX.** Las cadenas llevan
+      `**negrita**` y `` `código` ``, y las resuelve un solo componente (`Marcado`). Guardar JSX en
+      el catálogo habría obligado a escribir cada párrafo con su marcado dos veces, una por idioma.
+    - **El español se copió carácter a carácter**, y por eso las 175 pruebas que ya existían siguen
+      pasando sin tocar una sola aserción: el contexto arranca con el catálogo español.
+    - **El idioma no se detecta del sistema**, a propósito: pediría otra dependencia para algo que
+      se elige una vez. El selector se rotula **«Idioma / Language»** y va el primero de Ajustes,
+      para que lo encuentre quien abra la app y no entienda la otra mitad.
+  - **Criterio de aceptación:** decisión tomada y anotada; ninguna cadena de cara al usuario queda
+    incrustada. **Cumplido y verificado en vivo** — ver más abajo.
+  - **Verificación (2026-08-21), sobre el binario de release:**
+    - La ventana entera cambia al pulsar «English», con la app abierta y sin reiniciar.
+    - **El menú de la bandeja se retraduce en caliente**: leído del `HMENU` real por
+      `MN_GETHMENU` + `GetMenuString`, mismo PID, antes «Cerrar todos los Node» y después «Close
+      all Node».
+    - **El toast nativo salió en inglés**, confirmado por el usuario. No se pudo leer por
+      automatización —ni `CopyFromScreen` ni UI Automation lo alcanzan— y esa es la limitación de
+      siempre con los toast de Windows.
+    - Un `settings.json` **sin el campo `language`** —el que había en el equipo— se leyó sin perder
+      nada y arrancó en español: el `#[serde(default)]` aguanta.
+  - **Lo que se queda sin traducir, y por qué:** «Off / 2s / 5s» del auto-refresco (se escriben
+    igual), los nombres de runtime (Node.js, Python, .NET), las siglas (PID, CPU, RAM) y lo que ya
+    estaba en inglés en la versión española (Nuke All, Kill, Process Manager, Auto-Kill, Zombie
+    Finder). Cada excepción está en la lista de `i18n.test.tsx` con su motivo escrito.
   - **Esfuerzo:** alto
   - **Depende de:** ninguna
 
@@ -1783,9 +1821,10 @@ probó a medias, se dice aquí qué quedó fuera.
 
 | 2026-08-18 | **T4-03 y T4-05** | **Las primeras cifras propias del proyecto.** El ciclo del poller cuesta **~16 ms en release, el 0,8 % de un núcleo**; el arranque, 31-152 ms en caliente; y en 6 minutos en la bandeja la memoria no se mueve (41,0 → 41,5 MB). Con eso, **T4-05 se cierra sin dividir el bundle**: compilarlo entero son ~12,5 ms, y V8 ni siquiera lo compila entero —lo hace perezosamente—. El aviso de Vite habla de un coste de descarga que en una app de escritorio no existe |
 
-**Pendiente: 1 de 37.** Los Tiers 1, 2 y 3 están cerrados enteros, y del 4 solo queda **T4-01, la
-internacionalización**, que el usuario decidió **hacer** el 2026-08-18 con dos idiomas: español e
-inglés. Es la de esfuerzo alto de toda la lista y está en marcha.
+**Pendiente: 0 de 37.** Los cuatro Tiers están cerrados. La última en caer fue **T4-01, la
+internacionalización** —la de esfuerzo alto de toda la lista—, el 2026-08-21, con español e inglés
+y verificada en vivo sobre el binario de release: ventana, menú de la bandeja retraducido en
+caliente y notificación nativa.
 
 **Tres de las cuatro cerradas del Tier 4 lo están por decisión o por medición, no por escribir
 código**: no hay CI (T4-04), no habrá firma (T4-02) y el bundle no se divide porque se midió que no

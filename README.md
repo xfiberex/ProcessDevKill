@@ -51,6 +51,9 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
   entre sí; ésta te dice si el problema es tuyo o del equipo.
 - **Historial** de cierres con el origen de cada uno: ventana, bandeja, atajo o Auto-Kill.
 - Tema claro/oscuro que sigue al de Windows, o fijo si lo prefieres.
+- **Español e inglés**, y no solo la ventana: el menú de la bandeja y las notificaciones de Windows
+  cambian con ella, que es lo único que se ve con la app escondida. Se elige en Ajustes y no hay que
+  reiniciar.
 - **Avisa de versiones nuevas** al arrancar y las instala desde Ajustes, comprobando el hash del
   instalador antes de ejecutarlo.
 

@@ -1,4 +1,5 @@
 import type { SystemUsage } from "../types";
+import { useT } from "../i18n";
 import { formatMemory } from "../lib/format";
 
 type UsageMeterProps = {
@@ -21,16 +22,18 @@ type UsageMeterProps = {
  * maquina y la solida, la parte que ponen los procesos vigilados.
  */
 export function UsageMeter({ usage, pausado }: UsageMeterProps) {
+  const t = useT();
+
   return (
     <div className="border-t border-sidebar-border p-3">
-      <p className="mb-2 text-xs text-muted-foreground">Tu entorno</p>
+      <p className="mb-2 text-xs text-muted-foreground">{t.medidor.titulo}</p>
 
       {pausado || !usage ? (
         // Sin el `/70` que tenia: era el unico texto de la app con la opacidad rebajada, y sobre
         // 12 px dejaba el contraste por debajo del 4,5:1 de WCAG 2.2 AA en tema claro. Mismo
         // criterio que ya se aplico al guion de "sin puertos".
         <p className="text-xs text-muted-foreground">
-          {pausado ? "En pausa" : "Midiendo…"}
+          {pausado ? t.medidor.enPausa : t.medidor.midiendo}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -42,7 +45,11 @@ export function UsageMeter({ usage, pausado }: UsageMeterProps) {
             equipo={`${usage.cpu.toFixed(0)}%`}
             devPct={usage.devCpu}
             equipoPct={usage.cpu}
-            title={`Tus procesos vigilados usan el ${usage.devCpu.toFixed(1)} % de la CPU. El equipo entero, el ${usage.cpu.toFixed(0)} %.`}
+            equipoLabel={t.medidor.equipo}
+            title={t.medidor.tituloCpu(
+              `${usage.devCpu.toFixed(1)} %`,
+              `${usage.cpu.toFixed(0)} %`,
+            )}
           />
           <Metrica
             label="RAM"
@@ -50,7 +57,12 @@ export function UsageMeter({ usage, pausado }: UsageMeterProps) {
             equipo={parDeMemoria(usage.usedMemoryMb, usage.totalMemoryMb)}
             devPct={porcentaje(usage.devMemoryMb, usage.totalMemoryMb)}
             equipoPct={porcentaje(usage.usedMemoryMb, usage.totalMemoryMb)}
-            title={`Tus procesos vigilados usan ${formatMemory(usage.devMemoryMb)}. El equipo entero, ${formatMemory(usage.usedMemoryMb)} de los ${formatMemory(usage.totalMemoryMb)} instalados.`}
+            equipoLabel={t.medidor.equipo}
+            title={t.medidor.tituloRam(
+              formatMemory(usage.devMemoryMb),
+              formatMemory(usage.usedMemoryMb),
+              formatMemory(usage.totalMemoryMb),
+            )}
           />
         </div>
       )}
@@ -81,6 +93,7 @@ function Metrica({
   devPct,
   equipoPct,
   title,
+  equipoLabel,
 }: {
   label: string;
   dev: string;
@@ -88,6 +101,9 @@ function Metrica({
   devPct: number;
   equipoPct: number;
   title: string;
+  /** El rotulo de la fila de abajo. Llega por prop porque `Metrica` es interna y no
+   *  vale la pena que pida el catalogo por su cuenta. */
+  equipoLabel: string;
 }) {
   return (
     <div title={title}>
@@ -118,7 +134,7 @@ function Metrica({
           vio leyo ese 15,6 como su RAM instalada (tiene 32 GB): era lo que usaba
           la maquina. Ahorrar una linea salio caro. */}
       <div className="mt-1 flex items-baseline justify-between gap-1 text-[11px] text-muted-foreground">
-        <span>Equipo</span>
+        <span>{equipoLabel}</span>
         <span className="tabular-nums">{equipo}</span>
       </div>
     </div>

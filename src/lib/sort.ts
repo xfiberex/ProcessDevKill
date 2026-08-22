@@ -31,16 +31,6 @@ export const FIRST_DIR: Record<SortKey, SortDir> = {
   runTimeSecs: "desc",
 };
 
-/** Etiqueta visible de cada columna ordenable, en el orden de la tabla. */
-export const SORT_LABELS: Record<SortKey, string> = {
-  name: "Proceso",
-  port: "Puerto",
-  pid: "PID",
-  cpu: "CPU",
-  memoryMb: "RAM",
-  runTimeSecs: "Activo",
-};
-
 /** Un proceso puede escuchar en varios puertos; manda el mas bajo. */
 function valor(p: ProcessInfo, key: SortKey): number | string {
   if (key === "port") {

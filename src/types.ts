@@ -102,26 +102,22 @@ export type ReleaseInfo = {
   checksumUrl: string;
 };
 
-// Los mapas de etiquetas de aqui abajo **no** son espejo de Rust, y se quedan a
-// proposito: cada uno es un `Record` indexado por un tipo espejo, asi que TypeScript
-// obliga a completarlos cuando Rust gana una variante. Separarlos de su tipo perderia
-// esa comprobacion a cambio de un archivo mas. Los formateadores, que no tenian esa
-// atadura, si se fueron a `lib/format.ts`.
+// El color de cada runtime **no** es espejo de Rust y se queda aqui a proposito: es un `Record`
+// indexado por un tipo espejo, asi que TypeScript obliga a completarlo cuando Rust gana una
+// variante. Separarlo de su tipo perderia esa comprobacion a cambio de un archivo mas.
+//
+// Las **etiquetas** que lo acompañaban se fueron a `i18n.tsx` al traducir la app (T4-01), donde
+// conservan la misma comprobacion: alli van con `satisfies Record<Runtime, string>`. Los
+// formateadores, que no tenian esa atadura, ya se habian ido a `lib/format.ts`.
 
-export const RUNTIMES: Record<Runtime, { label: string; color: string }> = {
-  node: { label: "Node.js", color: "var(--color-node)" },
-  python: { label: "Python", color: "var(--color-python)" },
-  dotnet: { label: ".NET", color: "var(--color-dotnet)" },
-  other: { label: "Otros", color: "var(--color-other)" },
+export const RUNTIME_COLORS: Record<Runtime, string> = {
+  node: "var(--color-node)",
+  python: "var(--color-python)",
+  dotnet: "var(--color-dotnet)",
+  other: "var(--color-other)",
 };
 
-export const KILL_SOURCES: Record<KillSource, string> = {
-  window: "Ventana",
-  tray: "Bandeja",
-  hotkey: "Ctrl+Alt+K",
-  auto: "Auto-Kill",
-};
-
+/** Los temas en el orden en que se ofrecen. Sus rotulos, en el catalogo de idiomas. */
 export const THEMES: Theme[] = ["system", "light", "dark"];
 
 /**

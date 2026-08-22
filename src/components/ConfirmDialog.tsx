@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { TriangleAlertIcon } from "lucide-react";
+import { useT } from "../i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,7 @@ type ConfirmDialogProps = {
  * foco al abrir.
  */
 export function ConfirmDialog({ request, onCancel }: ConfirmDialogProps) {
+  const t = useT();
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   // El contenido sobrevive a que `request` vuelva a null para que la animacion de
@@ -71,7 +73,7 @@ export function ConfirmDialog({ request, onCancel }: ConfirmDialogProps) {
           </AlertDialogHeader>
 
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t.confirmar.cancelar}</AlertDialogCancel>
             <AlertDialogAction
               ref={confirmRef}
               variant="destructive"

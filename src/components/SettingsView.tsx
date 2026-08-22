@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   ExternalLinkIcon,
   FileTextIcon,
+  LanguagesIcon,
   MonitorIcon,
   MoonIcon,
   ScaleIcon,
@@ -17,7 +18,8 @@ import {
 } from "lucide-react";
 import type { useUpdater } from "../hooks/useUpdater";
 import { AUTO_KILL_MIN_MB, THEMES, ZOMBIE_MIN_MINUTES } from "../types";
-import type { Settings, Theme } from "../types";
+import type { Language, Settings, Theme } from "../types";
+import { Marcado, useT } from "../i18n";
 import { formatMemory } from "../lib/format";
 import { Actualizaciones } from "./Actualizaciones";
 import { Button } from "@/components/ui/button";
@@ -37,7 +39,11 @@ const THEME_ICONS: Record<Theme, typeof SunIcon> = {
   dark: MoonIcon,
 };
 
+/** Los idiomas en el orden en que se ofrecen. El espanol primero: es el original. */
+const IDIOMAS: Language[] = ["es", "en"];
+
 export function SettingsView({ settings, onChange, updater }: SettingsViewProps) {
+  const t = useT();
   const [draft, setDraft] = useState("");
   const [mbDraft, setMbDraft] = useState(String(settings.autoKillMb));
 
@@ -106,16 +112,16 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
     try {
       await invoke("open_log_dir");
     } catch (e) {
-      toast.error("No se pudo abrir la carpeta", { description: String(e) });
+      toast.error(t.avisos.carpetaNoAbierta, { description: String(e) });
     }
   }
 
   async function copiarRutaDelLog() {
     try {
       await writeText(logPath);
-      toast.success("Ruta copiada");
+      toast.success(t.avisos.rutaCopiada);
     } catch (e) {
-      toast.error("No se pudo copiar la ruta", { description: String(e) });
+      toast.error(t.avisos.rutaNoCopiada, { description: String(e) });
     }
   }
 
@@ -134,7 +140,7 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
     try {
       await openPath(await resolveResource(nombre));
     } catch (e) {
-      toast.error(`No se pudo abrir ${nombre}`, { description: String(e) });
+      toast.error(t.avisos.recursoNoAbierto(nombre), { description: String(e) });
     }
   }
 
@@ -142,7 +148,7 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
     try {
       await openUrl("https://github.com/xfiberex/ProcessDevKill");
     } catch (e) {
-      toast.error("No se pudo abrir el navegador", { description: String(e) });
+      toast.error(t.avisos.navegadorNoAbierto, { description: String(e) });
     }
   }
 
@@ -192,15 +198,39 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
 
   return (
     <div className="max-w-2xl space-y-8 px-5 py-6">
+      {/* El idioma va **el primero de todos**: quien abra la app y no entienda la mitad tiene que
+          tropezarse con el selector sin buscarlo, y por eso el titulo va en los dos idiomas a la
+          vez. Cambiarlo retraduce tambien el menu de la bandeja y las notificaciones, que las
+          escribe Rust: ver `textos.rs`. */}
       <section>
-        <h2 className="font-heading text-sm font-semibold">Apariencia</h2>
+        <h2 className="font-heading text-sm font-semibold">{t.idioma.titulo}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t.idioma.descripcion}</p>
+
+        <div className="mt-3 flex gap-2">
+          {IDIOMAS.map((value) => (
+            <Button
+              key={value}
+              variant={settings.language === value ? "secondary" : "outline"}
+              aria-pressed={settings.language === value}
+              onClick={() => onChange({ ...settings, language: value })}
+            >
+              <LanguagesIcon />
+              {t.idioma.nombres[value]}
+            </Button>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.apariencia.titulo}
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Con <strong className="font-medium text-foreground">Sistema</strong>, la
-          app cambia sola cuando Windows pasa de claro a oscuro.
+          <Marcado texto={t.ajustes.apariencia.descripcion} />
         </p>
 
         <div className="mt-3 flex gap-2">
-          {THEMES.map(({ value, label }) => {
+          {THEMES.map((value) => {
             const Icon = THEME_ICONS[value];
             return (
               <Button
@@ -210,7 +240,7 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
                 onClick={() => onChange({ ...settings, theme: value })}
               >
                 <Icon />
-                {label}
+                {t.temas[value]}
               </Button>
             );
           })}
@@ -218,13 +248,11 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
       </section>
 
       <section>
-        <h2 className="font-heading text-sm font-semibold">Procesos vigilados</h2>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.vigilados.titulo}
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Node, Python y .NET se vigilan siempre. Aquí puedes añadir otros
-          ejecutables, como <code className="text-foreground">docker</code>,{" "}
-          <code className="text-foreground">go</code> o{" "}
-          <code className="text-foreground">php</code>. Se compara el nombre
-          exacto, sin la extensión.
+          <Marcado texto={t.ajustes.vigilados.descripcion} />
         </p>
 
         <div className="mt-3 flex gap-2">
@@ -234,10 +262,10 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             onKeyDown={(e) => {
               if (e.key === "Enter") addName();
             }}
-            placeholder="nombre del ejecutable"
+            placeholder={t.ajustes.vigilados.placeholder}
           />
           <Button variant="outline" onClick={addName}>
-            Añadir
+            {t.ajustes.vigilados.anadir}
           </Button>
         </div>
 
@@ -252,7 +280,7 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Quitar ${name}`}
+                  aria-label={t.ajustes.vigilados.quitar(name)}
                   onClick={() => removeName(name)}
                 >
                   <XIcon />
@@ -264,7 +292,9 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
       </section>
 
       <section>
-        <h2 className="font-heading text-sm font-semibold">Auto-Kill por memoria</h2>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.autoKill.titulo}
+        </h2>
         <div className="mt-3 flex items-start gap-3">
           <Switch
             id="auto-kill"
@@ -275,15 +305,9 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             className="mt-0.5"
           />
           <label htmlFor="auto-kill" className="cursor-pointer text-sm">
-            <span>Cerrar solos los procesos que se pasen de RAM</span>
+            <span>{t.ajustes.autoKill.interruptor}</span>
             <span className="mt-1 block text-muted-foreground">
-              Vigila los procesos de la lista y cierra{" "}
-              <strong className="font-medium text-foreground">
-                sin pedir confirmación
-              </strong>{" "}
-              el que supere el umbral. Pensado para fugas de memoria y watchers
-              desbocados. Avisa por notificación y queda en el historial como{" "}
-              <span className="font-medium text-foreground">Auto-Kill</span>.
+              <Marcado texto={t.ajustes.autoKill.detalle} />
             </span>
           </label>
         </div>
@@ -309,7 +333,7 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             }}
             // El texto de al lado va en aria-describedby, que es descripcion y no
             // nombre: sin este aria-label el campo se anuncia sin decir que es.
-            aria-label="Umbral de RAM en MB"
+            aria-label={t.ajustes.autoKill.campoLabel}
             aria-describedby="auto-kill-equivalencia"
             className="w-28 tabular-nums"
           />
@@ -317,15 +341,15 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             id="auto-kill-equivalencia"
             className="text-sm text-muted-foreground"
           >
-            MB por proceso
-            {equivalencia && ` (${equivalencia})`}. Mínimo{" "}
-            {AUTO_KILL_MIN_MB} MB.
+            {t.ajustes.autoKill.unidad(equivalencia, AUTO_KILL_MIN_MB)}
           </span>
         </div>
       </section>
 
       <section>
-        <h2 className="font-heading text-sm font-semibold">Zombie Finder</h2>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.zombie.titulo}
+        </h2>
         <div className="mt-3 flex items-start gap-3">
           <Switch
             id="zombie"
@@ -336,14 +360,9 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             className="mt-0.5"
           />
           <label htmlFor="zombie" className="cursor-pointer text-sm">
-            <span>Resaltar los procesos olvidados</span>
+            <span>{t.ajustes.zombie.interruptor}</span>
             <span className="mt-1 block text-muted-foreground">
-              Marca en la tabla los que llevan un rato sin consumir CPU{" "}
-              <strong className="font-medium text-foreground">
-                y siguen ocupando un puerto
-              </strong>
-              : el servidor de la semana pasada que aún tiene cogido el 3000. No
-              cierra nada, solo lo señala.
+              <Marcado texto={t.ajustes.zombie.detalle} />
             </span>
           </label>
         </div>
@@ -361,64 +380,60 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
             }}
-            aria-label="Minutos sin actividad"
+            aria-label={t.ajustes.zombie.campoLabel}
             aria-describedby="zombie-explicacion"
             className="w-28 tabular-nums"
           />
           <span id="zombie-explicacion" className="text-sm text-muted-foreground">
-            minutos parado. Mínimo {ZOMBIE_MIN_MINUTES}.
+            {t.ajustes.zombie.unidad(ZOMBIE_MIN_MINUTES)}
           </span>
         </div>
       </section>
 
       <section>
-        <h2 className="font-heading text-sm font-semibold">Actualizaciones</h2>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.actualizaciones.titulo}
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          La app comprueba al arrancar si hay una versión nueva en GitHub. Es lo{" "}
-          <strong className="font-medium text-foreground">único</strong> que
-          consulta en la red, y solo descarga si lo confirmas.
+          <Marcado texto={t.ajustes.actualizaciones.descripcion} />
         </p>
         <Actualizaciones updater={updater} />
       </section>
 
       <section>
-        <h2 className="font-heading text-sm font-semibold">Acerca de</h2>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.acercaDe.titulo}
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          ProcessDevKill{version && ` ${version}`} — software libre bajo{" "}
-          <strong className="font-medium text-foreground">GPL-3.0</strong>. Los
-          componentes de terceros que la app empaqueta, con sus licencias, están
-          en los avisos.
+          <Marcado
+            texto={t.ajustes.acercaDe.descripcion(version ? ` ${version}` : "")}
+          />
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => abrirRecurso("LICENSE.txt")}>
             <ScaleIcon />
-            Licencia
+            {t.ajustes.acercaDe.licencia}
           </Button>
           <Button
             variant="outline"
             onClick={() => abrirRecurso("THIRD-PARTY-NOTICES.txt")}
           >
             <FileTextIcon />
-            Avisos de terceros
+            {t.ajustes.acercaDe.avisos}
           </Button>
           <Button variant="ghost" onClick={abrirRepositorio}>
             <ExternalLinkIcon />
-            Repositorio
+            {t.ajustes.acercaDe.repositorio}
           </Button>
         </div>
 
         {logPath && (
           <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
             <p className="text-sm">
-              <strong className="font-medium">Registro de avisos</strong>
+              <strong className="font-medium">{t.ajustes.acercaDe.logTitulo}</strong>
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Cuando algo falla por dentro —guardar los ajustes, leer los puertos—, la app lo
-              anota aquí. Es un archivo local:{" "}
-              <strong className="font-medium text-foreground">
-                no se envía a ninguna parte
-              </strong>{" "}
-              y puedes borrarlo cuando quieras. Si abres un issue, adjuntarlo ayuda.
+              <Marcado texto={t.ajustes.acercaDe.logDescripcion} />
             </p>
             <p className="mt-2 font-mono text-xs break-all text-muted-foreground">
               {logPath}
@@ -426,10 +441,10 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             <div className="mt-3 flex flex-wrap gap-2">
               <Button variant="outline" onClick={abrirCarpetaDelLog}>
                 <ScrollTextIcon />
-                Abrir la carpeta
+                {t.ajustes.acercaDe.abrirCarpeta}
               </Button>
               <Button variant="ghost" onClick={copiarRutaDelLog}>
-                Copiar la ruta
+                {t.ajustes.acercaDe.copiarRuta}
               </Button>
             </div>
           </div>
@@ -437,7 +452,9 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
       </section>
 
       <section>
-        <h2 className="font-heading text-sm font-semibold">Al cerrar la ventana</h2>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.alCerrar.titulo}
+        </h2>
         <div className="mt-3 flex items-start gap-3">
           <Switch
             id="close-to-tray"
@@ -448,25 +465,18 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             className="mt-0.5"
           />
           <label htmlFor="close-to-tray" className="cursor-pointer text-sm">
-            <span>Dejarla en la bandeja en vez de cerrar la app</span>
+            <span>{t.ajustes.alCerrar.interruptor}</span>
             <span className="mt-1 block text-muted-foreground">
-              Con esto activado, el botón{" "}
-              <span className="font-medium text-foreground">✕</span> esconde la
-              ventana y ProcessDevKill{" "}
-              <strong className="font-medium text-foreground">
-                sigue funcionando
-              </strong>{" "}
-              en segundo plano: el Auto-Kill y el atajo global siguen vigilando. Para
-              recuperarla, pulsa su icono en la bandeja; para salir del todo,{" "}
-              <span className="font-medium text-foreground">Salir</span> en el menú
-              de ese icono.
+              <Marcado texto={t.ajustes.alCerrar.detalle} />
             </span>
           </label>
         </div>
       </section>
 
       <section>
-        <h2 className="font-heading text-sm font-semibold">Atajo global</h2>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.atajo.titulo}
+        </h2>
         <div className="mt-3 flex items-start gap-3">
           <Switch
             id="hotkey"
@@ -478,18 +488,15 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
           />
           <label htmlFor="hotkey" className="cursor-pointer text-sm">
             <span>
-              Activar{" "}
+              {t.ajustes.atajo.activar}{" "}
+              {/* El `<kbd>` es estructura, no texto: se queda aqui y el catalogo solo pone
+                  la palabra que lo precede. */}
               <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                 Ctrl+Alt+K
               </kbd>
             </span>
             <span className="mt-1 block text-muted-foreground">
-              Cierra <strong className="font-medium text-foreground">todos</strong>{" "}
-              los procesos vigilados al instante, funcione o no la ventana, y{" "}
-              <strong className="font-medium text-foreground">
-                sin pedir confirmación
-              </strong>
-              . Queda registrado en el historial.
+              <Marcado texto={t.ajustes.atajo.detalle} />
             </span>
           </label>
         </div>

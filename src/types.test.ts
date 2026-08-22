@@ -8,7 +8,7 @@ import {
   SYSTEM_USAGE,
   ZOMBIE_MIN_MINUTES,
 } from "./types";
-import type { SystemUsage } from "./types";
+import type { Language, SystemUsage } from "./types";
 
 const raiz = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -83,6 +83,25 @@ describe("el contrato con Rust", () => {
     };
 
     expect(campos.sort()).toEqual(Object.keys(muestra).sort());
+  });
+
+  /**
+   * El idioma es el unico ajuste que **los dos lados** interpretan: la ventana elige su catalogo
+   * con el, y Rust elige el suyo para el menu de la bandeja y las notificaciones. Si Rust ganara
+   * una variante y aqui no, el JSON traeria un valor que el frontend no sabe leer y la ventana
+   * caeria al español sin decir nada.
+   */
+  it("cubre los mismos idiomas que el enum Language de storage.rs", () => {
+    const rust = leerRust("storage.rs");
+    const bloque = rust.match(/pub enum Language\s*\{([^}]+)\}/);
+    expect(bloque, "no se encontro el enum Language").not.toBeNull();
+    const variantes = [...bloque![1].matchAll(/^\s*([A-Z]\w+)/gm)].map((v) =>
+      v[1].toLowerCase(),
+    );
+
+    // TypeScript obliga a que esta lista este completa; el test compara que sea la de Rust.
+    const delFrontend: Language[] = ["es", "en"];
+    expect(variantes.sort()).toEqual([...delFrontend].sort());
   });
 
   it("cubre los cuatro origenes de KillSource", () => {

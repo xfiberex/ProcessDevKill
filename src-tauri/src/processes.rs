@@ -27,10 +27,11 @@ impl Runtime {
         }
     }
 
-    /// Los que tienen accion propia en el menu de la bandeja. El menu los nombra
-    /// uno a uno (cada uno con su etiqueta), asi que fuera de los tests nadie
-    /// recorre la lista; de ahi el `cfg(test)`.
-    #[cfg(test)]
+    /// Los que tienen accion propia en el menu de la bandeja.
+    ///
+    /// Estuvo bajo `cfg(test)` mientras el menu nombraba los tres a mano. Al traducirlo (T4-01)
+    /// esas tres lineas pasaron a pedir cada una su traduccion, asi que el menu se arma
+    /// recorriendo esta lista y la constante dejo de ser solo de pruebas.
     pub const BUILT_INS: [Runtime; 3] = [Runtime::Node, Runtime::Python, Runtime::Dotnet];
 }
 

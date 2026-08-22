@@ -13,6 +13,7 @@ import type {
   SystemUsage,
 } from "./types";
 import { ThemeProvider } from "./theme";
+import { CATALOGOS, I18nProvider } from "./i18n";
 import { DEFAULT_SORT, FIRST_DIR, sortProcesses } from "./lib/sort";
 import type { SortKey } from "./lib/sort";
 import { useUpdater } from "./hooks/useUpdater";
@@ -51,6 +52,9 @@ const DEFAULT_SETTINGS: Settings = {
   autoKillMb: 2048,
   zombieEnabled: false,
   zombieMinutes: 10,
+  // Igual que en Rust: espanol. El idioma no se detecta del sistema a proposito; el motivo
+  // esta escrito en el enum `Language` de storage.rs.
+  language: "es",
 };
 
 export default function App() {
@@ -69,6 +73,10 @@ export default function App() {
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [usage, setUsage] = useState<SystemUsage | null>(null);
   const updater = useUpdater();
+
+  // El catalogo se lee aqui ademas de proveerlo mas abajo: los toast y los dialogos se arman en
+  // callbacks de este componente, que estan **fuera** del proveedor y no pueden usar `useT()`.
+  const t = CATALOGOS[settings.language] ?? CATALOGOS.es;
 
   const applyList = useCallback((list: ProcessInfo[]) => {
     setProcesses(list);
@@ -158,9 +166,12 @@ export default function App() {
 
     buscarActualizacion(true).then((version) => {
       if (cancelado || !version) return;
-      toast.info(`ProcessDevKill v${version} disponible`, {
-        description: "Ábrelo en Ajustes para descargarlo e instalarlo.",
-        action: { label: "Ajustes", onClick: () => setView("settings") },
+      toast.info(t.avisos.hayVersion(version), {
+        description: t.avisos.hayVersionComo,
+        action: {
+          label: t.avisos.irAAjustes,
+          onClick: () => setView("settings"),
+        },
         duration: 12_000,
       });
     });
@@ -168,6 +179,10 @@ export default function App() {
     return () => {
       cancelado = true;
     };
+    // `t` queda fuera de las dependencias a proposito: este efecto tiene que correr **una vez**,
+    // al arrancar. Incluirlo relanzaria la comprobacion de actualizaciones cada vez que se cambia
+    // de idioma, que es una consulta de red por un ajuste que no tiene nada que ver.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buscarActualizacion]);
 
   async function saveSettings(next: Settings) {
@@ -181,7 +196,7 @@ export default function App() {
       setSettings(await invoke<Settings>("save_settings", { settings: next }));
     } catch (e) {
       setSettings(anterior);
-      toast.error("No se pudieron guardar los ajustes", { description: String(e) });
+      toast.error(t.avisos.ajustesNoGuardados, { description: String(e) });
     }
   }
 
@@ -223,12 +238,11 @@ export default function App() {
       const failed = outcomes.filter((o) => !o.killed);
 
       if (failed.length === outcomes.length) {
-        toast.error(failed[0].error ?? "No se pudo terminar el proceso");
+        toast.error(failed[0].error ?? t.avisos.noSePudoTerminar);
       } else if (failed.length > 0) {
-        toast.warning(
-          `${failed.length} de ${outcomes.length} no se pudieron terminar`,
-          { description: failed[0].error ?? undefined },
-        );
+        toast.warning(t.avisos.fallosParciales(failed.length, outcomes.length), {
+          description: failed[0].error ?? undefined,
+        });
       } else {
         // Los puertos liberados son la razon de ser de la app, asi que si los
         // hay, se dicen. Rust manda ademas una notificacion nativa: esa es para
@@ -239,15 +253,11 @@ export default function App() {
         );
         toast.success(
           outcomes.length === 1
-            ? `${outcomes[0].name} cerrado`
-            : `${outcomes.length} procesos cerrados`,
+            ? t.avisos.cerradoUno(outcomes[0].name)
+            : t.avisos.cerradosVarios(outcomes.length),
           {
             description:
-              freed.length === 0
-                ? undefined
-                : freed.length === 1
-                  ? `Puerto ${freed[0]} liberado`
-                  : `Puertos ${freed.join(", ")} liberados`,
+              freed.length === 0 ? undefined : t.avisos.puertosLiberados(freed),
           },
         );
       }
@@ -270,9 +280,9 @@ export default function App() {
   async function copyToClipboard(text: string, what: string) {
     try {
       await writeText(text);
-      toast.success(`Copiado: ${what}`);
+      toast.success(t.avisos.copiado(what));
     } catch (e) {
-      toast.error(`No se pudo copiar: ${e}`);
+      toast.error(t.avisos.noSePudoCopiar(String(e)));
     }
   }
 
@@ -289,14 +299,11 @@ export default function App() {
     setSelected(allSelected ? new Set() : new Set(visible.map((p) => p.pid)));
   }
 
-  function askNuke(pids: number[], scope: string) {
-    const uno = pids.length === 1;
+  function askNuke(pids: number[], ambito: string) {
     setConfirm({
-      title: `Cerrar ${pids.length} ${uno ? "proceso" : "procesos"}`,
-      message: `Se ${uno ? "terminará" : "terminarán"} ${scope}. ${
-        uno ? "El proceso se cierra" : "Los procesos se cierran"
-      } de golpe, sin guardar nada. Esta acción no se puede deshacer.`,
-      confirmLabel: uno ? "Cerrar proceso" : "Cerrar procesos",
+      title: t.confirmar.cerrarTitulo(pids.length),
+      message: t.confirmar.cerrarMensaje(pids.length, ambito),
+      confirmLabel: t.confirmar.cerrarBoton(pids.length),
       onConfirm: () => killMany(pids),
     });
   }
@@ -313,6 +320,9 @@ export default function App() {
      * `index.css`. Las dos hacen falta.
      */
     <MotionConfig reducedMotion="user">
+    {/* Por dentro del tema y por fuera de todo lo demas: el idioma lo necesita hasta el
+        `ConfirmDialog`, que se pinta al final del arbol. */}
+    <I18nProvider language={settings.language}>
     <ThemeProvider theme={settings.theme}>
       <div className="flex h-full">
         <Sidebar
@@ -332,10 +342,10 @@ export default function App() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar por nombre, PID o puerto…"
+                placeholder={t.cabecera.buscarPlaceholder}
                 // El placeholder desaparece en cuanto se escribe, asi que no vale como nombre
                 // accesible (WCAG 3.3.2): con texto dentro, el campo se anunciaba sin decir que es.
-                aria-label="Buscar procesos"
+                aria-label={t.cabecera.buscarLabel}
                 className="min-w-0 flex-1"
               />
 
@@ -344,16 +354,14 @@ export default function App() {
                   no que interrumpa lo que se estuviera leyendo. */}
               <span
                 className="shrink-0 text-sm text-muted-foreground tabular-nums"
-                aria-label={`${visible.length} ${
-                  visible.length === 1 ? "proceso en la lista" : "procesos en la lista"
-                }`}
+                aria-label={t.cabecera.enLaLista(visible.length)}
                 aria-live="polite"
               >
                 {visible.length}
               </span>
 
               <Button variant="outline" onClick={refresh} className="shrink-0">
-                Refrescar
+                {t.cabecera.refrescar}
               </Button>
 
               {selectedVisible.length > 0 ? (
@@ -363,13 +371,11 @@ export default function App() {
                   onClick={() =>
                     askNuke(
                       selectedVisible.map((p) => p.pid),
-                      selectedVisible.length === 1
-                        ? "el proceso seleccionado"
-                        : `los ${selectedVisible.length} procesos seleccionados`,
+                      t.confirmar.ambitoSeleccionados(selectedVisible.length),
                     )
                   }
                 >
-                  Matar {selectedVisible.length}
+                  {t.cabecera.matar(selectedVisible.length)}
                 </Button>
               ) : (
                 <Button
@@ -380,12 +386,12 @@ export default function App() {
                     askNuke(
                       visible.map((p) => p.pid),
                       filter === "all" && !query
-                        ? "todos los procesos de desarrollo activos"
-                        : "todos los procesos de la lista filtrada",
+                        ? t.confirmar.ambitoTodos
+                        : t.confirmar.ambitoFiltrados,
                     )
                   }
                 >
-                  Nuke All
+                  {t.cabecera.nukeAll}
                 </Button>
               )}
             </header>
@@ -405,10 +411,9 @@ export default function App() {
                 entries={history}
                 onClear={() =>
                   setConfirm({
-                    title: "Vaciar el historial",
-                    message:
-                      "Se borrará el registro de procesos cerrados. No afecta a ningún proceso en ejecución.",
-                    confirmLabel: "Vaciar",
+                    title: t.confirmar.vaciarTitulo,
+                    message: t.confirmar.vaciarMensaje,
+                    confirmLabel: t.confirmar.vaciarBoton,
                     onConfirm: async () => {
                       // El unico `invoke` del frontend que estaba sin `try`: si la escritura
                       // fallaba, saltaba una promesa rechazada sin gestionar y el dialogo se
@@ -418,7 +423,7 @@ export default function App() {
                         await invoke("clear_history");
                         loadHistory();
                       } catch (e) {
-                        toast.error("No se pudo vaciar el historial", {
+                        toast.error(t.avisos.historialNoVaciado, {
                           description: String(e),
                         });
                       }
@@ -454,6 +459,7 @@ export default function App() {
         <Toaster position="bottom-right" />
       </div>
     </ThemeProvider>
+    </I18nProvider>
     </MotionConfig>
   );
 }

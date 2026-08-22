@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { ProcessInfo, ReleaseInfo, Runtime } from "../types";
+import type { ProcessInfo, ReleaseInfo, Runtime, Settings } from "../types";
 import type { UpdateState } from "../hooks/useUpdater";
 
 /**
@@ -106,7 +106,7 @@ export function resetTauriMocks() {
   listen.mockImplementation(async () => () => {});
 }
 
-export const DEFAULT_TEST_SETTINGS = {
+export const DEFAULT_TEST_SETTINGS: Settings = {
   customNames: [],
   hotkeyEnabled: true,
   closeToTray: false,
@@ -116,6 +116,10 @@ export const DEFAULT_TEST_SETTINGS = {
   autoKillMb: 2048,
   zombieEnabled: false,
   zombieMinutes: 10,
+  // Espanol, que es el idioma con el que se escribieron todas las aserciones de las pruebas.
+  // Anotar el tipo como `Settings` -y no dejarlo inferir- es lo que hace que olvidarse de un
+  // campo nuevo falle aqui, en un sitio, y no en cada archivo que arma unos ajustes.
+  language: "es",
 };
 
 /** Un ProcessInfo completo con lo justo cambiado, para no repetir 8 campos. */

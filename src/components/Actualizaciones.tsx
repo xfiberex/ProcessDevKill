@@ -5,6 +5,7 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import type { useUpdater } from "../hooks/useUpdater";
+import { useT } from "../i18n";
 import { Button } from "@/components/ui/button";
 
 type ActualizacionesProps = {
@@ -26,6 +27,7 @@ type ActualizacionesProps = {
  * instalar solo aparece con una version encontrada y nunca se dispara solo.
  */
 export function Actualizaciones({ updater }: ActualizacionesProps) {
+  const t = useT();
   const { state, buscar, instalar } = updater;
 
   const ocupado =
@@ -38,20 +40,20 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" onClick={() => buscar()} disabled={ocupado}>
           <RefreshCwIcon className={state.fase === "buscando" ? "animate-spin" : ""} />
-          Buscar actualizaciones
+          {t.actualizador.buscar}
         </Button>
 
         {state.fase === "al-dia" && (
           <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <CheckIcon className="size-4 text-emerald-600 dark:text-emerald-500" />
-            Ya tienes la última versión.
+            {t.actualizador.alDia}
           </span>
         )}
 
         {state.fase === "error" && (
           <span className="flex items-start gap-1.5 text-sm text-destructive">
             <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
-            No se pudo comprobar: {state.mensaje}
+            {t.actualizador.error(state.mensaje)}
           </span>
         )}
       </div>
@@ -59,7 +61,7 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
       {state.fase === "disponible" && (
         <div className="rounded-lg border border-border bg-muted/40 p-3">
           <p className="text-sm">
-            Hay una versión nueva:{" "}
+            {t.actualizador.hayVersion}{" "}
             <strong className="font-medium">v{state.version}</strong>
           </p>
           {state.notas && (
@@ -69,11 +71,10 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
           )}
           <Button className="mt-3" onClick={instalar}>
             <DownloadIcon />
-            Descargar e instalar
+            {t.actualizador.instalar}
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
-            Se instala en silencio: la app se cierra, se actualiza y vuelve a abrirse
-            sola. No hay que responder a ninguna ventana.
+            {t.actualizador.comoInstala}
           </p>
         </div>
       )}
@@ -81,7 +82,7 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
       {state.fase === "descargando" && (
         <div className="rounded-lg border border-border bg-muted/40 p-3">
           <p className="text-sm">
-            Descargando…
+            {t.actualizador.descargando}
             {state.porcentaje !== null && ` ${state.porcentaje} %`}
           </p>
           {/* `progressbar` en el contenedor, no en la barra interior: el rol va en el elemento que
@@ -91,7 +92,7 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
           <div
             className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
             role="progressbar"
-            aria-label="Progreso de la descarga"
+            aria-label={t.actualizador.progresoLabel}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={state.porcentaje ?? undefined}
@@ -113,7 +114,7 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
       )}
 
       {state.fase === "instalando" && (
-        <p className="text-sm text-muted-foreground">Instalando y reiniciando…</p>
+        <p className="text-sm text-muted-foreground">{t.actualizador.instalando}</p>
       )}
     </div>
   );

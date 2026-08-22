@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { ChevronRightIcon, HistoryIcon, ListIcon, SettingsIcon } from "lucide-react";
-import { REFRESH_INTERVALS, RUNTIMES } from "../types";
+import { REFRESH_INTERVALS, RUNTIME_COLORS } from "../types";
 import type { ProcessInfo, Runtime, SystemUsage } from "../types";
+import { useT } from "../i18n";
 import { RUNTIME_ICONS } from "../icons";
 import { UsageMeter } from "./UsageMeter";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,8 @@ export function Sidebar({
   onRefreshMsChange,
   usage,
 }: SidebarProps) {
+  const t = useT();
+
   /**
    * Si los filtros estan desplegados bajo "Procesos".
    *
@@ -73,7 +76,7 @@ export function Sidebar({
         <h1 className="font-heading text-sm font-semibold tracking-wide">
           ProcessDevKill
         </h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">Process Manager</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t.sidebar.subtitulo}</p>
       </div>
 
       {/* En vertical, y no tres pestañas en fila: con 208 px de ancho no cabian
@@ -82,7 +85,7 @@ export function Sidebar({
       <nav className="flex flex-col gap-0.5 p-2">
         <NavItem
           icon={ListIcon}
-          label="Procesos"
+          label={t.sidebar.procesos}
           active={view === "processes"}
           onClick={pulsarProcesos}
           expandido={desplegado}
@@ -100,15 +103,15 @@ export function Sidebar({
             className="ml-3.75 flex flex-col gap-0.5 border-l border-sidebar-border pl-2"
           >
             <FilterButton
-              label="Todos"
+              label={t.sidebar.todos}
               count={processes.length}
               active={filter === "all"}
               onClick={() => onFilterChange("all")}
             />
-            {(Object.keys(RUNTIMES) as Runtime[]).map((runtime) => (
+            {(Object.keys(RUNTIME_COLORS) as Runtime[]).map((runtime) => (
               <FilterButton
                 key={runtime}
-                label={RUNTIMES[runtime].label}
+                label={t.runtimes[runtime]}
                 runtime={runtime}
                 count={processes.filter((p) => p.runtime === runtime).length}
                 active={filter === runtime}
@@ -120,13 +123,13 @@ export function Sidebar({
 
         <NavItem
           icon={HistoryIcon}
-          label="Historial"
+          label={t.sidebar.historial}
           active={view === "history"}
           onClick={() => onViewChange("history")}
         />
         <NavItem
           icon={SettingsIcon}
-          label="Ajustes"
+          label={t.sidebar.ajustes}
           active={view === "settings"}
           onClick={() => onViewChange("settings")}
         />
@@ -139,7 +142,7 @@ export function Sidebar({
       </div>
 
       <div className="border-t border-sidebar-border p-3">
-        <p className="mb-2 text-xs text-muted-foreground">Auto-refresco</p>
+        <p className="mb-2 text-xs text-muted-foreground">{t.sidebar.autoRefresco}</p>
         <div className="flex gap-1">
           {REFRESH_INTERVALS.map(({ label, ms }) => (
             <Button
@@ -243,7 +246,7 @@ function FilterButton({
       {Icon ? (
         <Icon
           className="size-4 shrink-0"
-          style={{ color: RUNTIMES[runtime!].color }}
+          style={{ color: RUNTIME_COLORS[runtime!] }}
         />
       ) : (
         // Hueco del mismo tamano que el icono: sin el, "Todos" no alinea su

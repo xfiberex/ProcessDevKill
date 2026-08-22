@@ -1,5 +1,5 @@
-import { KILL_SOURCES } from "../types";
 import type { HistoryEntry } from "../types";
+import { useT } from "../i18n";
 import { formatTimestamp } from "../lib/format";
 import { Button } from "@/components/ui/button";
 
@@ -9,10 +9,12 @@ type HistoryViewProps = {
 };
 
 export function HistoryView({ entries, onClear }: HistoryViewProps) {
+  const t = useT();
+
   if (entries.length === 0) {
     return (
       <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-        Todavía no se ha cerrado ningún proceso.
+        {t.historial.vacio}
       </p>
     );
   }
@@ -22,35 +24,35 @@ export function HistoryView({ entries, onClear }: HistoryViewProps) {
       <div className="flex items-center justify-between px-5 py-3">
         {/* La frase entera cambia de número, no solo el sustantivo: singularizar
             "cierre" y dejar "registrados" daba "1 cierre registrados". Es el mismo
-            descuido que el "Se terminaran los 1 procesos" del Tier 5. */}
+            descuido que el "Se terminaran los 1 procesos" del Tier 5. Por eso el
+            recuento es una funcion del catalogo y no una plantilla con un hueco. */}
         <span className="text-sm text-muted-foreground">
-          {entries.length}{" "}
-          {entries.length === 1 ? "cierre registrado" : "cierres registrados"}
+          {t.historial.recuento(entries.length)}
         </span>
         <Button variant="outline" size="sm" onClick={onClear}>
-          Vaciar historial
+          {t.historial.vaciar}
         </Button>
       </div>
 
       <table className="w-full text-sm">
         {/* Mismo motivo que en ProcessTable: sin `caption` la tabla no dice de que es. */}
-        <caption className="sr-only">Procesos cerrados, del mas reciente al mas antiguo</caption>
+        <caption className="sr-only">{t.historial.caption}</caption>
         <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
           <tr>
             <th scope="col" className="px-5 py-2 text-left font-medium">
-              Cuándo
+              {t.historial.cuando}
             </th>
             <th scope="col" className="px-3 py-2 text-left font-medium">
-              Proceso
+              {t.historial.proceso}
             </th>
             <th scope="col" className="px-3 py-2 text-right font-medium">
-              PID
+              {t.historial.pid}
             </th>
             <th scope="col" className="px-3 py-2 text-left font-medium">
-              Puertos liberados
+              {t.historial.puertosLiberados}
             </th>
             <th scope="col" className="px-5 py-2 text-right font-medium">
-              Origen
+              {t.historial.origen}
             </th>
           </tr>
         </thead>
@@ -86,7 +88,7 @@ export function HistoryView({ entries, onClear }: HistoryViewProps) {
                 )}
               </td>
               <td className="px-5 py-2 text-right text-xs text-muted-foreground">
-                {KILL_SOURCES[entry.source]}
+                {t.origenes[entry.source]}
               </td>
             </tr>
           ))}

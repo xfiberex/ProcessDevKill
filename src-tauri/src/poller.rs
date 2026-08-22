@@ -78,7 +78,7 @@ fn cycle(app: &AppHandle, publish_list: bool, medido: &mut Option<Instant>) {
     // Si el Auto-Kill cerro algo, `kill_and_record` ya publico la lista sin los
     // muertos: publicar aqui la que se leyo antes haria parpadear filas que ya
     // no existen.
-    if auto_enabled && auto_kill::enforce(app, &list, limit_mb) {
+    if auto_enabled && auto_kill::enforce(app, state.language(), &list, limit_mb) {
         return;
     }
 

@@ -8,10 +8,11 @@ import {
   SkullIcon,
 } from "lucide-react";
 import { RUNTIME_ICONS } from "../icons";
-import { RUNTIMES } from "../types";
+import { RUNTIME_COLORS } from "../types";
 import type { ProcessInfo } from "../types";
+import { useT } from "../i18n";
+import type { Catalogo } from "../i18n";
 import { formatMemory, formatUptime } from "../lib/format";
-import { SORT_LABELS } from "../lib/sort";
 import type { Sort, SortKey } from "../lib/sort";
 import { UsageBar } from "./UsageBar";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,8 @@ export function ProcessTable({
   onKill,
   onCopy,
 }: ProcessTableProps) {
+  const t = useT();
+
   // Referencias para las barras: el proceso que mas consume marca el 100 %.
   const maxCpu = Math.max(...processes.map((p) => p.cpu), 0.001);
   const maxMemory = Math.max(...processes.map((p) => p.memoryMb), 1);
@@ -60,7 +63,7 @@ export function ProcessTable({
       {/* Sin esto la tabla se anuncia como "tabla, 8 columnas" y nada mas. `sr-only` porque el
           titulo ya esta a la vista en la cabecera: es informacion que le falta al lector de
           pantalla, no a la ventana. */}
-      <caption className="sr-only">Procesos de desarrollo activos</caption>
+      <caption className="sr-only">{t.tabla.caption}</caption>
       <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
         <tr>
           {/* scope="col": en una tabla de ocho columnas es lo que hace que un
@@ -70,22 +73,29 @@ export function ProcessTable({
             <Checkbox
               checked={allSelected}
               onCheckedChange={onToggleAll}
-              aria-label="Seleccionar todos"
+              aria-label={t.tabla.seleccionarTodos}
             />
           </th>
-          <SortableHeader sortKey="name" sort={sort} onSort={onSort} />
-          <SortableHeader sortKey="port" sort={sort} onSort={onSort} />
-          <SortableHeader sortKey="pid" sort={sort} onSort={onSort} align="right" />
-          <SortableHeader sortKey="cpu" sort={sort} onSort={onSort} align="right" />
-          <SortableHeader sortKey="memoryMb" sort={sort} onSort={onSort} align="right" />
+          <SortableHeader sortKey="name" sort={sort} onSort={onSort} t={t} />
+          <SortableHeader sortKey="port" sort={sort} onSort={onSort} t={t} />
+          <SortableHeader sortKey="pid" sort={sort} onSort={onSort} t={t} align="right" />
+          <SortableHeader sortKey="cpu" sort={sort} onSort={onSort} t={t} align="right" />
+          <SortableHeader
+            sortKey="memoryMb"
+            sort={sort}
+            onSort={onSort}
+            t={t}
+            align="right"
+          />
           <SortableHeader
             sortKey="runTimeSecs"
             sort={sort}
             onSort={onSort}
+            t={t}
             align="right"
           />
           <th scope="col" className="px-5 py-2">
-            <span className="sr-only">Acciones</span>
+            <span className="sr-only">{t.tabla.acciones}</span>
           </th>
         </tr>
       </thead>
@@ -94,7 +104,8 @@ export function ProcessTable({
         <AnimatePresence initial={false}>
           {processes.map((p) => {
             const Icon = RUNTIME_ICONS[p.runtime];
-            const { color, label } = RUNTIMES[p.runtime];
+            const color = RUNTIME_COLORS[p.runtime];
+            const label = t.runtimes[p.runtime];
             const isKilling = killing.has(p.pid);
 
             return (
@@ -128,7 +139,7 @@ export function ProcessTable({
                     <Checkbox
                       checked={selected.has(p.pid)}
                       onCheckedChange={() => onToggle(p.pid)}
-                      aria-label={`Seleccionar PID ${p.pid}`}
+                      aria-label={t.tabla.seleccionarPid(p.pid)}
                     />
                   </td>
 
@@ -140,10 +151,13 @@ export function ProcessTable({
                       {p.zombie && (
                         <span
                           className="flex shrink-0 items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
-                          title={`Sin actividad desde hace ${formatUptime(p.idleSecs)}, y sigue ocupando ${p.ports.length === 1 ? "el puerto" : "los puertos"} ${p.ports.join(", ")}`}
+                          title={t.tabla.zombiTitulo(
+                            formatUptime(p.idleSecs),
+                            p.ports,
+                          )}
                         >
                           <GhostIcon className="size-3.5" aria-hidden />
-                          Zombi
+                          {t.tabla.zombi}
                         </span>
                       )}
                     </span>
@@ -205,9 +219,9 @@ export function ProcessTable({
                       // sin decir cual mata cada uno. El checkbox de la misma fila ya
                       // se nombraba bien; para el boton que cierra un proceso es
                       // justo la etiqueta que no se puede fallar.
-                      aria-label={`Cerrar ${p.name}, PID ${p.pid}`}
+                      aria-label={t.tabla.killLabel(p.name, p.pid)}
                     >
-                      Kill
+                      {t.tabla.kill}
                     </Button>
                   </td>
                 </ContextMenuTrigger>
@@ -218,34 +232,29 @@ export function ProcessTable({
                     onClick={() => onKill(p.pid)}
                   >
                     <SkullIcon />
-                    Matar proceso
+                    {t.tabla.matarProceso}
                   </ContextMenuItem>
                   <ContextMenuSeparator />
                   <ContextMenuItem
                     onClick={() => onCopy(String(p.pid), `PID ${p.pid}`)}
                   >
                     <CopyIcon />
-                    Copiar PID
+                    {t.tabla.copiarPid}
                   </ContextMenuItem>
                   <ContextMenuItem
                     onClick={() => onCopy(p.name, p.name)}
                   >
                     <CopyIcon />
-                    Copiar nombre
+                    {t.tabla.copiarNombre}
                   </ContextMenuItem>
                   {p.ports.length > 0 && (
                     <ContextMenuItem
                       onClick={() =>
-                        onCopy(
-                          p.ports.join(", "),
-                          p.ports.length === 1
-                            ? `puerto ${p.ports[0]}`
-                            : `puertos ${p.ports.join(", ")}`,
-                        )
+                        onCopy(p.ports.join(", "), t.tabla.quePuertos(p.ports))
                       }
                     >
                       <CopyIcon />
-                      {p.ports.length === 1 ? "Copiar puerto" : "Copiar puertos"}
+                      {t.tabla.copiarPuertos(p.ports.length)}
                     </ContextMenuItem>
                   )}
                   {p.ports.length > 0 && (
@@ -258,7 +267,7 @@ export function ProcessTable({
                       }
                     >
                       <CopyIcon />
-                      Copiar http://localhost:{p.ports[0]}
+                      {t.tabla.copiarUrl(`http://localhost:${p.ports[0]}`)}
                     </ContextMenuItem>
                   )}
                 </ContextMenuContent>
@@ -282,11 +291,15 @@ function SortableHeader({
   sortKey,
   sort,
   onSort,
+  t,
   align = "left",
 }: {
   sortKey: SortKey;
   sort: Sort;
   onSort: (key: SortKey) => void;
+  /** El catalogo llega por prop: son seis instancias por render y no hace falta que cada
+   *  una vuelva a pedir el contexto. */
+  t: Catalogo;
   align?: "left" | "right";
 }) {
   const activa = sort.key === sortKey;
@@ -309,7 +322,7 @@ function SortableHeader({
           align === "right" ? "justify-end" : "justify-start"
         } ${activa ? "text-foreground" : ""}`}
       >
-        {SORT_LABELS[sortKey]}
+        {t.columnas[sortKey]}
         {activa ? (
           <Flecha className="size-3.5 shrink-0" aria-hidden />
         ) : (

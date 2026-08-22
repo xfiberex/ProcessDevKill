@@ -13,7 +13,8 @@ use tauri::AppHandle;
 
 use crate::notify;
 use crate::processes::{over_memory_limit, KillOutcome, ProcessInfo};
-use crate::storage::KillSource;
+use crate::storage::{KillSource, Language};
+use crate::textos;
 
 /// Cierra los procesos de `list` que pasen del umbral y lo cuenta por
 /// notificacion. Devuelve `true` si cerro alguno.
@@ -24,7 +25,7 @@ use crate::storage::KillSource;
 ///
 /// El aviso no es un adorno: es la unica forma de enterarse de que la app ha
 /// matado algo por su cuenta, y puede ocurrir con la ventana oculta en la bandeja.
-pub fn enforce(app: &AppHandle, list: &[ProcessInfo], limit_mb: u64) -> bool {
+pub fn enforce(app: &AppHandle, lang: Language, list: &[ProcessInfo], limit_mb: u64) -> bool {
     let excedidos: Vec<(u32, String, f64)> = over_memory_limit(list, limit_mb)
         .into_iter()
         .map(|p| (p.pid, p.name.clone(), p.memory_mb))
@@ -44,12 +45,13 @@ pub fn enforce(app: &AppHandle, list: &[ProcessInfo], limit_mb: u64) -> bool {
         return true;
     }
 
-    notify::show(app, mensaje(&excedidos, &cerrados, limit_mb));
+    notify::show(app, mensaje(lang, &excedidos, &cerrados, limit_mb));
     true
 }
 
 /// Redacta el aviso: quien murio, cuanto usaba y que puertos dejo libres.
 fn mensaje(
+    lang: Language,
     excedidos: &[(u32, String, f64)],
     cerrados: &[&KillOutcome],
     limit_mb: u64,
@@ -61,22 +63,15 @@ fn mensaje(
             .iter()
             .find(|(pid, _, _)| *pid == cerrados[0].pid)
             .expect("el cierre viene de esta misma lista");
-        format!(
-            "{name} (PID {}) usaba {}, por encima del límite de {limite}. Cerrado automáticamente.",
-            cerrados[0].pid,
-            format_mb(*mb)
-        )
+        textos::auto_kill_uno(lang, name, cerrados[0].pid, &format_mb(*mb), &limite)
     } else {
-        format!(
-            "{} procesos cerrados automáticamente por pasar de {limite}.",
-            cerrados.len()
-        )
+        textos::auto_kill_varios(lang, cerrados.len(), &limite)
     };
 
     let mut freed: Vec<u16> = cerrados.iter().flat_map(|o| o.freed_ports.clone()).collect();
     freed.sort_unstable();
     freed.dedup();
-    if let Some(frase) = notify::freed_ports_sentence(&freed) {
+    if let Some(frase) = textos::freed_ports_sentence(lang, &freed) {
         body.push(' ');
         body.push_str(&frase);
     }
@@ -118,7 +113,7 @@ mod tests {
             freed_ports: vec![3000],
             name: "node.exe".into(),
         };
-        let texto = mensaje(&[(42, "node.exe".into(), 3072.0)], &[&outcome], 2048);
+        let texto = mensaje(Language::Es, &[(42, "node.exe".into(), 3072.0)], &[&outcome], 2048);
 
         assert!(texto.contains("node.exe (PID 42)"), "{texto}");
         assert!(texto.contains("3.0 GB"), "{texto}");
@@ -146,6 +141,7 @@ mod tests {
             name: "python.exe".into(),
         };
         let texto = mensaje(
+            Language::Es,
             &[(1, "node.exe".into(), 3000.0), (2, "python.exe".into(), 4000.0)],
             &[&uno, &dos],
             2048,

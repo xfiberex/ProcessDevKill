@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
+import { catalogoVigente, Marcado } from "../i18n";
 
 type Props = { children: ReactNode };
 type State = { error: Error | null };
@@ -20,6 +21,10 @@ type State = { error: Error | null };
  * No intenta recuperarse sola: reintentar el mismo render que acaba de fallar suele volver a
  * fallar. Ofrece **recargar la ventana**, que es lo que de verdad arregla un estado corrupto, y
  * enseña el error para poder copiarlo en un issue.
+ *
+ * Sus textos salen de `catalogoVigente()` y no de `useT()`: al vivir fuera de `App` esta tambien
+ * fuera del proveedor de idioma, asi que el contexto le daria siempre el español. Ver el
+ * comentario de `vigente` en `i18n.tsx`.
  */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
@@ -44,21 +49,17 @@ export class ErrorBoundary extends Component<Props, State> {
     const { error } = this.state;
     if (!error) return this.props.children;
 
+    const t = catalogoVigente();
+
     return (
       <div
         role="alert"
         className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center"
       >
         <div>
-          <h1 className="font-heading text-lg font-semibold">
-            La ventana ha fallado
-          </h1>
+          <h1 className="font-heading text-lg font-semibold">{t.error.titulo}</h1>
           <p className="mt-2 max-w-md text-sm text-muted-foreground">
-            Algo se ha roto al pintar la interfaz.{" "}
-            <strong className="font-medium text-foreground">
-              Ningún proceso se ha cerrado
-            </strong>{" "}
-            por esto, y tus ajustes y tu historial siguen en su sitio.
+            <Marcado texto={t.error.cuerpo} />
           </p>
         </div>
 
@@ -71,7 +72,7 @@ export class ErrorBoundary extends Component<Props, State> {
           onClick={() => window.location.reload()}
           className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          Recargar la ventana
+          {t.error.recargar}
         </button>
       </div>
     );

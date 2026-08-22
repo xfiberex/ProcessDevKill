@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsView } from "./SettingsView";
+import { I18nProvider } from "../i18n";
 import {
   DEFAULT_TEST_SETTINGS,
   invoke,
@@ -398,5 +399,78 @@ describe("registro de avisos", () => {
     expect(
       await screen.findByText(/no se envía a ninguna parte/),
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * El selector de idioma.
+ *
+ * Se prueba aparte de los demas interruptores porque no es un ajuste mas: es el unico que decide
+ * en que idioma se lee **el resto de la pantalla**, incluido el propio selector. Si guardarlo
+ * fallara, el usuario se quedaria sin forma de volver al idioma que entiende.
+ */
+describe("el idioma", () => {
+  it("ofrece los dos idiomas rotulados en su propio idioma", () => {
+    pintar();
+
+    expect(screen.getByRole("button", { name: "Español" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "English" })).toBeInTheDocument();
+  });
+
+  /** El titulo va en los dos idiomas a la vez: quien no entienda la mitad de la app tiene que
+   *  encontrar donde se cambia sin adivinar. */
+  it("se titula en los dos idiomas a la vez", () => {
+    pintar();
+
+    expect(
+      screen.getByRole("heading", { name: "Idioma / Language" }),
+    ).toBeInTheDocument();
+  });
+
+  it("guarda el idioma elegido sin tocar el resto de ajustes", async () => {
+    const { onChange, user, settings } = pintar({ language: "es" });
+
+    await user.click(screen.getByRole("button", { name: "English" }));
+
+    expect(onChange).toHaveBeenCalledWith({ ...settings, language: "en" });
+  });
+
+  it("marca como pulsado el idioma vigente", () => {
+    pintar({ language: "en" });
+
+    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Español" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  /**
+   * La vista se pinta con el idioma que le llega por el proveedor, no con el que trae `settings`:
+   * el catalogo lo elige `App` una sola vez para toda la ventana. Aqui se comprueba que la vista
+   * de verdad lo obedece — sin esto, el selector podria guardar el ajuste y no cambiar nada.
+   */
+  it("se pinta en ingles cuando el proveedor dice ingles", () => {
+    render(
+      <I18nProvider language="en">
+        <SettingsView
+          settings={{ ...DEFAULT_TEST_SETTINGS, language: "en" }}
+          onChange={vi.fn()}
+          updater={updaterFalso()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Watched processes" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Auto-Kill by memory" }),
+    ).toBeInTheDocument();
+    // Y no queda ni rastro del titulo español de la misma seccion.
+    expect(screen.queryByText("Procesos vigilados")).not.toBeInTheDocument();
   });
 });

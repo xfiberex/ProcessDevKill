@@ -1,4 +1,5 @@
 import { SettingsIcon } from "lucide-react";
+import { Marcado, useT } from "../i18n";
 import { Button } from "@/components/ui/button";
 
 type EmptyStateProps = {
@@ -18,28 +19,25 @@ type EmptyStateProps = {
  * los añada, y eso no se adivina.
  */
 export function EmptyState({ sinProcesos, onIrAAjustes }: EmptyStateProps) {
+  const t = useT();
+
   if (!sinProcesos) {
     return (
       <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-        Ningún proceso coincide con el filtro.
+        {t.vacio.sinCoincidencias}
       </p>
     );
   }
 
   return (
     <div className="px-5 py-10 text-center">
-      <p className="text-sm text-muted-foreground">
-        No hay procesos de desarrollo activos.
-      </p>
+      <p className="text-sm text-muted-foreground">{t.vacio.sinProcesos}</p>
       <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-        Node, Python y .NET se vigilan siempre. Si trabajas con otros —
-        <code className="text-foreground">docker</code>,{" "}
-        <code className="text-foreground">go</code>,{" "}
-        <code className="text-foreground">php</code>—, añádelos en Ajustes.
+        <Marcado texto={t.vacio.sugerencia} />
       </p>
       <Button variant="outline" onClick={onIrAAjustes} className="mt-4">
         <SettingsIcon />
-        Añadir procesos vigilados
+        {t.vacio.boton}
       </Button>
     </div>
   );
