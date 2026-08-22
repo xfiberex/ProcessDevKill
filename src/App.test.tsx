@@ -34,17 +34,12 @@ async function montar(lista: ProcessInfo[] = LISTA) {
   invoke.mockImplementation(async (cmd: string) => {
     if (cmd === "get_processes") return lista;
     if (cmd === "get_history") return [];
+    // Sobre `DEFAULT_TEST_SETTINGS` y no escritos a mano: esta copia se habia quedado sin
+    // `closeToTray` y sin `language`, y al aparecer `customServices` reventaron cinco pruebas de
+    // golpe con un «cannot read properties of undefined». El original esta tipado como `Settings`,
+    // asi que un campo nuevo se nota en un sitio y no en cada archivo que arma unos ajustes.
     if (cmd === "get_settings" || cmd === "save_settings")
-      return {
-        customNames: [],
-        hotkeyEnabled: true,
-        refreshMs: 2000,
-        theme: "dark",
-        autoKillEnabled: false,
-        autoKillMb: 2048,
-        zombieEnabled: false,
-        zombieMinutes: 10,
-      };
+      return { ...DEFAULT_TEST_SETTINGS, refreshMs: 2000 };
     if (cmd === "kill_processes") return [];
     return null;
   });
@@ -332,6 +327,21 @@ describe("navegacion", () => {
     await user.click(screen.getByRole("button", { name: "Historial" }));
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("get_history"));
+  });
+
+  /**
+   * Los servicios se piden **al entrar en la vista**, no en cada ciclo del poller: un servicio
+   * cambia de estado dos veces al dia y releer el catalogo entero del SCM cada dos segundos le
+   * sumaria al ciclo cientos de consultas para no enterarse de nada.
+   */
+  it("lee los servicios al entrar en su vista, y no antes", async () => {
+    const user = await montar();
+
+    expect(invoke).not.toHaveBeenCalledWith("get_services");
+
+    await user.click(screen.getByRole("button", { name: "Servicios" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("get_services"));
   });
 
   it("el buscador solo existe en la vista de procesos", async () => {

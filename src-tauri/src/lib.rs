@@ -3,6 +3,7 @@ mod auto_kill;
 pub mod logging;
 mod notify;
 mod poller;
+mod services;
 mod ports;
 mod processes;
 mod storage;
@@ -340,6 +341,30 @@ fn save_settings(
     Ok(settings)
 }
 
+/// Los servicios de desarrollo del equipo.
+///
+/// **A peticion, y no empujado por el poller como la lista de procesos.** Un servicio cambia de
+/// estado cuando alguien lo arranca o lo detiene, que es algo que pasa dos veces al dia; releerlo
+/// cada dos segundos le sumaria a cada ciclo un recorrido del catalogo entero del SCM -cientos de
+/// servicios, con una consulta de configuracion por cada uno- para no enterarse de nada nuevo. La
+/// vista lo pide al abrirse y cuando el usuario pulsa refrescar.
+#[tauri::command]
+fn get_services(state: State<'_, AppState>) -> Result<Vec<services::ServiceInfo>, String> {
+    let custom = state
+        .settings
+        .lock()
+        .map(|s| s.custom_services.clone())
+        .unwrap_or_default();
+
+    // Los ajustes se copian y se suelta su candado **antes** de bloquear `sys`. Nunca anidados.
+    let mut sys = state
+        .sys
+        .lock()
+        .map_err(|_| textos::de(state.language()).estado_corrupto.to_string())?;
+
+    Ok(services::collect_services(&mut sys, &custom))
+}
+
 #[tauri::command]
 fn get_history(state: State<'_, AppState>) -> Vec<HistoryEntry> {
     state.storage.load_history()
@@ -505,6 +530,7 @@ pub fn run() {
             kill_processes,
             get_settings,
             save_settings,
+            get_services,
             get_history,
             clear_history,
             // Los del actualizador viven en `update`, junto a la logica en la que

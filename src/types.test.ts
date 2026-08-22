@@ -8,7 +8,14 @@ import {
   SYSTEM_USAGE,
   ZOMBIE_MIN_MINUTES,
 } from "./types";
-import type { Language, SystemUsage } from "./types";
+import type {
+  Language,
+  ServiceFamily,
+  ServiceInfo,
+  ServiceState,
+  StartType,
+  SystemUsage,
+} from "./types";
 
 const raiz = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -102,6 +109,65 @@ describe("el contrato con Rust", () => {
     // TypeScript obliga a que esta lista este completa; el test compara que sea la de Rust.
     const delFrontend: Language[] = ["es", "en"];
     expect(variantes.sort()).toEqual([...delFrontend].sort());
+  });
+
+  /**
+   * Los tres enums del panel de servicios. Aqui el riesgo es el mismo que con `SystemUsage`: no hay
+   * nada que falle si Rust gana una variante y el frontend no la conoce — llegaria una cadena que
+   * ningun `Record` tiene, y la celda se pintaria vacia sin decir nada.
+   *
+   * Los enums van con `rename_all = "camelCase"`, asi que lo que viaja en el JSON son los nombres
+   * convertidos: `SqlServer` sale como `sqlServer`.
+   */
+  it("cubre las mismas familias, estados y arranques que services.rs", () => {
+    const rust = leerRust("services.rs");
+
+    const variantes = (nombre: string) => {
+      const bloque = rust.match(new RegExp(`pub enum ${nombre}\\s*\\{([^}]+)\\}`));
+      expect(bloque, `no se encontro el enum ${nombre}`).not.toBeNull();
+      return [...bloque![1].matchAll(/^\s*([A-Z]\w+),/gm)]
+        .map((v) => v[1].charAt(0).toLowerCase() + v[1].slice(1))
+        .sort();
+    };
+
+    // TypeScript obliga a que estas listas esten completas; el test compara que sean las de Rust.
+    const familias: ServiceFamily[] = [
+      "sqlServer",
+      "postgres",
+      "mySql",
+      "mongoDb",
+      "redis",
+      "docker",
+      "iis",
+      "other",
+    ];
+    const estados: ServiceState[] = ["running", "stopped", "pending"];
+    const arranques: StartType[] = [
+      "boot",
+      "system",
+      "automatic",
+      "automaticDelayed",
+      "manual",
+      "disabled",
+      "unknown",
+    ];
+
+    expect(variantes("ServiceFamily")).toEqual([...familias].sort());
+    expect(variantes("ServiceState")).toEqual([...estados].sort());
+    expect(variantes("StartType")).toEqual([...arranques].sort());
+  });
+
+  /**
+   * `memoryMb` es `Option<f64>` en Rust y tiene que ser anulable aqui. Si se declarara `number`,
+   * TypeScript dejaria escribir `mb.toFixed(0)` sobre un `null` y la vista reventaria en el primer
+   * servicio del sistema — que son casi todos.
+   */
+  it("mantiene anulable la RAM del servicio, como el Option de Rust", () => {
+    const rust = leerRust("services.rs");
+    expect(rust).toMatch(/pub memory_mb:\s*Option<f64>/);
+
+    const muestra: ServiceInfo["memoryMb"] = null;
+    expect(muestra).toBeNull();
   });
 
   it("cubre los cuatro origenes de KillSource", () => {

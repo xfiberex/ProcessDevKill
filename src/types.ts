@@ -50,6 +50,51 @@ export type HistoryEntry = {
   source: KillSource;
 };
 
+/** Espejo de `ServiceFamily` en src-tauri/src/services.rs. */
+export type ServiceFamily =
+  | "sqlServer"
+  | "postgres"
+  | "mySql"
+  | "mongoDb"
+  | "redis"
+  | "docker"
+  | "iis"
+  | "other";
+
+/** Espejo de `ServiceState` en src-tauri/src/services.rs. */
+export type ServiceState = "running" | "stopped" | "pending";
+
+/** Espejo de `StartType` en src-tauri/src/services.rs. */
+export type StartType =
+  | "boot"
+  | "system"
+  | "automatic"
+  | "automaticDelayed"
+  | "manual"
+  | "disabled"
+  | "unknown";
+
+/** Espejo de `ServiceInfo` en src-tauri/src/services.rs. */
+export type ServiceInfo = {
+  /** El nombre del SCM (`MSSQL$SQLEXPRESS`). Es la clave, y lo que se compara. */
+  name: string;
+  /** El nombre que enseña Windows, ya localizado por el sistema. Solo para leerlo. */
+  displayName: string;
+  family: ServiceFamily;
+  state: ServiceState;
+  startType: StartType;
+  /** 0 si el servicio esta parado. */
+  pid: number;
+  /**
+   * `null` cuando no se puede leer, que es **lo normal**: casi todos los servicios corren con otra
+   * cuenta y un proceso sin elevar no puede abrirlos para preguntarles la memoria. Se pinta «—»,
+   * nunca un 0 que el usuario se creeria.
+   */
+  memoryMb: number | null;
+  /** Vacio es normal: SQL Express viene con TCP/IP desactivado y no escucha en ninguno. */
+  ports: number[];
+};
+
 /** Espejo de `Theme` en src-tauri/src/storage.rs. */
 export type Theme = "system" | "light" | "dark";
 
@@ -70,6 +115,8 @@ export type Settings = {
   zombieMinutes: number;
   /** Lo usan los dos lados: la ventana para pintarse y Rust para la bandeja y las notificaciones. */
   language: Language;
+  /** Servicios extra a vigilar. Lista aparte de `customNames`, que son ejecutables. */
+  customServices: string[];
 };
 
 /** Espejo de `MIN_AUTO_KILL_MB` en src-tauri/src/storage.rs. Rust lo impone; aqui

@@ -48,14 +48,20 @@ midió que no compensa (T4-05) y el rendimiento se midió en vez de suponerse (T
 > v1.4.0, así que la versión que hay ahí fuera sigue hablando solo español. Es lo que iría en el
 > próximo corte.
 
-**Abierto: [Tier 10 — Servicios de desarrollo](ROADMAP.md), planificado el 2026-08-22** y sin
-empezar. Un panel para los servicios de Windows que son de desarrollo —SQL Server, PostgreSQL,
+**Abierto: [Tier 10 — Servicios de desarrollo](ROADMAP.md). La Fase A —solo lectura— está hecha y
+verificada el 2026-08-22**; quedan la B (arrancar y detener) y la C (tipo de arranque), que son las
+que piden privilegios. Un panel para los servicios de Windows que son de desarrollo —SQL Server, PostgreSQL,
 MySQL, Docker— con su estado, su tipo de arranque y **el puerto que ocupan**. Encaja porque el 1433
 y el 5432 son puertos igual que el 3000, y la app hoy solo ve los procesos que lanza el usuario, no
-los que lanza Windows por él. **Antes de escribir una línea hay que cerrar la decisión de
-privilegios**: la app instala en `currentUser` y nunca eleva, y detener un servicio o cambiar su
-arranque sí piden administrador. La recomendación escrita en el Tier es leer siempre sin privilegios
-y elevar solo al actuar.
+los que lanza Windows por él. La app sigue instalando en `currentUser` y **sin elevar nunca**: la Fase A abre el SCM con
+`SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE` y con eso no puede arrancar ni detener nada
+aunque quisiera. La decisión escrita para las fases B y C es leer siempre sin privilegios y **elevar
+solo al actuar**.
+
+> ⚠️ **La RAM de un servicio no se puede leer sin ser administrador**, y se descubrió construyendo
+> la Fase A. `OpenProcess` devuelve acceso denegado incluso con `PROCESS_QUERY_LIMITED_INFORMATION`.
+> Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
+> usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
 **Publicado:** **v1.4.0** (2026-08-18), la versión que recogió la revisión hasta ese punto: **33 de
 las 37 tareas**, con los Tiers 1, 2 y 3 cerrados enteros. Sube a minor y no a parche porque trae

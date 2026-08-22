@@ -86,11 +86,17 @@ Directas:
     tauri-plugin-notification        2.3.3    Apache-2.0 OR MIT
     tauri-plugin-opener              2.5.4    Apache-2.0 OR MIT
     tauri-plugin-single-instance     2.4.3    Apache-2.0 OR MIT
+    windows                          0.62.2   MIT OR Apache-2.0
 
     Hasta el 2026-08-18 faltaban cuatro de esta lista -reqwest, futures-util,
     sha2 y tauri-plugin-single-instance-, todas dentro del binario. Entraron con
     el actualizador y la instancia unica, despues de generarse este archivo, y
     nadie lo regenero.
+
+    `windows` entro el 2026-08-22 con el panel de servicios (Tier 10): son las
+    bindings de la API de Win32 con las que se habla con el Gestor de control de
+    servicios. Ya estaba en el arbol -Tauri la usa-, asi que pasar a declararla
+    directa no anadio ningun crate: el total sigue en 566.
 
 El arbol completo son 566 crates, sin contar el propio. Reparto de licencias:
 

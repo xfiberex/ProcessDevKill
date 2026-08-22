@@ -9,6 +9,7 @@ import type {
   HistoryEntry,
   KillOutcome,
   ProcessInfo,
+  ServiceInfo,
   Settings,
   SystemUsage,
 } from "./types";
@@ -20,6 +21,7 @@ import { useUpdater } from "./hooks/useUpdater";
 import { EmptyState } from "./components/EmptyState";
 import { ProcessTable } from "./components/ProcessTable";
 import { HistoryView } from "./components/HistoryView";
+import { ServicesView } from "./components/ServicesView";
 import { SettingsView } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
 import type { Filter, View } from "./components/Sidebar";
@@ -55,12 +57,16 @@ const DEFAULT_SETTINGS: Settings = {
   // Igual que en Rust: espanol. El idioma no se detecta del sistema a proposito; el motivo
   // esta escrito en el enum `Language` de storage.rs.
   language: "es",
+  // Vacia: el catalogo de fabrica de `services.rs` ya cubre los motores conocidos.
+  customServices: [],
 };
 
 export default function App() {
   const [view, setView] = useState<View>("processes");
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  // `null` hasta la primera lectura, para no enseñar «no hay servicios» mientras se leen.
+  const [services, setServices] = useState<ServiceInfo[] | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -126,6 +132,26 @@ export default function App() {
     }
   }, [applyList]);
 
+  /**
+   * Los servicios, **a petición**.
+   *
+   * No los empuja el poller como a los procesos: un servicio cambia de estado dos veces al día, y
+   * releer el catálogo entero del SCM cada dos segundos le sumaría al ciclo un recorrido de
+   * cientos de servicios para no enterarse de nada. Ver `get_services` en lib.rs.
+   */
+  const loadServices = useCallback(async () => {
+    try {
+      setServices(await invoke<ServiceInfo[]>("get_services"));
+    } catch (e) {
+      // Lista vacía y no `null`: con `null` la vista se quedaría diciendo «leyendo…» para siempre.
+      setServices([]);
+      toast.error(t.avisos.serviciosNoLeidos, { description: String(e) });
+    }
+    // `t` fuera de las dependencias a propósito, como en el efecto del actualizador: esta función
+    // la usan efectos que no deben relanzarse al cambiar de idioma.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const loadHistory = useCallback(async () => {
     try {
       setHistory(await invoke<HistoryEntry[]>("get_history"));
@@ -151,6 +177,12 @@ export default function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (view === "history") loadHistory();
   }, [view, loadHistory]);
+
+  // Igual que el historial: se leen al entrar en la vista en vez de mantenerlos sincronizados.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (view === "services") loadServices();
+  }, [view, loadServices]);
 
   /**
    * Comprobacion de actualizaciones al arrancar, en silencio.
@@ -403,6 +435,14 @@ export default function App() {
                 settings={settings}
                 onChange={saveSettings}
                 updater={updater}
+              />
+            )}
+
+            {view === "services" && (
+              <ServicesView
+                services={services}
+                onRefresh={loadServices}
+                onIrAAjustes={() => setView("settings")}
               />
             )}
 

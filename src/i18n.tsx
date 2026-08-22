@@ -1,6 +1,14 @@
 import { createContext, useContext, useEffect } from "react";
 import type { ReactNode } from "react";
-import type { KillSource, Language, Runtime, Theme } from "./types";
+import type {
+  KillSource,
+  Language,
+  Runtime,
+  ServiceFamily,
+  ServiceState,
+  StartType,
+  Theme,
+} from "./types";
 import type { SortKey } from "./lib/sort";
 
 /**
@@ -113,6 +121,7 @@ export const es = {
     subtitulo: "Process Manager",
     procesos: "Procesos",
     todos: "Todos",
+    servicios: "Servicios",
     historial: "Historial",
     ajustes: "Ajustes",
     autoRefresco: "Auto-refresco",
@@ -167,6 +176,62 @@ export const es = {
     /** Lo que se nombra en el toast «Copiado: …» al copiar los puertos de una fila. */
     quePuertos: (lista: number[]): string =>
       lista.length === 1 ? `puerto ${lista[0]}` : `puertos ${puertos(lista)}`,
+  },
+
+  servicios: {
+    titulo: "Servicios de desarrollo",
+    cargando: "Leyendo los servicios…",
+    /**
+     * Que la vista es de solo lectura se dice **en la propia vista**, no solo en el roadmap. Un
+     * panel que enseña servicios invita a pulsar algo; si no hay nada que pulsar, hay que explicar
+     * por qué antes de que el usuario lo busque.
+     */
+    descripcion:
+      "Los que instalan las herramientas de desarrollo y arrancan con Windows sin que se note. Por ahora **solo se leen**: esta versión no arranca, no detiene y no cambia nada." as Rico,
+    recuento: (n: number) => (n === 1 ? "1 servicio" : `${n} servicios`),
+    vacio: "No se ha encontrado ningún servicio de desarrollo.",
+    vacioDetalle:
+      "Se buscan SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS. Si usas otro, añádelo en Ajustes." as Rico,
+    irAAjustes: "Añadir servicios vigilados",
+    caption: "Servicios de desarrollo instalados, los que estan corriendo primero",
+    columnas: {
+      servicio: "Servicio",
+      estado: "Estado",
+      arranque: "Arranque",
+      ram: "RAM",
+      puertos: "Puertos",
+    },
+    estados: {
+      running: "Corriendo",
+      stopped: "Parado",
+      pending: "Cambiando…",
+    } satisfies Record<ServiceState, string>,
+    arranques: {
+      boot: "Arranque del sistema",
+      system: "Inicio del sistema",
+      automatic: "Automático",
+      automaticDelayed: "Automático (retrasado)",
+      manual: "Manual",
+      disabled: "Deshabilitado",
+      unknown: "Desconocido",
+    } satisfies Record<StartType, string>,
+    familias: {
+      sqlServer: "SQL Server",
+      postgres: "PostgreSQL",
+      mySql: "MySQL",
+      mongoDb: "MongoDB",
+      redis: "Redis",
+      docker: "Docker",
+      iis: "IIS",
+      other: "Otros",
+    } satisfies Record<ServiceFamily, string>,
+    /** Por qué la RAM sale casi siempre en blanco. Va como `title`, donde se busca. */
+    ramDesconocida:
+      "La RAM de un servicio solo se puede leer con permisos de administrador, y ProcessDevKill no los pide.",
+    sinPuertos:
+      "No escucha en ningún puerto TCP. Es normal: SQL Express, por ejemplo, viene con TCP/IP desactivado.",
+    pidTitulo: (pid: number) => `PID ${pid}`,
+    arrancaSolo: "Arranca con Windows",
   },
 
   historial: {
@@ -224,6 +289,7 @@ export const es = {
     rutaNoCopiada: "No se pudo copiar la ruta",
     recursoNoAbierto: (nombre: string) => `No se pudo abrir ${nombre}`,
     navegadorNoAbierto: "No se pudo abrir el navegador",
+    serviciosNoLeidos: "No se pudieron leer los servicios",
   },
 
   ajustes: {
@@ -238,6 +304,24 @@ export const es = {
         "Node, Python y .NET se vigilan siempre. Aquí puedes añadir otros ejecutables, como `docker`, `go` o `php`. Se compara el nombre exacto, sin la extensión." as Rico,
       placeholder: "nombre del ejecutable",
       anadir: "Añadir",
+      /**
+       * El nombre accesible del botón, que **no** es el texto que se ve.
+       *
+       * Hay dos botones «Añadir» en esta pantalla —procesos y servicios— y anunciados a secas son
+       * indistinguibles para un lector de pantalla. Contiene la palabra visible, como pide el
+       * criterio 2.5.3 de WCAG. Salió al añadir el segundo: cinco pruebas dejaron de saber cuál
+       * pulsar, que es la misma duda que tendría una persona.
+       */
+      anadirLabel: "Añadir proceso vigilado",
+      quitar: (nombre: string) => `Quitar ${nombre}`,
+    },
+    servicios: {
+      titulo: "Servicios vigilados",
+      descripcion:
+        "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS se vigilan siempre. Aquí puedes añadir otros por su **nombre de servicio** —el corto, `MSSQL$SQLEXPRESS`, no el que enseña Windows—. Se compara exacto." as Rico,
+      placeholder: "nombre del servicio",
+      anadir: "Añadir",
+      anadirLabel: "Añadir servicio vigilado",
       quitar: (nombre: string) => `Quitar ${nombre}`,
     },
     autoKill: {
@@ -357,6 +441,7 @@ export const en: Catalogo = {
     subtitulo: "Process Manager",
     procesos: "Processes",
     todos: "All",
+    servicios: "Services",
     historial: "History",
     ajustes: "Settings",
     autoRefresco: "Auto-refresh",
@@ -409,6 +494,56 @@ export const en: Catalogo = {
     copiarUrl: (url) => `Copy ${url}`,
     quePuertos: (lista) =>
       lista.length === 1 ? `port ${lista[0]}` : `ports ${puertos(lista)}`,
+  },
+
+  servicios: {
+    titulo: "Development services",
+    cargando: "Reading the services…",
+    descripcion:
+      "The ones your development tools install, starting with Windows without you noticing. For now they are **read-only**: this version does not start, stop or change anything.",
+    recuento: (n) => (n === 1 ? "1 service" : `${n} services`),
+    vacio: "No development service was found.",
+    vacioDetalle:
+      "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker and IIS are looked for. If you use another one, add it in Settings.",
+    irAAjustes: "Add watched services",
+    caption: "Installed development services, running ones first",
+    columnas: {
+      servicio: "Service",
+      estado: "State",
+      arranque: "Startup",
+      ram: "RAM",
+      puertos: "Ports",
+    },
+    estados: {
+      running: "Running",
+      stopped: "Stopped",
+      pending: "Changing…",
+    },
+    arranques: {
+      boot: "Boot start",
+      system: "System start",
+      automatic: "Automatic",
+      automaticDelayed: "Automatic (delayed)",
+      manual: "Manual",
+      disabled: "Disabled",
+      unknown: "Unknown",
+    },
+    familias: {
+      sqlServer: "SQL Server",
+      postgres: "PostgreSQL",
+      mySql: "MySQL",
+      mongoDb: "MongoDB",
+      redis: "Redis",
+      docker: "Docker",
+      iis: "IIS",
+      other: "Other",
+    },
+    ramDesconocida:
+      "A service's RAM can only be read with administrator rights, and ProcessDevKill does not ask for them.",
+    sinPuertos:
+      "It is not listening on any TCP port. That is normal: SQL Express, for one, ships with TCP/IP disabled.",
+    pidTitulo: (pid) => `PID ${pid}`,
+    arrancaSolo: "Starts with Windows",
   },
 
   historial: {
@@ -465,6 +600,7 @@ export const en: Catalogo = {
     rutaNoCopiada: "Could not copy the path",
     recursoNoAbierto: (nombre) => `Could not open ${nombre}`,
     navegadorNoAbierto: "Could not open the browser",
+    serviciosNoLeidos: "The services could not be read",
   },
 
   ajustes: {
@@ -479,6 +615,16 @@ export const en: Catalogo = {
         "Node, Python and .NET are always watched. Here you can add other executables, such as `docker`, `go` or `php`. The name is matched exactly, without the extension.",
       placeholder: "executable name",
       anadir: "Add",
+      anadirLabel: "Add watched process",
+      quitar: (nombre) => `Remove ${nombre}`,
+    },
+    servicios: {
+      titulo: "Watched services",
+      descripcion:
+        "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker and IIS are always watched. Here you can add others by their **service name** —the short one, `MSSQL$SQLEXPRESS`, not the one Windows shows—. It is matched exactly.",
+      placeholder: "service name",
+      anadir: "Add",
+      anadirLabel: "Add watched service",
       quitar: (nombre) => `Remove ${nombre}`,
     },
     autoKill: {

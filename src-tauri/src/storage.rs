@@ -89,6 +89,12 @@ pub struct Settings {
     pub zombie_minutes: u64,
     /// Idioma de la interfaz, de la bandeja y de las notificaciones.
     pub language: Language,
+    /// Servicios de Windows extra que vigilar, ademas del catalogo de fabrica de `services.rs`.
+    ///
+    /// Lista **aparte** de `custom_names` y no la misma: aquello son ejecutables y esto son
+    /// nombres del SCM. Mezclarlas haria que añadir `docker` para ver el proceso arrastrase
+    /// tambien el servicio, y al reves.
+    pub custom_services: Vec<String>,
 }
 
 impl Default for Settings {
@@ -112,6 +118,9 @@ impl Default for Settings {
             // Espanol por defecto: `#[serde(default)]` en el struct hace que un settings.json de
             // una version anterior -que no tiene el campo- se lea sin perder nada y caiga aqui.
             language: Language::default(),
+            // Vacia: el catalogo de fabrica ya cubre SQL Server, PostgreSQL, MySQL, Mongo, Redis,
+            // Docker e IIS. Esto es para lo que no esta ahi.
+            custom_services: Vec::new(),
         }
     }
 }
@@ -370,6 +379,9 @@ mod tests {
             // Ingles y no el valor por defecto: si el campo no viajara al disco, la prueba pasaria
             // igual comparando dos veces el mismo `Language::Es`.
             language: Language::En,
+            // No vacia, por el mismo motivo que el idioma: una lista vacia sobreviviria al viaje
+            // aunque el campo no llegara a escribirse.
+            custom_services: vec!["elasticsearch-service-x64".into()],
         };
 
         storage.save_settings(&settings).unwrap();

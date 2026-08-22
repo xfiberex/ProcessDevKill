@@ -231,7 +231,9 @@ describe("procesos vigilados", () => {
     const { user, onChange } = pintar({ customNames: [] });
 
     await user.type(screen.getByPlaceholderText("nombre del ejecutable"), "docker");
-    await user.click(screen.getByRole("button", { name: "Añadir" }));
+    await user.click(
+      screen.getByRole("button", { name: "Añadir proceso vigilado" }),
+    );
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ customNames: ["docker"] }),

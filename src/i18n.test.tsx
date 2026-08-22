@@ -158,6 +158,17 @@ describe("el catálogo de idiomas", () => {
       "columnas.cpu": "sigla",
       "columnas.memoryMb": "sigla",
       "historial.pid": "sigla",
+      "servicios.columnas.ram": "sigla",
+      // Nombres de producto, igual que los runtimes: traducirlos seria inventarselos.
+      "servicios.familias.sqlServer": "nombre de producto",
+      "servicios.familias.postgres": "nombre de producto",
+      "servicios.familias.mySql": "nombre de producto",
+      "servicios.familias.mongoDb": "nombre de producto",
+      "servicios.familias.redis": "nombre de producto",
+      "servicios.familias.docker": "nombre de producto",
+      "servicios.familias.iis": "nombre de producto",
+      // «Manual» se escribe igual en los dos idiomas, y es la palabra que usa el propio Windows.
+      "servicios.arranques.manual": "misma palabra en los dos idiomas",
       "sidebar.subtitulo": "ya estaba en ingles",
       "cabecera.nukeAll": "ya estaba en ingles",
       "tabla.kill": "ya estaba en ingles",

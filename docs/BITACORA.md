@@ -8,6 +8,40 @@
 
 ---
 
+### 2026-08-22 — Tier 10, Fase A: el panel de servicios, de solo lectura
+
+- **Hecha y verificada sobre el binario de release.** El panel lista los servicios de desarrollo del
+  equipo con su estado, su tipo de arranque, su RAM y **el puerto que ocupa cada uno**. 10 pruebas
+  nuevas de Rust (77 en total) y 11 del frontend (205).
+- **No puede tocar nada, y no por disciplina sino por construcción**: el SCM se abre con
+  `SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE` y con esos dos derechos no hay forma de
+  arrancar ni detener un servicio. Arrancar y detener llegan en la Fase B, con elevación puntual.
+- **El árbol de procesos era necesario de verdad, no una precaución.** El SCM dice que
+  `postgresql-x64-17` es el PID del `pg_ctl.exe`; quien escucha en el puerto es el `postgres.exe`
+  que cuelga de él. Con el PID del servicio saldrían 0 puertos; con el árbol salen los correctos.
+- **Descubierto construyendo: la RAM de un servicio no se lee sin ser administrador.** `sysinfo`
+  devolvía 0 para todos, así que se probó a abrirlos a mano con
+  `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)` —el derecho más permisivo— y contestó **acceso
+  denegado**. Medido: de 327 procesos, 168 dejan leer su memoria; los 53 del propio usuario, todos.
+  `memory_mb` pasó a `Option<f64>` y la columna pinta «—» con su explicación en el `title`. **Un
+  «0 MB» junto a un SQL Server corriendo es una cifra que el usuario se cree, y es falsa.**
+  Rellenarla pediría `NtQuerySystemInformation`, que Microsoft se reserva el derecho a cambiar; no
+  se añade eso por una columna de conveniencia.
+- **La prueba negativa tenía un caso real esperando.** Al explorar la idea se filtraron los servicios
+  con un `-match` que incluía `Redis` y apareció **`GameInputRedistService`**: «Redist» contiene
+  «Redis». De ahí que los patrones sean de cuatro clases explícitas y **ninguna sea «contiene»**.
+- **Dos cosas que aparecieron al integrar, y que eran fallos de verdad:**
+  - Dos botones «Añadir» con el mismo nombre accesible —procesos y servicios—. Cinco pruebas dejaron
+    de saber cuál pulsar, que es la misma duda que tendría un lector de pantalla. Arreglado con
+    `aria-label`, no esquivado en las pruebas.
+  - `App.test.tsx` tenía **un duplicado a mano de los ajustes** al que ya le faltaban `closeToTray`
+    y `language` desde antes; al aparecer `customServices` reventaron cinco pruebas de golpe. Ahora
+    parte de `DEFAULT_TEST_SETTINGS`, que está tipado como `Settings`.
+- Y un tropiezo mío que conviene dejar escrito: intenté capturar la ventana con
+  `Graphics.CopyFromScreen` y `SetForegroundWindow`, que Windows bloquea desde un proceso en segundo
+  plano. **La captura salió de otra ventana, con contenido personal del usuario.** Se borró al
+  instante. Para ver la app se usa `Page.captureScreenshot` por CDP, que pinta solo el webview.
+
 ### 2026-08-22 — Se abre el Tier 10: los servicios de desarrollo
 
 - **Feature propuesta por el usuario**, y escrita como Tier nuevo en el ROADMAP en vez de como tarea

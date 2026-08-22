@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { ChevronRightIcon, HistoryIcon, ListIcon, SettingsIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  HistoryIcon,
+  ListIcon,
+  ServerIcon,
+  SettingsIcon,
+} from "lucide-react";
 import { REFRESH_INTERVALS, RUNTIME_COLORS } from "../types";
 import type { ProcessInfo, Runtime, SystemUsage } from "../types";
 import { useT } from "../i18n";
@@ -7,8 +13,8 @@ import { RUNTIME_ICONS } from "../icons";
 import { UsageMeter } from "./UsageMeter";
 import { Button } from "@/components/ui/button";
 
-/** Las tres vistas de la app. Excluyentes: solo se pinta una a la vez. */
-export type View = "processes" | "history" | "settings";
+/** Las cuatro vistas de la app. Excluyentes: solo se pinta una a la vez. */
+export type View = "processes" | "services" | "history" | "settings";
 
 /** Filtro por runtime de la tabla, o "all" para no filtrar. */
 export type Filter = Runtime | "all";
@@ -121,6 +127,15 @@ export function Sidebar({
           </div>
         )}
 
+        {/* Justo debajo de Procesos, y antes que Historial: las dos de arriba responden la misma
+            pregunta -quien ocupa mi puerto- para las dos mitades del equipo, la que lanza el
+            usuario y la que lanza Windows. */}
+        <NavItem
+          icon={ServerIcon}
+          label={t.sidebar.servicios}
+          active={view === "services"}
+          onClick={() => onViewChange("services")}
+        />
         <NavItem
           icon={HistoryIcon}
           label={t.sidebar.historial}

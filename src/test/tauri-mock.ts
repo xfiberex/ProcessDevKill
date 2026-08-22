@@ -1,5 +1,11 @@
 import { vi } from "vitest";
-import type { ProcessInfo, ReleaseInfo, Runtime, Settings } from "../types";
+import type {
+  ProcessInfo,
+  ReleaseInfo,
+  Runtime,
+  ServiceInfo,
+  Settings,
+} from "../types";
 import type { UpdateState } from "../hooks/useUpdater";
 
 /**
@@ -120,7 +126,27 @@ export const DEFAULT_TEST_SETTINGS: Settings = {
   // Anotar el tipo como `Settings` -y no dejarlo inferir- es lo que hace que olvidarse de un
   // campo nuevo falle aqui, en un sitio, y no en cada archivo que arma unos ajustes.
   language: "es",
+  customServices: [],
 };
+
+/** Un ServiceInfo completo con lo justo cambiado. Por defecto, uno corriendo y sin puerto. */
+export function servicio(parcial: Partial<ServiceInfo> & { name: string }): ServiceInfo {
+  return {
+    // Distinto del nombre corto **a proposito**: en Windows siempre lo son
+    // (`MSSQL$SQLEXPRESS` frente a «SQL Server (SQLEXPRESS)»), y un fixture que los iguala hace
+    // que las pruebas encuentren dos elementos donde la app pinta dos cosas distintas.
+    displayName: `${parcial.name} (nombre visible)`,
+    family: "sqlServer",
+    state: "running",
+    startType: "automatic",
+    pid: 1234,
+    // `null` por defecto **a proposito**: es lo que devuelve Rust para casi todos los servicios,
+    // porque leer su RAM pide administrador. El caso raro es el numero, no el nulo.
+    memoryMb: null,
+    ports: [],
+    ...parcial,
+  };
+}
 
 /** Un ProcessInfo completo con lo justo cambiado, para no repetir 8 campos. */
 export function proceso(parcial: Partial<ProcessInfo> & { pid: number }): ProcessInfo {

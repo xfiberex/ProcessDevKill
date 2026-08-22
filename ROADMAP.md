@@ -976,15 +976,15 @@ haciendo clic en «Siguiente».
 ---
 
 
-## 🗄 Tier 10: Servicios de desarrollo — 📋 **planificado**
+## 🗄 Tier 10: Servicios de desarrollo — 🚧 **Fase A completada y verificada**
 
 > **Propuesto por el usuario el 2026-08-22.** Es el primer Tier que se abre desde que el backlog de
 > la auditoría quedó sin nada pendiente (**37 de 37**), y va aquí y no como una tarea `T5-xx` a
 > propósito: los `Tn-xx` son deuda encontrada en una revisión, y esto es una fase de desarrollo
 > nueva. Nada de los Tiers 1-9 se toca.
 >
-> **Nada de esto está hecho.** Los checkboxes se marcan cuando la funcionalidad esté *probada*, como
-> en el resto del documento.
+> **La Fase A está hecha y verificada el 2026-08-22**; las B y C, no. Los checkboxes se marcan
+> cuando la funcionalidad está *probada*, como en el resto del documento.
 
 ### Por qué encaja, y no es ampliar el alcance
 
@@ -997,8 +997,8 @@ nueva pegada al lado: es el agujero del alcance que ya tiene.
 
 | Servicio | Estado | Arranque | Puerto | RAM |
 |---|---|---|---|---|
-| `postgresql-x64-17` | Running | **Automatic** | **5432** | * |
-| `postgresql-x64-18` | Running | **Automatic** | **5433** | * |
+| `postgresql-x64-17` | Running | **Automatic** | **5433** | * |
+| `postgresql-x64-18` | Running | **Automatic** | **5432** | * |
 | `MSSQL$SQLEXPRESS` | Running | **Automatic** | sin TCP | 125 MB |
 | `SQLTELEMETRY$SQLEXPRESS` | Running | **Automatic** | — | 53 MB |
 | `MySQL80` | Stopped | Manual | — | — |
@@ -1010,6 +1010,12 @@ Un panel de solo lectura ya habría enseñado eso el primer día.
 `*` La RAM de los dos PostgreSQL se deja en blanco a propósito: el proceso que el SCM asocia al
 servicio no es el que escucha en el puerto, así que la cifra que sale de ahí no es la del servidor.
 Es la trampa 1 de más abajo, y sale ya en la primera tabla que se intenta pintar.
+
+> **Y los puertos de esa tabla estuvieron mal escritos hasta el 2026-08-22.** Decían 17→5432 y
+> 18→5433, que es lo que uno supone. Al comprobar el árbol de procesos de verdad salió al revés: el
+> servicio del 17 es el PID 4992 (`pg_ctl.exe`), su hijo 6680 escucha en el **5433**, y el del 18
+> acaba en el **5432**. Queda escrito porque es la demostración de la trampa: **suponer la relación
+> servicio→puerto da un resultado creíble y equivocado**.
 
 ### Un filo que además arregla
 
@@ -1044,18 +1050,33 @@ recuerda que lo hizo la app. De ahí dos reglas que no se negocian:
   cierres.
 - **Nunca lo hace sola.** No hay, ni habrá, un «Auto-Kill de servicios».
 
-### Fase A — solo lectura
+### Fase A — solo lectura — ✅ **hecha y verificada el 2026-08-22**
 
 Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 
-- [ ] Enumerar los servicios con el SCM (`OpenSCManager` + `EnumServicesStatusEx`) desde Rust, en su
-      propio módulo `services.rs`. Con la crate `windows`, no llamando a `sc.exe` ni a PowerShell:
-      lanzar un proceso por consulta es lento y devuelve texto que hay que parsear.
-- [ ] Clasificar cuáles son «de desarrollo» con el mismo diseño que `classify` en `processes.rs`:
-      una lista de fábrica más los que añada el usuario en Ajustes.
-- [ ] Vista nueva en el sidebar con estado, tipo de arranque, RAM y **el puerto que ocupa cada uno**.
-- [ ] Prueba de que la lista de fábrica no incluye nada que no sea de desarrollo, y de que un
-      servicio ajeno no se cuela por parecido de nombre.
+- [x] Enumerar los servicios con el SCM (`OpenSCManagerW` + `EnumServicesStatusExW`) desde Rust, en
+      su propio módulo `services.rs`. Con la crate `windows`, no llamando a `sc.exe` ni a
+      PowerShell: lanzar un proceso por consulta es lento y devuelve texto **localizado** que habría
+      que parsear. El SCM se abre con `SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE` y nada
+      más: con esos dos derechos el módulo **no puede** arrancar ni detener nada aunque quisiera.
+- [x] Clasificar cuáles son «de desarrollo» con el mismo diseño que `classify` en `processes.rs`:
+      una lista de fábrica más los que añada el usuario, en su propio ajuste `customServices`
+      —aparte de `customNames`, que son ejecutables—.
+- [x] Vista nueva en el sidebar con estado, tipo de arranque, RAM y **el puerto que ocupa cada uno**.
+      Todo el color va al **estado** y no a la familia: en un panel de servicios lo que se escanea
+      es qué está corriendo.
+- [x] Prueba de que la lista de fábrica no incluye nada que no sea de desarrollo, y de que un
+      servicio ajeno no se cuela por parecido de nombre. Son tres: la negativa de los parecidos, la
+      de los servicios del sistema y la de que lo que añade el usuario entra **exacto**.
+
+> ✅ **Verificado sobre el binario de release el 2026-08-22.** El panel lista los 10 servicios de
+> desarrollo del equipo con su estado y su tipo de arranque, y **acierta los puertos**: 5433 para
+> `postgresql-x64-17` y 5432 para el 18. 10 pruebas nuevas de Rust y 11 del frontend; **77 y 205 en
+> total**.
+>
+> **Y enseña lo que se buscaba:** dos PostgreSQL en `Automático`, `MSSQL$SQLEXPRESS` y
+> `SQLTELEMETRY$SQLEXPRESS` en `Automático (retrasado)`. Cuatro servicios arrancando solos, uno de
+> ellos de telemetría.
 
 ### Fase B — arrancar y detener
 
@@ -1072,7 +1093,17 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 - [ ] **Registro de lo que la app cambió, con deshacer.** Ver el aviso de arriba.
 - [ ] Aviso claro en la UI de que el cambio sobrevive al reinicio.
 
-### Tres trampas concretas, ya vistas en el equipo del usuario
+### Cuatro trampas concretas, ya vistas en el equipo del usuario
+
+0. **La RAM de un servicio no se puede leer sin ser administrador**, y esto se descubrió
+   construyendo la Fase A, no antes. `sysinfo` devolvía 0 para todos; se probó además a abrirlos a
+   mano con `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)`, que es el derecho *más* permisivo, y
+   contestó **acceso denegado**. Medido: de 327 procesos del equipo, 168 dejan leer su memoria, y
+   los 53 del propio usuario la dejan todos — los servicios corren con otra cuenta.
+   **Consecuencia:** `memory_mb` es `Option<f64>` y la columna pinta «—» con su explicación en el
+   `title`, nunca un «0 MB» que el usuario se creería. Rellenarla pediría o elevar la app —descartado
+   arriba— o `NtQuerySystemInformation`, que es la API semi-documentada que usa `Get-Process`; no se
+   añade una API que Microsoft se reserva el derecho a cambiar por una columna de conveniencia.
 
 1. **El PID del servicio no es el que tiene el puerto.** El SCM dice que `postgresql-x64-17` es el
    PID 4992; quien escucha en 5432 es el 6672. Hay que recorrer el árbol de procesos — es el mismo
@@ -1083,6 +1114,15 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
    guion como si no se supiera — mismo criterio que el «En pausa» del medidor.
 3. **Emparejar por nombre de servicio, nunca por nombre visible.** El equipo del usuario es es-DO y
    los `DisplayName` están localizados: `MSSQL$SQLEXPRESS` es estable, «SQL Server (SQLEXPRESS)» no.
+   La vista enseña los dos —el corto en monoespaciada y el visible debajo en gris—, pero el que se
+   compara es siempre el corto.
+
+> **Y una que no estaba prevista: nunca comparar por subcadena.** Al explorar la idea se filtraron
+> los servicios del equipo con un `-match` que incluía `Redis`, y apareció **`GameInputRedistService`**
+> — «Redist» contiene «Redis». Un panel que en la fase B ofrecerá **detener** lo que lista no puede
+> colar el mando de una consola entre las bases de datos. De ahí que los patrones sean de cuatro
+> clases explícitas (exacto, instancia `NOMBRE$`, prefijo numerado, prefijo con separador) y ninguna
+> sea «contiene». Es el primer caso de la prueba negativa.
 
 ### Lo que este Tier **no** va a hacer
 

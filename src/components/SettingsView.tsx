@@ -45,6 +45,7 @@ const IDIOMAS: Language[] = ["es", "en"];
 export function SettingsView({ settings, onChange, updater }: SettingsViewProps) {
   const t = useT();
   const [draft, setDraft] = useState("");
+  const [servicioDraft, setServicioDraft] = useState("");
   const [mbDraft, setMbDraft] = useState(String(settings.autoKillMb));
 
   // Los ajustes tambien llegan de Rust (carga inicial, o el valor ya corregido si
@@ -196,6 +197,32 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
     });
   }
 
+  /**
+   * Los servicios vigilados, en su propia lista.
+   *
+   * Aparte de `customNames` y no en la misma: aquello son ejecutables y esto son nombres del SCM.
+   * Mezclarlas haría que añadir `docker` para ver el proceso arrastrase también el servicio.
+   */
+  function addServicio() {
+    const nombre = servicioDraft.trim();
+    if (!nombre) return;
+    if (
+      settings.customServices.some((n) => n.toLowerCase() === nombre.toLowerCase())
+    ) {
+      setServicioDraft("");
+      return;
+    }
+    onChange({ ...settings, customServices: [...settings.customServices, nombre] });
+    setServicioDraft("");
+  }
+
+  function removeServicio(nombre: string) {
+    onChange({
+      ...settings,
+      customServices: settings.customServices.filter((n) => n !== nombre),
+    });
+  }
+
   return (
     <div className="max-w-2xl space-y-8 px-5 py-6">
       {/* El idioma va **el primero de todos**: quien abra la app y no entienda la mitad tiene que
@@ -264,7 +291,11 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             }}
             placeholder={t.ajustes.vigilados.placeholder}
           />
-          <Button variant="outline" onClick={addName}>
+          <Button
+            variant="outline"
+            onClick={addName}
+            aria-label={t.ajustes.vigilados.anadirLabel}
+          >
             {t.ajustes.vigilados.anadir}
           </Button>
         </div>
@@ -282,6 +313,54 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
                   size="icon-xs"
                   aria-label={t.ajustes.vigilados.quitar(name)}
                   onClick={() => removeName(name)}
+                >
+                  <XIcon />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.servicios.titulo}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <Marcado texto={t.ajustes.servicios.descripcion} />
+        </p>
+
+        <div className="mt-3 flex gap-2">
+          <Input
+            value={servicioDraft}
+            onChange={(e) => setServicioDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addServicio();
+            }}
+            placeholder={t.ajustes.servicios.placeholder}
+          />
+          <Button
+            variant="outline"
+            onClick={addServicio}
+            aria-label={t.ajustes.servicios.anadirLabel}
+          >
+            {t.ajustes.servicios.anadir}
+          </Button>
+        </div>
+
+        {settings.customServices.length > 0 && (
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {settings.customServices.map((nombre) => (
+              <li
+                key={nombre}
+                className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2.5 text-sm"
+              >
+                <span className="font-mono text-xs">{nombre}</span>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={t.ajustes.servicios.quitar(nombre)}
+                  onClick={() => removeServicio(nombre)}
                 >
                   <XIcon />
                 </Button>
