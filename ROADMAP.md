@@ -1105,8 +1105,18 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
    arriba— o `NtQuerySystemInformation`, que es la API semi-documentada que usa `Get-Process`; no se
    añade una API que Microsoft se reserva el derecho a cambiar por una columna de conveniencia.
 
+   > **Comprobado en los dos sentidos el 2026-08-22**, que es lo que convierte la suposición en dato:
+   > desde una consola **elevada**, la misma llamada que antes daba acceso denegado lee los mismos
+   > PIDs sin problema — `MSSQL$SQLEXPRESS` 124,4 MB, `SQLTELEMETRY$SQLEXPRESS` 53,4 MB. El «—» no
+   > es que la app no sepa mirar: es exactamente el permiso, y por eso el `title` puede afirmarlo.
+   >
+   > Y de paso confirma que el árbol hace falta también para la RAM, no solo para los puertos:
+   > `postgresql-x64-17` reporta **7,7 MB** por su PID —es el `pg_ctl.exe`— y **107,3 MB** al sumar
+   > sus 9 procesos. Catorce veces. Si algún día se muestra esa cifra, la del PID suelto sería tan
+   > engañosa como el cero.
+
 1. **El PID del servicio no es el que tiene el puerto.** El SCM dice que `postgresql-x64-17` es el
-   PID 4992; quien escucha en 5432 es el 6672. Hay que recorrer el árbol de procesos — es el mismo
+   PID 4992 —que es un `pg_ctl.exe`—; quien escucha en 5433 es su hijo 6680, un `postgres.exe`. Hay que recorrer el árbol de procesos — es el mismo
    error que ya costó una medición inválida en T4-03, donde el consumo del WebView hubo que sacarlo
    caminando `ParentProcessId`.
 2. **SQL Express no tiene puerto TCP**: viene con TCP/IP desactivado. La columna estrella de la app

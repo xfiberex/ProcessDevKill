@@ -27,6 +27,11 @@
   «0 MB» junto a un SQL Server corriendo es una cifra que el usuario se cree, y es falsa.**
   Rellenarla pediría `NtQuerySystemInformation`, que Microsoft se reserva el derecho a cambiar; no
   se añade eso por una columna de conveniencia.
+  **Comprobado después en los dos sentidos, con la consola ya elevada:** la misma llamada lee los
+  mismos PIDs sin problema (`MSSQL$SQLEXPRESS` 124,4 MB, `SQLTELEMETRY$SQLEXPRESS` 53,4 MB). Era el
+  permiso y nada más, así que el `title` puede afirmarlo en vez de insinuarlo. De regalo, la prueba
+  de que el árbol también hace falta para la RAM: `postgresql-x64-17` da 7,7 MB por su PID —el
+  `pg_ctl.exe`— y 107,3 MB sumando sus 9 procesos.
 - **La prueba negativa tenía un caso real esperando.** Al explorar la idea se filtraron los servicios
   con un `-match` que incluía `Redis` y apareció **`GameInputRedistService`**: «Redist» contiene
   «Redis». De ahí que los patrones sean de cuatro clases explícitas y **ninguna sea «contiene»**.
