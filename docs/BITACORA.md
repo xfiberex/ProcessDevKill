@@ -8,6 +8,31 @@
 
 ---
 
+### 2026-08-22 — Se abre el Tier 10: los servicios de desarrollo
+
+- **Feature propuesta por el usuario**, y escrita como Tier nuevo en el ROADMAP en vez de como tarea
+  del backlog: los `Tn-xx` son deuda encontrada en una revisión, y esto es una fase de desarrollo.
+- **Encaja por el eslogan, no por novedad.** El 1433, el 5432 y el 27017 son puertos igual que el
+  3000; la app responde «quién ocupa mi puerto» para lo que lanza el usuario y es ciega a lo que
+  lanza Windows por él.
+- **El argumento salió del propio equipo del usuario**, mirado antes de opinar: **dos PostgreSQL
+  `Automatic` y corriendo a la vez**, en 5432 y 5433, más SQL Express y un servicio de telemetría de
+  53 MB. Un panel de solo lectura ya habría enseñado eso el primer día.
+- **La decisión de fondo es de privilegios, y hay que cerrarla antes de escribir código.** La app
+  instala en `currentUser` y nunca eleva. Se recomienda **leer siempre sin privilegios y elevar solo
+  al actuar**; elevar la app entera rompería su mejor propiedad —hoy lo peor que puede hacer un
+  fallo es cerrar procesos del usuario— y un servicio broker sería desproporcionado.
+- **El tipo de arranque persiste, y por eso pide más cuidado que el Auto-Kill**: sería lo primero que
+  la app hace que sobrevive a un reinicio y vive fuera de su `settings.json`. Queda escrito que la
+  app registrará lo que cambie para deshacerlo y que **nunca lo hará sola**.
+- Anotadas tres trampas ya vistas en el equipo: el PID del servicio **no** es el que tiene el puerto
+  (postgres: servicio 4992, escucha 6672 — el mismo error que costó una medición inválida en T4-03),
+  SQL Express **no tiene puerto TCP**, y hay que emparejar por nombre de servicio y no por el
+  visible, que está localizado.
+- De paso, puesta al día la §3 de CONTEXT, que seguía diciendo «Tiers 1 a 8» y «33 de 37», y el
+  índice del backlog, que seguía en 36. **Y queda dicho que hay trabajo en `main` sin publicar**: los
+  dos idiomas entraron después de la v1.4.0.
+
 ### 2026-08-21 — La app habla dos idiomas, y con esto se cierran las 37
 
 - **T4-01 hecha: español e inglés.** Era la de esfuerzo alto de toda la lista y la última que

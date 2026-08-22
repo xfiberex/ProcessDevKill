@@ -976,6 +976,123 @@ haciendo clic en «Siguiente».
 ---
 
 
+## 🗄 Tier 10: Servicios de desarrollo — 📋 **planificado**
+
+> **Propuesto por el usuario el 2026-08-22.** Es el primer Tier que se abre desde que el backlog de
+> la auditoría quedó sin nada pendiente (**37 de 37**), y va aquí y no como una tarea `T5-xx` a
+> propósito: los `Tn-xx` son deuda encontrada en una revisión, y esto es una fase de desarrollo
+> nueva. Nada de los Tiers 1-9 se toca.
+>
+> **Nada de esto está hecho.** Los checkboxes se marcan cuando la funcionalidad esté *probada*, como
+> en el resto del documento.
+
+### Por qué encaja, y no es ampliar el alcance
+
+El eslogan del producto es «el puerto 3000 está ocupado y no sé por quién». El **1433**, el **5432**,
+el **27017** y el **6379** son puertos igual que el 3000. La app hoy responde esa pregunta para los
+procesos que lanza el usuario y es **ciega a la mitad que lanza Windows por él**. No es una función
+nueva pegada al lado: es el agujero del alcance que ya tiene.
+
+**La prueba salió del equipo del propio usuario**, mirado el 2026-08-22 antes de escribir esto:
+
+| Servicio | Estado | Arranque | Puerto | RAM |
+|---|---|---|---|---|
+| `postgresql-x64-17` | Running | **Automatic** | **5432** | * |
+| `postgresql-x64-18` | Running | **Automatic** | **5433** | * |
+| `MSSQL$SQLEXPRESS` | Running | **Automatic** | sin TCP | 125 MB |
+| `SQLTELEMETRY$SQLEXPRESS` | Running | **Automatic** | — | 53 MB |
+| `MySQL80` | Stopped | Manual | — | — |
+| `com.docker.service` | Stopped | Manual | — | — |
+
+**Dos PostgreSQL arrancando en cada boot**, en 5432 y 5433, y un servicio de telemetría de 53 MB.
+Un panel de solo lectura ya habría enseñado eso el primer día.
+
+`*` La RAM de los dos PostgreSQL se deja en blanco a propósito: el proceso que el SCM asocia al
+servicio no es el que escucha en el puerto, así que la cifra que sale de ahí no es la del servidor.
+Es la trampa 1 de más abajo, y sale ya en la primera tabla que se intenta pintar.
+
+### Un filo que además arregla
+
+Hoy, si el usuario añade `sqlservr` a los nombres vigilados, la app le ofrece un botón **Kill** para
+SQL Server. Es la acción equivocada —matar un motor de base de datos en vez de detenerlo— y encima
+fallaría sin privilegios. El panel da la acción correcta para esa clase de proceso.
+
+### ⚠️ La decisión que hay que tomar antes de escribir una línea: los privilegios
+
+La app instala en `currentUser` (`tauri.conf.json`) y **nunca eleva**. Leer el estado de los
+servicios es gratis; `StartService`, `StopService` y sobre todo `ChangeServiceConfig` piden
+administrador.
+
+- ❌ **Elevar la app entera.** Rompe su mejor propiedad. Hoy lo peor que puede hacer un fallo es
+  cerrar procesos del usuario; elevada, la guardia de PIDs sería lo único entre un fallo y los
+  procesos del sistema. Y saldría un UAC en cada arranque de una app pensada para vivir en la
+  bandeja.
+- ✅ **Leer siempre, elevar solo al actuar.** El panel funciona sin admin y el UAC sale al pulsar
+  Detener o al cambiar el tipo de arranque. **Es la recomendación**, y es lo que asume el reparto en
+  fases de abajo.
+- ❌ **Un servicio broker instalado con admin.** Obliga a `installMode: perMachine`, deja algo
+  corriendo como SYSTEM para siempre y abre una superficie de IPC que este proyecto no necesita.
+
+### ⚠️ El tipo de arranque persiste, y eso lo pone por encima del Auto-Kill en cuidado
+
+Cambiar el tipo de arranque sería **lo primero que esta app hace que sobrevive a un reinicio y vive
+fuera de su propio `settings.json`**. El Auto-Kill mata un proceso y vuelve la próxima vez que se
+lanza; un servicio en `Deshabilitado` sigue deshabilitado dentro de tres meses, cuando ya nadie
+recuerda que lo hizo la app. De ahí dos reglas que no se negocian:
+
+- **La app registra lo que cambió, para poder deshacerlo.** Mismo criterio que el historial de
+  cierres.
+- **Nunca lo hace sola.** No hay, ni habrá, un «Auto-Kill de servicios».
+
+### Fase A — solo lectura
+
+Se publica sola y ya es útil. Sin privilegios, sin riesgo.
+
+- [ ] Enumerar los servicios con el SCM (`OpenSCManager` + `EnumServicesStatusEx`) desde Rust, en su
+      propio módulo `services.rs`. Con la crate `windows`, no llamando a `sc.exe` ni a PowerShell:
+      lanzar un proceso por consulta es lento y devuelve texto que hay que parsear.
+- [ ] Clasificar cuáles son «de desarrollo» con el mismo diseño que `classify` en `processes.rs`:
+      una lista de fábrica más los que añada el usuario en Ajustes.
+- [ ] Vista nueva en el sidebar con estado, tipo de arranque, RAM y **el puerto que ocupa cada uno**.
+- [ ] Prueba de que la lista de fábrica no incluye nada que no sea de desarrollo, y de que un
+      servicio ajeno no se cuela por parecido de nombre.
+
+### Fase B — arrancar y detener
+
+- [ ] Elevación puntual al actuar, no al arrancar la app.
+- [ ] Confirmación antes de detener, como en todo lo que esta app cierra.
+- [ ] **Enseñar las dependencias antes de detener.** Parar `MSSQLSERVER` con `SQLSERVERAGENT`
+      colgando de él o falla o arrastra al otro; el usuario tiene que verlo antes, no después.
+- [ ] Que el resultado real se lea del SCM y no se asuma: un `StopService` devuelve enseguida y el
+      servicio puede quedarse en `StopPending` un rato largo.
+
+### Fase C — tipo de arranque
+
+- [ ] `ChangeServiceConfig` con elevación.
+- [ ] **Registro de lo que la app cambió, con deshacer.** Ver el aviso de arriba.
+- [ ] Aviso claro en la UI de que el cambio sobrevive al reinicio.
+
+### Tres trampas concretas, ya vistas en el equipo del usuario
+
+1. **El PID del servicio no es el que tiene el puerto.** El SCM dice que `postgresql-x64-17` es el
+   PID 4992; quien escucha en 5432 es el 6672. Hay que recorrer el árbol de procesos — es el mismo
+   error que ya costó una medición inválida en T4-03, donde el consumo del WebView hubo que sacarlo
+   caminando `ParentProcessId`.
+2. **SQL Express no tiene puerto TCP**: viene con TCP/IP desactivado. La columna estrella de la app
+   estaría vacía justo para el servicio más pesado. Eso hay que **decirlo** en la UI, no dejar un
+   guion como si no se supiera — mismo criterio que el «En pausa» del medidor.
+3. **Emparejar por nombre de servicio, nunca por nombre visible.** El equipo del usuario es es-DO y
+   los `DisplayName` están localizados: `MSSQL$SQLEXPRESS` es estable, «SQL Server (SQLEXPRESS)» no.
+
+### Lo que este Tier **no** va a hacer
+
+- Ni instalar ni desinstalar servicios.
+- Ni tocar servicios que no estén en la lista de desarrollo, aunque el usuario los busque.
+- Ni cambiar nada de forma automática, en ningún caso.
+
+---
+
+
 ## ✅ Resumen de la verificación técnica
 
 | Punto original | Estado | Corrección aplicada |
@@ -1019,8 +1136,8 @@ haciendo clic en «Siguiente».
 | **T1 — Alta prioridad** | Las dos guardias que la doctrina del proyecto exige y no están | **2** | **2** ✅ | 2 bajo |
 | **T2 — Mejoras sustanciales** | Observabilidad, integridad en disco, dependencias, accesibilidad y publicación | **10** | **10** ✅ | 7 bajo · 3 medio |
 | **T3 — Pulido y mantenimiento** | Redacción, etiquetas, documentación desfasada y detalles de código | **20** | **20** ✅ | 20 bajo |
-| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | 4 | 1 bajo · 3 medio · 1 alto |
-| | | **37** | **36** | 30 bajo · 6 medio · 1 alto |
+| **T4 — Futuro / opcional** | Explícitamente fuera del alcance inmediato | **5** | **5** ✅ | 1 bajo · 3 medio · 1 alto |
+| | | **37** | **37** ✅ | 30 bajo · 6 medio · 1 alto |
 
 **Por qué no hay ningún T0.** El hallazgo más grave (T1-01) acaba en ejecución de código, pero
 **no es alcanzable hoy**: la CSP fija `script-src 'self'`, no hay un solo `dangerouslySetInnerHTML`

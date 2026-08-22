@@ -30,7 +30,7 @@
 
 ## 3. Estado actual
 
-**Tiers 1 a 8 completos y verificados.** El 7 se abrió el 2026-07-27 con una revisión completa del
+**Tiers 1 a 9 completos y verificados.** El 7 se abrió el 2026-07-27 con una revisión completa del
 repositorio sobre la v1.1.1 ya publicada —código, seguridad, rendimiento, estructura, accesibilidad,
 responsividad, ortografía y documentación— y se cerró entero el mismo día: seguridad, arreglos
 rápidos, ortografía, comportamiento de la ventana y accesibilidad, rendimiento, refactor,
@@ -39,8 +39,26 @@ compactación de los documentos y los tres puntos de producto.
 Nada de lo que recogía esa revisión era un fallo de funcionamiento —la app hace lo que promete—
 **salvo la guardia de rutas de `install_update`**, que se saltaba con un `..`; arreglada en el 7.1.
 
-**Publicado:** **v1.4.0** (2026-08-18), la versión que recoge la revisión entera: **33 de las 37
-tareas**, con los Tiers 1, 2 y 3 cerrados enteros. Sube a minor y no a parche porque trae
+**El backlog de la revisión está cerrado entero: 37 de 37**, desde el 2026-08-21 con T4-01, la
+internacionalización. **Cuatro de esas 37 se cerraron por decisión o por medición, no escribiendo
+código**: no hay CI (T4-04), no habrá firma Authenticode (T4-02), el bundle no se divide porque se
+midió que no compensa (T4-05) y el rendimiento se midió en vez de suponerse (T4-03).
+
+> ⚠️ **Hay trabajo en `main` sin publicar.** Los dos idiomas (T4-01) entraron **después** de la
+> v1.4.0, así que la versión que hay ahí fuera sigue hablando solo español. Es lo que iría en el
+> próximo corte.
+
+**Abierto: [Tier 10 — Servicios de desarrollo](ROADMAP.md), planificado el 2026-08-22** y sin
+empezar. Un panel para los servicios de Windows que son de desarrollo —SQL Server, PostgreSQL,
+MySQL, Docker— con su estado, su tipo de arranque y **el puerto que ocupan**. Encaja porque el 1433
+y el 5432 son puertos igual que el 3000, y la app hoy solo ve los procesos que lanza el usuario, no
+los que lanza Windows por él. **Antes de escribir una línea hay que cerrar la decisión de
+privilegios**: la app instala en `currentUser` y nunca eleva, y detener un servicio o cambiar su
+arranque sí piden administrador. La recomendación escrita en el Tier es leer siempre sin privilegios
+y elevar solo al actuar.
+
+**Publicado:** **v1.4.0** (2026-08-18), la versión que recogió la revisión hasta ese punto: **33 de
+las 37 tareas**, con los Tiers 1, 2 y 3 cerrados enteros. Sube a minor y no a parche porque trae
 funcionalidad nueva de cara al usuario —el **registro de avisos** en Ajustes → Acerca de y la
 pantalla de error en vez de la ventana en blanco— y cambia comportamiento: **un solo aviso** por
 acción desde la bandeja y el atajo, donde antes salían dos. 4 assets: NSIS y MSI con sus `.sha256`.
