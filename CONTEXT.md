@@ -80,15 +80,21 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
 > usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
-**Publicado:** **v1.5.0** (2026-08-23), la versión más grande desde la 1.0: trae el **Tier 10
-entero** —el panel de servicios de desarrollo, con arrancar, detener, cambiar el tipo de arranque y
-deshacerlo— y la app **en español e inglés**, bandeja y notificaciones incluidas. Sube a minor:
-funcionalidad nueva, sin romper nada de lo anterior. Es también la primera versión que **actúa
-fuera de sus propios procesos**: eleva de forma puntual para hablar con el SCM, y por eso lleva la
-guardia dentro del proceso elevado y un registro de lo que cambió. 4 assets: NSIS y MSI con sus
-`.sha256`, comprobado tras publicar que el hash del release casa con el instalador del release.
+**Publicado:** **v1.5.1** (2026-08-23), un arreglo de interfaz sobre la 1.5.0 que **no cambia el
+comportamiento de nada**: mismos permisos, mismas acciones, mismos datos. Con las seis columnas que
+trajo el panel de servicios, la tabla no cabía en la ventana y la barra horizontal se llevaba fuera
+de pantalla **la columna del nombre**, que es lo que identifica cada fila; ahora las columnas llevan
+anchos medidos (§4, 2026-08-23). Van con ella tres detalles de la misma vista —la RAM ya no parte en
+dos líneas, el desplegable enseña «Automático (retrasado)» entero y usa el foco de la app— y dos de
+accesibilidad: los tipos de arranque ya no parecen desactivados, y el motivo de los «—» lo anuncian
+también los lectores de pantalla. 4 assets, con el hash comprobado tras publicar: `b764f7ef…`.
 
-Antes: la **v1.4.0** (2026-08-18), la que recogió la revisión hasta ese punto: **33 de
+Antes: la **v1.5.0** (2026-08-23), la versión más grande desde la 1.0: trajo el **Tier 10
+entero** —el panel de servicios de desarrollo, con arrancar, detener, cambiar el tipo de arranque y
+deshacerlo— y la app **en español e inglés**, bandeja y notificaciones incluidas. Subió a minor:
+funcionalidad nueva, sin romper nada de lo anterior. Fue también la primera versión que **actúa
+fuera de sus propios procesos**: eleva de forma puntual para hablar con el SCM, y por eso lleva la
+guardia dentro del proceso elevado y un registro de lo que cambió. Antes: la **v1.4.0** (2026-08-18), la que recogió la revisión hasta ese punto: **33 de
 las 37 tareas**, con los Tiers 1, 2 y 3 cerrados enteros. Sube a minor y no a parche porque trae
 funcionalidad nueva de cara al usuario —el **registro de avisos** en Ajustes → Acerca de y la
 pantalla de error en vez de la ventana en blanco— y cambia comportamiento: **un solo aviso** por
@@ -97,10 +103,11 @@ Sin firma de código, así que SmartScreen sigue avisando. Antes: la v1.3.2 (Tie
 la v1.3.1 con la **actualización silenciosa** (`/S /UPDATE /R`) y la v1.3.0 con el medidor del
 entorno. La primera versión pública fue la v1.1.1.
 
-> Verificado tras publicar, en las cuatro versiones con el mismo criterio: los 4 assets están en el
+> Verificado tras publicar, en las seis versiones con el mismo criterio: los 4 assets están en el
 > release, la API que consulta la app devuelve el `tag_name` correcto, y **el instalador descargado
 > del release coincide con el `.sha256` publicado** — la cadena entera que recorre la
-> auto-actualización, sobre los archivos reales. Para la v1.4.0, `a8738197…`; para la v1.3.2,
+> auto-actualización, sobre los archivos reales. Para la v1.5.1, `b764f7ef…`; para la v1.5.0,
+> `21fad0ad…`; para la v1.4.0, `a8738197…`; para la v1.3.2,
 > `d4030bb7…`; para la v1.3.1,
 > `121b228e…`; para la v1.3.0, `0050ae80…`. En la v1.3.2 se comprobó además que **las URLs reales que
 > devuelve la API pasan la guardia nueva**: era lo único que podía romper la actualización entera sin
