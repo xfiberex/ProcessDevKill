@@ -83,7 +83,15 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
 > usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
-**Publicado:** **v1.4.0** (2026-08-18), la versión que recogió la revisión hasta ese punto: **33 de
+**Publicado:** **v1.5.0** (2026-08-23), la versión más grande desde la 1.0: trae el **Tier 10
+entero** —el panel de servicios de desarrollo, con arrancar, detener, cambiar el tipo de arranque y
+deshacerlo— y la app **en español e inglés**, bandeja y notificaciones incluidas. Sube a minor:
+funcionalidad nueva, sin romper nada de lo anterior. Es también la primera versión que **actúa
+fuera de sus propios procesos**: eleva de forma puntual para hablar con el SCM, y por eso lleva la
+guardia dentro del proceso elevado y un registro de lo que cambió. 4 assets: NSIS y MSI con sus
+`.sha256`, comprobado tras publicar que el hash del release casa con el instalador del release.
+
+Antes: la **v1.4.0** (2026-08-18), la que recogió la revisión hasta ese punto: **33 de
 las 37 tareas**, con los Tiers 1, 2 y 3 cerrados enteros. Sube a minor y no a parche porque trae
 funcionalidad nueva de cara al usuario —el **registro de avisos** en Ajustes → Acerca de y la
 pantalla de error en vez de la ventana en blanco— y cambia comportamiento: **un solo aviso** por
