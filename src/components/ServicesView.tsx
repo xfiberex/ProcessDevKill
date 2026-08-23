@@ -3,9 +3,17 @@ import {
   ContainerIcon,
   DatabaseIcon,
   GlobeIcon,
+  LoaderCircleIcon,
+  PlayIcon,
   SettingsIcon,
+  SquareIcon,
 } from "lucide-react";
-import type { ServiceFamily, ServiceInfo, ServiceState } from "../types";
+import type {
+  ServiceAction,
+  ServiceFamily,
+  ServiceInfo,
+  ServiceState,
+} from "../types";
 import { Marcado, useT } from "../i18n";
 import type { Catalogo } from "../i18n";
 import { formatMemory } from "../lib/format";
@@ -16,6 +24,14 @@ type ServicesViewProps = {
   services: ServiceInfo[] | null;
   onRefresh: () => void;
   onIrAAjustes: () => void;
+  onAction: (servicio: ServiceInfo, accion: ServiceAction) => void;
+  /**
+   * El nombre del servicio con una accion en curso, o `null`.
+   *
+   * Uno solo y no un conjunto: entre el UAC y la espera del SCM, cada accion bloquea de todas
+   * formas, y permitir dos a la vez seria ofrecer dos ventanas de UAC encimadas.
+   */
+  busy: string | null;
 };
 
 /**
@@ -37,17 +53,22 @@ const FAMILY_ICONS: Record<ServiceFamily, typeof DatabaseIcon> = {
 };
 
 /**
- * Los servicios de desarrollo del equipo.
- *
- * **Solo lectura, y se dice arriba del todo.** Un panel que enseña servicios invita a pulsar algo;
- * si todavía no hay nada que pulsar, hay que explicarlo antes de que el usuario lo busque. Arrancar
- * y detener llegan en la fase B del Tier 10, con elevación puntual, y cambiar el tipo de arranque en
- * la C.
+ * Los servicios de desarrollo del equipo, con arrancar y detener.
  *
  * **Todo el color va al estado**, no a la familia: en un panel de servicios lo que se escanea es qué
  * está corriendo. Por eso los iconos van en gris y la única nota de color es la píldora de estado.
+ *
+ * Los botones no elevan nada por sí solos: llaman a `control_service`, que relanza la app para esa
+ * única acción y vuelve. Cambiar el tipo de arranque —lo único que sobreviviría a un reinicio— sigue
+ * fuera, en la fase C.
  */
-export function ServicesView({ services, onRefresh, onIrAAjustes }: ServicesViewProps) {
+export function ServicesView({
+  services,
+  onRefresh,
+  onIrAAjustes,
+  onAction,
+  busy,
+}: ServicesViewProps) {
   const t = useT();
 
   if (services === null) {
@@ -111,11 +132,25 @@ export function ServicesView({ services, onRefresh, onIrAAjustes }: ServicesView
               <th scope="col" className="px-5 py-2 text-left font-medium">
                 {t.servicios.columnas.puertos}
               </th>
+              <th scope="col" className="px-5 py-2 text-right font-medium">
+                {/* El rótulo existe para el lector de pantalla; a la vista, una columna
+                    de botones titulada «Acciones» solo repite lo que ya se ve. */}
+                <span className="sr-only">{t.servicios.columnas.acciones}</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {services.map((s) => (
-              <Fila key={s.name} servicio={s} t={t} />
+              <Fila
+                key={s.name}
+                servicio={s}
+                t={t}
+                onAction={onAction}
+                trabajando={busy === s.name}
+                // Con una accion en curso se apagan **todos** los botones, no solo el suyo: el
+                // UAC de la primera todavia esta en pantalla cuando se podria pulsar la segunda.
+                bloqueado={busy !== null}
+              />
             ))}
           </tbody>
         </table>
@@ -124,7 +159,19 @@ export function ServicesView({ services, onRefresh, onIrAAjustes }: ServicesView
   );
 }
 
-function Fila({ servicio: s, t }: { servicio: ServiceInfo; t: Catalogo }) {
+function Fila({
+  servicio: s,
+  t,
+  onAction,
+  trabajando,
+  bloqueado,
+}: {
+  servicio: ServiceInfo;
+  t: Catalogo;
+  onAction: (servicio: ServiceInfo, accion: ServiceAction) => void;
+  trabajando: boolean;
+  bloqueado: boolean;
+}) {
   const Icon = FAMILY_ICONS[s.family];
   const arrancaSolo = s.startType === "automatic" || s.startType === "automaticDelayed";
 
@@ -196,7 +243,72 @@ function Fila({ servicio: s, t }: { servicio: ServiceInfo; t: Catalogo }) {
           </span>
         )}
       </td>
+
+      <td className="px-5 py-2 text-right">
+        <Accion
+          servicio={s}
+          t={t}
+          onAction={onAction}
+          trabajando={trabajando}
+          bloqueado={bloqueado}
+        />
+      </td>
     </tr>
+  );
+}
+
+/**
+ * El botón de la fila: uno solo, el que toca según el estado.
+ *
+ * No se pintan Arrancar y Detener a la vez con uno deshabilitado. Un servicio corriendo no se
+ * arranca, y enseñar el botón imposible al lado del posible obliga a leer cuál de los dos está
+ * apagado antes de pulsar.
+ */
+function Accion({
+  servicio: s,
+  t,
+  onAction,
+  trabajando,
+  bloqueado,
+}: {
+  servicio: ServiceInfo;
+  t: Catalogo;
+  onAction: (servicio: ServiceInfo, accion: ServiceAction) => void;
+  trabajando: boolean;
+  bloqueado: boolean;
+}) {
+  const a = t.servicios.acciones;
+
+  // En transición no se ofrece nada: el servicio ya está haciendo algo, y encargarle lo contrario
+  // a mitad de camino es la forma de dejarlo atascado.
+  if (s.state === "pending" || trabajando) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <LoaderCircleIcon className="size-3.5 animate-spin" aria-hidden />
+        {a.trabajando}
+      </span>
+    );
+  }
+
+  const corriendo = s.state === "running";
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={bloqueado}
+      // El nombre accesible lleva el servicio dentro: si no, la tabla es una columna de
+      // botones que se llaman todos igual.
+      aria-label={corriendo ? a.detenerLabel(s.name) : a.arrancarLabel(s.name)}
+      onClick={() => onAction(s, corriendo ? "stop" : "start")}
+    >
+      {corriendo ? (
+        <SquareIcon className="text-destructive" />
+      ) : (
+        <PlayIcon />
+      )}
+      {corriendo ? a.detener : a.arrancar}
+    </Button>
   );
 }
 

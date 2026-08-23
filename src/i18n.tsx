@@ -187,7 +187,7 @@ export const es = {
      * por qué antes de que el usuario lo busque.
      */
     descripcion:
-      "Los que instalan las herramientas de desarrollo y arrancan con Windows sin que se note. Por ahora **solo se leen**: esta versión no arranca, no detiene y no cambia nada." as Rico,
+      "Los que instalan las herramientas de desarrollo y arrancan con Windows sin que se note. Arrancarlos o detenerlos pide permisos de administrador **solo en ese momento**: la app nunca se eleva entera. El tipo de arranque todavía no se puede cambiar desde aquí." as Rico,
     recuento: (n: number) => (n === 1 ? "1 servicio" : `${n} servicios`),
     vacio: "No se ha encontrado ningún servicio de desarrollo.",
     vacioDetalle:
@@ -200,6 +200,7 @@ export const es = {
       arranque: "Arranque",
       ram: "RAM",
       puertos: "Puertos",
+      acciones: "Acciones",
     },
     estados: {
       running: "Corriendo",
@@ -232,6 +233,44 @@ export const es = {
       "No escucha en ningún puerto TCP. Es normal: SQL Express, por ejemplo, viene con TCP/IP desactivado.",
     pidTitulo: (pid: number) => `PID ${pid}`,
     arrancaSolo: "Arranca con Windows",
+    acciones: {
+      arrancar: "Arrancar",
+      detener: "Detener",
+      /**
+       * El nombre accesible lleva el servicio dentro.
+       *
+       * En una tabla hay un botón por fila, y «Detener» a secas se repite tantas veces como
+       * servicios: para quien navega con lector de pantalla eso es una lista de botones idénticos.
+       * Mismo arreglo que el de los dos «Añadir» de Ajustes.
+       */
+      arrancarLabel: (n: string) => `Arrancar ${n}`,
+      detenerLabel: (n: string) => `Detener ${n}`,
+      trabajando: "Esperando a Windows…",
+      detenerTitulo: (n: string) => `Detener ${n}`,
+      detenerMensaje: (n: string): string =>
+        `Windows detendrá ${n}. Lo que esté usándolo en este momento —una conexión abierta, una consulta a medias— se corta. Se puede volver a arrancar desde aquí.`,
+      detenerBoton: "Detener servicio",
+      /**
+       * Las dependencias se enseñan **antes** de detener, no después de fallar.
+       *
+       * Windows contesta `ERROR_DEPENDENT_SERVICES_RUNNING` y no toca nada; enterarse de eso
+       * después de haber pasado por un UAC es la peor forma de descubrirlo.
+       */
+      dependientes: (nombres: string[]): string =>
+        nombres.length === 1
+          ? `Windows no lo detendrá mientras ${nombres[0]} siga corriendo. Detén ese primero.`
+          : `Windows no lo detendrá mientras sigan corriendo estos: ${nombres.join(", ")}. Detén esos primero.`,
+      pideAdmin:
+        "Hará falta aprobar el aviso de administrador de Windows. Se eleva solo esta acción, y solo mientras dura.",
+      arrancado: (n: string) => `${n} está corriendo.`,
+      detenido: (n: string) => `${n} está parado.`,
+      /** Ni «hecho» ni «falló»: el SCM aceptó y el servicio todavía está en ello. */
+      enTransicion: (n: string) =>
+        `${n} sigue cambiando de estado. Refresca dentro de unos segundos para ver en qué queda.`,
+      bloqueado: (n: string, nombres: string[]): string =>
+        `No se pudo detener ${n}: sigue corriendo ${nombres.join(", ")}.`,
+      rechazado: (n: string) => `Windows no dejó completar la acción sobre ${n}.`,
+    },
   },
 
   historial: {
@@ -500,7 +539,7 @@ export const en: Catalogo = {
     titulo: "Development services",
     cargando: "Reading the services…",
     descripcion:
-      "The ones your development tools install, starting with Windows without you noticing. For now they are **read-only**: this version does not start, stop or change anything.",
+      "The ones your development tools install, starting with Windows without you noticing. Starting or stopping one asks for administrator rights **just for that moment**: the app never runs elevated as a whole. Startup type cannot be changed from here yet.",
     recuento: (n) => (n === 1 ? "1 service" : `${n} services`),
     vacio: "No development service was found.",
     vacioDetalle:
@@ -513,6 +552,7 @@ export const en: Catalogo = {
       arranque: "Startup",
       ram: "RAM",
       puertos: "Ports",
+      acciones: "Actions",
     },
     estados: {
       running: "Running",
@@ -544,6 +584,30 @@ export const en: Catalogo = {
       "It is not listening on any TCP port. That is normal: SQL Express, for one, ships with TCP/IP disabled.",
     pidTitulo: (pid) => `PID ${pid}`,
     arrancaSolo: "Starts with Windows",
+    acciones: {
+      arrancar: "Start",
+      detener: "Stop",
+      arrancarLabel: (n) => `Start ${n}`,
+      detenerLabel: (n) => `Stop ${n}`,
+      trabajando: "Waiting for Windows…",
+      detenerTitulo: (n) => `Stop ${n}`,
+      detenerMensaje: (n) =>
+        `Windows will stop ${n}. Whatever is using it right now — an open connection, a query midway — gets cut off. You can start it again from here.`,
+      detenerBoton: "Stop service",
+      dependientes: (nombres) =>
+        nombres.length === 1
+          ? `Windows will not stop it while ${nombres[0]} keeps running. Stop that one first.`
+          : `Windows will not stop it while these keep running: ${nombres.join(", ")}. Stop those first.`,
+      pideAdmin:
+        "You will have to approve the Windows administrator prompt. Only this action runs elevated, and only while it lasts.",
+      arrancado: (n) => `${n} is running.`,
+      detenido: (n) => `${n} is stopped.`,
+      enTransicion: (n) =>
+        `${n} is still changing state. Refresh in a few seconds to see where it lands.`,
+      bloqueado: (n, nombres) =>
+        `${n} could not be stopped: ${nombres.join(", ")} is still running.`,
+      rechazado: (n) => `Windows did not let the action on ${n} go through.`,
+    },
   },
 
   historial: {

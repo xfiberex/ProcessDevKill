@@ -6,17 +6,20 @@ import { servicio } from "../test/tauri-mock";
 import { I18nProvider } from "../i18n";
 import type { ServiceInfo } from "../types";
 
-function pintar(services: ServiceInfo[] | null) {
+function pintar(services: ServiceInfo[] | null, busy: string | null = null) {
   const onRefresh = vi.fn();
   const onIrAAjustes = vi.fn();
+  const onAction = vi.fn();
   render(
     <ServicesView
       services={services}
       onRefresh={onRefresh}
       onIrAAjustes={onIrAAjustes}
+      onAction={onAction}
+      busy={busy}
     />,
   );
-  return { onRefresh, onIrAAjustes, user: userEvent.setup() };
+  return { onRefresh, onIrAAjustes, onAction, user: userEvent.setup() };
 }
 
 /** La fila de un servicio, por su nombre del SCM. */
@@ -153,6 +156,8 @@ describe("en ingles", () => {
           ]}
           onRefresh={vi.fn()}
           onIrAAjustes={vi.fn()}
+          onAction={vi.fn()}
+          busy={null}
         />
       </I18nProvider>,
     );
@@ -160,7 +165,97 @@ describe("en ingles", () => {
     expect(screen.getByText("Development services")).toBeVisible();
     expect(screen.getByText("Stopped")).toBeVisible();
     expect(screen.getByText("Disabled")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Start MySQL80" }),
+    ).toBeVisible();
     // El nombre del SCM **no** se traduce nunca: es la clave.
     expect(screen.getByText("MySQL80")).toBeVisible();
+  });
+});
+
+describe("arrancar y detener", () => {
+  it("ofrece detener lo que corre y arrancar lo que esta parado", () => {
+    pintar([
+      servicio({ name: "postgresql-x64-17", state: "running" }),
+      servicio({ name: "MySQL80", state: "stopped" }),
+    ]);
+
+    expect(
+      within(fila("postgresql-x64-17")).getByRole("button", {
+        name: "Detener postgresql-x64-17",
+      }),
+    ).toBeVisible();
+    expect(
+      within(fila("MySQL80")).getByRole("button", { name: "Arrancar MySQL80" }),
+    ).toBeVisible();
+  });
+
+  /**
+   * Un servicio corriendo no se arranca. Pintar los dos botones y apagar uno obliga a mirar cual
+   * de los dos esta deshabilitado antes de pulsar, que es trabajo para el lector.
+   */
+  it("no ofrece las dos acciones a la vez en la misma fila", () => {
+    pintar([servicio({ name: "SQLWriter", state: "running" })]);
+
+    const f = within(fila("SQLWriter"));
+    expect(f.getByRole("button", { name: "Detener SQLWriter" })).toBeVisible();
+    expect(
+      f.queryByRole("button", { name: "Arrancar SQLWriter" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("avisa a quien manda con el servicio y la accion", async () => {
+    const { onAction, user } = pintar([
+      servicio({ name: "MySQL80", state: "stopped" }),
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: "Arrancar MySQL80" }),
+    );
+
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "MySQL80" }),
+      "start",
+    );
+  });
+
+  /**
+   * **La prueba negativa de esta vista: que NO se puede pulsar.**
+   *
+   * Un servicio en transicion ya esta haciendo algo. Encargarle lo contrario a mitad de camino es
+   * la forma de dejarlo atascado, asi que en `pending` no hay boton, solo el aviso de que espere.
+   */
+  it("no deja encargar nada a un servicio que ya esta cambiando", () => {
+    pintar([servicio({ name: "MSSQL$SQLEXPRESS", state: "pending" })]);
+
+    const f = within(fila("MSSQL$SQLEXPRESS"));
+    expect(f.queryByRole("button")).not.toBeInTheDocument();
+    expect(f.getByText("Esperando a Windows…")).toBeVisible();
+  });
+
+  /**
+   * Con una accion en curso se apagan los botones de **toda** la tabla, no solo el de su fila: el
+   * UAC de la primera sigue en pantalla cuando se podria pulsar la segunda, y dos ventanas de UAC
+   * encimadas no son una respuesta a nada.
+   */
+  it("apaga la tabla entera mientras hay una accion en curso", () => {
+    pintar(
+      [
+        servicio({ name: "MySQL80", state: "stopped" }),
+        servicio({ name: "SQLWriter", state: "running" }),
+      ],
+      "MySQL80",
+    );
+
+    // La fila ocupada pierde el boton y dice que espera.
+    expect(
+      within(fila("MySQL80")).queryByRole("button"),
+    ).not.toBeInTheDocument();
+    // Y la otra lo conserva, pero deshabilitado.
+    expect(
+      within(fila("SQLWriter")).getByRole("button", {
+        name: "Detener SQLWriter",
+      }),
+    ).toBeDisabled();
   });
 });

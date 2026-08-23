@@ -30,6 +30,11 @@ pub struct Textos {
     pub fallo_desconocido: &'static str,
     pub ajustes_corruptos: &'static str,
     pub sin_acceso_al_sistema: &'static str,
+    /// Cuando llega un nombre de servicio que no es de ninguno de los vigilados. No deberia verse
+    /// nunca desde la ventana: la lista solo pinta los que pasan la misma comprobacion.
+    pub servicio_no_vigilado: &'static str,
+    pub sin_ejecutable: &'static str,
+    pub sin_elevacion: &'static str,
 }
 
 pub const ES: Textos = Textos {
@@ -40,6 +45,9 @@ pub const ES: Textos = Textos {
     fallo_desconocido: "Fallo desconocido",
     ajustes_corruptos: "Ajustes corruptos",
     sin_acceso_al_sistema: "No se pudo acceder al estado del sistema",
+    servicio_no_vigilado: "Ese servicio no es de desarrollo",
+    sin_ejecutable: "No se encontro el ejecutable de la app",
+    sin_elevacion: "No se pudieron pedir permisos de administrador",
 };
 
 pub const EN: Textos = Textos {
@@ -50,6 +58,9 @@ pub const EN: Textos = Textos {
     fallo_desconocido: "Unknown failure",
     ajustes_corruptos: "Settings are corrupt",
     sin_acceso_al_sistema: "Could not read the system state",
+    servicio_no_vigilado: "That service is not a development service",
+    sin_ejecutable: "Could not find the app executable",
+    sin_elevacion: "Could not request administrator permission",
 };
 
 pub fn de(lang: Language) -> &'static Textos {
@@ -307,6 +318,9 @@ mod tests {
             (ES.fallo_desconocido, EN.fallo_desconocido),
             (ES.ajustes_corruptos, EN.ajustes_corruptos),
             (ES.sin_acceso_al_sistema, EN.sin_acceso_al_sistema),
+            (ES.servicio_no_vigilado, EN.servicio_no_vigilado),
+            (ES.sin_ejecutable, EN.sin_ejecutable),
+            (ES.sin_elevacion, EN.sin_elevacion),
         ];
 
         for (es, en) in pares {
@@ -326,6 +340,9 @@ mod tests {
             EN.fallo_desconocido.into(),
             EN.ajustes_corruptos.into(),
             EN.sin_acceso_al_sistema.into(),
+            EN.servicio_no_vigilado.into(),
+            EN.sin_ejecutable.into(),
+            EN.sin_elevacion.into(),
             cerrar_todos(Language::En, "Node"),
             ninguno_activo(Language::En, "Node"),
             closed_sentence(Language::En, 2, Some("Node"), true),

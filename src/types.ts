@@ -74,6 +74,35 @@ export type StartType =
   | "disabled"
   | "unknown";
 
+/** Espejo de `ServiceDependent` en src-tauri/src/services.rs. */
+export type ServiceDependent = {
+  name: string;
+  displayName: string;
+};
+
+/** Espejo de `ServiceAction` en src-tauri/src/service_control.rs. */
+export type ServiceAction = "start" | "stop";
+
+/** Espejo de `ServiceOutcome` en src-tauri/src/service_control.rs. */
+export type ServiceOutcome =
+  | "done"
+  | "pending"
+  | "cancelled"
+  | "blocked"
+  | "refused";
+
+/** Espejo de `ServiceActionResult` en src-tauri/src/service_control.rs. */
+export type ServiceActionResult = {
+  outcome: ServiceOutcome;
+  /**
+   * El estado **releido del SCM** al terminar, no el que se supone. `null` si no se pudo
+   * consultar. Ver `esperar_estado` en service_control.rs.
+   */
+  state: ServiceState | null;
+  /** Quien impedia detenerlo. Solo viene con `outcome: "blocked"`. */
+  blockers: ServiceDependent[];
+};
+
 /** Espejo de `ServiceInfo` en src-tauri/src/services.rs. */
 export type ServiceInfo = {
   /** El nombre del SCM (`MSSQL$SQLEXPRESS`). Es la clave, y lo que se compara. */

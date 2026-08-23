@@ -8,6 +8,46 @@
 
 ---
 
+### 2026-08-23 — Tier 10, Fase B: arrancar y detener, elevando solo la acción
+
+- **Hecha y verificada sobre el binario de release.** La app relanza su propio ejecutable con
+  `ShellExecuteExW` y el verbo `runas`, pasándole un verbo y un nombre; ese proceso hace **una**
+  llamada al SCM y muere. Vive elevado unos milisegundos, sin ventana, sin IPC y sin estado. 8
+  pruebas nuevas de Rust (85) y 6 del frontend (211).
+- **Módulo aparte a propósito.** Todo lo que eleva está en `service_control.rs`; `services.rs` sigue
+  abriendo el SCM con `SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE` y sigue siendo **incapaz**
+  de tocar nada. Mezclarlos habría sido perder esa garantía a cambio de nada: al de solo lectura lo
+  llama el poller, la ventana y el catálogo entero del SCM.
+- **La guardia va dentro del proceso elevado**, y es lo que más importa de la fase. El hijo revalida
+  el nombre que recibe contra el catálogo de fábrica más los `customServices` que **relee del
+  disco**. Si aceptara una lista de permitidos por parámetro, sería la guardia validándose contra su
+  propia entrada; y sin guardia, cualquier programa del equipo podría lanzar
+  `processdevkill.exe --service-action stop <lo que sea>` y conseguir que el UAC enseñara el nombre
+  y el icono de *esta* app para detener un servicio del sistema.
+- **Comprobada contra el binario de verdad, no solo en las pruebas:** `wuauserv`,
+  `TrustedInstaller`, `GameInputRedistService` y `MSSQLSERVER2` devuelven el código 2 y siguen
+  corriendo.
+- **Nada de cascada.** Windows se niega a detener un servicio con dependientes vivos, y la tentación
+  era que el hijo los detuviera también, como hace `services.msc`. Se descartó: serían servicios que
+  nunca pasaron por la guardia ni por el diálogo. Se enseñan sus nombres —con
+  `EnumDependentServicesW` filtrando por `SERVICE_ACTIVE`, **antes** de que salga el UAC— y se dice
+  que hay que detener esos primero.
+- **El resultado se lee, no se supone.** `ControlService` vuelve en cuanto el SCM acepta el encargo:
+  se vio en vivo, arrancando `MySQL80` desde la consola y encontrándolo en `StartPending`. Por eso
+  el padre sondea `QueryServiceStatusEx` cada 250 ms hasta diez segundos y existe un `pending` que
+  no es ni éxito ni fallo.
+- **Verificado en los dos sentidos sobre el release.** Con la app **elevada** —donde `runas` no saca
+  UAC— el camino entero: arrancar `MySQL80` lo dejó en `Corriendo` con 3306 y 33060, y detenerlo
+  sacó el diálogo, el toast y lo devolvió a `Parado / Manual`. Con la app **sin elevar**, el UAC
+  aparece al instante y la columna de RAM vuelve a «—»: el mismo binario, y la prueba de que ese
+  guion es el permiso y nada más.
+- **Lo que NO se pudo ver en vivo, y queda dicho:** el caso `blocked`. Ningún servicio de desarrollo
+  de este equipo tiene un dependiente en marcha —`SQLAgent$SQLEXPRESS` está deshabilitado—, y
+  forzar uno pedía cambiar un tipo de arranque, que es justo lo que la fase C todavía no hace. Está
+  cubierto por el mapeo de `ERROR_DEPENDENT_SERVICES_RUNNING` y por su prueba, pero no visto.
+- Un arreglo que salió solo: `services.rs` gana `read_state` y `dependents`, y `enumerar` deja de
+  traducir a mano el estado bruto —ahora lo hace `estado_de`, que comparten los dos—.
+
 ### 2026-08-22 — Tier 10, Fase A: el panel de servicios, de solo lectura
 
 - **Hecha y verificada sobre el binario de release.** El panel lista los servicios de desarrollo del

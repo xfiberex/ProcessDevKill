@@ -12,6 +12,7 @@ import type {
   Language,
   ServiceFamily,
   ServiceInfo,
+  ServiceOutcome,
   ServiceState,
   StartType,
   SystemUsage,
@@ -168,6 +169,29 @@ describe("el contrato con Rust", () => {
 
     const muestra: ServiceInfo["memoryMb"] = null;
     expect(muestra).toBeNull();
+  });
+
+  /**
+   * El resultado de una accion sobre un servicio. Si Rust gana una variante y aqui no se anade, el
+   * `switch` de App.tsx se la come en silencio: la accion pasaria y no se diria nada.
+   */
+  it("cubre los mismos resultados que ServiceOutcome en service_control.rs", () => {
+    const rust = leerRust("service_control.rs");
+    const bloque = rust.match(/pub enum ServiceOutcome\s*\{([\s\S]*?)^\}/m);
+    expect(bloque, "no se encontro el enum ServiceOutcome").not.toBeNull();
+
+    const enRust = [...bloque![1].matchAll(/^\s*([A-Z]\w+),/gm)]
+      .map((v) => v[1].toLowerCase())
+      .sort();
+
+    const resultados: ServiceOutcome[] = [
+      "done",
+      "pending",
+      "cancelled",
+      "blocked",
+      "refused",
+    ];
+    expect(enRust).toEqual([...resultados].sort());
   });
 
   it("cubre los cuatro origenes de KillSource", () => {

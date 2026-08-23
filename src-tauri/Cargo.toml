@@ -38,7 +38,9 @@ sha2 = "0.10"
 # Solo para hablar con el Gestor de control de servicios (SCM), en `services.rs`. Se piden las tres
 # features minimas: `sc.exe` y PowerShell harian lo mismo, pero lanzando un proceso por consulta y
 # devolviendo texto que habria que parsear -y localizado, ademas-.
-windows = { version = "0.62.2", features = ["Win32_System_Services", "Win32_Foundation", "Win32_Security"] }
+# `Win32_UI_Shell` y `Win32_System_Threading` los pide `service_control.rs`: relanzar la app
+# elevada con `ShellExecuteExW` y esperar a que el hijo termine para leer su codigo de salida.
+windows = { version = "0.62.2", features = ["Win32_System_Services", "Win32_Foundation", "Win32_Security", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [dev-dependencies]
 # Solo para las pruebas: `download_and_verify` es async y hace falta un runtime que la ejecute.

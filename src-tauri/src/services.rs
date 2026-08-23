@@ -1,10 +1,14 @@
 //! Servicios de Windows que son de desarrollo: SQL Server, PostgreSQL, MySQL, Docker…
 //!
-//! **Fase A del Tier 10: solo lectura.** Aquí no se arranca, no se detiene y no se cambia nada.
-//! Enumerar el catálogo del SCM y leer la configuración de cada servicio no pide privilegios; todo
-//! lo que sí los pide se queda para las fases B y C, con su elevación puntual. Mientras tanto este
-//! módulo es incapaz de tocar el sistema, que es exactamente lo que se quiere de la primera
-//! entrega.
+//! **Este módulo es de solo lectura, y lo sigue siendo con la Fase B ya escrita.** Aquí no se
+//! arranca, no se detiene y no se cambia nada: enumerar el catálogo del SCM, leer la configuración
+//! de un servicio y preguntar quién depende de quién no piden privilegios. Todo lo que sí los pide
+//! vive en `service_control.rs`, aparte y con su elevación puntual.
+//!
+//! **La separación no es estética.** Mientras las dos únicas cosas que este archivo sabe hacer con
+//! el SCM sean `SC_MANAGER_CONNECT` y `SC_MANAGER_ENUMERATE_SERVICE`, un fallo aquí —el poller lo
+//! llama, la ventana lo llama, el catálogo tiene cientos de entradas— no puede detener nada.
+//! Mezclar las acciones en el mismo módulo que la lista sería perder esa garantía a cambio de nada.
 //!
 //! Se habla con el SCM por la API (`windows`) y no lanzando `sc.exe` ni PowerShell: un proceso por
 //! consulta es lento, y lo que devuelve es texto **localizado** que habría que parsear —el equipo
@@ -16,12 +20,14 @@ use serde::Serialize;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use windows::core::PCWSTR;
 use windows::Win32::System::Services::{
-    CloseServiceHandle, EnumServicesStatusExW, OpenSCManagerW, OpenServiceW, QueryServiceConfig2W,
-    QueryServiceConfigW, ENUM_SERVICE_STATUS_PROCESSW, QUERY_SERVICE_CONFIGW,
-    SC_ENUM_PROCESS_INFO, SC_MANAGER_CONNECT, SC_MANAGER_ENUMERATE_SERVICE,
-    SERVICE_AUTO_START, SERVICE_BOOT_START, SERVICE_CONFIG_DELAYED_AUTO_START_INFO,
-    SERVICE_DELAYED_AUTO_START_INFO, SERVICE_DEMAND_START, SERVICE_DISABLED, SERVICE_QUERY_CONFIG,
-    SERVICE_RUNNING, SERVICE_STATE_ALL, SERVICE_STOPPED, SERVICE_SYSTEM_START, SERVICE_WIN32,
+    CloseServiceHandle, EnumDependentServicesW, EnumServicesStatusExW, OpenSCManagerW, OpenServiceW,
+    QueryServiceConfig2W, QueryServiceConfigW, QueryServiceStatusEx, ENUM_SERVICE_STATUSW,
+    ENUM_SERVICE_STATUS_PROCESSW, QUERY_SERVICE_CONFIGW, SC_ENUM_PROCESS_INFO, SC_MANAGER_CONNECT,
+    SC_MANAGER_ENUMERATE_SERVICE, SC_STATUS_PROCESS_INFO, SERVICE_ACTIVE, SERVICE_AUTO_START,
+    SERVICE_BOOT_START, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, SERVICE_DELAYED_AUTO_START_INFO,
+    SERVICE_DEMAND_START, SERVICE_DISABLED, SERVICE_ENUMERATE_DEPENDENTS, SERVICE_QUERY_CONFIG,
+    SERVICE_QUERY_STATUS, SERVICE_RUNNING, SERVICE_STATE_ALL, SERVICE_STATUS_PROCESS,
+    SERVICE_STATUS_CURRENT_STATE, SERVICE_STOPPED, SERVICE_SYSTEM_START, SERVICE_WIN32,
 };
 
 // ------------------------------------------------------------------- tipos ---
@@ -225,12 +231,52 @@ pub fn classify_service(name: &str, custom: &[String]) -> Option<ServiceFamily> 
 /// Con un guard y no cerrando a mano porque entre medias hay varios `?` y `continue`: un camino de
 /// salida que se olvidara del `CloseServiceHandle` filtraría un handle **por servicio y por
 /// refresco**, y esto lo llama el poller cada dos segundos.
-struct Handle(windows::Win32::System::Services::SC_HANDLE);
+pub(crate) struct Handle(pub(crate) windows::Win32::System::Services::SC_HANDLE);
 
 impl Drop for Handle {
     fn drop(&mut self) {
         // Falla solo con un handle inválido, y entonces no hay nada que hacer ni que contar.
         unsafe { let _ = CloseServiceHandle(self.0); }
+    }
+}
+
+/// Abre el SCM con los derechos que se le pidan, y solo esos.
+///
+/// Se pasa el derecho a propósito en vez de tener un `SC_MANAGER_ALL_ACCESS` de comodín: quien lea
+/// una llamada a esto ve en la propia línea qué puede hacer el handle que sale.
+pub(crate) fn abrir_scm(
+    derechos: u32,
+) -> windows::core::Result<Handle> {
+    Ok(Handle(unsafe {
+        OpenSCManagerW(PCWSTR::null(), PCWSTR::null(), derechos)?
+    }))
+}
+
+/// Abre un servicio por su nombre, con los derechos pedidos.
+pub(crate) fn abrir_servicio(
+    scm: &Handle,
+    nombre: &str,
+    derechos: u32,
+) -> windows::core::Result<Handle> {
+    let ancho = a_utf16(nombre);
+    Ok(Handle(unsafe {
+        OpenServiceW(scm.0, PCWSTR(ancho.as_ptr()), derechos)?
+    }))
+}
+
+/// Una cadena de Rust como la quiere el SCM: UTF-16 y terminada en cero.
+pub(crate) fn a_utf16(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+/// Traduce el estado bruto del SCM a los tres que la lista enseña.
+fn estado_de(bruto: SERVICE_STATUS_CURRENT_STATE) -> ServiceState {
+    if bruto == SERVICE_RUNNING {
+        ServiceState::Running
+    } else if bruto == SERVICE_STOPPED {
+        ServiceState::Stopped
+    } else {
+        ServiceState::Pending
     }
 }
 
@@ -381,13 +427,7 @@ fn enumerar() -> windows::core::Result<Vec<ServiceCrudo>> {
     // Solo conectar y enumerar: no se pide `SC_MANAGER_ALL_ACCESS` ni nada que permita modificar.
     // Con estos dos derechos, un usuario normal abre el SCM sin UAC — y este módulo, aunque
     // quisiera, no podría arrancar ni detener nada.
-    let scm = Handle(unsafe {
-        OpenSCManagerW(
-            PCWSTR::null(),
-            PCWSTR::null(),
-            SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE,
-        )?
-    });
+    let scm = abrir_scm(SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE)?;
 
     // Primera llamada con el buffer vacío: solo para que diga cuánto necesita.
     let mut bytes = 0u32;
@@ -443,14 +483,7 @@ fn enumerar() -> windows::core::Result<Vec<ServiceCrudo>> {
         }
         let display_name = unsafe { entrada.lpDisplayName.to_string() }.unwrap_or_default();
 
-        let estado = entrada.ServiceStatusProcess.dwCurrentState;
-        let state = if estado == SERVICE_RUNNING {
-            ServiceState::Running
-        } else if estado == SERVICE_STOPPED {
-            ServiceState::Stopped
-        } else {
-            ServiceState::Pending
-        };
+        let state = estado_de(entrada.ServiceStatusProcess.dwCurrentState);
 
         salida.push(ServiceCrudo {
             start_type: tipo_de_arranque(&scm, &name),
@@ -466,11 +499,8 @@ fn enumerar() -> windows::core::Result<Vec<ServiceCrudo>> {
 
 /// Lee el tipo de arranque de un servicio. `Unknown` si no se puede consultar.
 fn tipo_de_arranque(scm: &Handle, nombre: &str) -> StartType {
-    let ancho: Vec<u16> = nombre.encode_utf16().chain(std::iter::once(0)).collect();
-
-    let servicio = match unsafe { OpenServiceW(scm.0, PCWSTR(ancho.as_ptr()), SERVICE_QUERY_CONFIG) }
-    {
-        Ok(h) => Handle(h),
+    let servicio = match abrir_servicio(scm, nombre, SERVICE_QUERY_CONFIG) {
+        Ok(h) => h,
         // Sin ruido en el log: hay servicios del sistema que no conceden este derecho a un usuario
         // normal, y es lo esperado, no un fallo del que haya que enterarse.
         Err(_) => return StartType::Unknown,
@@ -541,6 +571,108 @@ fn retrasado(servicio: &Handle) -> bool {
         .is_ok()
             && info.fDelayedAutostart.as_bool()
     }
+}
+
+// ------------------------------------------- lo que la Fase B necesita, sin privilegios ---
+
+/// El estado de **un** servicio, releído en el momento.
+///
+/// Existe para no asumir el resultado de una acción. `ControlService` vuelve en cuanto el SCM
+/// acepta el encargo, no cuando el servicio ha terminado de pararse: dar por detenido lo que
+/// todavía está en `StopPending` sería la clase de mentira que esta app no cuenta. Quien acaba de
+/// pedir algo llama a esto hasta que el estado se asienta.
+///
+/// **Leer no pide privilegios**, así que esto lo hace la app sin elevar, y solo la acción en sí
+/// pasa por el UAC.
+pub fn read_state(name: &str) -> Option<ServiceState> {
+    let scm = abrir_scm(SC_MANAGER_CONNECT).ok()?;
+    let servicio = abrir_servicio(&scm, name, SERVICE_QUERY_STATUS).ok()?;
+
+    let mut info = SERVICE_STATUS_PROCESS::default();
+    let mut bytes = 0u32;
+
+    unsafe {
+        QueryServiceStatusEx(
+            servicio.0,
+            SC_STATUS_PROCESS_INFO,
+            Some(std::slice::from_raw_parts_mut(
+                std::ptr::from_mut(&mut info).cast::<u8>(),
+                size_of::<SERVICE_STATUS_PROCESS>(),
+            )),
+            &mut bytes,
+        )
+        .ok()?;
+    }
+
+    Some(estado_de(info.dwCurrentState))
+}
+
+/// Un servicio que depende de otro, tal como se le enseña al usuario antes de detener nada.
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceDependent {
+    pub name: String,
+    pub display_name: String,
+}
+
+/// Los servicios **en marcha** que dependen de `name`.
+///
+/// Se piden solo los activos (`SERVICE_ACTIVE`) porque son los únicos que cambian el resultado:
+/// Windows se niega a detener un servicio mientras algo que cuelga de él siga corriendo, y contesta
+/// `ERROR_DEPENDENT_SERVICES_RUNNING` sin haber tocado nada. Los dependientes ya parados no
+/// estorban, y listarlos sería asustar con lo que no pasa.
+///
+/// Que esto se lea **antes** de ofrecer el botón es el punto entero: el usuario ve que detener
+/// `MSSQL$SQLEXPRESS` no va a poder ser mientras `SQLAgent$SQLEXPRESS` esté vivo, en vez de
+/// enterarse por un error después de haber pasado por un UAC.
+pub fn dependents(name: &str) -> Vec<ServiceDependent> {
+    let Ok(scm) = abrir_scm(SC_MANAGER_CONNECT) else {
+        return Vec::new();
+    };
+    let Ok(servicio) = abrir_servicio(&scm, name, SERVICE_ENUMERATE_DEPENDENTS) else {
+        return Vec::new();
+    };
+
+    // Primera llamada en vacío, solo para que diga cuánto sitio hace falta.
+    let mut bytes = 0u32;
+    let mut contados = 0u32;
+    let _ = unsafe {
+        EnumDependentServicesW(servicio.0, SERVICE_ACTIVE, None, 0, &mut bytes, &mut contados)
+    };
+
+    if bytes == 0 {
+        return Vec::new();
+    }
+
+    // Mismo motivo de alineación que en `enumerar`: el SCM escribe structs con punteros dentro.
+    let cabidas = bytes as usize / size_of::<ENUM_SERVICE_STATUSW>() + 1;
+    let mut buffer: Vec<ENUM_SERVICE_STATUSW> = Vec::with_capacity(cabidas);
+
+    let ok = unsafe {
+        EnumDependentServicesW(
+            servicio.0,
+            SERVICE_ACTIVE,
+            Some(buffer.as_mut_ptr()),
+            (cabidas * size_of::<ENUM_SERVICE_STATUSW>()) as u32,
+            &mut bytes,
+            &mut contados,
+        )
+    };
+    if ok.is_err() {
+        return Vec::new();
+    }
+    unsafe { buffer.set_len(contados as usize) };
+
+    buffer
+        .iter()
+        .map(|e| {
+            // Los nombres apuntan **dentro del buffer**: se copian ahora, no después.
+            let name = unsafe { e.lpServiceName.to_string() }.unwrap_or_default();
+            let display_name = unsafe { e.lpDisplayName.to_string() }.unwrap_or_default();
+            ServiceDependent { name, display_name }
+        })
+        .filter(|d| !d.name.is_empty())
+        .collect()
 }
 
 #[cfg(test)]

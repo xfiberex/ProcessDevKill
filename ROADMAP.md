@@ -976,15 +976,16 @@ haciendo clic en «Siguiente».
 ---
 
 
-## 🗄 Tier 10: Servicios de desarrollo — 🚧 **Fase A completada y verificada**
+## 🗄 Tier 10: Servicios de desarrollo — 🚧 **Fases A y B completadas y verificadas**
 
 > **Propuesto por el usuario el 2026-08-22.** Es el primer Tier que se abre desde que el backlog de
 > la auditoría quedó sin nada pendiente (**37 de 37**), y va aquí y no como una tarea `T5-xx` a
 > propósito: los `Tn-xx` son deuda encontrada en una revisión, y esto es una fase de desarrollo
 > nueva. Nada de los Tiers 1-9 se toca.
 >
-> **La Fase A está hecha y verificada el 2026-08-22**; las B y C, no. Los checkboxes se marcan
-> cuando la funcionalidad está *probada*, como en el resto del documento.
+> **Las fases A y B están hechas y verificadas** —la A el 2026-08-22, la B el 2026-08-23—; la C,
+> no. Los checkboxes se marcan cuando la funcionalidad está *probada*, como en el resto del
+> documento.
 
 ### Por qué encaja, y no es ampliar el alcance
 
@@ -1078,14 +1079,56 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 > `SQLTELEMETRY$SQLEXPRESS` en `Automático (retrasado)`. Cuatro servicios arrancando solos, uno de
 > ellos de telemetría.
 
-### Fase B — arrancar y detener
+### Fase B — arrancar y detener — ✅ **hecha y verificada el 2026-08-23**
 
-- [ ] Elevación puntual al actuar, no al arrancar la app.
-- [ ] Confirmación antes de detener, como en todo lo que esta app cierra.
-- [ ] **Enseñar las dependencias antes de detener.** Parar `MSSQLSERVER` con `SQLSERVERAGENT`
-      colgando de él o falla o arrastra al otro; el usuario tiene que verlo antes, no después.
-- [ ] Que el resultado real se lea del SCM y no se asuma: un `StopService` devuelve enseguida y el
-      servicio puede quedarse en `StopPending` un rato largo.
+- [x] Elevación puntual al actuar, no al arrancar la app. La app relanza **su propio ejecutable**
+      con `ShellExecuteExW` y el verbo `runas`, pasándole un verbo y un nombre; ese proceso hace una
+      sola llamada al SCM y muere. Vive elevado unos milisegundos, sin ventana, sin IPC y sin
+      estado. Todo eso vive en `service_control.rs`, aparte, para que `services.rs` **siga siendo
+      incapaz** de tocar nada.
+- [x] Confirmación antes de detener, como en todo lo que esta app cierra. Arrancar no se confirma:
+      no rompe nada y se deshace deteniéndolo.
+- [x] **Enseñar las dependencias antes de detener.** Se consultan con `EnumDependentServicesW`
+      filtrando por `SERVICE_ACTIVE` y se enseñan en el propio diálogo, antes de que salga el UAC.
+- [x] Que el resultado real se lea del SCM y no se asuma. El padre sondea `QueryServiceStatusEx`
+      cada 250 ms hasta diez segundos —leer no pide privilegios— y contesta `done`, o `pending` si
+      al acabar la espera el servicio seguía en transición. `pending` no es un fallo: es un
+      servicio que todavía está en ello, y decir «hecho» sin que lo esté sería justo lo que no se
+      hace aquí.
+- [x] La guardia, que no estaba en la lista y es lo que más importa de esta fase. Ver abajo.
+
+> ⚠️ **La guardia va dentro del proceso elevado, no en quien lo lanza.** El hijo recibe un nombre
+> por línea de comandos, y **vuelve a validarlo él mismo** contra el catálogo de fábrica más los
+> `customServices` que **relee del disco**. Si se fiara de su padre, cualquier programa del equipo
+> —sin privilegios, que es lo que suele tener— podría lanzar
+> `processdevkill.exe --service-action stop <lo que sea>` y conseguir que el UAC enseñe el nombre y
+> el icono de *esta* app para detener un servicio del sistema. Pasarle la lista de permitidos por
+> parámetro sería la guardia validándose contra su propia entrada, que no valida nada.
+>
+> **Y no hay cascada.** Windows se niega a detener un servicio con dependientes vivos; la tentación
+> es que el hijo los detenga también, como hace `services.msc`. No se hace: serían servicios que
+> nunca pasaron por la guardia ni por el diálogo. Se enseñan los nombres y se dice que hay que
+> detener esos primero.
+
+> ✅ **Verificado sobre el binario de release el 2026-08-23**, en los dos sentidos:
+>
+> - **Con la app elevada** (donde `runas` no saca UAC) se recorrió el camino entero: arrancar
+>   `MySQL80` lo dejó en `Corriendo` con **3306 y 33060**, puertos que la fila no tenía; detenerlo
+>   sacó el diálogo, el toast «MySQL80 está parado.» y devolvió la fila a `Parado / Manual`, que es
+>   como estaba.
+> - **Con la app sin elevar**, el UAC aparece al instante al pulsar (`consent.exe`), y la columna de
+>   RAM vuelve a «—» — la misma app, el mismo binario, y la prueba de que ese guion es el permiso.
+> - **La guardia, contra el binario de verdad**: `wuauserv`, `TrustedInstaller`,
+>   `GameInputRedistService` y `MSSQLSERVER2` devuelven el código 2 y siguen corriendo.
+> - **El filtro `SERVICE_ACTIVE`**: `MSSQL$SQLEXPRESS` tiene un dependiente —`SQLAgent$SQLEXPRESS`,
+>   deshabilitado— y el diálogo **no** lo menciona, que es lo correcto: un dependiente parado no
+>   impide nada y nombrarlo sería asustar con lo que no pasa.
+>
+> 8 pruebas nuevas de Rust y 6 del frontend; **85 y 211** en total. El caso `blocked` —Windows
+> negándose por dependientes vivos— **no se pudo reproducir en este equipo**: ningún servicio de
+> desarrollo tiene aquí un dependiente en marcha, y forzar uno pedía cambiar un tipo de arranque,
+> que es justo lo que la fase C todavía no hace. Queda cubierto por el mapeo de
+> `ERROR_DEPENDENT_SERVICES_RUNNING` y por su prueba, pero **no visto en vivo**.
 
 ### Fase C — tipo de arranque
 

@@ -9,6 +9,9 @@ import type {
   HistoryEntry,
   KillOutcome,
   ProcessInfo,
+  ServiceAction,
+  ServiceActionResult,
+  ServiceDependent,
   ServiceInfo,
   Settings,
   SystemUsage,
@@ -67,6 +70,8 @@ export default function App() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   // `null` hasta la primera lectura, para no enseñar «no hay servicios» mientras se leen.
   const [services, setServices] = useState<ServiceInfo[] | null>(null);
+  /** El servicio con una accion en curso. Apaga los botones de toda la tabla mientras dura. */
+  const [servicioOcupado, setServicioOcupado] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -151,6 +156,98 @@ export default function App() {
     // la usan efectos que no deben relanzarse al cambiar de idioma.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * Arranca o detiene un servicio, y **cuenta lo que de verdad pasó**.
+   *
+   * Rust eleva solo para esa acción y, en cuanto el proceso elevado muere, relee el estado del SCM
+   * en vez de suponerlo: por eso hay un `pending` que no es ni éxito ni fallo, sino un servicio que
+   * todavía está en ello. Ver `control_service` en service_control.rs.
+   */
+  const ejecutarAccion = useCallback(
+    async (servicio: ServiceInfo, accion: ServiceAction) => {
+      const a = t.servicios.acciones;
+      setServicioOcupado(servicio.name);
+
+      try {
+        const r = await invoke<ServiceActionResult>("control_service", {
+          name: servicio.name,
+          action: accion,
+        });
+
+        if (r.outcome === "done") {
+          toast.success(
+            accion === "start"
+              ? a.arrancado(servicio.name)
+              : a.detenido(servicio.name),
+          );
+        } else if (r.outcome === "pending") {
+          toast.info(a.enTransicion(servicio.name));
+        } else if (r.outcome === "blocked") {
+          toast.error(
+            a.bloqueado(
+              servicio.name,
+              r.blockers.map((b) => b.name),
+            ),
+          );
+        } else if (r.outcome === "refused") {
+          toast.error(a.rechazado(servicio.name));
+        }
+        // `cancelled` no dice nada: el usuario cerró el UAC, que es una respuesta, no un fallo.
+      } catch (e) {
+        toast.error(String(e));
+      } finally {
+        setServicioOcupado(null);
+      }
+
+      // Pase lo que pase, la lista se relee: si la acción quedó a medias, el estado que se enseñe
+      // tiene que ser el del SCM y no el que había antes de intentarlo.
+      loadServices();
+    },
+    [loadServices, t],
+  );
+
+  /**
+   * Lo que pasa al pulsar el botón de una fila.
+   *
+   * **Detener se confirma; arrancar no.** Arrancar un servicio no rompe nada y se deshace
+   * deteniéndolo; detener corta lo que esté usándolo en ese momento, y en esta app todo lo que
+   * corta algo pasa por el mismo diálogo.
+   *
+   * Las dependencias se consultan **antes** de abrir el diálogo. Windows se niega a detener un
+   * servicio con dependientes vivos y no toca nada; descubrirlo después de haber aprobado un UAC
+   * sería la peor forma de enterarse.
+   */
+  const pedirAccion = useCallback(
+    async (servicio: ServiceInfo, accion: ServiceAction) => {
+      if (accion === "start") {
+        ejecutarAccion(servicio, "start");
+        return;
+      }
+
+      const a = t.servicios.acciones;
+      let dependientes: ServiceDependent[] = [];
+      try {
+        dependientes = await invoke<ServiceDependent[]>(
+          "get_service_dependents",
+          { name: servicio.name },
+        );
+      } catch {
+        // Sin la lista se sigue: lo peor que pasa es que Windows lo rechace y se diga entonces.
+      }
+
+      setConfirm({
+        title: a.detenerTitulo(servicio.name),
+        message:
+          dependientes.length > 0
+            ? a.dependientes(dependientes.map((d) => d.name))
+            : `${a.detenerMensaje(servicio.name)} ${a.pideAdmin}`,
+        confirmLabel: a.detenerBoton,
+        onConfirm: () => ejecutarAccion(servicio, "stop"),
+      });
+    },
+    [ejecutarAccion, t],
+  );
 
   const loadHistory = useCallback(async () => {
     try {
@@ -443,6 +540,8 @@ export default function App() {
                 services={services}
                 onRefresh={loadServices}
                 onIrAAjustes={() => setView("settings")}
+                onAction={pedirAccion}
+                busy={servicioOcupado}
               />
             )}
 

@@ -48,15 +48,26 @@ midió que no compensa (T4-05) y el rendimiento se midió en vez de suponerse (T
 > v1.4.0, así que la versión que hay ahí fuera sigue hablando solo español. Es lo que iría en el
 > próximo corte.
 
-**Abierto: [Tier 10 — Servicios de desarrollo](ROADMAP.md). La Fase A —solo lectura— está hecha y
-verificada el 2026-08-22**; quedan la B (arrancar y detener) y la C (tipo de arranque), que son las
-que piden privilegios. Un panel para los servicios de Windows que son de desarrollo —SQL Server, PostgreSQL,
+**Abierto: [Tier 10 — Servicios de desarrollo](ROADMAP.md). Las fases A —solo lectura— y B
+—arrancar y detener— están hechas y verificadas, el 2026-08-22 y el 2026-08-23**; queda la C, el
+tipo de arranque, que es la única cuyo efecto sobrevive a un reinicio. Un panel para los servicios de Windows que son de desarrollo —SQL Server, PostgreSQL,
 MySQL, Docker— con su estado, su tipo de arranque y **el puerto que ocupan**. Encaja porque el 1433
 y el 5432 son puertos igual que el 3000, y la app hoy solo ve los procesos que lanza el usuario, no
-los que lanza Windows por él. La app sigue instalando en `currentUser` y **sin elevar nunca**: la Fase A abre el SCM con
-`SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE` y con eso no puede arrancar ni detener nada
-aunque quisiera. La decisión escrita para las fases B y C es leer siempre sin privilegios y **elevar
-solo al actuar**.
+los que lanza Windows por él. La app sigue instalando en `currentUser` y **sin elevar nunca**, y con la fase B ya escrita eso no
+ha cambiado: `services.rs` abre el SCM con `SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE` y no
+puede tocar nada aunque quisiera. Lo que actúa vive aparte, en `service_control.rs`, y **eleva solo
+la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamada al SCM y muere.
+
+> ⚠️ **Decidido el 2026-08-23, construyendo la fase B: la guardia va dentro del proceso elevado.**
+> El hijo revalida el nombre que recibe contra el catálogo más los `customServices` que **relee del
+> disco**, en vez de aceptar una lista de permitidos por parámetro —que sería validarse contra su
+> propia entrada—. Sin eso, cualquier programa sin privilegios podría usar el UAC de esta app, con
+> su nombre y su icono, para detener un servicio del sistema. Es el mismo criterio que la guardia de
+> PIDs de `kill_process`.
+>
+> **Y no hay cascada:** Windows no detiene un servicio con dependientes vivos, y la app **no los
+> detiene por su cuenta** aunque `services.msc` lo ofrezca. Serían servicios que nunca pasaron por
+> la guardia ni por el diálogo. Se enseñan los nombres y el usuario decide.
 
 > ⚠️ **La RAM de un servicio no se puede leer sin ser administrador**, y se descubrió construyendo
 > la Fase A. `OpenProcess` devuelve acceso denegado incluso con `PROCESS_QUERY_LIMITED_INFORMATION`.

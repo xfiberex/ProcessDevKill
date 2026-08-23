@@ -3,6 +3,7 @@ mod auto_kill;
 pub mod logging;
 mod notify;
 mod poller;
+mod service_control;
 mod services;
 mod ports;
 mod processes;
@@ -429,6 +430,15 @@ fn nuke_everything(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Lo primero de todo, antes de que exista una app de Tauri.
+    //
+    // Esta misma ejecucion puede ser el proceso elevado que la ventana relanzo para arrancar o
+    // detener un servicio. Si lo es, hace su unica llamada al SCM y se muere aqui: no abre ventana,
+    // no registra el atajo global, no pone icono en la bandeja y no cuenta como segunda instancia.
+    if let Some(codigo) = service_control::intercept() {
+        std::process::exit(codigo as i32);
+    }
+
     tauri::Builder::default()
         // El primero de todos, como pide su documentacion. Si la app ya esta
         // corriendo, la instancia nueva avisa a esta y se cierra sola en vez de
@@ -531,6 +541,10 @@ pub fn run() {
             get_settings,
             save_settings,
             get_services,
+            // Viven en su modulo, como los del actualizador: por IPC siguen siendo
+            // `control_service` y `get_service_dependents`, que es el ultimo segmento.
+            service_control::control_service,
+            service_control::get_service_dependents,
             get_history,
             clear_history,
             // Los del actualizador viven en `update`, junto a la logica en la que
