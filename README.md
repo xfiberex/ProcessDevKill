@@ -161,9 +161,20 @@ Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz a
   procesos, ni los puertos, ni el historial se envían a ningún sitio.
 - Lee **nombre, PID, CPU, RAM, tiempo activo y puertos TCP en escucha** de los procesos vigilados.
   No lee la línea de comandos, ni variables de entorno, ni el contenido de nada.
-- Los ajustes y el historial se guardan **en tu equipo**, en `%APPDATA%\com.processdevkill.app\`
-  (`settings.json` e `history.json`). Se pueden abrir, copiar entre equipos o borrar; el historial
-  se puede vaciar desde la propia app y tiene un tope de 200 entradas.
+- Para el panel de servicios pregunta al **Gestor de control de servicios de Windows** por el
+  catálogo de servicios instalados, su estado, su tipo de arranque y qué depende de qué. Es lectura,
+  no pide privilegios, y se hace **solo al abrir esa vista o al pulsar Refrescar** — no en cada
+  ciclo de refresco.
+- **La app nunca se ejecuta como administrador.** Arrancar o detener un servicio, y cambiarle el
+  tipo de arranque, sí lo requieren: para eso relanza **su propio ejecutable** con el aviso de UAC,
+  ese proceso hace **una** llamada al sistema y termina. Vive elevado unos milisegundos, sin ventana
+  y sin red. Si cierras el aviso, no se hace nada.
+- Los ajustes, el historial y los cambios de arranque se guardan **en tu equipo**, en
+  `%APPDATA%\com.processdevkill.app\` (`settings.json`, `history.json` y `service-changes.json`).
+  Se pueden abrir, copiar entre equipos o borrar; el historial se puede vaciar desde la propia app y
+  tiene un tope de 200 entradas. `service-changes.json` guarda **solo** los tipos de arranque que ha
+  cambiado la app, para poder deshacerlos: cada entrada desaparece sola al volver el servicio a como
+  estaba.
 - En esa misma carpeta la app deja un **registro de avisos** (`processdevkill.log`) cuando algo le
   falla por dentro: no se pudo guardar el historial, no se pudieron leer los puertos. Anota el
   fallo, no lo que corre en tu equipo, y **tampoco sale de tu máquina**: está ahí para que puedas
@@ -282,9 +293,13 @@ constantes espejo, para que el contrato entre los dos lados no se desincronice e
 | `src/` | Frontend React: vistas, tipos compartidos con Rust y tema |
 | `src/components/`, `src/hooks/`, `src/lib/` | Componentes de la app, hooks de React y utilidades |
 | `src/components/ui/` | Componentes de shadcn/ui (generados; se editan a mano si hace falta) |
-| `src-tauri/src/lib.rs` | Comandos de Tauri, estado compartido y arranque |
+| `src-tauri/src/lib.rs` | Arranque de la app y estado compartido |
+| `src-tauri/src/commands.rs` | Los comandos que llama la ventana (los que tienen lógica propia viven con ella) |
 | `src-tauri/src/{processes,ports,storage,tray}.rs` | Procesos, puertos, persistencia y bandeja |
 | `src-tauri/src/{poller,auto_kill,notify}.rs` | Hilo de refresco, cierre automático por RAM y avisos nativos |
+| `src-tauri/src/services.rs` | Servicios de desarrollo, **solo lectura**: no puede arrancar ni detener nada |
+| `src-tauri/src/service_control.rs` | Lo único que eleva: arrancar, detener y cambiar el arranque, con su guardia |
+| `src-tauri/src/textos.rs` | Todo el texto que escribe Rust (bandeja y notificaciones), en los dos idiomas |
 | `src-tauri/src/update.rs` | Actualizaciones: consulta a GitHub, descarga y verificación SHA-256 |
 | `src-tauri/src/logging.rs` | Registro de avisos en archivo, con rotación (en release no hay consola) |
 | `src-tauri/capabilities/` | Permisos concedidos a la ventana |
@@ -292,11 +307,13 @@ constantes espejo, para que el contrato entre los dos lados no se desincronice e
 | `.claude/skills/`, `.agents/skills/` | Packs de skills de agente (material de terceros; ni se compila ni se distribuye) |
 | `app-icon.svg` | Icono fuente del que salen todos los tamaños |
 | [ROADMAP.md](ROADMAP.md) | Plan de desarrollo por fases, con lo verificado en cada una |
-| [CONTEXT.md](CONTEXT.md) | Estado actual, decisiones tomadas y registro de sesiones |
+| [CONTEXT.md](CONTEXT.md) | Estado actual y decisiones tomadas, cada una con su fecha y su motivo |
+| [docs/BITACORA.md](docs/BITACORA.md) | Historia sesión a sesión, la más reciente arriba |
+| [docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md) | La auditoría del repositorio y sus 37 tareas, cerradas |
 
 ## Estado
 
-La versión actual es la **v1.4.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.5.1**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
 instalar algo que no podía actualizarse.
 

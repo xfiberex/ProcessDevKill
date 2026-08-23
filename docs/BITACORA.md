@@ -8,6 +8,28 @@
 
 ---
 
+### 2026-08-23 — Repaso de la documentación antes de cortar la 1.5.1
+
+- **El backlog de la auditoría sale de ROADMAP.md a `docs/REVISION-2026-08-18.md`.** Eran 834 líneas
+  —el 40 % del archivo— de trabajo ya cerrado dentro del documento que uno abre para ver el plan por
+  fases. **Revoca una decisión escrita del 2026-08-18**, y por el mismo criterio que la sostenía:
+  aquella decía que el backlog vivía ahí porque *lo accionable* se mantiene en el ROADMAP; con las
+  37 cerradas ya no hay nada accionable. Es lo que llevó la bitácora fuera de CONTEXT.md el
+  2026-07-27. Queda anotado en CONTEXT §4 con su fecha, como pide la convención. ROADMAP: 2074 → 1267.
+- **La tabla de decisiones de CONTEXT §4 estaba partida en dos por una línea en blanco**, y el
+  segundo bloque se había quedado sin cabecera: 118 de las 129 filas se renderizaban como texto con
+  barras, no como tabla. Nadie lo había visto porque el archivo se lee casi siempre en crudo.
+- **La firma Authenticode figuraba a la vez como decidida (§4) y como pendiente (§5).** Se quita de
+  pendientes: está descartada desde el 2026-08-18, y `release.ps1` y el README ya lo decían. Tenerla
+  en las dos listas era el peor de los dos sitios.
+- Fuera también el aviso de «hay trabajo en `main` sin publicar», que la v1.5.0 dejó falso, y las
+  cuatro pendientes tachadas que obligaban a leer la lista entera para encontrar las dos vivas.
+- **README:** la tabla de estructura seguía diciendo que `lib.rs` tiene los comandos y no mencionaba
+  `commands`, `services`, `service_control` ni `textos`. Y la sección de privacidad no decía que la
+  app pregunta al SCM ni —lo más importante— **cómo eleva**: relanzando su propio ejecutable para
+  una llamada, nunca la app entera. Eso, en una sección que empieza con «conviene decir en voz
+  alta», faltaba.
+
 ### 2026-08-23 — El panel de servicios desbordaba a lo ancho, y se vio en una captura
 
 - **Lo destapó una captura del usuario, no una prueba.** El panel había crecido hasta seis columnas

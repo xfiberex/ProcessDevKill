@@ -6,7 +6,9 @@ su CPU, su RAM y **el puerto local que ocupa cada uno**, y permite cerrarlos. So
 El estado y las decisiones viven en [CONTEXT.md](../CONTEXT.md); el plan por fases y lo que enseñó
 cada uno, en [ROADMAP.md](../ROADMAP.md). **Leer los dos antes de tocar nada**: casi todo lo que
 parece raro está explicado ahí con su fecha y su motivo. La historia sesión a sesión está en
-[docs/BITACORA.md](../docs/BITACORA.md), y no hace falta salvo para reconstruir cómo se llegó a algo.
+[docs/BITACORA.md](../docs/BITACORA.md), y la auditoría de 2026-08-18 con sus 37 tareas ya cerradas
+en [docs/REVISION-2026-08-18.md](../docs/REVISION-2026-08-18.md); ninguno de los dos hace falta salvo
+para reconstruir cómo se llegó a algo.
 
 **Este archivo es la fuente única de las convenciones.** Hasta el 2026-07-27 también estaban en
 CONTEXT.md §7, con una nota que pedía cambiarlas en los dos sitios; la copia se había quedado corta,
