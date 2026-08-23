@@ -80,7 +80,15 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
 > usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
-**Publicado:** **v1.5.2** (2026-08-23), segundo arreglo de interfaz de la misma tanda y con el mismo
+**Publicado:** **v1.5.3** (2026-08-23), un añadido pequeño: el botón **Apoyar el proyecto** en
+Ajustes → Acerca de. El repositorio tenía `.github/FUNDING.yml` desde el 2026-07-25, pero eso solo
+pinta el botón de patrocinio **en la página de GitHub**, por donde no pasa quien instala la app. El
+enlace queda ahora en dos sitios sin nada que los ate, y por eso la prueba comprueba **la URL
+exacta** y no solo que se llame a `openUrl`: un enlace de dinero equivocado abre el navegador igual
+y no falla por ningún lado. Debajo del botón, una línea que dice que la app es gratis y que apoyarla
+no desbloquea nada. 4 assets, hash comprobado tras publicar: `504bed6a…`.
+
+Antes: la **v1.5.2** (2026-08-23), segundo arreglo de interfaz de la misma tanda y con el mismo
 alcance: **no cambia permisos, acciones ni datos**. Va al desplegable de arranque, que en el tema
 oscuro pintaba la lista blanca con el texto casi blanco encima. Las dos causas desmienten lo que
 parecía obvio y están en §4: **lo que colorea la lista es el fondo del control**, no las variables
@@ -112,10 +120,11 @@ Sin firma de código, así que SmartScreen sigue avisando. Antes: la v1.3.2 (Tie
 la v1.3.1 con la **actualización silenciosa** (`/S /UPDATE /R`) y la v1.3.0 con el medidor del
 entorno. La primera versión pública fue la v1.1.1.
 
-> Verificado tras publicar, en las siete versiones con el mismo criterio: los 4 assets están en el
+> Verificado tras publicar, en las ocho versiones con el mismo criterio: los 4 assets están en el
 > release, la API que consulta la app devuelve el `tag_name` correcto, y **el instalador descargado
 > del release coincide con el `.sha256` publicado** — la cadena entera que recorre la
-> auto-actualización, sobre los archivos reales. Para la v1.5.2, `7e4be6a5…`; para la v1.5.1,
+> auto-actualización, sobre los archivos reales. Para la v1.5.3, `504bed6a…`; para la v1.5.2,
+> `7e4be6a5…`; para la v1.5.1,
 > `b764f7ef…`; para la v1.5.0,
 > `21fad0ad…`; para la v1.4.0, `a8738197…`; para la v1.3.2,
 > `d4030bb7…`; para la v1.3.1,
