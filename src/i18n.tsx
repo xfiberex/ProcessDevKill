@@ -187,7 +187,7 @@ export const es = {
      * por qué antes de que el usuario lo busque.
      */
     descripcion:
-      "Los que instalan las herramientas de desarrollo y arrancan con Windows sin que se note. Arrancarlos o detenerlos pide permisos de administrador **solo en ese momento**: la app nunca se eleva entera. El tipo de arranque todavía no se puede cambiar desde aquí." as Rico,
+      "Los que instalan las herramientas de desarrollo y arrancan con Windows sin que se note. Arrancarlos o detenerlos pide permisos de administrador **solo en ese momento**: la app nunca se eleva entera. Cambiar el tipo de arranque, igual, y queda anotado para poder deshacerlo." as Rico,
     recuento: (n: number) => (n === 1 ? "1 servicio" : `${n} servicios`),
     vacio: "No se ha encontrado ningún servicio de desarrollo.",
     vacioDetalle:
@@ -576,7 +576,7 @@ export const en: Catalogo = {
     titulo: "Development services",
     cargando: "Reading the services…",
     descripcion:
-      "The ones your development tools install, starting with Windows without you noticing. Starting or stopping one asks for administrator rights **just for that moment**: the app never runs elevated as a whole. Startup type cannot be changed from here yet.",
+      "The ones your development tools install, starting with Windows without you noticing. Starting or stopping one asks for administrator rights **just for that moment**: the app never runs elevated as a whole. Changing the startup type works the same way, and each change is recorded so you can undo it.",
     recuento: (n) => (n === 1 ? "1 service" : `${n} services`),
     vacio: "No development service was found.",
     vacioDetalle:

@@ -1,5 +1,6 @@
 import {
   BoxIcon,
+  ChevronDownIcon,
   ContainerIcon,
   DatabaseIcon,
   GlobeIcon,
@@ -95,7 +96,9 @@ export function ServicesView({
       <div className="px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="font-heading text-sm font-semibold">{t.servicios.titulo}</h2>
+            <h2 className="font-heading text-sm font-semibold">
+              {t.servicios.titulo}
+            </h2>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
               <Marcado texto={t.servicios.descripcion} />
             </p>
@@ -202,7 +205,12 @@ export function ServicesView({
       )}
 
       {changes.length > 0 && (
-        <Registro cambios={changes} t={t} onUndo={onUndo} bloqueado={busy !== null} />
+        <Registro
+          cambios={changes}
+          t={t}
+          onUndo={onUndo}
+          bloqueado={busy !== null}
+        />
       )}
     </div>
   );
@@ -415,34 +423,48 @@ function Arranque({
   }
 
   return (
-    <select
-      // Los mismos tokens que el resto de controles de la casa: sin esto el navegador pinta su
-      // anillo de foco blanco por defecto, que no se parece a nada de la app.
-      //
-      // Y el texto va a `foreground` **siempre**, tambien en Manual y Deshabilitado. Pintarlos en
-      // `muted` los hacia parecer deshabilitados sin estarlo; lo que arranca solo se distingue por
-      // el peso, que es jerarquia sin robarle contraste a lo demas.
-      //
-      // `pr-3` y no `pr-2`: la flecha la dibuja el navegador pegada al borde interior del relleno,
-      // asi que con 8 px quedaba practicamente tocando el borde del control. Cada pixel de aqui
-      // sale del texto, y el texto ya iba justo — por eso la columna subio de 192 a 196.
-      className={`h-8 w-full rounded-md border border-input bg-transparent pr-3 pl-2 text-xs text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 ${
-        arrancaSolo ? "font-medium" : ""
-      }`}
-      aria-label={t.servicios.arranque.etiqueta(s.name)}
-      title={arrancaSolo ? t.servicios.arrancaSolo : undefined}
-      disabled={bloqueado}
-      value={s.startType}
-      onChange={(e) =>
-        onStartupChange(s, e.currentTarget.value as SettableStartType)
-      }
-    >
-      {SETTABLE_START_TYPES.map((tipo) => (
-        <option key={tipo} value={tipo}>
-          {t.servicios.arranques[tipo]}
-        </option>
-      ))}
-    </select>
+    <span className="relative block">
+      <select
+        // Los mismos tokens que el resto de controles de la casa: sin esto el navegador pinta su
+        // anillo de foco blanco por defecto, que no se parece a nada de la app.
+        //
+        // Y el texto va a `foreground` **siempre**, tambien en Manual y Deshabilitado. Pintarlos en
+        // `muted` los hacia parecer deshabilitados sin estarlo; lo que arranca solo se distingue por
+        // el peso, que es jerarquia sin robarle contraste a lo demas.
+        //
+        // **`appearance-none` y flecha propia, y `bg-card` en vez de `bg-transparent`.** Las dos
+        // cosas se comprobaron en la ventana en marcha, y las dos desmienten lo que parecia obvio:
+        //
+        // - El relleno **no** mueve la flecha nativa. Chromium la dibuja contra el borde de la caja,
+        //   ignorando `padding-right`, asi que subirlo a 12 px no la aparto ni un pixel. La unica
+        //   forma de colocarla donde queremos es quitarla y poner la nuestra.
+        // - El fondo del control es el que usa el navegador para **la lista desplegada**. Con
+        //   `transparent` la pintaba blanca, y encima el texto heredado de `--foreground`, que en el
+        //   tema oscuro es casi blanco: ilegible. `color-scheme` por si solo no bastaba.
+        className={`h-8 w-full appearance-none rounded-md border border-input bg-card pr-7 pl-2 text-xs text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 ${
+          arrancaSolo ? "font-medium" : ""
+        }`}
+        aria-label={t.servicios.arranque.etiqueta(s.name)}
+        title={arrancaSolo ? t.servicios.arrancaSolo : undefined}
+        disabled={bloqueado}
+        value={s.startType}
+        onChange={(e) =>
+          onStartupChange(s, e.currentTarget.value as SettableStartType)
+        }
+      >
+        {SETTABLE_START_TYPES.map((tipo) => (
+          <option key={tipo} value={tipo}>
+            {t.servicios.arranques[tipo]}
+          </option>
+        ))}
+      </select>
+      {/* `pointer-events-none` para que el clic siga llegando al `select` de debajo: la flecha es
+          decoracion, no un boton aparte, y el control ya se anuncia solo. */}
+      <ChevronDownIcon
+        className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+        aria-hidden
+      />
+    </span>
   );
 }
 
@@ -491,11 +513,7 @@ function Accion({
       aria-label={corriendo ? a.detenerLabel(s.name) : a.arrancarLabel(s.name)}
       onClick={() => onAction(s, corriendo ? "stop" : "start")}
     >
-      {corriendo ? (
-        <SquareIcon className="text-destructive" />
-      ) : (
-        <PlayIcon />
-      )}
+      {corriendo ? <SquareIcon className="text-destructive" /> : <PlayIcon />}
       {corriendo ? a.detener : a.arrancar}
     </Button>
   );

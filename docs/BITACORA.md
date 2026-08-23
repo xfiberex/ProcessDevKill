@@ -10,17 +10,22 @@
 
 ### 2026-08-23 — El desplegable del tema oscuro, y la flecha pegada al borde
 
-- **La lista del `select` de arranque salía blanca en el tema oscuro.** La pinta WebView2, no
-  nuestro CSS, y para sus colores mira `color-scheme` — no las variables del tema. Sin declararlo,
-  el navegador supone «claro»: fondo blanco con el texto heredado de `--foreground`, que en oscuro
-  es casi blanco. **Solo se ve con la lista desplegada**, que es justo lo que no sale en una captura
-  de la ventana; lo destapó una captura del usuario. Arreglado en `:root` y `.dark`, así que vale
-  también para las barras de scroll y el resto de controles nativos.
-- **La flecha del `select` iba pegada al borde derecho.** La dibuja el navegador contra el borde
-  interior del relleno, así que despegarla cuesta relleno y el relleno sale del texto: subirlo de 8
-  a 12 px devolvía el corte a media palabra. Medido en el motor —texto 128,5 px, flecha 21— la
-  columna pasó de 192 a **200**. La cuenta exacta daba 196, con medio pixel de margen, que es no
-  tener ninguno.
+- **La lista del `select` salía blanca en oscuro, y la flecha pegada al borde. Se arregló mal dos
+  veces antes de acertar**, y las dos por lo mismo: comprobar que el CSS llegaba al DOM y dar por
+  hecho el efecto. El depurador confirmaba `color-scheme: dark` y `padding-right: 12px` computados
+  en la ventana, y aun así no cambiaba nada en pantalla. Lo que faltaba mirar era el resultado.
+- **Lo que pinta la lista es el `background-color` del control**, no las variables del tema.
+  `color-scheme` es correcto y se queda —vale para las barras de scroll y el resto de controles
+  nativos— pero con `bg-transparent` el navegador seguía pintando la lista blanca, y encima el texto
+  heredado de `--foreground`, casi blanco en oscuro. Con `bg-card` queda resuelto en los dos temas.
+- **Chromium ignora `padding-right` para la flecha nativa**: la dibuja contra el borde de la caja.
+  La única forma de colocarla es `appearance-none` y poner la nuestra, el `ChevronDownIcon` de
+  lucide, con `pointer-events-none` para que el clic siga llegando al `select`. Con la flecha propia
+  el hueco lo decidimos nosotros (`pr-7`) y la columna se queda en 200: texto 133,3 de 138.
+- **Ninguna de las dos cosas se puede capturar por CDP**: la lista desplegada es una ventana del
+  sistema, como los toast de Windows. La confirmación final fue del usuario, con las dos capturas.
+- **Y en una de esas capturas se vio un texto obsoleto** de antes de la Fase C: «El tipo de arranque
+  todavía no se puede cambiar desde aquí», con la columna que lo cambia justo debajo. En los dos idiomas.
 - **Verificado sin cerrar la app del usuario.** `tauri dev` se salía solo: el plugin de instancia
   única cede a la que ya está abierta, y la que corría era la instalada. Se midió sobre el CSS ya
   construido en un Edge sin cabeza —el mismo motor que WebView2— en vez de cerrarle la ventana.
