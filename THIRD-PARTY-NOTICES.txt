@@ -103,6 +103,11 @@ Directas:
     Win32_UI_WindowsAndMessaging- para relanzar la app elevada y esperar al
     proceso hijo. Tampoco anadieron ningun crate: el total sigue siendo el mismo.
 
+Comprobado de nuevo el 2026-08-23, antes de cortar la v1.5.1: 566 crates y 14
+dependencias npm directas, las mismas. `release.ps1` avisa cuando package.json o
+Cargo.lock son mas recientes que este archivo, y desde el corte de la v1.5.0 lo
+son -el script les escribe la version-, pero el arbol de dependencias no cambio.
+
 El arbol completo son 566 crates, sin contar el propio. Reparto de licencias:
 
     341  MIT o Apache-2.0 (en cualquiera de sus formas de declararlo)
