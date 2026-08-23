@@ -8,6 +8,21 @@
 
 ---
 
+### 2026-08-23 — `lib.rs` se parte por tercera vez: nace `commands.rs`
+
+- La regla de CLAUDE.md dice que al pasar de ~450 líneas de código hay que partirlo, y con el
+  Tier 10 cerrado iba por **566**. Es la tercera vez: las otras fueron el Tier 4 y el Tier 7.6.
+- **Se van los comandos**, que son lo que más crece —cada funcionalidad de cara al usuario añade
+  uno—, y se queda el arranque y `AppState`, que es lo que de verdad describe a `lib.rs`. Queda en
+  **445**, y `commands.rs` en 144.
+- **No se llevó todos los comandos, a propósito.** Los de servicios siguen en `service_control.rs`
+  junto a su guardia, los del actualizador en `update.rs` y los del log en `logging.rs`: agrupar
+  por «es un comando» habría separado cada uno de la lógica y de las comprobaciones que le dan
+  sentido. El nombre por IPC lo da el último segmento de la ruta registrada, así que el frontend no
+  se enteró de nada — ni una línea de TypeScript cambió.
+- Refactor puro, sin cambio de comportamiento: las mismas 93 pruebas de Rust en verde antes y
+  después, y clippy limpio.
+
 ### 2026-08-23 — Tier 10, Fase C: el tipo de arranque, con deshacer
 
 - **Hecha y verificada sobre el binario de release, y con ella se cierra el Tier 10.** Un verbo más

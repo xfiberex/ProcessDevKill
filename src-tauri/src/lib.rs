@@ -1,4 +1,5 @@
 mod auto_kill;
+mod commands;
 // `pub` porque el macro `avisar!` que exporta se resuelve como `$crate::logging::escribir`.
 pub mod logging;
 mod notify;
@@ -16,18 +17,14 @@ use std::sync::{Condvar, Mutex};
 use std::time::Duration;
 
 use sysinfo::System;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-use poller::{MAX_REFRESH_MS, MIN_REFRESH_MS};
 use processes::{
     collect_processes, collect_system_usage, kill_many, new_system, warm_up_cpu, KillOutcome,
     ProcessInfo, SystemUsage,
 };
-use storage::{
-    now_millis, HistoryEntry, KillSource, Language, Settings, Storage, MIN_AUTO_KILL_MB,
-    MIN_ZOMBIE_MINUTES,
-};
+use storage::{now_millis, HistoryEntry, KillSource, Language, Settings, Storage};
 
 /// Evento que recibe el frontend cada vez que hay una lista nueva de procesos.
 const PROCESSES_UPDATED: &str = "processes-updated";
@@ -199,7 +196,7 @@ pub(crate) fn publish_usage(app: &AppHandle, usage: SystemUsage) {
 ///
 /// No aplica el Auto-Kill a proposito: `kill_and_record` llama aqui al terminar, y
 /// vigilar tambien desde este camino encadenaria cierre → refresco → cierre.
-fn emit_processes(app: &AppHandle) {
+pub(crate) fn emit_processes(app: &AppHandle) {
     if let Ok(list) = read_list(&app.state::<AppState>()) {
         publish(app, list);
     }
@@ -256,130 +253,10 @@ pub(crate) fn kill_and_record(
     outcomes
 }
 
-// ---------------------------------------------------------------- comandos ---
-
-#[tauri::command]
-fn get_processes(state: State<'_, AppState>) -> Result<Vec<ProcessInfo>, String> {
-    read_list(&state)
-}
-
-#[tauri::command]
-fn kill_process(pid: u32, app: AppHandle) -> Result<Vec<u16>, String> {
-    let mut outcomes = kill_and_record(&app, vec![pid], KillSource::Window);
-    let outcome = outcomes
-        .pop()
-        .ok_or_else(|| {
-            textos::de(app.state::<AppState>().language())
-                .sin_acceso_al_sistema
-                .to_string()
-        })?;
-
-    if outcome.killed {
-        Ok(outcome.freed_ports)
-    } else {
-        Err(outcome.error.unwrap_or_else(|| {
-            textos::de(app.state::<AppState>().language())
-                .fallo_desconocido
-                .into()
-        }))
-    }
-}
-
-/// Termina varios procesos y detalla que paso con cada uno.
-///
-/// Devuelve un resultado por PID en vez de abortar al primer fallo: en un lote es
-/// normal que alguno haya muerto solo entre el ultimo refresco y el clic, y eso no
-/// deberia impedir matar los demas.
-#[tauri::command]
-fn kill_processes(pids: Vec<u32>, app: AppHandle) -> Vec<KillOutcome> {
-    kill_and_record(&app, pids, KillSource::Window)
-}
-
-#[tauri::command]
-fn get_settings(state: State<'_, AppState>) -> Settings {
-    state.settings.lock().map(|s| s.clone()).unwrap_or_default()
-}
-
-#[tauri::command]
-fn save_settings(
-    settings: Settings,
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<Settings, String> {
-    let settings = Settings {
-        refresh_ms: if settings.refresh_ms == 0 {
-            0
-        } else {
-            settings.refresh_ms.clamp(MIN_REFRESH_MS, MAX_REFRESH_MS)
-        },
-        // Se corrige aqui, y no solo al usarlo, para que la UI muestre el valor
-        // que de verdad va a aplicarse en vez de mentirle al usuario.
-        auto_kill_mb: settings.auto_kill_mb.max(MIN_AUTO_KILL_MB),
-        zombie_minutes: settings.zombie_minutes.max(MIN_ZOMBIE_MINUTES),
-        ..settings
-    };
-
-    state.storage.save_settings(&settings)?;
-    apply_hotkey(&app, settings.hotkey_enabled);
-    // El menu de la bandeja se arma una vez y Windows no lo retraduce solo: si cambio el idioma,
-    // hay que rehacerlo. Se hace **antes** de escribir el ajuste nuevo para poder comparar con el
-    // que habia; despues ya no habria con que.
-    if state.language() != settings.language {
-        tray::retraducir(&app, settings.language);
-    }
-
-    *state
-        .settings
-        .lock()
-        .map_err(|_| textos::de(settings.language).ajustes_corruptos)? = settings.clone();
-
-    // El hilo puede estar esperando con el refresco en "Off": sin este aviso
-    // tardaria hasta poller::PAUSA_MS en enterarse de que lo han vuelto a encender.
-    state.despertar_poller();
-
-    // La lista de vigilados puede haber cambiado: refrescar sin esperar al ciclo.
-    emit_processes(&app);
-    Ok(settings)
-}
-
-/// Los servicios de desarrollo del equipo.
-///
-/// **A peticion, y no empujado por el poller como la lista de procesos.** Un servicio cambia de
-/// estado cuando alguien lo arranca o lo detiene, que es algo que pasa dos veces al dia; releerlo
-/// cada dos segundos le sumaria a cada ciclo un recorrido del catalogo entero del SCM -cientos de
-/// servicios, con una consulta de configuracion por cada uno- para no enterarse de nada nuevo. La
-/// vista lo pide al abrirse y cuando el usuario pulsa refrescar.
-#[tauri::command]
-fn get_services(state: State<'_, AppState>) -> Result<Vec<services::ServiceInfo>, String> {
-    let custom = state
-        .settings
-        .lock()
-        .map(|s| s.custom_services.clone())
-        .unwrap_or_default();
-
-    // Los ajustes se copian y se suelta su candado **antes** de bloquear `sys`. Nunca anidados.
-    let mut sys = state
-        .sys
-        .lock()
-        .map_err(|_| textos::de(state.language()).estado_corrupto.to_string())?;
-
-    Ok(services::collect_services(&mut sys, &custom))
-}
-
-#[tauri::command]
-fn get_history(state: State<'_, AppState>) -> Vec<HistoryEntry> {
-    state.storage.load_history()
-}
-
-#[tauri::command]
-fn clear_history(state: State<'_, AppState>) -> Result<(), String> {
-    state.storage.clear_history()
-}
-
 // ------------------------------------------------------------------ arranque ---
 
 /// Registra o quita el atajo global segun los ajustes.
-fn apply_hotkey(app: &AppHandle, enabled: bool) {
+pub(crate) fn apply_hotkey(app: &AppHandle, enabled: bool) {
     let shortcut = atajo_nuke();
     let manager = app.global_shortcut();
 
@@ -535,20 +412,22 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            get_processes,
-            kill_process,
-            kill_processes,
-            get_settings,
-            save_settings,
-            get_services,
+            // Todos viven en su modulo; el nombre por IPC lo da el ultimo segmento, asi que desde
+            // el frontend siguen llamandose igual que cuando estaban aqui.
+            commands::get_processes,
+            commands::kill_process,
+            commands::kill_processes,
+            commands::get_settings,
+            commands::save_settings,
+            commands::get_services,
             // Viven en su modulo, como los del actualizador: por IPC siguen siendo
             // `control_service` y `get_service_dependents`, que es el ultimo segmento.
             service_control::control_service,
             service_control::get_service_dependents,
             service_control::set_service_startup,
             service_control::get_service_changes,
-            get_history,
-            clear_history,
+            commands::get_history,
+            commands::clear_history,
             // Los del actualizador viven en `update`, junto a la logica en la que
             // delegan y a la guardia de rutas que protege a `install_update`.
             update::check_update,

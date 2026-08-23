@@ -98,6 +98,11 @@ Directas:
     servicios. Ya estaba en el arbol -Tauri la usa-, asi que pasar a declararla
     directa no anadio ningun crate: el total sigue en 566.
 
+    El 2026-08-23, con las fases B y C del mismo Tier, se le anadieron tres
+    features mas -Win32_System_Threading, Win32_UI_Shell y
+    Win32_UI_WindowsAndMessaging- para relanzar la app elevada y esperar al
+    proceso hijo. Tampoco anadieron ningun crate: el total sigue siendo el mismo.
+
 El arbol completo son 566 crates, sin contar el propio. Reparto de licencias:
 
     341  MIT o Apache-2.0 (en cualquiera de sus formas de declararlo)
