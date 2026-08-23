@@ -41,8 +41,11 @@ use tauri::State;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
 use windows::Win32::System::Services::{
-    ControlService, StartServiceW, SC_MANAGER_CONNECT, SERVICE_CONTROL_STOP, SERVICE_START,
-    SERVICE_STATUS, SERVICE_STOP,
+    ChangeServiceConfig2W, ChangeServiceConfigW, ControlService, StartServiceW, ENUM_SERVICE_TYPE,
+    SC_MANAGER_CONNECT, SERVICE_AUTO_START, SERVICE_CHANGE_CONFIG,
+    SERVICE_CONFIG_DELAYED_AUTO_START_INFO, SERVICE_CONTROL_STOP, SERVICE_DELAYED_AUTO_START_INFO,
+    SERVICE_DEMAND_START, SERVICE_DISABLED, SERVICE_ERROR, SERVICE_NO_CHANGE, SERVICE_START,
+    SERVICE_START_TYPE, SERVICE_STATUS, SERVICE_STOP,
 };
 use windows::Win32::System::Threading::{GetExitCodeProcess, WaitForSingleObject};
 use windows::Win32::UI::Shell::{
@@ -50,7 +53,8 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
 
-use crate::services::{self, ServiceDependent, ServiceState};
+use crate::services::{self, ServiceDependent, ServiceState, StartType};
+use crate::storage::ServiceChange;
 use crate::{textos, AppState};
 
 /// El argumento con el que la app se reconoce a sí misma relanzada para actuar.
@@ -82,6 +86,8 @@ const SALIDA_NO_VIGILADO: u32 = 2;
 const SALIDA_RECHAZADO: u32 = 3;
 /// `ERROR_DEPENDENT_SERVICES_RUNNING`: hay algo colgando de él que sigue vivo.
 const SALIDA_BLOQUEADO: u32 = 4;
+/// El tipo de arranque pedido no es uno de los cuatro que esta app pone. Ver `SettableStartType`.
+const SALIDA_TIPO_NO_PERMITIDO: u32 = 5;
 
 /// `HRESULT` de `ERROR_DEPENDENT_SERVICES_RUNNING` (1051).
 const HR_DEPENDIENTES: u32 = 0x8007_041B;
@@ -135,6 +141,70 @@ impl ServiceAction {
     }
 }
 
+/// Los tipos de arranque que esta app **pone**, que no son todos los que sabe leer.
+///
+/// Faltan `Boot` y `System` a propósito, y no por descuido: son de controladores que carga el
+/// núcleo antes de que exista el escritorio. Ninguna app de gestionar SQL Server tiene nada que
+/// hacer ahí, y ofrecerlos sería regalar una forma de dejar un equipo sin arrancar. Falta también
+/// `Unknown`, que no es un valor sino la ausencia de uno.
+///
+/// **Esto se valida dentro del proceso elevado**, igual que el nombre: es el segundo argumento que
+/// le llega de fuera.
+#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum SettableStartType {
+    Automatic,
+    AutomaticDelayed,
+    Manual,
+    Disabled,
+}
+
+impl SettableStartType {
+    fn verbo(self) -> &'static str {
+        match self {
+            SettableStartType::Automatic => "automatic",
+            SettableStartType::AutomaticDelayed => "automatic-delayed",
+            SettableStartType::Manual => "manual",
+            SettableStartType::Disabled => "disabled",
+        }
+    }
+
+    fn de_verbo(s: &str) -> Option<Self> {
+        match s {
+            "automatic" => Some(SettableStartType::Automatic),
+            "automatic-delayed" => Some(SettableStartType::AutomaticDelayed),
+            "manual" => Some(SettableStartType::Manual),
+            "disabled" => Some(SettableStartType::Disabled),
+            _ => None,
+        }
+    }
+
+    /// El mismo valor, en el enum que sabe leer `services.rs`. Sirve para comparar lo que se pidió
+    /// con lo que el SCM dice **después**.
+    fn como_start_type(self) -> StartType {
+        match self {
+            SettableStartType::Automatic => StartType::Automatic,
+            SettableStartType::AutomaticDelayed => StartType::AutomaticDelayed,
+            SettableStartType::Manual => StartType::Manual,
+            SettableStartType::Disabled => StartType::Disabled,
+        }
+    }
+
+    fn valor_scm(self) -> SERVICE_START_TYPE {
+        match self {
+            SettableStartType::Automatic | SettableStartType::AutomaticDelayed => {
+                SERVICE_AUTO_START
+            }
+            SettableStartType::Manual => SERVICE_DEMAND_START,
+            SettableStartType::Disabled => SERVICE_DISABLED,
+        }
+    }
+
+    fn es_retrasado(self) -> bool {
+        self == SettableStartType::AutomaticDelayed
+    }
+}
+
 /// En qué quedó la acción. Es lo que la ventana convierte en un mensaje.
 #[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -161,6 +231,15 @@ pub struct ServiceActionResult {
     /// Quién estaba bloqueando, cuando `outcome` es `Blocked`. Se rellena en ese momento y no
     /// antes, para que el mensaje diga nombres y no «algo depende de él».
     pub blockers: Vec<ServiceDependent>,
+}
+
+/// En qué quedó un cambio de tipo de arranque.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceStartupResult {
+    pub outcome: ServiceOutcome,
+    /// El tipo de arranque **releído del SCM** al terminar, no el que se pidió.
+    pub start_type: StartType,
 }
 
 // ------------------------------------------------------------------- la guardia ---
@@ -258,6 +337,88 @@ pub fn control_service(
     })
 }
 
+/// Cambia el tipo de arranque de un servicio, elevando solo para eso.
+///
+/// **Es lo primero que esta app hace que sobrevive a un reinicio y vive fuera de su propio
+/// `settings.json`.** El Auto-Kill mata un proceso y este vuelve la próxima vez que se lanza; un
+/// servicio en `Deshabilitado` sigue deshabilitado dentro de tres meses, cuando ya nadie recuerda
+/// que lo hizo la app. De ahí las dos reglas que no se negocian:
+///
+/// - **La app registra lo que cambió**, para poder deshacerlo. Lo hace aquí, y solo cuando el SCM
+///   confirma que el cambio cuajó: anotar un cambio que no ocurrió sería ofrecer deshacer nada.
+/// - **Nunca lo hace sola.** No hay, ni habrá, un «Auto-Kill de servicios»: este comando solo
+///   existe colgando de un clic con su confirmación delante.
+#[tauri::command]
+pub fn set_service_startup(
+    state: State<'_, AppState>,
+    name: String,
+    // El nombre visible viaja desde la ventana, que ya lo tiene de la lista. Solo se guarda para
+    // enseñarlo en el registro de deshacer; nada se decide con él —lo que manda es `name`—.
+    display_name: String,
+    start_type: SettableStartType,
+) -> Result<ServiceStartupResult, String> {
+    let lang = state.language();
+    let custom = custom_de(&state);
+
+    if !vigilado(&name, &custom) {
+        return Err(textos::de(lang).servicio_no_vigilado.to_string());
+    }
+
+    let exe = std::env::current_exe().map_err(|_| textos::de(lang).sin_ejecutable.to_string())?;
+    let antes = services::read_start_type(&name);
+
+    let salida = match elevar_con(
+        &exe,
+        &format!(
+            "{ARG_ACCION} startup \"{name}\" {}",
+            start_type.verbo()
+        ),
+    ) {
+        Ok(codigo) => codigo,
+        Err(Elevacion::Cancelada) => {
+            return Ok(ServiceStartupResult {
+                outcome: ServiceOutcome::Cancelled,
+                start_type: antes,
+            })
+        }
+        Err(Elevacion::Fallo(e)) => {
+            crate::avisar!("No se pudo elevar para cambiar el arranque de {name}: {e}");
+            return Err(textos::de(lang).sin_elevacion.to_string());
+        }
+    };
+
+    // Y aquí, igual que en arrancar y detener: se relee en vez de suponer. Cambiar la
+    // configuración es sincrono, asi que no hace falta sondear — pero sí comprobar.
+    let despues = services::read_start_type(&name);
+
+    if salida != SALIDA_OK || despues != start_type.como_start_type() {
+        return Ok(ServiceStartupResult {
+            outcome: ServiceOutcome::Refused,
+            start_type: despues,
+        });
+    }
+
+    if let Err(e) = state
+        .storage
+        .record_service_change(&name, &display_name, antes, despues)
+    {
+        // El cambio sí se hizo; lo que falló es poder deshacerlo desde aquí. Se avisa en el log y
+        // no se miente diciendo que la accion fallo.
+        crate::avisar!("No se pudo registrar el cambio de arranque de {name}: {e}");
+    }
+
+    Ok(ServiceStartupResult {
+        outcome: ServiceOutcome::Done,
+        start_type: despues,
+    })
+}
+
+/// Los cambios de arranque que ha hecho **esta app**, para poder deshacerlos.
+#[tauri::command]
+pub fn get_service_changes(state: State<'_, AppState>) -> Vec<ServiceChange> {
+    state.storage.load_service_changes()
+}
+
 /// Copia los servicios vigilados y suelta el candado enseguida, como el resto de la casa.
 fn custom_de(state: &State<'_, AppState>) -> Vec<String> {
     state
@@ -274,13 +435,19 @@ enum Elevacion {
     Fallo(String),
 }
 
-/// Relanza este mismo ejecutable elevado y espera a que termine, devolviendo su código de salida.
+/// Relanza este mismo ejecutable elevado para arrancar o detener.
 fn elevar(exe: &std::path::Path, action: ServiceAction, nombre: &str) -> Result<u32, Elevacion> {
-    let verbo = services::a_utf16("runas");
-    let archivo = services::a_utf16(&exe.to_string_lossy());
     // El nombre entre comillas: los del SCM no las llevan —la guardia lo garantiza— pero sí pueden
     // llevar espacios, y sin comillas se partiría en dos argumentos.
-    let params = services::a_utf16(&format!("{ARG_ACCION} {} \"{nombre}\"", action.verbo()));
+    elevar_con(exe, &format!("{ARG_ACCION} {} \"{nombre}\"", action.verbo()))
+}
+
+/// Relanza este mismo ejecutable elevado con estos argumentos y espera a que termine, devolviendo
+/// su código de salida.
+fn elevar_con(exe: &std::path::Path, argumentos: &str) -> Result<u32, Elevacion> {
+    let verbo = services::a_utf16("runas");
+    let archivo = services::a_utf16(&exe.to_string_lossy());
+    let params = services::a_utf16(argumentos);
 
     let mut info = SHELLEXECUTEINFOW {
         cbSize: size_of::<SHELLEXECUTEINFOW>() as u32,
@@ -354,13 +521,15 @@ pub fn intercept() -> Option<u32> {
         return None;
     }
 
-    let Some(action) = args.next().as_deref().and_then(ServiceAction::de_verbo) else {
+    let Some(verbo) = args.next() else {
         return Some(SALIDA_USO);
     };
     let Some(nombre) = args.next() else {
         return Some(SALIDA_USO);
     };
-    // Nada más detrás. Un argumento de sobra significa que quien llamó no es la app.
+    // El tercer argumento solo lo lleva `startup`. Se lee antes de mirar el verbo para poder exigir
+    // que **no** sobre nada detrás, sea cual sea la forma.
+    let tercero = args.next();
     if args.next().is_some() {
         return Some(SALIDA_USO);
     }
@@ -370,7 +539,79 @@ pub fn intercept() -> Option<u32> {
         return Some(SALIDA_NO_VIGILADO);
     }
 
+    if verbo == "startup" {
+        // Y el tipo también viene de fuera, así que también se valida aquí: `de_verbo` solo conoce
+        // los cuatro que esta app pone, de modo que `boot` y `system` no tienen por dónde entrar.
+        let Some(tipo) = tercero.as_deref().and_then(SettableStartType::de_verbo) else {
+            return Some(SALIDA_TIPO_NO_PERMITIDO);
+        };
+        return Some(ejecutar_arranque(&nombre, tipo));
+    }
+
+    if tercero.is_some() {
+        return Some(SALIDA_USO);
+    }
+    let Some(action) = ServiceAction::de_verbo(&verbo) else {
+        return Some(SALIDA_USO);
+    };
+
     Some(ejecutar(action, &nombre))
+}
+
+/// Cambiar el tipo de arranque, ya elevado. La otra cosa que esta app hace con privilegios.
+fn ejecutar_arranque(nombre: &str, tipo: SettableStartType) -> u32 {
+    let Ok(scm) = services::abrir_scm(SC_MANAGER_CONNECT) else {
+        return SALIDA_RECHAZADO;
+    };
+    let Ok(servicio) = services::abrir_servicio(&scm, nombre, SERVICE_CHANGE_CONFIG) else {
+        return SALIDA_RECHAZADO;
+    };
+
+    // `SERVICE_NO_CHANGE` en todo lo demás: esta app cambia el tipo de arranque y **nada más**. Ni
+    // la ruta del binario, ni la cuenta con la que corre, ni las dependencias.
+    let cambiado = unsafe {
+        ChangeServiceConfigW(
+            servicio.0,
+            ENUM_SERVICE_TYPE(SERVICE_NO_CHANGE),
+            tipo.valor_scm(),
+            SERVICE_ERROR(SERVICE_NO_CHANGE),
+            PCWSTR::null(),
+            PCWSTR::null(),
+            None,
+            PCWSTR::null(),
+            PCWSTR::null(),
+            PCWSTR::null(),
+            PCWSTR::null(),
+        )
+    };
+    if cambiado.is_err() {
+        return SALIDA_RECHAZADO;
+    }
+
+    // **La segunda llamada no es opcional, y es la trampa de esta fase.**
+    //
+    // `Automático` y `Automático (inicio retrasado)` son el mismo `SERVICE_AUTO_START`: el retraso
+    // vive en otra estructura. Sin esto, pasar un servicio de retrasado a automático normal no
+    // cambiaría nada visible —el SCM seguiría diciendo «retrasado»— y la app reportaría un cambio
+    // que no ocurrió. Por eso se escribe **siempre**, también cuando toca ponerlo en `false`.
+    let mut retraso = SERVICE_DELAYED_AUTO_START_INFO {
+        fDelayedAutostart: tipo.es_retrasado().into(),
+    };
+    let ajustado = unsafe {
+        ChangeServiceConfig2W(
+            servicio.0,
+            SERVICE_CONFIG_DELAYED_AUTO_START_INFO,
+            Some(std::ptr::from_mut(&mut retraso).cast()),
+        )
+    };
+
+    // Un servicio `Deshabilitado` o `Manual` no admite la marca de retraso, y Windows contesta que
+    // no. Es lo esperado y no invalida el cambio de arriba, que sí se hizo.
+    if ajustado.is_err() && matches!(tipo, SettableStartType::Automatic | SettableStartType::AutomaticDelayed) {
+        return SALIDA_RECHAZADO;
+    }
+
+    SALIDA_OK
 }
 
 /// Los servicios que el usuario añadió, leídos del disco por el propio proceso elevado.
@@ -538,6 +779,77 @@ mod tests {
     fn cada_verbo_pide_solo_su_derecho() {
         assert_eq!(ServiceAction::Start.derecho(), SERVICE_START);
         assert_eq!(ServiceAction::Stop.derecho(), SERVICE_STOP);
+    }
+
+    /// **La segunda prueba obligatoria de esta fase: los tipos que la app NO pone.**
+    ///
+    /// `Boot` y `System` son de controladores que carga el núcleo antes de que exista el
+    /// escritorio. Si el proceso elevado los aceptara, un nombre de servicio vigilado más un tipo
+    /// mal elegido serían una forma de dejar un equipo sin arrancar.
+    #[test]
+    fn el_arranque_no_admite_los_tipos_del_nucleo() {
+        for prohibido in [
+            "boot",
+            "system",
+            "unknown",
+            "Boot",
+            "SERVICE_BOOT_START",
+            "0",
+            "",
+        ] {
+            assert_eq!(
+                SettableStartType::de_verbo(prohibido),
+                None,
+                "«{prohibido}» no deberia poder pedirse"
+            );
+        }
+    }
+
+    #[test]
+    fn los_cuatro_arranques_van_y_vuelven_igual() {
+        for tipo in [
+            SettableStartType::Automatic,
+            SettableStartType::AutomaticDelayed,
+            SettableStartType::Manual,
+            SettableStartType::Disabled,
+        ] {
+            assert_eq!(SettableStartType::de_verbo(tipo.verbo()), Some(tipo));
+        }
+    }
+
+    /// Los dos automáticos comparten el valor del SCM: lo que los distingue es la segunda llamada.
+    /// Si esto dejara de ser cierto, `ejecutar_arranque` estaría escribiendo el retraso sobre un
+    /// tipo que ya no lo lleva.
+    #[test]
+    fn los_dos_automaticos_son_el_mismo_valor_para_el_scm() {
+        assert_eq!(
+            SettableStartType::Automatic.valor_scm(),
+            SettableStartType::AutomaticDelayed.valor_scm()
+        );
+        assert!(!SettableStartType::Automatic.es_retrasado());
+        assert!(SettableStartType::AutomaticDelayed.es_retrasado());
+    }
+
+    /// Cada tipo ajustable tiene su gemelo en el enum que se lee del SCM, y son distintos entre sí.
+    /// Es lo que permite comparar lo pedido con lo que quedó.
+    #[test]
+    fn cada_tipo_ajustable_se_compara_con_lo_que_lee_el_scm() {
+        let leidos: Vec<StartType> = [
+            SettableStartType::Automatic,
+            SettableStartType::AutomaticDelayed,
+            SettableStartType::Manual,
+            SettableStartType::Disabled,
+        ]
+        .iter()
+        .map(|t| t.como_start_type())
+        .collect();
+
+        assert_eq!(leidos.len(), 4);
+        for (i, a) in leidos.iter().enumerate() {
+            for b in leidos.iter().skip(i + 1) {
+                assert_ne!(a, b, "dos tipos ajustables se leen igual");
+            }
+        }
     }
 
     /// Si esto se desincroniza de `tauri.conf.json`, el proceso elevado busca `settings.json` donde

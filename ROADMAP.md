@@ -976,16 +976,15 @@ haciendo clic en «Siguiente».
 ---
 
 
-## 🗄 Tier 10: Servicios de desarrollo — 🚧 **Fases A y B completadas y verificadas**
+## 🗄 Tier 10: Servicios de desarrollo — ✅ **completado y verificado**
 
 > **Propuesto por el usuario el 2026-08-22.** Es el primer Tier que se abre desde que el backlog de
 > la auditoría quedó sin nada pendiente (**37 de 37**), y va aquí y no como una tarea `T5-xx` a
 > propósito: los `Tn-xx` son deuda encontrada en una revisión, y esto es una fase de desarrollo
 > nueva. Nada de los Tiers 1-9 se toca.
 >
-> **Las fases A y B están hechas y verificadas** —la A el 2026-08-22, la B el 2026-08-23—; la C,
-> no. Los checkboxes se marcan cuando la funcionalidad está *probada*, como en el resto del
-> documento.
+> **Las tres fases están hechas y verificadas**: la A el 2026-08-22, la B y la C el 2026-08-23.
+> Los checkboxes se marcan cuando la funcionalidad está *probada*, como en el resto del documento.
 
 ### Por qué encaja, y no es ampliar el alcance
 
@@ -1024,7 +1023,7 @@ Hoy, si el usuario añade `sqlservr` a los nombres vigilados, la app le ofrece u
 SQL Server. Es la acción equivocada —matar un motor de base de datos en vez de detenerlo— y encima
 fallaría sin privilegios. El panel da la acción correcta para esa clase de proceso.
 
-### ⚠️ La decisión que hay que tomar antes de escribir una línea: los privilegios
+### ⚠️ La decisión de los privilegios — **tomada, y la que sostiene las tres fases**
 
 La app instala en `currentUser` (`tauri.conf.json`) y **nunca eleva**. Leer el estado de los
 servicios es gratis; `StartService`, `StopService` y sobre todo `ChangeServiceConfig` piden
@@ -1035,8 +1034,10 @@ administrador.
   procesos del sistema. Y saldría un UAC en cada arranque de una app pensada para vivir en la
   bandeja.
 - ✅ **Leer siempre, elevar solo al actuar.** El panel funciona sin admin y el UAC sale al pulsar
-  Detener o al cambiar el tipo de arranque. **Es la recomendación**, y es lo que asume el reparto en
-  fases de abajo.
+  Detener o al cambiar el tipo de arranque. **Es lo que se hizo.** La app relanza su propio
+  ejecutable con `runas` para una acción concreta; ese proceso hace una llamada al SCM y muere.
+  Todo eso vive en `service_control.rs`, y `services.rs` —el que llama el poller y la ventana—
+  sigue sin poder tocar nada.
 - ❌ **Un servicio broker instalado con admin.** Obliga a `installMode: perMachine`, deja algo
   corriendo como SYSTEM para siempre y abre una superficie de IPC que este proyecto no necesita.
 
@@ -1130,11 +1131,42 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 > que es justo lo que la fase C todavía no hace. Queda cubierto por el mapeo de
 > `ERROR_DEPENDENT_SERVICES_RUNNING` y por su prueba, pero **no visto en vivo**.
 
-### Fase C — tipo de arranque
+### Fase C — tipo de arranque — ✅ **hecha y verificada el 2026-08-23**
 
-- [ ] `ChangeServiceConfig` con elevación.
-- [ ] **Registro de lo que la app cambió, con deshacer.** Ver el aviso de arriba.
-- [ ] Aviso claro en la UI de que el cambio sobrevive al reinicio.
+- [x] `ChangeServiceConfigW` con elevación, por el mismo camino que la fase B: un verbo más
+      (`startup`) en el proceso hijo, con `SERVICE_CHANGE_CONFIG` y `SERVICE_NO_CHANGE` en todo lo
+      demás — ni la ruta del binario, ni la cuenta con la que corre, ni las dependencias.
+- [x] **Solo cuatro tipos, y `boot` y `system` no están.** Son de controladores que carga el núcleo
+      antes de que exista el escritorio; ofrecerlos sería regalar una forma de dejar un equipo sin
+      arrancar. El proceso elevado **también** valida el tipo, no solo el nombre: es el segundo
+      argumento que le llega de fuera.
+- [x] **Registro de lo que la app cambió, con deshacer**, en `service-changes.json`. Guarda el valor
+      **original** —no cada paso— y la entrada **se borra sola** al volver a él: deshacer y volver
+      a ponerlo son el mismo camino, y no hay que deshacer tres veces para desandar tres cambios.
+- [x] Aviso claro en la UI de que el cambio sobrevive al reinicio, en el diálogo de confirmación y
+      antes de que salga el UAC. Al deshacer, el aviso es **otro**: el de siempre promete que queda
+      anotado abajo, y deshaciendo pasa justo lo contrario.
+- [x] **Nunca lo hace sola.** No hay, ni habrá, un «Auto-Kill de servicios»: este comando solo
+      existe colgando de un clic con su confirmación delante.
+
+> ⚠️ **La trampa técnica de esta fase: los dos «Automático» son el mismo valor para el SCM.** El
+> retraso vive en otra estructura (`SERVICE_CONFIG_DELAYED_AUTO_START_INFO`), así que hay que
+> escribirlo con una **segunda** llamada, y escribirlo **siempre** — también cuando toca ponerlo en
+> `false`. Sin eso, pasar un servicio de retrasado a automático normal no cambiaría nada y la app
+> reportaría un cambio que no ocurrió.
+
+> ✅ **Verificado sobre el binario de release el 2026-08-23**, entero y sobre `MySQL80`:
+>
+> - `Manual → Deshabilitado`: Windows dice `Disabled` y aparece la entrada en el registro.
+> - `Deshabilitado → Automático`: **el registro sigue diciendo `from: manual`**, que es la decisión
+>   de diseño que importa — el original aguanta los pasos intermedios.
+> - `Automático → Automático (retrasado) → Automático`: `DelayedAutoStart` sube a `True` y **vuelve
+>   a bajar a `False`**. Es la trampa de arriba, comprobada en los dos sentidos.
+> - **Deshacer**: vuelve a `Manual`, el registro queda en `[]` y la sección desaparece sola.
+>
+> 5 pruebas nuevas de Rust y 6 del frontend; **93 y 217** en total. Y un fallo de texto propio que
+> destapó la prueba en vivo: el diálogo de deshacer prometía «queda anotado abajo para poder
+> deshacerlo», cuando deshaciendo la entrada se va. Corregido con su propio aviso.
 
 ### Cuatro trampas concretas, ya vistas en el equipo del usuario
 

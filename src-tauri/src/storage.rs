@@ -186,6 +186,27 @@ pub struct HistoryEntry {
     pub source: KillSource,
 }
 
+/// Un cambio de tipo de arranque hecho **por esta app**, para poder deshacerlo.
+///
+/// Es el único rastro que ProcessDevKill deja fuera de su propia carpeta: un servicio en
+/// `Deshabilitado` sigue deshabilitado dentro de tres meses, cuando ya nadie recuerda que lo hizo
+/// la app. Por eso se anota, con el mismo criterio que el historial de cierres.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceChange {
+    pub name: String,
+    pub display_name: String,
+    /// A lo que estaba puesto **antes de que la app lo tocara por primera vez**. Ver
+    /// `record_service_change`: esto no se pisa en cambios posteriores, porque es justo el valor al
+    /// que sirve volver.
+    pub from: crate::services::StartType,
+    /// A lo que está puesto ahora por decisión de la app.
+    pub to: crate::services::StartType,
+    /// Epoch en milisegundos del último cambio. Lo formatea el frontend, que sabe la zona y el
+    /// idioma del usuario.
+    pub changed_at: u64,
+}
+
 pub fn now_millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -211,6 +232,10 @@ impl Storage {
 
     fn history_file(&self) -> PathBuf {
         self.dir.join("history.json")
+    }
+
+    fn service_changes_file(&self) -> PathBuf {
+        self.dir.join("service-changes.json")
     }
 
     fn read_json<T: Default + for<'de> Deserialize<'de>>(path: &Path) -> T {
@@ -285,6 +310,58 @@ impl Storage {
 
     pub fn clear_history(&self) -> Result<(), String> {
         Self::write_json(&self.history_file(), &Vec::<HistoryEntry>::new())
+    }
+
+    pub fn load_service_changes(&self) -> Vec<ServiceChange> {
+        Self::read_json(&self.service_changes_file())
+    }
+
+    /// Anota que la app cambió el arranque de un servicio, de forma que se pueda deshacer.
+    ///
+    /// Dos decisiones que hacen que este registro sea util en vez de un diario:
+    ///
+    /// 1. **`from` no se pisa nunca.** Si el usuario pasa un servicio de `Manual` a `Deshabilitado`
+    ///    y luego a `Automático`, lo que sirve para deshacer sigue siendo `Manual`, que es como
+    ///    estaba antes de que esta app entrara. Un registro que guardara cada paso obligaría a
+    ///    deshacer tres veces para volver al principio.
+    /// 2. **La entrada se borra al volver al original.** Si el nuevo valor es el `from`, ya no hay
+    ///    nada que deshacer, y dejarla ahí diciendo «cambiado de Manual a Manual» sería ruido que
+    ///    el usuario tendría que interpretar. Deshacer y volver a ponerlo son el mismo camino.
+    pub fn record_service_change(
+        &self,
+        name: &str,
+        display_name: &str,
+        antes: crate::services::StartType,
+        ahora: crate::services::StartType,
+    ) -> Result<(), String> {
+        let mut cambios = self.load_service_changes();
+        let existente = cambios.iter().position(|c| c.name == name);
+
+        // El original es el de la primera vez; si no habia entrada, el de ahora mismo.
+        let original = existente.map_or(antes, |i| cambios[i].from);
+
+        if original == ahora {
+            if let Some(i) = existente {
+                cambios.remove(i);
+                return Self::write_json(&self.service_changes_file(), &cambios);
+            }
+            // Nunca se toco y sigue igual: no hay nada que anotar.
+            return Ok(());
+        }
+
+        let entrada = ServiceChange {
+            name: name.to_string(),
+            display_name: display_name.to_string(),
+            from: original,
+            to: ahora,
+            changed_at: now_millis(),
+        };
+
+        match existente {
+            Some(i) => cambios[i] = entrada,
+            None => cambios.insert(0, entrada),
+        }
+        Self::write_json(&self.service_changes_file(), &cambios)
     }
 }
 
@@ -495,5 +572,94 @@ mod tests {
 
         storage.clear_history().unwrap();
         assert!(storage.load_history().is_empty());
+    }
+
+    // ------------------------------- el registro de deshacer de la fase C -------------------
+
+    use crate::services::StartType;
+
+    /// **Lo que hace util a este registro y no un diario.**
+    ///
+    /// Si el usuario pasa un servicio de `Manual` a `Deshabilitado` y luego a `Automatico`, lo que
+    /// sirve para deshacer sigue siendo `Manual`: como estaba antes de que esta app entrara.
+    /// Guardando cada paso haria falta deshacer tres veces para volver al principio, y el usuario
+    /// tendria que llevar la cuenta.
+    #[test]
+    fn el_registro_guarda_el_original_y_no_lo_pisa() {
+        let storage = temp_storage("cambios-original");
+
+        storage
+            .record_service_change("MySQL80", "MySQL80", StartType::Manual, StartType::Disabled)
+            .unwrap();
+        storage
+            .record_service_change(
+                "MySQL80",
+                "MySQL80",
+                StartType::Disabled,
+                StartType::Automatic,
+            )
+            .unwrap();
+
+        let cambios = storage.load_service_changes();
+        assert_eq!(cambios.len(), 1, "un servicio, una entrada");
+        assert_eq!(cambios[0].from, StartType::Manual, "el original aguanta");
+        assert_eq!(cambios[0].to, StartType::Automatic);
+    }
+
+    /// Al volver al valor original ya no hay nada que deshacer, y la entrada se va.
+    ///
+    /// Dejarla ahi diciendo «cambiado de Manual a Manual» seria ruido que el usuario tendria que
+    /// interpretar. Asi, deshacer y volver a ponerlo son el mismo camino.
+    #[test]
+    fn la_entrada_desaparece_al_volver_al_original() {
+        let storage = temp_storage("cambios-deshacer");
+
+        storage
+            .record_service_change("MySQL80", "MySQL80", StartType::Manual, StartType::Disabled)
+            .unwrap();
+        assert_eq!(storage.load_service_changes().len(), 1);
+
+        storage
+            .record_service_change("MySQL80", "MySQL80", StartType::Disabled, StartType::Manual)
+            .unwrap();
+        assert!(
+            storage.load_service_changes().is_empty(),
+            "deshecho del todo, no queda rastro que ofrecer"
+        );
+    }
+
+    /// Un servicio que nunca se toco y sigue igual no genera entrada. Sin esto, el registro se
+    /// llenaria de lineas que no ofrecen deshacer nada.
+    #[test]
+    fn no_anota_lo_que_no_cambia() {
+        let storage = temp_storage("cambios-sin-cambio");
+
+        storage
+            .record_service_change("SQLBrowser", "SQL Server Browser", StartType::Disabled, StartType::Disabled)
+            .unwrap();
+
+        assert!(storage.load_service_changes().is_empty());
+    }
+
+    /// Cada servicio lleva la suya, y el ultimo tocado queda arriba.
+    #[test]
+    fn cada_servicio_tiene_su_entrada() {
+        let storage = temp_storage("cambios-varios");
+
+        storage
+            .record_service_change("MySQL80", "MySQL80", StartType::Manual, StartType::Disabled)
+            .unwrap();
+        storage
+            .record_service_change(
+                "postgresql-x64-17",
+                "PostgreSQL 17",
+                StartType::Automatic,
+                StartType::Manual,
+            )
+            .unwrap();
+
+        let cambios = storage.load_service_changes();
+        assert_eq!(cambios.len(), 2);
+        assert_eq!(cambios[0].name, "postgresql-x64-17", "lo ultimo, arriba");
     }
 }

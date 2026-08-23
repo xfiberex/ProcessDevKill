@@ -48,9 +48,8 @@ midió que no compensa (T4-05) y el rendimiento se midió en vez de suponerse (T
 > v1.4.0, así que la versión que hay ahí fuera sigue hablando solo español. Es lo que iría en el
 > próximo corte.
 
-**Abierto: [Tier 10 — Servicios de desarrollo](ROADMAP.md). Las fases A —solo lectura— y B
-—arrancar y detener— están hechas y verificadas, el 2026-08-22 y el 2026-08-23**; queda la C, el
-tipo de arranque, que es la única cuyo efecto sobrevive a un reinicio. Un panel para los servicios de Windows que son de desarrollo —SQL Server, PostgreSQL,
+**Cerrado: [Tier 10 — Servicios de desarrollo](ROADMAP.md), las tres fases hechas y verificadas**
+—la A el 2026-08-22; la B y la C el 2026-08-23—. Un panel para los servicios de Windows que son de desarrollo —SQL Server, PostgreSQL,
 MySQL, Docker— con su estado, su tipo de arranque y **el puerto que ocupan**. Encaja porque el 1433
 y el 5432 son puertos igual que el 3000, y la app hoy solo ve los procesos que lanza el usuario, no
 los que lanza Windows por él. La app sigue instalando en `currentUser` y **sin elevar nunca**, y con la fase B ya escrita eso no
@@ -68,6 +67,16 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > **Y no hay cascada:** Windows no detiene un servicio con dependientes vivos, y la app **no los
 > detiene por su cuenta** aunque `services.msc` lo ofrezca. Serían servicios que nunca pasaron por
 > la guardia ni por el diálogo. Se enseñan los nombres y el usuario decide.
+
+> ⚠️ **Decidido el 2026-08-23, con la fase C: el registro de deshacer guarda el original, no el
+> historial.** `service-changes.json` tiene **una entrada por servicio**, con el valor que tenía
+> antes de que la app lo tocara la primera vez, y **la entrada se borra al volver a él**. Un
+> registro que guardara cada paso obligaría a deshacer tres veces para desandar tres cambios, y a
+> que el usuario llevara la cuenta. Así, deshacer y volver a ponerlo son el mismo camino.
+>
+> El cambio de arranque es **lo único que hace esta app que sobrevive a un reinicio y vive fuera de
+> su propio `settings.json`**, y por eso es lo único con registro de deshacer. Los tipos que se
+> ofrecen son cuatro: `boot` y `system` no están, y el proceso elevado también valida eso.
 
 > ⚠️ **La RAM de un servicio no se puede leer sin ser administrador**, y se descubrió construyendo
 > la Fase A. `OpenProcess` devuelve acceso denegado incluso con `PROCESS_QUERY_LIMITED_INFORMATION`.

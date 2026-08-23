@@ -271,6 +271,43 @@ export const es = {
         `No se pudo detener ${n}: sigue corriendo ${nombres.join(", ")}.`,
       rechazado: (n: string) => `Windows no dejó completar la acción sobre ${n}.`,
     },
+    arranque: {
+      etiqueta: (n: string) => `Tipo de arranque de ${n}`,
+      /** Para `boot` y `system`, que la app lee pero no pone. */
+      noAjustable:
+        "Este tipo de arranque es de controladores del sistema y no se cambia desde aquí.",
+      titulo: (n: string) => `Cambiar el arranque de ${n}`,
+      mensaje: (n: string, de: string, a: string): string =>
+        `${n} pasará de «${de}» a «${a}».`,
+      /**
+       * **El aviso que hace distinta a esta acción de todas las demás de la app.**
+       *
+       * Todo lo que hace ProcessDevKill hasta aquí se deshace solo: un proceso cerrado vuelve la
+       * próxima vez que se lanza. Esto no. Un servicio en «Deshabilitado» sigue deshabilitado
+       * dentro de tres meses, cuando ya nadie recuerda que lo hizo esta app — así que se dice, y
+       * se dice antes.
+       */
+      aviso:
+        "**Este cambio sobrevive al reinicio** y lo hace en Windows, no dentro de la app. Queda anotado abajo para poder deshacerlo." as Rico,
+      /**
+       * El mismo aviso, para cuando lo que se pulsa es Deshacer.
+       *
+       * El de arriba dice «queda anotado abajo para poder deshacerlo», y al deshacer pasa lo
+       * contrario: la entrada se va. Prometer un registro que no va a existir es pequeño, pero es
+       * exactamente la clase de frase que enseña al usuario a no leer los avisos.
+       */
+      avisoDeshacer:
+        "**Este cambio sobrevive al reinicio** y lo hace en Windows, no dentro de la app. El servicio vuelve a como estaba y sale de esta lista." as Rico,
+      boton: "Cambiar arranque",
+      hecho: (n: string, a: string) => `${n} queda en «${a}».`,
+      rechazado: (n: string) => `Windows no dejó cambiar el arranque de ${n}.`,
+      registroTitulo: "Cambios que ha hecho ProcessDevKill",
+      registroDetalle:
+        "Estos arranques los cambió la app y siguen así después de reiniciar. Deshacer devuelve cada uno a como estaba." as Rico,
+      registroFila: (de: string, a: string) => `de «${de}» a «${a}»`,
+      deshacer: "Deshacer",
+      deshacerLabel: (n: string) => `Deshacer el cambio de arranque de ${n}`,
+    },
   },
 
   historial: {
@@ -607,6 +644,26 @@ export const en: Catalogo = {
       bloqueado: (n, nombres) =>
         `${n} could not be stopped: ${nombres.join(", ")} is still running.`,
       rechazado: (n) => `Windows did not let the action on ${n} go through.`,
+    },
+    arranque: {
+      etiqueta: (n) => `Startup type for ${n}`,
+      noAjustable:
+        "This startup type belongs to system drivers and cannot be changed from here.",
+      titulo: (n) => `Change startup for ${n}`,
+      mensaje: (n, de, a) => `${n} will go from "${de}" to "${a}".`,
+      aviso:
+        "**This change survives a reboot** and it happens in Windows, not inside the app. It is recorded below so you can undo it.",
+      avisoDeshacer:
+        "**This change survives a reboot** and it happens in Windows, not inside the app. The service goes back to how it was and leaves this list.",
+      boton: "Change startup",
+      hecho: (n, a) => `${n} is now set to "${a}".`,
+      rechazado: (n) => `Windows did not let the startup of ${n} change.`,
+      registroTitulo: "Changes ProcessDevKill made",
+      registroDetalle:
+        "The app changed these startup types and they stay that way after a reboot. Undo puts each one back the way it was.",
+      registroFila: (de, a) => `from "${de}" to "${a}"`,
+      deshacer: "Undo",
+      deshacerLabel: (n) => `Undo the startup change for ${n}`,
     },
   },
 

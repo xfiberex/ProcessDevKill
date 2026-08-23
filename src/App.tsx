@@ -4,16 +4,19 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { toast } from "sonner";
-import { PROCESSES_UPDATED, SYSTEM_USAGE } from "./types";
+import { PROCESSES_UPDATED, SETTABLE_START_TYPES, SYSTEM_USAGE } from "./types";
 import type {
   HistoryEntry,
   KillOutcome,
   ProcessInfo,
   ServiceAction,
   ServiceActionResult,
+  ServiceChange,
   ServiceDependent,
   ServiceInfo,
+  ServiceStartupResult,
   Settings,
+  SettableStartType,
   SystemUsage,
 } from "./types";
 import { ThemeProvider } from "./theme";
@@ -72,6 +75,8 @@ export default function App() {
   const [services, setServices] = useState<ServiceInfo[] | null>(null);
   /** El servicio con una accion en curso. Apaga los botones de toda la tabla mientras dura. */
   const [servicioOcupado, setServicioOcupado] = useState<string | null>(null);
+  /** Los cambios de arranque que ha hecho la app y siguen puestos en Windows. */
+  const [serviceChanges, setServiceChanges] = useState<ServiceChange[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -249,6 +254,90 @@ export default function App() {
     [ejecutarAccion, t],
   );
 
+  const loadServiceChanges = useCallback(async () => {
+    try {
+      setServiceChanges(await invoke<ServiceChange[]>("get_service_changes"));
+    } catch {
+      // Quedarse sin el registro no puede tumbar la vista: lo que se pierde es poder deshacer
+      // desde aqui, y eso se ve solo —la seccion no aparece—.
+    }
+  }, []);
+
+  /**
+   * Cambia el tipo de arranque de un servicio, **siempre con su confirmación delante**.
+   *
+   * Es la única acción de esta app cuyo efecto sobrevive a un reinicio y vive en Windows, no en su
+   * `settings.json`. Por eso el diálogo dice a qué pasa y avisa de que no se deshace solo. Deshacer
+   * entra por aquí también: es el mismo cambio en el otro sentido, y merece el mismo aviso.
+   */
+  const cambiarArranque = useCallback(
+    (servicio: ServiceInfo, tipo: SettableStartType, deshaciendo = false) => {
+      const a = t.servicios.arranque;
+      // Deshacer no deja entrada en el registro: la quita. Prometer lo contrario seria enseñar al
+      // usuario a no leer los avisos.
+      const aviso = deshaciendo ? a.avisoDeshacer : a.aviso;
+
+      setConfirm({
+        title: a.titulo(servicio.name),
+        message: `${a.mensaje(
+          servicio.name,
+          t.servicios.arranques[servicio.startType],
+          t.servicios.arranques[tipo],
+        )} ${aviso.replace(/\*\*/g, "")} ${t.servicios.acciones.pideAdmin}`,
+        confirmLabel: a.boton,
+        onConfirm: async () => {
+          setServicioOcupado(servicio.name);
+          try {
+            const r = await invoke<ServiceStartupResult>("set_service_startup", {
+              name: servicio.name,
+              displayName: servicio.displayName,
+              startType: tipo,
+            });
+
+            if (r.outcome === "done") {
+              toast.success(
+                a.hecho(servicio.name, t.servicios.arranques[r.startType]),
+              );
+            } else if (r.outcome === "refused") {
+              toast.error(a.rechazado(servicio.name));
+            }
+            // `cancelled` no dice nada: cerrar el UAC es una respuesta.
+          } catch (e) {
+            toast.error(String(e));
+          } finally {
+            setServicioOcupado(null);
+          }
+
+          loadServices();
+          loadServiceChanges();
+        },
+      });
+    },
+    [loadServices, loadServiceChanges, t],
+  );
+
+  /**
+   * Devuelve un servicio a como estaba antes de que la app lo tocara.
+   *
+   * Reusa `cambiarArranque` en vez de tener su propio camino: deshacer no es una operación
+   * distinta, es el mismo cambio hacia el otro lado, y merece el mismo aviso. Cuando el valor
+   * vuelve al original, Rust borra la entrada del registro y la sección se va sola.
+   */
+  const deshacerCambio = useCallback(
+    (cambio: ServiceChange) => {
+      // `from` sale del disco, así que se comprueba que siga siendo uno de los cuatro que la app
+      // pone. Un registro escrito a mano no puede colar aquí un `boot`.
+      if (!SETTABLE_START_TYPES.includes(cambio.from as SettableStartType)) {
+        return;
+      }
+      const servicio = services?.find((s) => s.name === cambio.name);
+      if (!servicio) return;
+
+      cambiarArranque(servicio, cambio.from as SettableStartType, true);
+    },
+    [cambiarArranque, services],
+  );
+
   const loadHistory = useCallback(async () => {
     try {
       setHistory(await invoke<HistoryEntry[]>("get_history"));
@@ -277,9 +366,12 @@ export default function App() {
 
   // Igual que el historial: se leen al entrar en la vista en vez de mantenerlos sincronizados.
   useEffect(() => {
+    if (view !== "services") return;
+    // Mismo caso que el historial: `loadServices` es async y su setState cae despues del await.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (view === "services") loadServices();
-  }, [view, loadServices]);
+    loadServices();
+    loadServiceChanges();
+  }, [view, loadServices, loadServiceChanges]);
 
   /**
    * Comprobacion de actualizaciones al arrancar, en silencio.
@@ -541,6 +633,9 @@ export default function App() {
                 onRefresh={loadServices}
                 onIrAAjustes={() => setView("settings")}
                 onAction={pedirAccion}
+                onStartupChange={cambiarArranque}
+                changes={serviceChanges}
+                onUndo={deshacerCambio}
                 busy={servicioOcupado}
               />
             )}

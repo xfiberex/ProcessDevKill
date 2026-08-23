@@ -16,7 +16,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use windows::core::PCWSTR;
 use windows::Win32::System::Services::{
@@ -64,7 +64,10 @@ pub enum ServiceState {
 }
 
 /// Tipo de arranque, tal como lo enseña `services.msc`.
-#[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
+///
+/// Lleva `Deserialize` porque el registro de deshacer de la fase C lo guarda en disco y tiene que
+/// poder volver: ahí se anota a qué estaba puesto un servicio **antes** de que la app lo tocara.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum StartType {
     Boot,
@@ -571,6 +574,17 @@ fn retrasado(servicio: &Handle) -> bool {
         .is_ok()
             && info.fDelayedAutostart.as_bool()
     }
+}
+
+/// El tipo de arranque de **un** servicio, releído en el momento.
+///
+/// Igual que `read_state`: existe para comprobar que un cambio cuajó de verdad en vez de darlo por
+/// hecho porque el proceso elevado salió con cero. Leer la configuración no pide privilegios.
+pub fn read_start_type(name: &str) -> StartType {
+    let Ok(scm) = abrir_scm(SC_MANAGER_CONNECT) else {
+        return StartType::Unknown;
+    };
+    tipo_de_arranque(&scm, name)
 }
 
 // ------------------------------------------- lo que la Fase B necesita, sin privilegios ---

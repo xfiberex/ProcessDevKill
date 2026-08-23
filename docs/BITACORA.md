@@ -8,6 +8,35 @@
 
 ---
 
+### 2026-08-23 — Tier 10, Fase C: el tipo de arranque, con deshacer
+
+- **Hecha y verificada sobre el binario de release, y con ella se cierra el Tier 10.** Un verbo más
+  en el proceso elevado (`startup`), `ChangeServiceConfigW` con `SERVICE_CHANGE_CONFIG` y
+  `SERVICE_NO_CHANGE` en todo lo demás. 5 pruebas nuevas de Rust (93) y 6 del frontend (217).
+- **Cuatro tipos, y `boot` y `system` no están.** Son de controladores que carga el núcleo antes de
+  que exista el escritorio. El proceso elevado valida **también** el tipo, no solo el nombre: es el
+  segundo argumento que le llega de fuera, y un nombre vigilado con un tipo mal elegido sería una
+  forma de dejar un equipo sin arrancar.
+- **El registro guarda el original, no el historial.** Una entrada por servicio, con el valor de
+  antes de que la app lo tocara la primera vez, y **se borra al volver a él**. Guardando cada paso
+  haría falta deshacer tres veces para desandar tres cambios; así, deshacer y volver a ponerlo son
+  el mismo camino y la sección desaparece sola cuando ya no hay nada que deshacer.
+- **La trampa técnica: los dos «Automático» son el mismo valor para el SCM.** El retraso vive en
+  otra estructura, así que hay que escribirlo con una segunda llamada y **siempre**, también
+  cuando toca ponerlo en `false`. Sin eso, pasar un servicio de retrasado a automático normal no
+  cambiaría nada visible y la app reportaría un cambio que no ocurrió. Comprobado en los dos
+  sentidos: `DelayedAutoStart` sube a `True` y vuelve a bajar.
+- **Verificado entero sobre `MySQL80`**, que era `Manual`: a `Deshabilitado`, a `Automático` —y el
+  registro seguía diciendo `from: manual`, que es la decisión de diseño que importa—, a retrasado y
+  de vuelta, y por último Deshacer, que lo devolvió a `Manual` y dejó el registro en `[]`.
+- **Un fallo de texto mío que solo se ve probando en vivo:** el diálogo de deshacer decía «queda
+  anotado abajo para poder deshacerlo», y al deshacer pasa lo contrario — la entrada se va.
+  Prometer un registro que no va a existir es pequeño, pero es exactamente la clase de frase que
+  enseña al usuario a no leer los avisos. Tiene ya su propio aviso.
+- Y una cosa que se vio de rebote: con la app **elevada**, la columna de RAM enseña cifras, y
+  `postgresql-x64-17` marca 107 MB — el árbol entero, no los 7,7 MB de su PID suelto. Confirma
+  desde dentro de la app las dos cosas que se midieron por fuera esta misma mañana.
+
 ### 2026-08-23 — Tier 10, Fase B: arrancar y detener, elevando solo la acción
 
 - **Hecha y verificada sobre el binario de release.** La app relanza su propio ejecutable con

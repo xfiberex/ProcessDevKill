@@ -545,6 +545,8 @@ pub fn run() {
             // `control_service` y `get_service_dependents`, que es el ultimo segmento.
             service_control::control_service,
             service_control::get_service_dependents,
+            service_control::set_service_startup,
+            service_control::get_service_changes,
             get_history,
             clear_history,
             // Los del actualizador viven en `update`, junto a la logica en la que

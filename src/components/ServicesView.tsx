@@ -7,12 +7,16 @@ import {
   PlayIcon,
   SettingsIcon,
   SquareIcon,
+  Undo2Icon,
 } from "lucide-react";
+import { SETTABLE_START_TYPES } from "../types";
 import type {
   ServiceAction,
+  ServiceChange,
   ServiceFamily,
   ServiceInfo,
   ServiceState,
+  SettableStartType,
 } from "../types";
 import { Marcado, useT } from "../i18n";
 import type { Catalogo } from "../i18n";
@@ -25,6 +29,10 @@ type ServicesViewProps = {
   onRefresh: () => void;
   onIrAAjustes: () => void;
   onAction: (servicio: ServiceInfo, accion: ServiceAction) => void;
+  onStartupChange: (servicio: ServiceInfo, tipo: SettableStartType) => void;
+  /** Los cambios de arranque que ha hecho la app y siguen puestos. */
+  changes: ServiceChange[];
+  onUndo: (cambio: ServiceChange) => void;
   /**
    * El nombre del servicio con una accion en curso, o `null`.
    *
@@ -67,6 +75,9 @@ export function ServicesView({
   onRefresh,
   onIrAAjustes,
   onAction,
+  onStartupChange,
+  changes,
+  onUndo,
   busy,
 }: ServicesViewProps) {
   const t = useT();
@@ -146,6 +157,7 @@ export function ServicesView({
                 servicio={s}
                 t={t}
                 onAction={onAction}
+                onStartupChange={onStartupChange}
                 trabajando={busy === s.name}
                 // Con una accion en curso se apagan **todos** los botones, no solo el suyo: el
                 // UAC de la primera todavia esta en pantalla cuando se podria pulsar la segunda.
@@ -155,7 +167,74 @@ export function ServicesView({
           </tbody>
         </table>
       )}
+
+      {changes.length > 0 && (
+        <Registro cambios={changes} t={t} onUndo={onUndo} bloqueado={busy !== null} />
+      )}
     </div>
+  );
+}
+
+/**
+ * Lo que la app ha cambiado y sigue puesto, con su deshacer.
+ *
+ * **Es la contrapartida de la única acción de esta app que sobrevive a un reinicio.** Todo lo demás
+ * se deshace solo: un proceso cerrado vuelve la próxima vez que se lanza. Un servicio en
+ * «Deshabilitado» sigue deshabilitado dentro de tres meses, y para entonces nadie recuerda quién lo
+ * puso así. Esta lista es ese recuerdo.
+ *
+ * Solo se pinta cuando hay algo: una sección vacía titulada «Cambios que ha hecho ProcessDevKill»
+ * en un equipo donde no ha hecho ninguno es una pregunta que el usuario no tenía.
+ */
+function Registro({
+  cambios,
+  t,
+  onUndo,
+  bloqueado,
+}: {
+  cambios: ServiceChange[];
+  t: Catalogo;
+  onUndo: (cambio: ServiceChange) => void;
+  bloqueado: boolean;
+}) {
+  const a = t.servicios.arranque;
+
+  return (
+    <section className="mt-6 border-t border-border px-5 py-4">
+      <h3 className="font-heading text-sm font-semibold">{a.registroTitulo}</h3>
+      <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+        <Marcado texto={a.registroDetalle} />
+      </p>
+
+      <ul className="mt-3 flex flex-col gap-2">
+        {cambios.map((c) => (
+          <li
+            key={c.name}
+            className="flex items-center justify-between gap-3 rounded border border-border px-3 py-2"
+          >
+            <span className="min-w-0">
+              <span className="block truncate font-mono text-xs">{c.name}</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {a.registroFila(
+                  t.servicios.arranques[c.from],
+                  t.servicios.arranques[c.to],
+                )}
+              </span>
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={bloqueado}
+              aria-label={a.deshacerLabel(c.name)}
+              onClick={() => onUndo(c)}
+            >
+              <Undo2Icon />
+              {a.deshacer}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -163,17 +242,18 @@ function Fila({
   servicio: s,
   t,
   onAction,
+  onStartupChange,
   trabajando,
   bloqueado,
 }: {
   servicio: ServiceInfo;
   t: Catalogo;
   onAction: (servicio: ServiceInfo, accion: ServiceAction) => void;
+  onStartupChange: (servicio: ServiceInfo, tipo: SettableStartType) => void;
   trabajando: boolean;
   bloqueado: boolean;
 }) {
   const Icon = FAMILY_ICONS[s.family];
-  const arrancaSolo = s.startType === "automatic" || s.startType === "automaticDelayed";
 
   return (
     <tr className="border-t border-border hover:bg-muted/60">
@@ -199,12 +279,12 @@ function Fila({
       </td>
 
       <td className="px-3 py-2">
-        <span
-          className={arrancaSolo ? "font-medium" : "text-muted-foreground"}
-          title={arrancaSolo ? t.servicios.arrancaSolo : undefined}
-        >
-          {t.servicios.arranques[s.startType]}
-        </span>
+        <Arranque
+          servicio={s}
+          t={t}
+          onStartupChange={onStartupChange}
+          bloqueado={bloqueado || trabajando}
+        />
       </td>
 
       <td className="px-3 py-2 text-right tabular-nums">
@@ -254,6 +334,65 @@ function Fila({
         />
       </td>
     </tr>
+  );
+}
+
+/**
+ * El tipo de arranque, editable.
+ *
+ * Un `select` nativo y no un menú propio: es una lista corta de valores excluyentes, que es
+ * exactamente para lo que existe, y trae gratis el teclado, el lector de pantalla y el
+ * comportamiento que el usuario ya conoce de `services.msc`.
+ *
+ * **Los que la app no pone se pintan como texto**, no como un desplegable deshabilitado: un
+ * servicio en `Arranque del sistema` es de un controlador del núcleo, y enseñar ahí un control
+ * apagado invita a preguntarse qué hay que hacer para encenderlo. No hay nada que hacer.
+ */
+function Arranque({
+  servicio: s,
+  t,
+  onStartupChange,
+  bloqueado,
+}: {
+  servicio: ServiceInfo;
+  t: Catalogo;
+  onStartupChange: (servicio: ServiceInfo, tipo: SettableStartType) => void;
+  bloqueado: boolean;
+}) {
+  const ajustable = (SETTABLE_START_TYPES as string[]).includes(s.startType);
+  const arrancaSolo =
+    s.startType === "automatic" || s.startType === "automaticDelayed";
+
+  if (!ajustable) {
+    return (
+      <span
+        className="cursor-help text-muted-foreground"
+        title={t.servicios.arranque.noAjustable}
+      >
+        {t.servicios.arranques[s.startType]}
+      </span>
+    );
+  }
+
+  return (
+    <select
+      className={`rounded border border-border bg-transparent px-2 py-1 text-sm ${
+        arrancaSolo ? "font-medium" : "text-muted-foreground"
+      }`}
+      aria-label={t.servicios.arranque.etiqueta(s.name)}
+      title={arrancaSolo ? t.servicios.arrancaSolo : undefined}
+      disabled={bloqueado}
+      value={s.startType}
+      onChange={(e) =>
+        onStartupChange(s, e.currentTarget.value as SettableStartType)
+      }
+    >
+      {SETTABLE_START_TYPES.map((tipo) => (
+        <option key={tipo} value={tipo}>
+          {t.servicios.arranques[tipo]}
+        </option>
+      ))}
+    </select>
   );
 }
 

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   AUTO_KILL_MIN_MB,
   PROCESSES_UPDATED,
+  SETTABLE_START_TYPES,
   SYSTEM_USAGE,
   ZOMBIE_MIN_MINUTES,
 } from "./types";
@@ -192,6 +193,28 @@ describe("el contrato con Rust", () => {
       "refused",
     ];
     expect(enRust).toEqual([...resultados].sort());
+  });
+
+  /**
+   * Los tipos de arranque que la app **pone** son menos que los que sabe leer, y esa diferencia es
+   * deliberada: `boot` y `system` son de controladores del nucleo. Si Rust ganara una variante
+   * ajustable y aqui no se anadiera, el desplegable dejaria de ofrecerla en silencio; si se
+   * quitara de Rust y no de aqui, la app pediria algo que el proceso elevado rechaza.
+   */
+  it("ofrece los mismos arranques ajustables que SettableStartType", () => {
+    const rust = leerRust("service_control.rs");
+    const bloque = rust.match(/pub enum SettableStartType\s*\{([\s\S]*?)^\}/m);
+    expect(bloque, "no se encontro el enum SettableStartType").not.toBeNull();
+
+    const enRust = [...bloque![1].matchAll(/^\s*([A-Z]\w+),/gm)]
+      .map((v) => v[1].charAt(0).toLowerCase() + v[1].slice(1))
+      .sort();
+
+    expect(enRust).toEqual([...SETTABLE_START_TYPES].sort());
+    // Y lo que no debe estar, no esta.
+    expect(enRust).not.toContain("boot");
+    expect(enRust).not.toContain("system");
+    expect(enRust).not.toContain("unknown");
   });
 
   it("cubre los cuatro origenes de KillSource", () => {

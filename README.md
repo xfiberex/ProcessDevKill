@@ -52,9 +52,10 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 - **Historial** de cierres con el origen de cada uno: ventana, bandeja, atajo o Auto-Kill.
 - **Panel de servicios de desarrollo**: SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS,
   con su estado, su tipo de arranque y el puerto que ocupan. Es donde se ve que tienes dos
-  PostgreSQL arrancando con Windows sin saberlo. Se pueden **arrancar y detener** desde ahí:
-  Windows pide permisos de administrador **solo en ese momento**, porque la app nunca se eleva
-  entera. Cambiar el tipo de arranque todavía no.
+  PostgreSQL arrancando con Windows sin saberlo. Se pueden **arrancar, detener y cambiarles el
+  tipo de arranque** desde ahí: Windows pide permisos de administrador **solo en ese momento**,
+  porque la app nunca se eleva entera. Y como el tipo de arranque sobrevive al reinicio, la app
+  **anota lo que cambió** y deja deshacerlo.
 - Tema claro/oscuro que sigue al de Windows, o fijo si lo prefieres.
 - **Español e inglés**, y no solo la ventana: el menú de la bandeja y las notificaciones de Windows
   cambian con ella, que es lo único que se ve con la app escondida. Se elige en Ajustes y no hay que

@@ -80,6 +80,51 @@ export type ServiceDependent = {
   displayName: string;
 };
 
+/**
+ * Espejo de `SettableStartType` en src-tauri/src/service_control.rs.
+ *
+ * **No son todos los de `StartType`.** Faltan `boot` y `system` a proposito: son de controladores
+ * que carga el nucleo antes de que exista el escritorio, y ofrecerlos seria regalar una forma de
+ * dejar un equipo sin arrancar. Falta `unknown`, que no es un valor sino la ausencia de uno.
+ */
+export type SettableStartType =
+  | "automatic"
+  | "automaticDelayed"
+  | "manual"
+  | "disabled";
+
+/**
+ * Los cuatro que la app pone, de mas automatico a menos.
+ *
+ * Es el orden de `services.msc`, y el que hace que la lista se lea como una escala. Vive aqui
+ * porque la usan la vista —para pintar el desplegable— y App —para saber si un valor guardado en
+ * el registro se puede volver a poner—.
+ */
+export const SETTABLE_START_TYPES: SettableStartType[] = [
+  "automatic",
+  "automaticDelayed",
+  "manual",
+  "disabled",
+];
+
+/** Espejo de `ServiceChange` en src-tauri/src/storage.rs. */
+export type ServiceChange = {
+  name: string;
+  displayName: string;
+  /** A lo que estaba **antes de que la app lo tocara la primera vez**: el valor al que se deshace. */
+  from: StartType;
+  to: StartType;
+  /** Epoch en milisegundos. Lo formatea el frontend, que sabe la zona y el idioma. */
+  changedAt: number;
+};
+
+/** Espejo de `ServiceStartupResult` en src-tauri/src/service_control.rs. */
+export type ServiceStartupResult = {
+  outcome: ServiceOutcome;
+  /** El tipo de arranque **releido del SCM**, no el que se pidio. */
+  startType: StartType;
+};
+
 /** Espejo de `ServiceAction` en src-tauri/src/service_control.rs. */
 export type ServiceAction = "start" | "stop";
 

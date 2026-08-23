@@ -4,22 +4,38 @@ import { describe, expect, it, vi } from "vitest";
 import { ServicesView } from "./ServicesView";
 import { servicio } from "../test/tauri-mock";
 import { I18nProvider } from "../i18n";
-import type { ServiceInfo } from "../types";
+import type { ServiceChange, ServiceInfo } from "../types";
 
-function pintar(services: ServiceInfo[] | null, busy: string | null = null) {
+function pintar(
+  services: ServiceInfo[] | null,
+  busy: string | null = null,
+  changes: ServiceChange[] = [],
+) {
   const onRefresh = vi.fn();
   const onIrAAjustes = vi.fn();
   const onAction = vi.fn();
+  const onStartupChange = vi.fn();
+  const onUndo = vi.fn();
   render(
     <ServicesView
       services={services}
       onRefresh={onRefresh}
       onIrAAjustes={onIrAAjustes}
       onAction={onAction}
+      onStartupChange={onStartupChange}
+      changes={changes}
+      onUndo={onUndo}
       busy={busy}
     />,
   );
-  return { onRefresh, onIrAAjustes, onAction, user: userEvent.setup() };
+  return {
+    onRefresh,
+    onIrAAjustes,
+    onAction,
+    onStartupChange,
+    onUndo,
+    user: userEvent.setup(),
+  };
 }
 
 /** La fila de un servicio, por su nombre del SCM. */
@@ -79,13 +95,16 @@ describe("la tabla", () => {
     ]);
 
     expect(within(fila("postgresql-x64-17")).getByText("Corriendo")).toBeVisible();
-    expect(within(fila("postgresql-x64-17")).getByText("Automático")).toBeVisible();
-    expect(within(fila("MySQL80")).getByText("Manual")).toBeVisible();
-    expect(within(fila("SQLBrowser")).getByText("Deshabilitado")).toBeVisible();
     expect(within(fila("Redis")).getByText("Cambiando…")).toBeVisible();
-    expect(
-      within(fila("Redis")).getByText("Automático (retrasado)"),
-    ).toBeVisible();
+
+    // El arranque ya no es texto: es el desplegable de la fase C, y lo que importa es el valor
+    // que trae puesto.
+    const arranque = (n: string) =>
+      within(fila(n)).getByRole("combobox") as HTMLSelectElement;
+    expect(arranque("postgresql-x64-17").value).toBe("automatic");
+    expect(arranque("MySQL80").value).toBe("manual");
+    expect(arranque("SQLBrowser").value).toBe("disabled");
+    expect(arranque("Redis").value).toBe("automaticDelayed");
   });
 
   it("enseña los puertos que ocupa", () => {
@@ -157,6 +176,9 @@ describe("en ingles", () => {
           onRefresh={vi.fn()}
           onIrAAjustes={vi.fn()}
           onAction={vi.fn()}
+          onStartupChange={vi.fn()}
+          changes={[]}
+          onUndo={vi.fn()}
           busy={null}
         />
       </I18nProvider>,
@@ -164,7 +186,7 @@ describe("en ingles", () => {
 
     expect(screen.getByText("Development services")).toBeVisible();
     expect(screen.getByText("Stopped")).toBeVisible();
-    expect(screen.getByText("Disabled")).toBeVisible();
+    expect(screen.getByRole("option", { name: "Disabled" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Start MySQL80" }),
     ).toBeVisible();
@@ -255,6 +277,104 @@ describe("arrancar y detener", () => {
     expect(
       within(fila("SQLWriter")).getByRole("button", {
         name: "Detener SQLWriter",
+      }),
+    ).toBeDisabled();
+  });
+});
+
+describe("el tipo de arranque", () => {
+  /**
+   * **La prueba obligatoria de la fase C: los tipos que la app NO ofrece.**
+   *
+   * `boot` y `system` son de controladores que carga el nucleo antes de que exista el escritorio.
+   * No aparecen en el desplegable, y un servicio que ya esta en uno de ellos ni siquiera tiene
+   * desplegable: se pinta como texto, porque no hay nada que hacer ahi.
+   */
+  it("no ofrece los arranques del nucleo, ni siquiera para deshacerlos", () => {
+    pintar([
+      servicio({ name: "MySQL80", startType: "manual" }),
+      servicio({ name: "UnDriver", startType: "boot" }),
+    ]);
+
+    const opciones = within(fila("MySQL80"))
+      .getAllByRole("option")
+      .map((o) => (o as HTMLOptionElement).value);
+    expect(opciones).toEqual([
+      "automatic",
+      "automaticDelayed",
+      "manual",
+      "disabled",
+    ]);
+
+    // El de `boot` no es editable en absoluto, y dice por que.
+    const f = within(fila("UnDriver"));
+    expect(f.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(f.getByTitle(/controladores del sistema/)).toBeVisible();
+  });
+
+  it("avisa a quien manda con el servicio y el tipo elegido", async () => {
+    const { onStartupChange, user } = pintar([
+      servicio({ name: "SQLTELEMETRY$SQLEXPRESS", startType: "automaticDelayed" }),
+    ]);
+
+    await user.selectOptions(
+      screen.getByRole("combobox", {
+        name: "Tipo de arranque de SQLTELEMETRY$SQLEXPRESS",
+      }),
+      "disabled",
+    );
+
+    expect(onStartupChange).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "SQLTELEMETRY$SQLEXPRESS" }),
+      "disabled",
+    );
+  });
+});
+
+describe("el registro de lo que la app cambio", () => {
+  const cambio = (parcial: Partial<ServiceChange> = {}): ServiceChange => ({
+    name: "MySQL80",
+    displayName: "MySQL80",
+    from: "manual",
+    to: "disabled",
+    changedAt: 1_700_000_000_000,
+    ...parcial,
+  });
+
+  /**
+   * Sin cambios no hay seccion. Una titulada «Cambios que ha hecho ProcessDevKill» y vacia, en un
+   * equipo donde no ha hecho ninguno, es una pregunta que el usuario no tenia.
+   */
+  it("no aparece cuando la app no ha cambiado nada", () => {
+    pintar([servicio({ name: "MySQL80" })], null, []);
+
+    expect(
+      screen.queryByText("Cambios que ha hecho ProcessDevKill"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("dice de que a que, y ofrece deshacerlo", async () => {
+    const { onUndo, user } = pintar([servicio({ name: "MySQL80" })], null, [
+      cambio(),
+    ]);
+
+    expect(screen.getByText("Cambios que ha hecho ProcessDevKill")).toBeVisible();
+    expect(screen.getByText('de «Manual» a «Deshabilitado»')).toBeVisible();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Deshacer el cambio de arranque de MySQL80",
+      }),
+    );
+    expect(onUndo).toHaveBeenCalledWith(expect.objectContaining({ name: "MySQL80" }));
+  });
+
+  it("no deja deshacer mientras hay otra accion en curso", () => {
+    pintar([servicio({ name: "MySQL80" })], "MySQL80", [cambio()]);
+
+    expect(
+      screen.getByRole("button", {
+        name: "Deshacer el cambio de arranque de MySQL80",
       }),
     ).toBeDisabled();
   });

@@ -43,7 +43,7 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 - `lib.rs` es arranque, `AppState` y comandos; la lógica vive en `processes`, `ports`, `storage`,
   `tray`, `poller`, `auto_kill`, `notify`, `textos`, `services`, `service_control` y `update`. **Cuando `lib.rs` vuelva a pasar de
   ~450 líneas de código, se parte otra vez**: ya ha pasado dos veces (Tier 4 y Tier 7.6). **Ahora
-  mismo van 564 y toca la tercera** — medidas sin el `mod tests`, que es como cuenta esta regla.
+  mismo van 566 y toca la tercera** — medidas sin el `mod tests`, que es como cuenta esta regla.
 - **Todo el texto de cara al usuario que escribe Rust vive en `textos.rs`**, en los dos idiomas y
   con el catálogo comprobado por el compilador. `notify.rs` solo envía; las palabras no son suyas.
   El espejo de esto en el frontend es `src/i18n.tsx`.
