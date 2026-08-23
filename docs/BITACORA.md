@@ -8,6 +8,23 @@
 
 ---
 
+### 2026-08-23 — El desplegable del tema oscuro, y la flecha pegada al borde
+
+- **La lista del `select` de arranque salía blanca en el tema oscuro.** La pinta WebView2, no
+  nuestro CSS, y para sus colores mira `color-scheme` — no las variables del tema. Sin declararlo,
+  el navegador supone «claro»: fondo blanco con el texto heredado de `--foreground`, que en oscuro
+  es casi blanco. **Solo se ve con la lista desplegada**, que es justo lo que no sale en una captura
+  de la ventana; lo destapó una captura del usuario. Arreglado en `:root` y `.dark`, así que vale
+  también para las barras de scroll y el resto de controles nativos.
+- **La flecha del `select` iba pegada al borde derecho.** La dibuja el navegador contra el borde
+  interior del relleno, así que despegarla cuesta relleno y el relleno sale del texto: subirlo de 8
+  a 12 px devolvía el corte a media palabra. Medido en el motor —texto 128,5 px, flecha 21— la
+  columna pasó de 192 a **200**. La cuenta exacta daba 196, con medio pixel de margen, que es no
+  tener ninguno.
+- **Verificado sin cerrar la app del usuario.** `tauri dev` se salía solo: el plugin de instancia
+  única cede a la que ya está abierta, y la que corría era la instalada. Se midió sobre el CSS ya
+  construido en un Edge sin cabeza —el mismo motor que WebView2— en vez de cerrarle la ventana.
+
 ### 2026-08-23 — Repaso de la documentación antes de cortar la 1.5.1
 
 - **El backlog de la auditoría sale de ROADMAP.md a `docs/REVISION-2026-08-18.md`.** Eran 834 líneas

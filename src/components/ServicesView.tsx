@@ -145,11 +145,16 @@ export function ServicesView({
             {/* Sin ancho: el nombre se queda con lo que sobre, y es lo único que crece. */}
             <col />
             <col className="w-[100px]" />
-            {/* 192 sale de medirlo, no de estimarlo: «Automático (retrasado)» ocupa 129 px a
-                `text-xs`, mas 20 de flecha, 16 de relleno del control y 24 de la celda. Con menos,
-                un `select` nativo **no** pone puntos suspensivos — corta la palabra a media letra
-                y deja «Automático (retrasa». */}
-            <col className="w-[192px]" />
+            {/* 200 sale de medirlo, no de estimarlo: «Automático (retrasado)» ocupa 128,5 px a
+                `text-xs` con Geist, mas 21 de flecha, 20 de relleno del control, 2 de borde y 24
+                de la celda — 195,5. Con menos, un `select` nativo **no** pone puntos suspensivos:
+                corta la palabra a media letra y deja «Automático (retrasa».
+
+                Eran 192 hasta que el relleno derecho subio de 8 a 12 para despegar la flecha del
+                borde, asi que **el ancho del control y el de la columna van juntos**. Los 4,5 px
+                que sobran son a proposito: la cuenta exacta daba 196 y medio pixel de margen, que
+                es lo mismo que no tener ninguno en cuanto cambie la fuente o el zoom. */}
+            <col className="w-[200px]" />
             <col className="w-[76px]" />
             <col className="w-[76px]" />
             <col className="w-[116px]" />
@@ -417,7 +422,11 @@ function Arranque({
       // Y el texto va a `foreground` **siempre**, tambien en Manual y Deshabilitado. Pintarlos en
       // `muted` los hacia parecer deshabilitados sin estarlo; lo que arranca solo se distingue por
       // el peso, que es jerarquia sin robarle contraste a lo demas.
-      className={`h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 ${
+      //
+      // `pr-3` y no `pr-2`: la flecha la dibuja el navegador pegada al borde interior del relleno,
+      // asi que con 8 px quedaba practicamente tocando el borde del control. Cada pixel de aqui
+      // sale del texto, y el texto ya iba justo — por eso la columna subio de 192 a 196.
+      className={`h-8 w-full rounded-md border border-input bg-transparent pr-3 pl-2 text-xs text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 ${
         arrancaSolo ? "font-medium" : ""
       }`}
       aria-label={t.servicios.arranque.etiqueta(s.name)}

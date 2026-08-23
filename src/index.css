@@ -76,6 +76,14 @@ body {
 /* Tema claro. Gris muy tenue en vez de blanco puro para que la tabla no
    deslumbre en una sesión larga. */
 :root {
+  /* La lista que despliega un `select` la pinta WebView2, no nuestro CSS, y para
+     elegir sus colores mira `color-scheme` — no las variables del tema. Sin
+     declararlo, el navegador supone «claro» siempre: en el tema oscuro la lista
+     salía con fondo blanco y encima el texto heredado de `--foreground`, que ahí
+     es casi blanco. Ilegible, y solo al desplegarla — que es cuando ya no sale en
+     una captura de la ventana. Vale igual para las barras de scroll y el resto de
+     controles nativos. */
+  color-scheme: light;
   --background: oklch(0.995 0.002 265);
   --foreground: oklch(0.21 0.012 265);
   --card: oklch(1 0 0);
@@ -119,6 +127,7 @@ body {
 /* Tema oscuro. Conserva el azul de los Tiers 1-4 (#0f1115 / #171a21 / #262b36)
    en vez del gris neutro que trae shadcn por defecto. */
 .dark {
+  color-scheme: dark;
   --background: oklch(0.175 0.009 265);
   --foreground: oklch(0.93 0.006 265);
   --card: oklch(0.225 0.011 265);
