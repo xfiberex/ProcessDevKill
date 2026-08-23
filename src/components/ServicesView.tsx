@@ -111,6 +111,21 @@ export function ServicesView({
         </div>
       </div>
 
+      {/*
+        La tabla va con `table-fixed` y anchos declarados, y no automática como las otras dos.
+
+        **Sin esto la vista desbordaba a lo ancho y arrastraba la página entera.** La celda del
+        nombre lleva dos líneas largas —`MSSQLFDLauncher$SQLEXPRESS` y su nombre visible, que en un
+        equipo en español pasa de 45 caracteres— y en una tabla automática eso *empuja* en vez de
+        truncar. Con ARRANQUE y ACCIONES encima, pedía unos 980 px cuando en la ventana mínima (900,
+        menos 208 de barra lateral) solo hay 692. El contenedor de `App.tsx` solo controla el eje Y,
+        así que el sobrante se escapaba al documento: la cabecera, la descripción y **la columna del
+        nombre** acababan fuera de pantalla, que es justo lo que identifica cada fila.
+
+        Con los anchos declarados, lo que sobra se trunca —con los dos nombres en el `title`— y el
+        nombre corto, que es la clave, se ve siempre. Los cinco anchos fijos suman 540 px: al nombre
+        le quedan 152 en la ventana más pequeña y 252 en la de fábrica.
+      */}
       {services.length === 0 ? (
         <div className="px-5 py-10 text-center">
           <p className="text-sm text-muted-foreground">{t.servicios.vacio}</p>
@@ -123,12 +138,25 @@ export function ServicesView({
           </Button>
         </div>
       ) : (
-        <table className="w-full text-sm">
+        <table className="w-full table-fixed text-sm">
           {/* Mismo motivo que en las otras dos tablas: sin `caption` no dice de qué es. */}
           <caption className="sr-only">{t.servicios.caption}</caption>
+          <colgroup>
+            {/* Sin ancho: el nombre se queda con lo que sobre, y es lo único que crece. */}
+            <col />
+            <col className="w-[100px]" />
+            {/* 192 sale de medirlo, no de estimarlo: «Automático (retrasado)» ocupa 129 px a
+                `text-xs`, mas 20 de flecha, 16 de relleno del control y 24 de la celda. Con menos,
+                un `select` nativo **no** pone puntos suspensivos — corta la palabra a media letra
+                y deja «Automático (retrasa». */}
+            <col className="w-[192px]" />
+            <col className="w-[76px]" />
+            <col className="w-[76px]" />
+            <col className="w-[116px]" />
+          </colgroup>
           <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
             <tr>
-              <th scope="col" className="px-5 py-2 text-left font-medium">
+              <th scope="col" className="px-4 py-2 text-left font-medium">
                 {t.servicios.columnas.servicio}
               </th>
               <th scope="col" className="px-3 py-2 text-left font-medium">
@@ -140,10 +168,10 @@ export function ServicesView({
               <th scope="col" className="px-3 py-2 text-right font-medium">
                 {t.servicios.columnas.ram}
               </th>
-              <th scope="col" className="px-5 py-2 text-left font-medium">
+              <th scope="col" className="px-3 py-2 text-left font-medium">
                 {t.servicios.columnas.puertos}
               </th>
-              <th scope="col" className="px-5 py-2 text-right font-medium">
+              <th scope="col" className="px-4 py-2 text-right font-medium">
                 {/* El rótulo existe para el lector de pantalla; a la vista, una columna
                     de botones titulada «Acciones» solo repite lo que ya se ve. */}
                 <span className="sr-only">{t.servicios.columnas.acciones}</span>
@@ -257,10 +285,12 @@ function Fila({
 
   return (
     <tr className="border-t border-border hover:bg-muted/60">
-      <td className="px-5 py-2">
+      <td className="px-4 py-2">
         <span className="flex items-center gap-2">
           <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="min-w-0">
+          {/* Los dos nombres en el `title`: al truncar hay que dejar el texto entero a mano,
+              porque un «MSSQLFDLauncher$SQLEX…» no identifica nada. */}
+          <span className="min-w-0" title={`${s.name} — ${s.displayName}`}>
             <span className="block truncate font-mono text-xs">{s.name}</span>
             {/* El nombre visible debajo y en gris: es el que el usuario reconoce de
                 `services.msc`, pero el que manda —y el que se compara— es el corto. */}
@@ -287,7 +317,7 @@ function Fila({
         />
       </td>
 
-      <td className="px-3 py-2 text-right tabular-nums">
+      <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
         {s.memoryMb === null ? (
           // El guion **con su explicación**, no a secas: que la RAM de un servicio necesite
           // administrador no lo adivina nadie, y sin decirlo parece que la app no sabe leerla.
@@ -295,20 +325,24 @@ function Fila({
             className="cursor-help text-xs text-muted-foreground"
             title={t.servicios.ramDesconocida}
           >
-            —
+            {/* El motivo, ademas de en el `title`, para el lector de pantalla: un `title` solo
+                se descubre pasando el raton, y quien navega con teclado no lo alcanza nunca. */}
+            <span className="sr-only">{t.servicios.ramDesconocida}</span>
+            <span aria-hidden>—</span>
           </span>
         ) : (
           formatMemory(s.memoryMb)
         )}
       </td>
 
-      <td className="px-5 py-2">
+      <td className="px-3 py-2">
         {s.ports.length === 0 ? (
           <span
             className="cursor-help text-xs text-muted-foreground"
             title={t.servicios.sinPuertos}
           >
-            —
+            <span className="sr-only">{t.servicios.sinPuertos}</span>
+            <span aria-hidden>—</span>
           </span>
         ) : (
           <span className="flex flex-wrap gap-1">
@@ -324,7 +358,7 @@ function Fila({
         )}
       </td>
 
-      <td className="px-5 py-2 text-right">
+      <td className="px-4 py-2 text-right">
         <Accion
           servicio={s}
           t={t}
@@ -370,14 +404,21 @@ function Arranque({
         title={t.servicios.arranque.noAjustable}
       >
         {t.servicios.arranques[s.startType]}
+        <span className="sr-only"> — {t.servicios.arranque.noAjustable}</span>
       </span>
     );
   }
 
   return (
     <select
-      className={`rounded border border-border bg-transparent px-2 py-1 text-sm ${
-        arrancaSolo ? "font-medium" : "text-muted-foreground"
+      // Los mismos tokens que el resto de controles de la casa: sin esto el navegador pinta su
+      // anillo de foco blanco por defecto, que no se parece a nada de la app.
+      //
+      // Y el texto va a `foreground` **siempre**, tambien en Manual y Deshabilitado. Pintarlos en
+      // `muted` los hacia parecer deshabilitados sin estarlo; lo que arranca solo se distingue por
+      // el peso, que es jerarquia sin robarle contraste a lo demas.
+      className={`h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 ${
+        arrancaSolo ? "font-medium" : ""
       }`}
       aria-label={t.servicios.arranque.etiqueta(s.name)}
       title={arrancaSolo ? t.servicios.arrancaSolo : undefined}

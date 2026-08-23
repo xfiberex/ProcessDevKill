@@ -145,6 +145,38 @@ describe("lo que no se sabe", () => {
     expect(guiones[0]).toHaveTextContent("—");
   });
 
+  /**
+   * El nombre se trunca porque la columna tiene ancho fijo —ver el comentario de la tabla—, asi que
+   * el texto entero tiene que quedar a mano. Un «MSSQLFDLauncher$SQLEX…» no identifica nada.
+   */
+  it("deja el nombre entero a mano aunque la columna lo trunque", () => {
+    pintar([
+      servicio({
+        name: "MSSQLFDLauncher$SQLEXPRESS",
+        displayName: "SQL Full-text Filter Daemon Launcher (SQLEXPRESS)",
+      }),
+    ]);
+
+    const completo = screen.getByTitle(
+      "MSSQLFDLauncher$SQLEXPRESS — SQL Full-text Filter Daemon Launcher (SQLEXPRESS)",
+    );
+    expect(completo).toBeVisible();
+  });
+
+  /**
+   * **Lo que solo se lee pasando el raton no existe para media gente.**
+   *
+   * El motivo del guion vivia unicamente en un `title`, y un `title` no lo alcanza quien navega con
+   * teclado ni lo anuncia de forma fiable un lector de pantalla. La explicacion va tambien en texto.
+   */
+  it("explica el guion sin depender del raton", () => {
+    pintar([servicio({ name: "MSSQLFDLauncher$SQLEXPRESS", memoryMb: null, ports: [] })]);
+
+    const f = within(fila("MSSQLFDLauncher$SQLEXPRESS"));
+    expect(f.getByText(/solo se puede leer con permisos de administrador/)).toBeInTheDocument();
+    expect(f.getByText(/no escucha en ningún puerto tcp/i)).toBeInTheDocument();
+  });
+
   it("enseña la RAM cuando si se puede leer", () => {
     pintar([servicio({ name: "MiServicio", memoryMb: 1536 })]);
 

@@ -8,6 +8,30 @@
 
 ---
 
+### 2026-08-23 — El panel de servicios desbordaba a lo ancho, y se vio en una captura
+
+- **Lo destapó una captura del usuario, no una prueba.** El panel había crecido hasta seis columnas
+  con las fases B y C, y en la ventana de fábrica ya no cabía: aparecía barra de scroll horizontal
+  y arrastraba la página entera —cabecera, descripción y **la columna del nombre**, que es lo que
+  identifica cada fila—. En la captura no se leía qué servicio era cada uno.
+- **Causa doble.** La tabla era de ancho automático, así que la celda del nombre —con
+  `MSSQLFDLauncher$SQLEXPRESS` y su nombre visible localizado, más de 45 caracteres— *empujaba* en
+  vez de truncar; y el contenedor de `App.tsx` solo controla el eje Y (`overflow-y-auto`), así que
+  el sobrante en X se escapaba al documento. La tabla pedía unos 980 px cuando en la ventana mínima
+  (900, menos 208 de barra lateral) hay 692.
+- **Arreglo:** `table-fixed` con anchos declarados por columna. Lo que sobra se trunca, con los dos
+  nombres en el `title`, y el nombre corto —la clave— se ve siempre.
+- **Dos anchos los fallé estimando, y se vieron en la siguiente captura:** la RAM partía «123 MB» en
+  dos líneas y el desplegable cortaba «Automático (retrasa». La segunda vez se midieron en la
+  ventana en marcha con `measureText` y la fuente real del control: 129 px de texto + 20 de flecha
+  + 16 de relleno + 24 de celda = 192. **Un `select` nativo no pone puntos suspensivos**: corta la
+  palabra a media letra, así que aquí no hay margen para aproximar.
+- De paso, tres cosas que la captura dejó ver: el desplegable llevaba el anillo de foco **blanco por
+  defecto del navegador** en vez del de la casa; el texto de `Manual` y `Deshabilitado` iba en
+  `muted`, lo que los hacía parecer deshabilitados sin estarlo —ahora lo que arranca solo se
+  distingue por el **peso**, no por quitarle contraste al resto—; y el motivo de los guiones vivía
+  solo en un `title`, que quien navega con teclado no alcanza nunca.
+
 ### 2026-08-23 — `lib.rs` se parte por tercera vez: nace `commands.rs`
 
 - La regla de CLAUDE.md dice que al pasar de ~450 líneas de código hay que partirlo, y con el
