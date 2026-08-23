@@ -80,7 +80,16 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
 > usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
-**Publicado:** **v1.5.1** (2026-08-23), un arreglo de interfaz sobre la 1.5.0 que **no cambia el
+**Publicado:** **v1.5.2** (2026-08-23), segundo arreglo de interfaz de la misma tanda y con el mismo
+alcance: **no cambia permisos, acciones ni datos**. Va al desplegable de arranque, que en el tema
+oscuro pintaba la lista blanca con el texto casi blanco encima. Las dos causas desmienten lo que
+parecía obvio y están en §4: **lo que colorea la lista es el fondo del control**, no las variables
+del tema, y **Chromium ignora `padding-right` para la flecha nativa**, que ahora es la nuestra. De
+paso se fue un texto que sobrevivía desde antes de la Fase C —«el tipo de arranque todavía no se
+puede cambiar desde aquí», con la columna que lo cambia debajo—, en los dos idiomas. 4 assets, hash
+comprobado tras publicar: `7e4be6a5…`.
+
+Antes: la **v1.5.1** (2026-08-23), un arreglo de interfaz sobre la 1.5.0 que **no cambia el
 comportamiento de nada**: mismos permisos, mismas acciones, mismos datos. Con las seis columnas que
 trajo el panel de servicios, la tabla no cabía en la ventana y la barra horizontal se llevaba fuera
 de pantalla **la columna del nombre**, que es lo que identifica cada fila; ahora las columnas llevan
@@ -103,10 +112,11 @@ Sin firma de código, así que SmartScreen sigue avisando. Antes: la v1.3.2 (Tie
 la v1.3.1 con la **actualización silenciosa** (`/S /UPDATE /R`) y la v1.3.0 con el medidor del
 entorno. La primera versión pública fue la v1.1.1.
 
-> Verificado tras publicar, en las seis versiones con el mismo criterio: los 4 assets están en el
+> Verificado tras publicar, en las siete versiones con el mismo criterio: los 4 assets están en el
 > release, la API que consulta la app devuelve el `tag_name` correcto, y **el instalador descargado
 > del release coincide con el `.sha256` publicado** — la cadena entera que recorre la
-> auto-actualización, sobre los archivos reales. Para la v1.5.1, `b764f7ef…`; para la v1.5.0,
+> auto-actualización, sobre los archivos reales. Para la v1.5.2, `7e4be6a5…`; para la v1.5.1,
+> `b764f7ef…`; para la v1.5.0,
 > `21fad0ad…`; para la v1.4.0, `a8738197…`; para la v1.3.2,
 > `d4030bb7…`; para la v1.3.1,
 > `121b228e…`; para la v1.3.0, `0050ae80…`. En la v1.3.2 se comprobó además que **las URLs reales que
