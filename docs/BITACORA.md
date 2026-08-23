@@ -8,6 +8,18 @@
 
 ---
 
+### 2026-08-23 — El botón de apoyar, que solo existía para GitHub
+
+- **`.github/FUNDING.yml` estaba desde el 2026-07-25 y no se veía en la app.** Ese archivo lo lee
+  GitHub para pintar su botón de patrocinio **en la página del repositorio**, y quien instala la
+  app no pasa por ahí. Ahora hay un botón en Ajustes → Acerca de, con el mismo destino.
+- **El enlace vive en dos sitios y nada los ata.** Queda dicho en el comentario de
+  `abrirApoyo` y en la prueba: si cambia, se cambia en los dos.
+- **La prueba mira la URL exacta, no que se llame a `openUrl`.** Un enlace de dinero equivocado
+  no falla por ningún lado —abre el navegador igual— y el usuario acaba pagando a otro.
+- Debajo del botón va una línea que dice que la app es gratis y que apoyarla no desbloquea nada:
+  un botón de pago sin eso invita a preguntarse qué se está comprando.
+
 ### 2026-08-23 — El desplegable del tema oscuro, y la flecha pegada al borde
 
 - **La lista del `select` salía blanca en oscuro, y la flecha pegada al borde. Se arregló mal dos

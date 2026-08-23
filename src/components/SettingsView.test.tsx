@@ -7,6 +7,7 @@ import {
   DEFAULT_TEST_SETTINGS,
   invoke,
   openPath,
+  openUrl,
   updaterFalso,
   writeText,
 } from "../test/tauri-mock";
@@ -27,7 +28,8 @@ function pintar(parcial: Partial<Settings> = {}, estadoUpdater?: UpdateState) {
 // Por nombre accesible: el texto de al lado ("MB por proceso…") es
 // aria-describedby, que describe pero no nombra. Los aria-label de los campos
 // se añadieron precisamente porque estas pruebas no encontraban como pedirlos.
-const umbral = () => screen.getByRole("spinbutton", { name: "Umbral de RAM en MB" });
+const umbral = () =>
+  screen.getByRole("spinbutton", { name: "Umbral de RAM en MB" });
 const minutos = () =>
   screen.getByRole("spinbutton", { name: "Minutos sin actividad" });
 
@@ -148,7 +150,9 @@ describe("minutos del Zombie Finder", () => {
 describe("interruptores", () => {
   it("el Auto-Kill y el Zombie Finder arrancan apagados de fabrica", () => {
     pintar();
-    expect(screen.getByRole("switch", { name: /Cerrar solos/ })).not.toBeChecked();
+    expect(
+      screen.getByRole("switch", { name: /Cerrar solos/ }),
+    ).not.toBeChecked();
     expect(
       screen.getByRole("switch", { name: /Resaltar los procesos olvidados/ }),
     ).not.toBeChecked();
@@ -230,7 +234,10 @@ describe("procesos vigilados", () => {
   it("añade un nombre y limpia el campo", async () => {
     const { user, onChange } = pintar({ customNames: [] });
 
-    await user.type(screen.getByPlaceholderText("nombre del ejecutable"), "docker");
+    await user.type(
+      screen.getByPlaceholderText("nombre del ejecutable"),
+      "docker",
+    );
     await user.click(
       screen.getByRole("button", { name: "Añadir proceso vigilado" }),
     );
@@ -267,7 +274,10 @@ describe("procesos vigilados", () => {
   it("ignora un nombre en blanco", async () => {
     const { user, onChange } = pintar({ customNames: [] });
 
-    await user.type(screen.getByPlaceholderText("nombre del ejecutable"), "   {Enter}");
+    await user.type(
+      screen.getByPlaceholderText("nombre del ejecutable"),
+      "   {Enter}",
+    );
 
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -287,18 +297,25 @@ describe("actualizaciones", () => {
   it("el boton lanza la busqueda", async () => {
     const { user, updater } = pintar();
 
-    await user.click(screen.getByRole("button", { name: /Buscar actualizaciones/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Buscar actualizaciones/ }),
+    );
 
     expect(updater.buscar).toHaveBeenCalled();
   });
 
   it("dice que ya esta al dia", () => {
     pintar({}, { fase: "al-dia" });
-    expect(screen.getByText("Ya tienes la última versión.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Ya tienes la última versión."),
+    ).toBeInTheDocument();
   });
 
   it("enseña la version nueva y sus notas, con el boton de instalar", () => {
-    pintar({}, { fase: "disponible", version: "1.2.0", notas: "Arregla cosas." });
+    pintar(
+      {},
+      { fase: "disponible", version: "1.2.0", notas: "Arregla cosas." },
+    );
 
     expect(screen.getByText("v1.2.0")).toBeInTheDocument();
     expect(screen.getByText("Arregla cosas.")).toBeInTheDocument();
@@ -309,14 +326,19 @@ describe("actualizaciones", () => {
 
   /** Descargar y reiniciar no puede pasar sin que el usuario lo pida. */
   it("no instala hasta que se pulsa el boton", async () => {
-    const { user, updater } = pintar({}, {
-      fase: "disponible",
-      version: "1.2.0",
-      notas: null,
-    });
+    const { user, updater } = pintar(
+      {},
+      {
+        fase: "disponible",
+        version: "1.2.0",
+        notas: null,
+      },
+    );
 
     expect(updater.instalar).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: /Descargar e instalar/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Descargar e instalar/ }),
+    );
     expect(updater.instalar).toHaveBeenCalledTimes(1);
   });
 
@@ -331,7 +353,9 @@ describe("actualizaciones", () => {
 
   it("enseña el error si la comprobacion falla", () => {
     pintar({}, { fase: "error", mensaje: "sin conexion" });
-    expect(screen.getByText(/No se pudo comprobar: sin conexion/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/No se pudo comprobar: sin conexion/),
+    ).toBeInTheDocument();
   });
 });
 
@@ -360,9 +384,7 @@ describe("registro de avisos", () => {
   it("ensena la ruta del log, que la da Rust", async () => {
     pintar();
 
-    expect(
-      await screen.findByText(/processdevkill\.log/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/processdevkill\.log/)).toBeInTheDocument();
   });
 
   /**
@@ -474,5 +496,34 @@ describe("el idioma", () => {
     ).toBeInTheDocument();
     // Y no queda ni rastro del titulo español de la misma seccion.
     expect(screen.queryByText("Procesos vigilados")).not.toBeInTheDocument();
+  });
+
+  /**
+   * El enlace de apoyo lleva a una pasarela de pago, asi que la prueba mira **la URL exacta**
+   * y no solo que se llame a `openUrl`. Un enlace de dinero equivocado no da error por ningun
+   * lado: abre el navegador igual, y el usuario acaba en la pagina de otro.
+   *
+   * El mismo destino esta en `.github/FUNDING.yml`, que no puede comprobarse desde aqui: aquel
+   * lo lee GitHub para pintar su boton, y nada ata los dos sitios.
+   */
+  it("el boton de apoyar abre la pasarela, y no el repositorio", async () => {
+    const { user } = pintar();
+
+    await user.click(
+      screen.getByRole("button", { name: /Apoyar el proyecto/ }),
+    );
+
+    expect(openUrl).toHaveBeenCalledWith("https://www.paypal.me/RJimenez1820");
+    expect(openUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("y el de repositorio sigue llevando al repositorio", async () => {
+    const { user } = pintar();
+
+    await user.click(screen.getByRole("button", { name: /Repositorio/ }));
+
+    expect(openUrl).toHaveBeenCalledWith(
+      "https://github.com/xfiberex/ProcessDevKill",
+    );
   });
 });

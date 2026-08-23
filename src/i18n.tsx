@@ -83,7 +83,10 @@ export const es = {
     titulo: "Idioma / Language",
     descripcion:
       "Cambia la ventana, el menú de la bandeja y las notificaciones de Windows. No hace falta reiniciar.",
-    nombres: { es: "Español", en: "English" } satisfies Record<Language, string>,
+    nombres: { es: "Español", en: "English" } satisfies Record<
+      Language,
+      string
+    >,
   },
 
   /** Nombres de producto: no se traducen salvo «Otros», que sí es una palabra. */
@@ -171,7 +174,8 @@ export const es = {
     matarProceso: "Matar proceso",
     copiarPid: "Copiar PID",
     copiarNombre: "Copiar nombre",
-    copiarPuertos: (n: number): string => (n === 1 ? "Copiar puerto" : "Copiar puertos"),
+    copiarPuertos: (n: number): string =>
+      n === 1 ? "Copiar puerto" : "Copiar puertos",
     copiarUrl: (url: string) => `Copiar ${url}`,
     /** Lo que se nombra en el toast «Copiado: …» al copiar los puertos de una fila. */
     quePuertos: (lista: number[]): string =>
@@ -193,7 +197,8 @@ export const es = {
     vacioDetalle:
       "Se buscan SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS. Si usas otro, añádelo en Ajustes." as Rico,
     irAAjustes: "Añadir servicios vigilados",
-    caption: "Servicios de desarrollo instalados, los que estan corriendo primero",
+    caption:
+      "Servicios de desarrollo instalados, los que estan corriendo primero",
     columnas: {
       servicio: "Servicio",
       estado: "Estado",
@@ -269,7 +274,8 @@ export const es = {
         `${n} sigue cambiando de estado. Refresca dentro de unos segundos para ver en qué queda.`,
       bloqueado: (n: string, nombres: string[]): string =>
         `No se pudo detener ${n}: sigue corriendo ${nombres.join(", ")}.`,
-      rechazado: (n: string) => `Windows no dejó completar la acción sobre ${n}.`,
+      rechazado: (n: string) =>
+        `Windows no dejó completar la acción sobre ${n}.`,
     },
     arranque: {
       etiqueta: (n: string) => `Tipo de arranque de ${n}`,
@@ -327,12 +333,14 @@ export const es = {
 
   confirmar: {
     cancelar: "Cancelar",
-    cerrarTitulo: (n: number) => `Cerrar ${n} ${n === 1 ? "proceso" : "procesos"}`,
+    cerrarTitulo: (n: number) =>
+      `Cerrar ${n} ${n === 1 ? "proceso" : "procesos"}`,
     cerrarMensaje: (n: number, ambito: string) =>
       `Se ${n === 1 ? "terminará" : "terminarán"} ${ambito}. ${
         n === 1 ? "El proceso se cierra" : "Los procesos se cierran"
       } de golpe, sin guardar nada. Esta acción no se puede deshacer.`,
-    cerrarBoton: (n: number): string => (n === 1 ? "Cerrar proceso" : "Cerrar procesos"),
+    cerrarBoton: (n: number): string =>
+      n === 1 ? "Cerrar proceso" : "Cerrar procesos",
     ambitoSeleccionados: (n: number): string =>
       n === 1 ? "el proceso seleccionado" : `los ${n} procesos seleccionados`,
     ambitoTodos: "todos los procesos de desarrollo activos",
@@ -429,6 +437,9 @@ export const es = {
       licencia: "Licencia",
       avisos: "Avisos de terceros",
       repositorio: "Repositorio",
+      apoyar: "Apoyar el proyecto",
+      apoyarDetalle:
+        "La app es gratis y lo seguirá siendo. Apoyarla es voluntario y no desbloquea nada.",
       logTitulo: "Registro de avisos",
       logDescripcion:
         "Cuando algo falla por dentro —guardar los ajustes, leer los puertos—, la app lo anota aquí. Es un archivo local: **no se envía a ninguna parte** y puedes borrarlo cuando quieras. Si abres un issue, adjuntarlo ayuda." as Rico,
@@ -777,6 +788,9 @@ export const en: Catalogo = {
       licencia: "Licence",
       avisos: "Third-party notices",
       repositorio: "Repository",
+      apoyar: "Support the project",
+      apoyarDetalle:
+        "The app is free and will stay that way. Supporting it is optional and unlocks nothing.",
       logTitulo: "Warning log",
       logDescripcion:
         "When something fails inside —saving the settings, reading the ports—, the app writes it down here. It is a local file: **it is never sent anywhere** and you can delete it whenever you want. Attaching it to an issue helps.",
@@ -862,5 +876,7 @@ export function I18nProvider({
     vigente = catalogo;
   }, [catalogo]);
 
-  return <I18nContext.Provider value={catalogo}>{children}</I18nContext.Provider>;
+  return (
+    <I18nContext.Provider value={catalogo}>{children}</I18nContext.Provider>
+  );
 }

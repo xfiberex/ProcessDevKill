@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   ExternalLinkIcon,
   FileTextIcon,
+  HeartIcon,
   LanguagesIcon,
   MonitorIcon,
   MoonIcon,
@@ -42,7 +43,11 @@ const THEME_ICONS: Record<Theme, typeof SunIcon> = {
 /** Los idiomas en el orden en que se ofrecen. El espanol primero: es el original. */
 const IDIOMAS: Language[] = ["es", "en"];
 
-export function SettingsView({ settings, onChange, updater }: SettingsViewProps) {
+export function SettingsView({
+  settings,
+  onChange,
+  updater,
+}: SettingsViewProps) {
   const t = useT();
   const [draft, setDraft] = useState("");
   const [servicioDraft, setServicioDraft] = useState("");
@@ -141,7 +146,9 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
     try {
       await openPath(await resolveResource(nombre));
     } catch (e) {
-      toast.error(t.avisos.recursoNoAbierto(nombre), { description: String(e) });
+      toast.error(t.avisos.recursoNoAbierto(nombre), {
+        description: String(e),
+      });
     }
   }
 
@@ -153,8 +160,24 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
     }
   }
 
+  /**
+   * El mismo destino que el boton de patrocinio de GitHub, que sale de
+   * `.github/FUNDING.yml`. **Son dos sitios y no hay nada que los ate**: aquel solo
+   * pinta el boton en la pagina del repositorio, y quien instala la app no pasa por
+   * ahi. Si cambia el enlace, hay que cambiarlo en los dos.
+   */
+  async function abrirApoyo() {
+    try {
+      await openUrl("https://www.paypal.me/RJimenez1820");
+    } catch (e) {
+      toast.error(t.avisos.navegadorNoAbierto, { description: String(e) });
+    }
+  }
+
   // Mismo criterio que el umbral de arriba, y por el mismo motivo.
-  const [minutosDraft, setMinutosDraft] = useState(String(settings.zombieMinutes));
+  const [minutosDraft, setMinutosDraft] = useState(
+    String(settings.zombieMinutes),
+  );
   const [minutosPrevio, setMinutosPrevio] = useState(settings.zombieMinutes);
   if (settings.zombieMinutes !== minutosPrevio) {
     setMinutosPrevio(settings.zombieMinutes);
@@ -182,7 +205,9 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
     // La normalizacion real (minusculas, sin .exe, sin duplicados) la hace Rust,
     // que es quien compara contra los procesos; aqui solo se evita el duplicado
     // evidente para no dar la sensacion de que el boton no hizo nada.
-    if (settings.customNames.some((n) => n.toLowerCase() === name.toLowerCase())) {
+    if (
+      settings.customNames.some((n) => n.toLowerCase() === name.toLowerCase())
+    ) {
       setDraft("");
       return;
     }
@@ -207,12 +232,17 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
     const nombre = servicioDraft.trim();
     if (!nombre) return;
     if (
-      settings.customServices.some((n) => n.toLowerCase() === nombre.toLowerCase())
+      settings.customServices.some(
+        (n) => n.toLowerCase() === nombre.toLowerCase(),
+      )
     ) {
       setServicioDraft("");
       return;
     }
-    onChange({ ...settings, customServices: [...settings.customServices, nombre] });
+    onChange({
+      ...settings,
+      customServices: [...settings.customServices, nombre],
+    });
     setServicioDraft("");
   }
 
@@ -230,8 +260,12 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
           vez. Cambiarlo retraduce tambien el menu de la bandeja y las notificaciones, que las
           escribe Rust: ver `textos.rs`. */}
       <section>
-        <h2 className="font-heading text-sm font-semibold">{t.idioma.titulo}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t.idioma.descripcion}</p>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.idioma.titulo}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t.idioma.descripcion}
+        </p>
 
         <div className="mt-3 flex gap-2">
           {IDIOMAS.map((value) => (
@@ -463,7 +497,10 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             aria-describedby="zombie-explicacion"
             className="w-28 tabular-nums"
           />
-          <span id="zombie-explicacion" className="text-sm text-muted-foreground">
+          <span
+            id="zombie-explicacion"
+            className="text-sm text-muted-foreground"
+          >
             {t.ajustes.zombie.unidad(ZOMBIE_MIN_MINUTES)}
           </span>
         </div>
@@ -504,12 +541,23 @@ export function SettingsView({ settings, onChange, updater }: SettingsViewProps)
             <ExternalLinkIcon />
             {t.ajustes.acercaDe.repositorio}
           </Button>
+          {/* El ultimo de la fila y en `ghost`: es una invitacion, no una de las cosas
+              que uno viene a hacer a Ajustes. */}
+          <Button variant="ghost" onClick={abrirApoyo}>
+            <HeartIcon />
+            {t.ajustes.acercaDe.apoyar}
+          </Button>
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t.ajustes.acercaDe.apoyarDetalle}
+        </p>
 
         {logPath && (
           <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
             <p className="text-sm">
-              <strong className="font-medium">{t.ajustes.acercaDe.logTitulo}</strong>
+              <strong className="font-medium">
+                {t.ajustes.acercaDe.logTitulo}
+              </strong>
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               <Marcado texto={t.ajustes.acercaDe.logDescripcion} />
