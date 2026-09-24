@@ -20,8 +20,13 @@
   contextual **sí** se abre con Shift+F10, al contrario de lo que decían el ROADMAP y CONTEXT.
 - **Se revoca T4-04: hay CI en GitHub Actions**, ahora que el repositorio es público.
   `.github/workflows/ci.yml` repite las comprobaciones de `release.ps1` en `windows-latest` y las
-  auditorías en Ubuntu, también cada lunes. El corte sigue siendo local. ⚠️ **Todavía no ha corrido
-  en el runner**: no se ha hecho push.
+  auditorías en Ubuntu, también cada lunes. El corte sigue siendo local.
+- **La primera ejecución encontró algo real.** Las pruebas, el lint y el build pasaron a la primera
+  en `windows-latest`, pero `cargo audit` paró en **RUSTSEC-2026-0285** (`rustls` 0.23.42, publicada
+  el 2026-09-14): el próximo `release.ps1` habría abortado igual. `cargo update -p rustls` a secas
+  se quedó en la 0.23.43; la 0.23.45 pedía subir también `aws-lc-rs`, `aws-lc-sys` y
+  `rustls-webpki`, y hubo que pedirla con `--precise`. Comprobado en local antes de subirlo:
+  auditoría limpia, clippy sin avisos y 93 pruebas de Rust en verde.
 
 ### 2026-08-23 — El botón de apoyar, que solo existía para GitHub
 
