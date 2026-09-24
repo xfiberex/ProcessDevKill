@@ -90,7 +90,14 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
 > usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
-**Publicado:** **v1.6.0** (2026-09-23), la **Fase A del Tier 11** entera: que no se cierre lo que
+**Publicado:** **v1.6.1** (2026-09-24), la **Fase B del Tier 11**: accesibilidad, sin cambiar
+permisos, acciones ni datos, y por eso sube a parche. axe pasa a cero violaciones en las cuatro
+vistas y los dos temas. El corte avisó de que `package.json` y `Cargo.lock` eran más recientes que
+`THIRD-PARTY-NOTICES.txt`; comprobado antes de seguir: siguen siendo 566 crates y 14 dependencias
+npm con las mismas versiones directas —la subida de `rustls` del 2026-09-23 solo movió
+transitivas, con las mismas licencias—. 4 assets, hash comprobado tras publicar: `4afe55fc…`.
+
+Antes: la **v1.6.0** (2026-09-23), la **Fase A del Tier 11** entera: que no se cierre lo que
 no se quería. Sube a minor porque trae funcionalidad nueva —procesos protegidos, la segunda línea de
 cada fila, la combinación del atajo— y cambia comportamiento: **el atajo global viene apagado** y,
 encendido, **pide dos pulsaciones**, lo que sí alcanza a quien ya lo tenía activo. Antes de cortar,
@@ -137,10 +144,11 @@ Sin firma de código, así que SmartScreen sigue avisando. Antes: la v1.3.2 (Tie
 la v1.3.1 con la **actualización silenciosa** (`/S /UPDATE /R`) y la v1.3.0 con el medidor del
 entorno. La primera versión pública fue la v1.1.1.
 
-> Verificado tras publicar, en las nueve versiones con el mismo criterio: los 4 assets están en el
+> Verificado tras publicar, en las diez versiones con el mismo criterio: los 4 assets están en el
 > release, la API que consulta la app devuelve el `tag_name` correcto, y **el instalador descargado
 > del release coincide con el `.sha256` publicado** — la cadena entera que recorre la
-> auto-actualización, sobre los archivos reales. Para la v1.6.0, `b7bd48c3…`; para la v1.5.3,
+> auto-actualización, sobre los archivos reales. Para la v1.6.1, `4afe55fc…`; para la v1.6.0,
+> `b7bd48c3…`; para la v1.5.3,
 > `504bed6a…`; para la v1.5.2,
 > `7e4be6a5…`; para la v1.5.1,
 > `b764f7ef…`; para la v1.5.0,
