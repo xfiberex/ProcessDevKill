@@ -1219,7 +1219,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 ---
 
 
-## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A, B y C hechas y verificadas (v1.6.0, v1.6.1; la C, sin publicar)**
+## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A, B y C hechas y verificadas (v1.6.0, v1.6.1 y v1.6.2)**
 *Objetivo: que la app no deje cerrar lo que no se quería, que se pueda usar entera con teclado y con poca vista, y que las cuatro vistas hablen el mismo idioma visual.*
 
 > **Sale de una auditoría de UX/UI hecha el 2026-09-23 sobre la v1.5.3**, con la app en marcha
@@ -1374,7 +1374,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > ✅ **Hecho**: la frase va en texto `sr-only` dentro de la región viva, y el número visible
   > `aria-hidden` para no leerlo dos veces. axe ya no lo marca. La nota en T3-10 sigue siendo la F2.
 
-### Fase C — maquetación — ✅ **hecha y verificada el 2026-09-24**
+### Fase C — maquetación — ✅ **hecha y verificada el 2026-09-24** (v1.6.2)
 
 > **Todo medido en la app en marcha**, con los procesos y servicios reales del equipo, a 1000×680 y
 > 900×480 y en los dos temas. axe-core 4.13 sigue en cero violaciones y cero incompletos en las

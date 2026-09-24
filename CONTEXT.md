@@ -37,8 +37,8 @@ pulsaciones, cada fila con su script y su carpeta, procesos protegidos, el tipo 
 no cambia con una flecha, el orden de la tabla congelado bajo el puntero y «Matar proceso» al final
 del menú. La B, la de accesibilidad, el 2026-09-24: **axe da cero violaciones en las cuatro vistas
 y los dos temas**, bordes y anillos de foco a 3:1, el rojo de Kill a 4,5:1 y lo elegido distinto
-de lo demás por algo más que el color. La C, la de maquetación, también el 2026-09-24 y aún sin
-publicar: la tabla de procesos con anchos fijos y la barra bajo la cifra, el sidebar entero a 480
+de lo demás por algo más que el color. La C, la de maquetación, también el 2026-09-24 y publicada
+como v1.6.2: la tabla de procesos con anchos fijos y la barra bajo la cifra, el sidebar entero a 480
 px de alto y el diálogo de confirmación con mensaje, aviso y nota, y en rojo solo lo peligroso. Las
 fases D a F siguen pendientes (ver [ROADMAP.md](ROADMAP.md)).
 
@@ -92,7 +92,12 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
 > usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
-**Publicado:** **v1.6.1** (2026-09-24), la **Fase B del Tier 11**: accesibilidad, sin cambiar
+**Publicado:** **v1.6.2** (2026-09-24), la **Fase C del Tier 11**: maquetación, sin cambiar
+permisos, acciones ni datos. La tabla de procesos con anchos fijos y la barra bajo la cifra, el
+sidebar entero a 480 px de alto y el diálogo de confirmación con partes y tono. CI en verde y dry
+run sobre el mismo commit antes del corte; 4 assets, hash comprobado tras publicar: `2fa0564a…`.
+
+Antes: la **v1.6.1** (2026-09-24), la **Fase B del Tier 11**: accesibilidad, sin cambiar
 permisos, acciones ni datos, y por eso sube a parche. axe pasa a cero violaciones en las cuatro
 vistas y los dos temas. El corte avisó de que `package.json` y `Cargo.lock` eran más recientes que
 `THIRD-PARTY-NOTICES.txt`; comprobado antes de seguir: siguen siendo 566 crates y 14 dependencias

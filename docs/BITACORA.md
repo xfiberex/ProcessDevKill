@@ -8,7 +8,7 @@
 
 ---
 
-### 2026-09-24 (tarde) — Tier 11, Fase C: maquetación
+### 2026-09-24 (tarde) — Tier 11, Fase C: maquetación (v1.6.2)
 
 - **Las cuatro tareas, hechas y medidas en vivo**, sin publicar todavía. La tabla de procesos va con
   anchos fijos: 0 px de salto entre refrescos, ocupa justo su contenedor a 1000 y a 900 px, y un
@@ -25,6 +25,8 @@
   los dos temas, y ningún arranque cambió. En la primera captura la negrita del aviso no se
   distinguía, porque el recuadro iba entero en blanco: pasó al gris de la descripción. axe, en cero
   en las cuatro vistas y en el diálogo. 255 pruebas del frontend.
+- **Publicada como v1.6.2** tras la CI en verde y el dry run sobre el mismo commit. Descargado
+  el instalador, su hash coincide con el `.sha256` publicado (`2fa0564a…`).
 
 ### 2026-09-24 — Tier 11, Fase B: accesibilidad medida (v1.6.1)
 
