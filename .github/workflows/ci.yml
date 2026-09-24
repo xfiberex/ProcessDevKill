@@ -1,0 +1,103 @@
+# Comprobaciones en cada push y en cada pull request.
+#
+# Revoca T4-04 (2026-09-23): con el repositorio publico, alguien que no es el autor puede abrir un
+# PR, y hasta ahora nada comprobaba que el proyecto compilase fuera de su equipo. Es lo unico que el
+# corte local no cubre, y lo que CONTEXT §3 reconocia como hueco.
+#
+# Repite las mismas comprobaciones que `release.ps1`, y **no publica nada**: el corte de versión
+# sigue siendo local (decision del 2026-07-24). Por eso no hay secretos ni permisos de escritura.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Las auditorias cambian aunque el codigo no: un aviso nuevo de RustSec sale sin que nadie haga
+  # push. Una vez por semana basta para enterarse antes del siguiente release.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+# Solo lectura: el workflow corre codigo de PRs de terceros y no necesita tocar nada.
+permissions:
+  contents: read
+
+# Un push nuevo a la misma rama deja obsoleto el anterior; seguir compilandolo es gastar el runner.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  comprobaciones:
+    name: Pruebas, lint y build
+    # Windows y no Ubuntu: la app es solo Windows. `windows`, el SCM y los sockets de `listeners`
+    # solo compilan y se prueban de verdad aqui.
+    runs-on: windows-latest
+    # El semanal solo audita: recompilar Tauri entero para nada es media hora de runner.
+    if: github.event_name != 'schedule'
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # `ci` y no `install`: falla si package-lock.json no cuadra con package.json, en vez de
+      # arreglarlo en silencio en el runner.
+      - run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Pruebas del frontend
+        run: npm test
+
+      # Antes que cargo: `tsc -b` comprueba los tipos, y deja `dist/`, que el contexto de Tauri
+      # espera encontrar al compilar.
+      - name: Build del frontend
+        run: npm run build
+
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Las pruebas de Rust leen procesos reales y lanzan sus propios `node`: en el runner no hay
+      # procesos de nadie, que es justo el sitio donde se puede probar sin riesgo.
+      - name: Pruebas de Rust
+        working-directory: src-tauri
+        run: cargo test
+
+  auditoria:
+    name: Auditoría de dependencias
+    # Leer Cargo.lock y package-lock.json no depende del sistema: en Ubuntu tarda la mitad.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      # Mismo umbral que release.ps1: solo produccion y solo avisos altos. Las de desarrollo no
+      # viajan en el instalador (ver la fila de `shadcn` en CONTEXT §4).
+      - name: npm audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: cargo audit
+        working-directory: src-tauri
+        run: cargo audit

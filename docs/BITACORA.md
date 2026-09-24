@@ -8,6 +8,21 @@
 
 ---
 
+### 2026-09-23 — Auditoría de UX/UI, y la CI que se había descartado
+
+- **Auditoría de UX/UI sobre la v1.5.3, con la app en marcha** (`tauri dev` por CDP y datos reales
+  del equipo): axe-core 4.13 en las cuatro vistas y los dos temas, contraste de bordes y foco
+  compuesto con los colores del WebView, y capturas a 1000×680 y 900×480. Queda como el
+  [Tier 11](../ROADMAP.md) del roadmap, sin empezar. No se pulsó ningún Kill ni se guardó ningún
+  ajuste: el tema se cambió con la clase del DOM, y el puerto de depuración se quitó después.
+- **Lo que más pesa salió probando, no leyendo:** un `<select>` nativo dispara `change` con cada
+  flecha, así que el tipo de arranque de un servicio se confirma con la primera; y el menú
+  contextual **sí** se abre con Shift+F10, al contrario de lo que decían el ROADMAP y CONTEXT.
+- **Se revoca T4-04: hay CI en GitHub Actions**, ahora que el repositorio es público.
+  `.github/workflows/ci.yml` repite las comprobaciones de `release.ps1` en `windows-latest` y las
+  auditorías en Ubuntu, también cada lunes. El corte sigue siendo local. ⚠️ **Todavía no ha corrido
+  en el runner**: no se ha hecho push.
+
 ### 2026-08-23 — El botón de apoyar, que solo existía para GitHub
 
 - **`.github/FUNDING.yml` estaba desde el 2026-07-25 y no se veía en la app.** Ese archivo lo lee

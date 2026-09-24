@@ -8,6 +8,7 @@ Gestor de procesos de desarrollo para Windows: lista los `node`, `python` y `dot
 con su CPU, su RAM y **el puerto local que ocupa cada uno**, y los cierra de uno en uno o en lote.
 
 [![Última versión](https://img.shields.io/github/v/release/xfiberex/ProcessDevKill?label=descarga&color=22c55e)](https://github.com/xfiberex/ProcessDevKill/releases/latest)
+[![CI](https://github.com/xfiberex/ProcessDevKill/actions/workflows/ci.yml/badge.svg)](https://github.com/xfiberex/ProcessDevKill/actions/workflows/ci.yml)
 [![Licencia](https://img.shields.io/badge/licencia-GPL--3.0-blue)](LICENSE)
 [![Windows 10 y 11](https://img.shields.io/badge/Windows-10%20%C2%B7%2011-0078D4)](#descarga-e-instalación)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB)](https://tauri.app)
@@ -279,6 +280,10 @@ Cubren lo que más caro sale romper: que <kbd>Escape</kbd> cancela el diálogo d
 nada, la búsqueda por puerto, el suelo de 256 MB del Auto-Kill y que el portapapeles va por el
 plugin de Tauri. [`src/types.test.ts`](src/types.test.ts) además lee el fuente de Rust y compara las
 constantes espejo, para que el contrato entre los dos lados no se desincronice en silencio.
+
+Cada push y cada pull request pasan por [GitHub Actions](.github/workflows/ci.yml): ESLint, las
+pruebas de los dos lados, el build del frontend y clippy en Windows, más `npm audit` y
+`cargo audit`. La CI solo comprueba; las versiones se siguen cortando en local con `release.ps1`.
 
 | Herramienta | Para qué |
 |---|---|

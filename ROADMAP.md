@@ -1219,6 +1219,162 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 ---
 
 
+## 🧭 Tier 11: Auditoría UX/UI — ⏳ **pendiente**
+*Objetivo: que la app no deje cerrar lo que no se quería, que se pueda usar entera con teclado y con poca vista, y que las cuatro vistas hablen el mismo idioma visual.*
+
+> **Sale de una auditoría de UX/UI hecha el 2026-09-23 sobre la v1.5.3**, con la app en marcha
+> (`tauri dev` conducido por CDP) y los procesos y servicios reales del equipo: axe-core 4.13 en las
+> cuatro vistas y los dos temas, contrastes de bordes y foco calculados componiendo los colores que
+> pinta el WebView, y capturas a 1000×680 y 900×480. **No se pulsó ningún Kill, Nuke All, Arrancar
+> ni Detener, ni se guardó ningún ajuste**: el tema se cambió solo con la clase del DOM, y el puerto
+> de depuración se quitó de `tauri.conf.json` al terminar.
+>
+> Nada de aquí es un fallo de funcionamiento. Son riesgos de uso, fallos medibles de accesibilidad
+> y desajustes de maquetación. Las cifras que se citan son **medidas**, no estimadas.
+
+> ⚠️ **Cuatro puntos reabren decisiones anotadas en CONTEXT §4**: el atajo encendido de fábrica
+> (A1), el `select` nativo del arranque (A4), el estilo del Kill de cada fila (D5) y el menú
+> contextual «solo de ratón» (F1). Si se adoptan, la decisión nueva va allí con su fecha.
+
+### Fase A — riesgo de cerrar lo que no se quería
+
+- [ ] **A1. Ctrl+Alt+K apagado de fábrica** ([storage.rs](src-tauri/src/storage.rs), `hotkey_enabled: true`).
+  > Cierra **todos** los procesos vigilados sin confirmar y, al ser global (`RegisterHotKey`), se lo
+  > quita a todas las apps: en los IDE de JetBrains Ctrl+Alt+K es *Commit and Push*, así que quien lo
+  > pulse ahí cierra sus servidores y el IDE ni recibe la tecla. El Auto-Kill y el Zombie Finder nacen
+  > apagados por matar sin preguntar; esto merece el mismo criterio. Cambiar el valor de fábrica solo
+  > afecta a quien no tenga el campo guardado. Además: combinación configurable, y valorar una doble
+  > pulsación.
+- [ ] **A2. Distinguir las filas**: segunda línea en gris con el script y la carpeta del proyecto.
+  > En la auditoría, **13 de 15 filas eran `node.exe`**, y dos de ellas eran el CLI de Tauri y el Vite
+  > que había lanzado la propia sesión: nada en la fila lo decía. Kill y Nuke All se usan a ciegas. Es
+  > el mismo patrón de dos líneas que ya usa Servicios. Script + carpeta, **no la línea de comandos
+  > entera**, que puede llevar tokens. El buscador también debe mirarla. Es la mejora de más valor.
+- [ ] **A3. Lista de procesos protegidos** que respeten Nuke All, la bandeja, el atajo y el Auto-Kill.
+  > Entra por `kill_and_record`, que es por donde pasa toda muerte. Prueba obligatoria: el criterio
+  > negativo, que un protegido **no** cae por ninguna de las cuatro vías.
+- [ ] **A4. El tipo de arranque no se confirma en `change`.**
+  > Un `<select>` nativo en WebView2 lanza `change` **con cada flecha** (medido: 1 flecha → 1
+  > `change`, 2 → 2). En Servicios, ↓ sobre «Automático» abre ya la confirmación para «Automático
+  > (retrasado)» con el foco en «Cambiar arranque»; «Deshabilitado» no se alcanza con flechas y un
+  > Enter confirma lo que no se quería, con el UAC como única barrera — en la única acción que
+  > sobrevive al reinicio. Salidas: el `Select` de Base UI (las flechas abren la lista, no cambian el
+  > valor) o el nativo como borrador con un botón «Aplicar». Contradice la nota de `ServicesView.tsx`
+  > que defiende el nativo porque «trae gratis el teclado».
+- [ ] **A5. Congelar el orden de la tabla mientras el puntero está encima** o hay un menú abierto.
+  > Kill cierra sin confirmar —bien, como el Administrador de tareas—, pero con el orden por RAM las
+  > filas cambian de sitio solas: en 30 s de reposo hubo un refresco que movió **5 filas a la vez**.
+  > Los valores siguen actualizándose; lo que se congela es la posición.
+- [ ] **A6. «Matar proceso» al final del menú contextual**, tras un separador.
+  > Abierto por teclado, **la primera flecha cae en él**, y cierra sin diálogo. Con el ratón es la
+  > entrada que queda justo bajo el cursor. Lo convencional es lo destructivo al final.
+
+### Fase B — accesibilidad medida
+
+- [ ] **B1. Bordes de control y anillos de foco a 3:1** (WCAG 1.4.11).
+
+  | Elemento | Claro | Oscuro |
+  |---|---|---|
+  | Borde de casilla sin marcar | 1,26:1 | 1,74:1 |
+  | Interruptor apagado (pista / pulgar) | 1,26 / 1,26:1 | 1,38 / 11,2:1 |
+  | Borde de campos | 1,26:1 | 1,52–1,74:1 |
+  | Anillo de foco | 1,44–1,57:1 | 1,64–1,87:1 |
+
+  > Sale casi todo de `--input` y del `ring/50` de shadcn. Valores calculados que pasan: borde de
+  > control `oklch(0.62 0.012 265)` en claro y `oklch(0.55 0.012 265)` en oscuro (3,6 y 3,9:1);
+  > anillo **opaco** `oklch(0.55 0.02 265)` y `oklch(0.70 0.02 265)` (4,8 y 7,1:1). Si oscurecer
+  > `--input` pesa en los campos de texto, un token aparte para casillas e interruptores cubre lo
+  > imprescindible. ⚠️ En oscuro, el borde de los botones *outline* **no cambia al enfocar**:
+  > `dark:border-input` gana a `focus-visible:border-ring`. Son componentes de shadcn: se anota por
+  > qué se tocan.
+- [ ] **B2. Contraste del texto destructivo** (axe, WCAG 1.4.3 pide 4,5:1).
+  > «Kill» da 3,94:1 en claro y 3,88:1 en oscuro; «Nuke All» en oscuro, 3,85:1. Con el texto de Kill
+  > en `oklch(0.50 0.19 27)` / `oklch(0.74 0.16 25)` y `--destructive` oscuro en
+  > `oklch(0.56 0.20 25.5)`, pasan a 5,5 / 6,3 / 4,9:1.
+- [ ] **B3. «Seleccionar todos» de la cabecera a 24×24 px** de objetivo (WCAG 2.5.8); hoy 16×16.
+- [ ] **B4. Que se vea lo seleccionado.**
+  > La vista activa del sidebar y el intervalo de refresco activo se separan del resto por **1,03:1**
+  > en claro (1,21:1 en oscuro), con el mismo peso de letra. En Idioma y Tema lo no elegido va con
+  > borde y parece más marcado que lo elegido. Navegación: barra de acento + seminegrita. Tema,
+  > Idioma y Refresco: control segmentado con `radiogroup`, que el Tier 7.4b dejó anotado.
+- [ ] **B5. El nombre accesible de Kill contiene «Kill»** (WCAG 2.5.3): `Kill node.exe, PID 12444`.
+  > Hoy se anuncia «Cerrar node.exe, PID 12444», y por voz «clic en Kill» no lo encuentra. El catálogo
+  > ya aplica ese criterio a los dos «Añadir».
+- [ ] **B6. El recuento del buscador, con el texto en `sr-only`** dentro de la región viva.
+  > Lleva `aria-label` en un `<span>` sin rol: axe lo marca y los lectores ignoran ese nombre, así que
+  > se anuncia «15» y no «15 procesos en la lista». T3-10 no consigue lo que pretendía.
+
+### Fase C — maquetación
+
+- [ ] **C1. Anchos fijos en la tabla de procesos**, como la de Servicios desde la v1.5.1.
+  > Medido: las columnas se desplazan **hasta 13 px** entre refrescos; a 900 px la tabla desborda y la
+  > RAM parte en dos líneas («126 / MB»); un nombre largo (`Microsoft.CodeAnalysis.LanguageServer.exe`)
+  > **no se trunca**, ensancha la tabla de 777 a 898 px y saca Activo y Kill de la vista. `table-fixed`
+  > + `colgroup` con anchos medidos, y `whitespace-nowrap` en la etiqueta de `UsageBar`.
+- [ ] **C2. Encabezados numéricos alineados con sus cifras.** Quedan ~18 px a la izquierda por el
+      hueco del icono de orden invisible; en las columnas alineadas a la derecha, el icono a la
+      izquierda.
+- [ ] **C3. El sidebar cabe a 480 px de alto**, que es el `minHeight` que se promete.
+  > Necesita 578 px con los filtros desplegados —el estado de fábrica— y el auto-refresco queda
+  > fuera, **sin scroll para alcanzarlo**. Que la navegación haga scroll o compactar el medidor por
+  > debajo de ~600 px.
+- [ ] **C4. El diálogo de confirmación deja de ser un párrafo en 384 px.**
+  > El de cambiar el arranque mete 285 caracteres seguidos, y «Este cambio sobrevive al reinicio»
+  > **pierde la negrita** porque `message` es texto plano y `App.tsx` quita los `**`. El nombre del
+  > servicio se parte en el título («postgresql-» / «x64-17»). Y todo sale en rojo, también
+  > «Manual → Automático». `message` como `Rico` con `Marcado`, el aviso en un recuadro aparte,
+  > `sm:max-w-md`, el nombre sin partir y el tono según la gravedad.
+
+### Fase D — consistencia y claridad
+
+- [ ] **D1. Una cabecera común para las cuatro vistas** (título, una línea opcional, acciones a la
+      derecha). Hoy cada una es distinta, y Procesos e Historial no tienen `h2`. La explicación de
+      Servicios, en una línea con un desplegable «¿Por qué pide administrador?».
+- [ ] **D2. Ajustes agrupado**: General (Idioma —primero, como se decidió—, Apariencia, Al cerrar,
+      Atajo) · Vigilancia (Procesos, Servicios) · Automatismos (Auto-Kill, Zombie Finder) ·
+      Actualizaciones · Acerca de, **al final**. Hoy son 10 secciones en 1.697 px con «Acerca de» en
+      medio.
+- [ ] **D3. Un solo verbo para cerrar procesos.** Hoy son cinco: Kill, Matar, Nuke, Cerrar y
+      Terminar. «Kill» y «Nuke All» se quedan en inglés, que está decidido; el resto se alinea.
+      Con un filtro activo, el botón dice que actúa sobre la lista filtrada.
+- [ ] **D4. Servicios parados sin explicaciones equivocadas.** El «—» de su RAM habla de permisos de
+      administrador y el de puertos de SQL Express sin TCP, cuando el motivo es que están parados; y
+      el lector de pantalla lo lee en cada fila parada.
+- [ ] **D5. Menos rojo en la tabla**: Kill neutro que se tiñe al pasar o enfocar la fila; el rojo
+      lleno, solo para Nuke All. Hoy hay un botón rojo por fila compitiendo con los puertos.
+- [ ] **D6. Un suelo en la escala de la barra de CPU**, y `0.0%` en gris. Se escala al máximo de la
+      lista, y en reposo un proceso al 2,5 % sale con la barra llena. La decisión del 2026-07-23 se
+      razonó para la RAM, que se queda como está.
+- [ ] **D7. Que se note la selección**: fondo en la fila seleccionada y una barra «3 seleccionados ·
+      Cerrar · Quitar selección».
+
+### Fase E — pulido
+
+- [ ] Texto seleccionable donde hace falta: `user-select: none` global impide copiar nada, **ni el
+      error de la pantalla de fallo**, que dice existir para copiarlo en un issue.
+- [ ] Buscador con Ctrl+F y botón ×; hoy hay 12 paradas de Tab antes de llegar a él. El vacío
+      «Ningún proceso coincide» ofrece «Quitar filtro».
+- [ ] Historial agrupado por acción y con hora relativa: hoy son 89 filas planas con la misma hora
+      repetida en cada tanda.
+- [ ] «Refrescar» como icono, o destacado solo con el auto-refresco en «Off».
+- [ ] Los textos de 11 px del medidor, a 12.
+- [ ] Valorar `zoomHotkeysEnabled`, comprobando que el ancho mínimo aguanta el zoom.
+- [ ] Comprobar si los toasts, abajo a la derecha, tapan la columna Kill (no se midió).
+- [ ] Menores: captions `sr-only` sin tilde («estan», «mas» ×2); `pidTitulo` sin uso; comentarios
+      que describen Servicios como de solo lectura o la fase C como pendiente; «—.» huérfano en
+      Servicios vigilados; «0.0%» en la tabla frente a «0.0 %» en el medidor.
+
+### Fase F — correcciones a la documentación
+
+- [ ] **F1. El menú contextual sí es accesible con teclado.** Shift+F10 o la tecla Menú, con el foco
+      en la casilla o el Kill de la fila, lo abren (probado). El 7.4b de este documento y la fila de
+      CONTEXT del 2026-07-27 dicen que copiar PID, puerto y URL es solo de ratón; lo que falta es que
+      se sepa.
+- [ ] **F2. Anotar en T3-10** que el `aria-label` del recuento no llega a anunciarse (ver B6).
+
+---
+
+
 ## ✅ Resumen de la verificación técnica
 
 | Punto original | Estado | Corrección aplicada |
@@ -1233,7 +1389,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 | Hotkeys globales | ✅ Válido | Plugin `tauri-plugin-global-shortcut` |
 | shadcn/ui | ⚠️ Cambió | Alias `@/` en Vite **y** tsconfig; hoy genera sobre **Base UI**, no Radix, y el Toast es **Sonner** |
 | Portapapeles del navegador | ❌ No sirve | `navigator.clipboard` exige foco; `tauri-plugin-clipboard-manager` |
-| CI en cada commit | ⚠️ Costoso | Descartado: release local con `release.ps1` (ver Tier 5.6) |
+| CI en cada commit | ✅ Válido (desde 2026-09-23) | Solo comprueba, en `windows-latest`; el release sigue siendo local con `release.ps1` (ver Tier 5.6 y CONTEXT §4) |
 
 ---
 
@@ -1255,8 +1411,9 @@ DevOps— dejó **37 tareas y ningún hallazgo crítico**. Se cerraron las 37, l
 
 **Cuatro se cerraron por decisión o por medición, no escribiendo código**: no hay CI (T4-04), no
 habrá firma Authenticode (T4-02), el bundle no se divide porque se midió que no compensa (T4-05) y
-el rendimiento se midió en vez de suponerse (T4-03). Esas cuatro siguen vigentes y son la razón de
-conservar el documento.
+el rendimiento se midió en vez de suponerse (T4-03). Tres siguen vigentes y son la razón de
+conservar el documento. **T4-04 se revocó el 2026-09-23**: con el repositorio público hay CI en
+GitHub Actions (`.github/workflows/ci.yml`), que comprueba pero no publica —ver CONTEXT §4—.
 
 > **El detalle entero —problema, impacto y solución de cada tarea— está en
 > [docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md).** Salió de aquí el 2026-08-23, al

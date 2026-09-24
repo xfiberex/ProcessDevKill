@@ -82,6 +82,10 @@ npm test                      # frontend: Vitest + Testing Library, en jsdom
 cd src-tauri && cargo test    # backend: lee procesos reales del equipo
 ```
 
+- **La CI (`.github/workflows/ci.yml`) repite las comprobaciones de `release.ps1`** en cada push y
+  PR, en `windows-latest`. Una comprobación nueva se añade **en los dos sitios**, o la CI dejará de
+  adelantar lo que luego aborta el corte. La CI solo comprueba: no publica ni tiene secretos, y así
+  se queda (`permissions: contents: read`).
 - Las de Rust **solo matan procesos que lanzan ellas mismas**. Ninguna prueba puede tocar los
   procesos del usuario: es la regla que no se rompe.
 - Las del frontend doblan los módulos de Tauri en `src/test/setup.ts`. Motion también se dobla ahí:
