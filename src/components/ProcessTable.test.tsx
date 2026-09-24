@@ -115,7 +115,7 @@ describe("seleccion", () => {
 describe("boton Kill", () => {
   /** Por nombre accesible, que desde el Tier 7.4 incluye proceso y PID. */
   const matar = (pid: number, name = "node.exe") =>
-    screen.getByRole("button", { name: `Cerrar ${name}, PID ${pid}` });
+    screen.getByRole("button", { name: `Kill ${name}, PID ${pid}` });
 
   it("manda el PID de su propia fila", async () => {
     const user = userEvent.setup();
@@ -275,7 +275,7 @@ describe("procesos protegidos", () => {
     pintar([proceso({ pid: 80, protected: true }), proceso({ pid: 81 })]);
 
     const kill = (pid: number) =>
-      screen.getByRole("button", { name: `Cerrar node.exe, PID ${pid}` });
+      screen.getByRole("button", { name: `Kill node.exe, PID ${pid}` });
     expect(kill(80)).toBeDisabled();
     expect(kill(81)).not.toBeDisabled();
     expect(within(fila(80)).getByText("Protegido")).toBeInTheDocument();

@@ -1219,7 +1219,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 ---
 
 
-## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fase A hecha y verificada (v1.6.0)**
+## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A y B hechas y verificadas (v1.6.0 y v1.6.1)**
 *Objetivo: que la app no deje cerrar lo que no se quería, que se pueda usar entera con teclado y con poca vista, y que las cuatro vistas hablen el mismo idioma visual.*
 
 > **Sale de una auditoría de UX/UI hecha el 2026-09-23 sobre la v1.5.3**, con la app en marcha
@@ -1306,9 +1306,15 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > ✅ **Hecho y visto en vivo**: abierto con Shift+F10, la primera flecha cae en «Copiar PID».
   > Entre medias queda «Proteger», con su propio separador.
 
-### Fase B — accesibilidad medida
+### Fase B — accesibilidad medida — ✅ **hecha y verificada el 2026-09-24**
 
-- [ ] **B1. Bordes de control y anillos de foco a 3:1** (WCAG 1.4.11).
+> **axe-core 4.13, con las mismas reglas que en la auditoría, da cero violaciones y cero
+> resultados incompletos en las cuatro vistas y los dos temas.** Los contrastes que axe no mide
+> —bordes y anillos— se volvieron a medir en la app en marcha componiendo los colores que pinta
+> el WebView, con el mismo script de la auditoría. 249 pruebas del frontend en verde. Decisiones,
+> en CONTEXT §4 (2026-09-24).
+
+- [x] **B1. Bordes de control y anillos de foco a 3:1** (WCAG 1.4.11).
 
   | Elemento | Claro | Oscuro |
   |---|---|---|
@@ -1324,22 +1330,49 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > imprescindible. ⚠️ En oscuro, el borde de los botones *outline* **no cambia al enfocar**:
   > `dark:border-input` gana a `focus-visible:border-ring`. Son componentes de shadcn: se anota por
   > qué se tocan.
-- [ ] **B2. Contraste del texto destructivo** (axe, WCAG 1.4.3 pide 4,5:1).
+  >
+  > ✅ **Hecho con un token aparte, `--control`**, para los bordes de casillas, interruptores,
+  > campos y desplegables: `--input` también pinta fondos (`bg-input/30`) y oscurecerlo ensuciaba
+  > los campos. Anillo opaco y sin el `/50` en todos los componentes, también en Kill, que tenía uno
+  > rojo propio a 20 %. **Medido en vivo**: bordes 3,59:1 en claro y 3,93:1 en oscuro, pista del
+  > interruptor igual y pulgar sobre pista 3,59 / 3,94; anillo `oklch(0.55)` en claro (4,76:1) y
+  > `oklch(0.70)` en oscuro (7,13:1), leído del `box-shadow` computado de cuatro controles. El borde
+  > de los *outline* en oscuro ya cambia al enfocar.
+- [x] **B2. Contraste del texto destructivo** (axe, WCAG 1.4.3 pide 4,5:1).
   > «Kill» da 3,94:1 en claro y 3,88:1 en oscuro; «Nuke All» en oscuro, 3,85:1. Con el texto de Kill
   > en `oklch(0.50 0.19 27)` / `oklch(0.74 0.16 25)` y `--destructive` oscuro en
   > `oklch(0.56 0.20 25.5)`, pasan a 5,5 / 6,3 / 4,9:1.
-- [ ] **B3. «Seleccionar todos» de la cabecera a 24×24 px** de objetivo (WCAG 2.5.8); hoy 16×16.
-- [ ] **B4. Que se vea lo seleccionado.**
+  >
+  > ✅ **Hecho con esos valores**, en un token `--destructive-text` aparte del rojo de fondo: así el
+  > de Nuke All en claro, que ya pasaba, no se tocó. Lo usan también el «Matar proceso» del menú,
+  > el error de Actualizaciones y el icono de Detener. axe ya no marca ningún contraste.
+- [x] **B3. «Seleccionar todos» de la cabecera a 24×24 px** de objetivo (WCAG 2.5.8); hoy 16×16.
+  > ✅ **Resuelto por el espacio y no por el tamaño.** WCAG 2.5.8 admite un objetivo de 16 px si un
+  > círculo de 24 px centrado en él no pisa otro, y lo que pisaba era el botón «Proceso», que
+  > empezaba justo en su borde. El hueco pasa de dentro del botón a la celda: el texto no se mueve,
+  > las casillas de las filas siguen iguales y la tabla no gana ni un píxel, que a 1000 px ya iba
+  > justa. axe ya no lo marca.
+- [x] **B4. Que se vea lo seleccionado.**
   > La vista activa del sidebar y el intervalo de refresco activo se separan del resto por **1,03:1**
   > en claro (1,21:1 en oscuro), con el mismo peso de letra. En Idioma y Tema lo no elegido va con
   > borde y parece más marcado que lo elegido. Navegación: barra de acento + seminegrita. Tema,
   > Idioma y Refresco: control segmentado con `radiogroup`, que el Tier 7.4b dejó anotado.
-- [ ] **B5. El nombre accesible de Kill contiene «Kill»** (WCAG 2.5.3): `Kill node.exe, PID 12444`.
+  >
+  > ✅ **Hecho**, y el control segmentado (`Segmented.tsx`) va también en la combinación del atajo.
+  > Lo elegido lleva fondo, borde a 3:1 y seminegrita; es un `radiogroup` con un solo tabulador,
+  > flechas, Inicio y Fin. La vista activa del sidebar, y el filtro activo, llevan barra de acento
+  > y seminegrita. Visto en capturas de los dos temas.
+- [x] **B5. El nombre accesible de Kill contiene «Kill»** (WCAG 2.5.3): `Kill node.exe, PID 12444`.
   > Hoy se anuncia «Cerrar node.exe, PID 12444», y por voz «clic en Kill» no lo encuentra. El catálogo
   > ya aplica ese criterio a los dos «Añadir».
-- [ ] **B6. El recuento del buscador, con el texto en `sr-only`** dentro de la región viva.
+  >
+  > ✅ **Hecho**, en los dos idiomas: «Kill node.exe, PID 16952», leído en vivo del botón enfocado.
+- [x] **B6. El recuento del buscador, con el texto en `sr-only`** dentro de la región viva.
   > Lleva `aria-label` en un `<span>` sin rol: axe lo marca y los lectores ignoran ese nombre, así que
   > se anuncia «15» y no «15 procesos en la lista». T3-10 no consigue lo que pretendía.
+  >
+  > ✅ **Hecho**: la frase va en texto `sr-only` dentro de la región viva, y el número visible
+  > `aria-hidden` para no leerlo dos veces. axe ya no lo marca. La nota en T3-10 sigue siendo la F2.
 
 ### Fase C — maquetación
 

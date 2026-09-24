@@ -23,6 +23,7 @@ import type { Language, Settings, Theme } from "../types";
 import { Marcado, useT } from "../i18n";
 import { formatMemory } from "../lib/format";
 import { Actualizaciones } from "./Actualizaciones";
+import { Segmented } from "./Segmented";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -289,18 +290,21 @@ export function SettingsView({
           {t.idioma.descripcion}
         </p>
 
-        <div className="mt-3 flex gap-2">
-          {IDIOMAS.map((value) => (
-            <Button
-              key={value}
-              variant={settings.language === value ? "secondary" : "outline"}
-              aria-pressed={settings.language === value}
-              onClick={() => onChange({ ...settings, language: value })}
-            >
-              <LanguagesIcon />
-              {t.idioma.nombres[value]}
-            </Button>
-          ))}
+        <div className="mt-3">
+          <Segmented
+            label={t.idioma.titulo}
+            value={settings.language}
+            onChange={(language) => onChange({ ...settings, language })}
+            options={IDIOMAS.map((value) => ({
+              value,
+              label: (
+                <>
+                  <LanguagesIcon aria-hidden />
+                  {t.idioma.nombres[value]}
+                </>
+              ),
+            }))}
+          />
         </div>
       </section>
 
@@ -312,21 +316,24 @@ export function SettingsView({
           <Marcado texto={t.ajustes.apariencia.descripcion} />
         </p>
 
-        <div className="mt-3 flex gap-2">
-          {THEMES.map((value) => {
-            const Icon = THEME_ICONS[value];
-            return (
-              <Button
-                key={value}
-                variant={settings.theme === value ? "secondary" : "outline"}
-                aria-pressed={settings.theme === value}
-                onClick={() => onChange({ ...settings, theme: value })}
-              >
-                <Icon />
-                {t.temas[value]}
-              </Button>
-            );
-          })}
+        <div className="mt-3">
+          <Segmented
+            label={t.ajustes.apariencia.titulo}
+            value={settings.theme}
+            onChange={(theme) => onChange({ ...settings, theme })}
+            options={THEMES.map((value) => {
+              const Icon = THEME_ICONS[value];
+              return {
+                value,
+                label: (
+                  <>
+                    <Icon aria-hidden />
+                    {t.temas[value]}
+                  </>
+                ),
+              };
+            })}
+          />
         </div>
       </section>
 
@@ -702,23 +709,14 @@ export function SettingsView({
 
         {/* La combinacion y la doble pulsacion se pueden tocar con el atajo apagado, igual que el
             umbral del Auto-Kill: asi se deja preparado antes de encenderlo. */}
-        <div
-          role="group"
-          aria-label={t.ajustes.atajo.combinacion}
-          className="mt-3 flex flex-wrap gap-2 pl-11"
-        >
-          {HOTKEYS.map(({ value, label }) => (
-            <Button
-              key={value}
-              size="sm"
-              variant={settings.hotkey === value ? "secondary" : "outline"}
-              aria-pressed={settings.hotkey === value}
-              onClick={() => onChange({ ...settings, hotkey: value })}
-              className="font-mono text-xs"
-            >
-              {label}
-            </Button>
-          ))}
+        <div className="mt-3 pl-11">
+          <Segmented
+            label={t.ajustes.atajo.combinacion}
+            value={settings.hotkey}
+            onChange={(hotkey) => onChange({ ...settings, hotkey })}
+            options={HOTKEYS}
+            itemClassName="font-mono text-xs"
+          />
         </div>
 
         <div className="mt-3 flex items-start gap-3 pl-11">

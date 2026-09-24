@@ -516,7 +516,7 @@ function Accion({
       aria-label={corriendo ? a.detenerLabel(s.name) : a.arrancarLabel(s.name)}
       onClick={() => onAction(s, corriendo ? "stop" : "start")}
     >
-      {corriendo ? <SquareIcon className="text-destructive" /> : <PlayIcon />}
+      {corriendo ? <SquareIcon className="text-destructive-text" /> : <PlayIcon />}
       {corriendo ? a.detener : a.arrancar}
     </Button>
   );

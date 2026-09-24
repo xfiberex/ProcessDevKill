@@ -98,7 +98,7 @@ export function ProcessTable({
               aria-label={t.tabla.seleccionarTodos}
             />
           </th>
-          <SortableHeader sortKey="name" sort={sort} onSort={onSort} t={t} />
+          <SortableHeader sortKey="name" sort={sort} onSort={onSort} t={t} junto />
           <SortableHeader sortKey="port" sort={sort} onSort={onSort} t={t} />
           <SortableHeader sortKey="pid" sort={sort} onSort={onSort} t={t} align="right" />
           <SortableHeader sortKey="cpu" sort={sort} onSort={onSort} t={t} align="right" />
@@ -361,6 +361,7 @@ function SortableHeader({
   onSort,
   t,
   align = "left",
+  junto,
 }: {
   sortKey: SortKey;
   sort: Sort;
@@ -369,6 +370,15 @@ function SortableHeader({
    *  una vuelva a pedir el contexto. */
   t: Catalogo;
   align?: "left" | "right";
+  /**
+   * La columna pegada a la casilla de «Seleccionar todos» (Tier 11, B3).
+   *
+   * La casilla mide 16 px y WCAG 2.5.8 la admite así solo si un círculo de 24 px centrado en ella
+   * no pisa otro objetivo, y el botón de «Proceso» empezaba justo en su borde. Aquí el hueco pasa
+   * de dentro del botón a la celda: 8 px de celda y 4 de botón en vez de 12 de botón. El texto se
+   * queda donde estaba y el botón empieza 8 px más allá, fuera del círculo.
+   */
+  junto?: boolean;
 }) {
   const activa = sort.key === sortKey;
   const ascendente = sort.dir === "asc";
@@ -378,7 +388,9 @@ function SortableHeader({
     <th
       scope="col"
       aria-sort={activa ? (ascendente ? "ascending" : "descending") : "none"}
-      className={`py-0 font-medium ${align === "right" ? "text-right" : "text-left"}`}
+      className={`py-0 font-medium ${align === "right" ? "text-right" : "text-left"} ${
+        junto ? "pl-2" : ""
+      }`}
     >
       <button
         type="button"
@@ -386,7 +398,7 @@ function SortableHeader({
         // `group` para que la flecha fantasma de las columnas inactivas aparezca
         // al pasar por encima: sin ninguna pista, que la tabla se ordena no lo
         // descubre nadie. Con focus-visible sale tambien navegando con teclado.
-        className={`group flex w-full cursor-pointer items-center gap-1 px-3 py-2 tracking-wide uppercase transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${
+        className={`group flex w-full cursor-pointer items-center gap-1 pr-3 ${junto ? "pl-1" : "pl-3"} py-2 tracking-wide uppercase transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${
           align === "right" ? "justify-end" : "justify-start"
         } ${activa ? "text-foreground" : ""}`}
       >

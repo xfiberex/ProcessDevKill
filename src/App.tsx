@@ -629,15 +629,19 @@ export default function App() {
                 className="min-w-0 flex-1"
               />
 
-              {/* Sin el aria-label esto es un numero suelto leido en voz alta, y ademas cambia al
-                  filtrar sin que nada lo anuncie. `polite` y no `assertive`: interesa que se diga,
-                  no que interrumpa lo que se estuviera leyendo. */}
+              {/* Una región viva, porque el número cambia al filtrar sin que nada lo anuncie.
+                  `polite` y no `assertive`: interesa que se diga, no que interrumpa.
+
+                  **La frase va en texto `sr-only`, no en un `aria-label`** (Tier 11, B6). Hasta
+                  entonces llevaba `aria-label` sobre un `<span>` sin rol, y eso no nombra nada:
+                  axe lo marcaba y los lectores lo ignoraban, así que se anunciaba «15» a secas. Se
+                  lee la frase y el número visible queda oculto para no decirlo dos veces. */}
               <span
                 className="shrink-0 text-sm text-muted-foreground tabular-nums"
-                aria-label={t.cabecera.enLaLista(visible.length)}
                 aria-live="polite"
               >
-                {visible.length}
+                <span aria-hidden>{visible.length}</span>
+                <span className="sr-only">{t.cabecera.enLaLista(visible.length)}</span>
               </span>
 
               <Button variant="outline" onClick={refresh} className="shrink-0">

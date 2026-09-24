@@ -11,6 +11,7 @@ import type { ProcessInfo, Runtime, SystemUsage } from "../types";
 import { useT } from "../i18n";
 import { RUNTIME_ICONS } from "../icons";
 import { UsageMeter } from "./UsageMeter";
+import { Segmented } from "./Segmented";
 import { Button } from "@/components/ui/button";
 
 /** Las cuatro vistas de la app. Excluyentes: solo se pinta una a la vez. */
@@ -158,24 +159,28 @@ export function Sidebar({
 
       <div className="border-t border-sidebar-border p-3">
         <p className="mb-2 text-xs text-muted-foreground">{t.sidebar.autoRefresco}</p>
-        <div className="flex gap-1">
-          {REFRESH_INTERVALS.map(({ label, ms }) => (
-            <Button
-              key={label}
-              size="xs"
-              variant={refreshMs === ms ? "secondary" : "ghost"}
-              aria-pressed={refreshMs === ms}
-              onClick={() => onRefreshMsChange(ms)}
-              className="flex-1"
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
+        <Segmented
+          label={t.sidebar.autoRefresco}
+          value={refreshMs}
+          onChange={onRefreshMsChange}
+          options={REFRESH_INTERVALS.map(({ label, ms }) => ({ value: ms, label }))}
+          fill
+          compact
+        />
       </div>
     </aside>
   );
 }
+
+/**
+ * Cómo se marca lo activo en el sidebar: barra de acento a la izquierda y seminegrita.
+ *
+ * Tier 11, B4. Solo con el fondo de `secondary`, la vista activa se separaba del resto por
+ * **1,03:1** en claro (1,21:1 en oscuro) y con el mismo peso de letra: había que adivinarla. La
+ * barra va en `foreground`, que contrasta de sobra con el sidebar en los dos temas.
+ */
+const MARCA_ACTIVA =
+  "font-semibold before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-foreground";
 
 /**
  * Una de las tres vistas.
@@ -212,7 +217,7 @@ function NavItem({
       // pone cuando la lista esta pintada de verdad.
       aria-controls={esDesplegable && expandido ? controla : undefined}
       onClick={onClick}
-      className="justify-start gap-2 px-2"
+      className={`relative justify-start gap-2 px-2 ${active ? MARCA_ACTIVA : ""}`}
     >
       {esDesplegable ? (
         <ChevronRightIcon
@@ -256,7 +261,7 @@ function FilterButton({
       variant={active ? "secondary" : "ghost"}
       aria-pressed={active}
       onClick={onClick}
-      className="justify-start gap-2 px-2"
+      className={`relative justify-start gap-2 px-2 ${active ? MARCA_ACTIVA : ""}`}
     >
       {Icon ? (
         <Icon

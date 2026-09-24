@@ -51,7 +51,7 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
         )}
 
         {state.fase === "error" && (
-          <span className="flex items-start gap-1.5 text-sm text-destructive">
+          <span className="flex items-start gap-1.5 text-sm text-destructive-text">
             <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
             {t.actualizador.error(state.mensaje)}
           </span>

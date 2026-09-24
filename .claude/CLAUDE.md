@@ -77,6 +77,10 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 - El frontend **no hace polling**. Rust empuja `processes-updated` y React solo escucha.
 - Componentes de `src/components/ui/` los genera shadcn (estilo `base-nova`, sobre **Base UI**, no
   Radix). Se editan a mano solo cuando hace falta, y se anota por qué.
+- **Al generar o regenerar uno con `shadcn add`, dos retoques obligatorios** (Tier 11, B1): los
+  bordes de controles van con `border-control`, no `border-input`, y el anillo de foco con
+  `ring-ring`, sin el `/50`. Lo que trae shadcn no llega a 3:1. Y revisa el import de `cn`: el
+  2026-09-23 el generador lo importó del paquete de npm `cn` —y lo instaló— en vez de `@/lib/utils`.
 
 ## Pruebas
 

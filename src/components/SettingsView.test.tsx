@@ -186,12 +186,12 @@ describe("el atajo global", () => {
     const { user, onChange } = pintar({ hotkey: "ctrlAltF12" });
 
     expect(screen.getByRole("switch", { name: /Ctrl\+Alt\+F12/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ctrl+Alt+F12" })).toHaveAttribute(
-      "aria-pressed",
+    expect(screen.getByRole("radio", { name: "Ctrl+Alt+F12" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
 
-    await user.click(screen.getByRole("button", { name: "Ctrl+Alt+Shift+K" }));
+    await user.click(screen.getByRole("radio", { name: "Ctrl+Alt+Shift+K" }));
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ hotkey: "ctrlAltShiftK" }),
     );
@@ -415,12 +415,12 @@ describe("tema", () => {
   it("marca el tema activo y cambia al pulsar otro", async () => {
     const { user, onChange } = pintar({ theme: "dark" });
 
-    expect(screen.getByRole("button", { name: "Oscuro" })).toHaveAttribute(
-      "aria-pressed",
+    expect(screen.getByRole("radio", { name: "Oscuro" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
 
-    await user.click(screen.getByRole("button", { name: "Claro" }));
+    await user.click(screen.getByRole("radio", { name: "Claro" }));
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ theme: "light" }),
@@ -489,8 +489,8 @@ describe("el idioma", () => {
   it("ofrece los dos idiomas rotulados en su propio idioma", () => {
     pintar();
 
-    expect(screen.getByRole("button", { name: "Español" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "English" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Español" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "English" })).toBeInTheDocument();
   });
 
   /** El titulo va en los dos idiomas a la vez: quien no entienda la mitad de la app tiene que
@@ -506,7 +506,7 @@ describe("el idioma", () => {
   it("guarda el idioma elegido sin tocar el resto de ajustes", async () => {
     const { onChange, user, settings } = pintar({ language: "es" });
 
-    await user.click(screen.getByRole("button", { name: "English" }));
+    await user.click(screen.getByRole("radio", { name: "English" }));
 
     expect(onChange).toHaveBeenCalledWith({ ...settings, language: "en" });
   });
@@ -514,12 +514,12 @@ describe("el idioma", () => {
   it("marca como pulsado el idioma vigente", () => {
     pintar({ language: "en" });
 
-    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute(
-      "aria-pressed",
+    expect(screen.getByRole("radio", { name: "English" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
-    expect(screen.getByRole("button", { name: "Español" })).toHaveAttribute(
-      "aria-pressed",
+    expect(screen.getByRole("radio", { name: "Español" })).toHaveAttribute(
+      "aria-checked",
       "false",
     );
   });

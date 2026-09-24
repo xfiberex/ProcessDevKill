@@ -8,6 +8,24 @@
 
 ---
 
+### 2026-09-24 — Tier 11, Fase B: accesibilidad medida (v1.6.1)
+
+- **axe pasa de varias violaciones a cero, en las cuatro vistas y los dos temas**, con las mismas
+  reglas de la auditoría y sin resultados incompletos. Lo que axe no mide —bordes y anillos de
+  foco— se volvió a medir en vivo con el script de la auditoría: bordes a 3,59 y 3,93:1 (antes
+  1,26 y 1,74) y anillos opacos a 4,76 y 7,13:1.
+- **El primer resultado del anillo daba 1:1, y era el script.** Leía la primera capa del
+  `box-shadow`, que Tailwind deja transparente; leyendo el valor computado entero, el anillo estaba
+  bien. Es el mismo tropiezo que ya se vio en la auditoría y conviene no volver a creérselo.
+- Dos tokens nuevos (`--control` y `--destructive-text`) en vez de oscurecer los que había: los dos
+  que fallaban también pintaban cosas que ya pasaban. Queda en CLAUDE.md que al regenerar un
+  componente de shadcn hay que repetir el cambio.
+- **La casilla de «Seleccionar todos» no creció**: WCAG admite 16 px con espacio alrededor, y el
+  espacio se sacó de dentro del botón vecino. La tabla no gana ni un píxel.
+- Idioma, Tema, la combinación del atajo y el Auto-refresco pasan a un control segmentado que es un
+  `radiogroup` de verdad. Kill se anuncia «Kill node.exe, PID …» y el recuento del buscador ya se
+  lee entero. 249 pruebas del frontend.
+
 ### 2026-09-23 (noche) — Tier 11, Fase A: que no se cierre lo que no se quería (v1.6.0)
 
 - **Las seis tareas de la fase de riesgo, hechas y verificadas.** El atajo global viene apagado,

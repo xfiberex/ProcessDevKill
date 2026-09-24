@@ -277,7 +277,7 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 245 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 249 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
 cd src-tauri && cargo test    # 112 pruebas del backend
 ```
@@ -346,7 +346,7 @@ Cada push a `main` y cada pull request pasan por **GitHub Actions**, en
 
 ## Estado
 
-La versión actual es la **v1.6.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.6.1**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
 instalar algo que no podía actualizarse.
 

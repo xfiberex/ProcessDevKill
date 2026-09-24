@@ -170,7 +170,12 @@ export const es = {
         lista.length === 1 ? "el puerto" : "los puertos"
       } ${puertos(lista)}`,
     kill: "Kill",
-    killLabel: (name: string, pid: number) => `Cerrar ${name}, PID ${pid}`,
+    /**
+     * Empieza por **«Kill»**, la palabra que se ve (Tier 11, B5; WCAG 2.5.3). Decía «Cerrar …», y
+     * quien maneja el equipo por voz dice lo que lee: «clic en Kill» no encontraba el botón. Es el
+     * criterio que ya seguían los dos «Añadir» de Ajustes. En inglés sale igual.
+     */
+    killLabel: (name: string, pid: number) => `Kill ${name}, PID ${pid}`,
     matarProceso: "Matar proceso",
     protegido: "Protegido",
     /** Va en el `title` del candado y en el del Kill apagado: dice qué lo frena y cómo quitarlo. */
@@ -599,7 +604,7 @@ export const en: Catalogo = {
         lista.length === 1 ? "port" : "ports"
       } ${puertos(lista)}`,
     kill: "Kill",
-    killLabel: (name, pid) => `Close ${name}, PID ${pid}`,
+    killLabel: (name, pid) => `Kill ${name}, PID ${pid}`,
     matarProceso: "Kill process",
     protegido: "Protected",
     protegidoTitulo:

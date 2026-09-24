@@ -65,7 +65,7 @@ export function ConfirmDialog({ request, onCancel }: ConfirmDialogProps) {
           initialFocus={confirmRef}
         >
           <AlertDialogHeader>
-            <AlertDialogMedia className="bg-destructive/10 text-destructive">
+            <AlertDialogMedia className="bg-destructive/10 text-destructive-text">
               <TriangleAlertIcon />
             </AlertDialogMedia>
             <AlertDialogTitle>{shown.title}</AlertDialogTitle>

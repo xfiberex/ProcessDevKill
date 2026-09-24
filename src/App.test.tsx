@@ -358,7 +358,7 @@ describe("cierre de procesos", () => {
     // El nombre accesible lleva proceso y PID desde el Tier 7.4; el texto visible
     // del boton sigue siendo "Kill".
     await user.click(
-      within(fila).getByRole("button", { name: /^Cerrar .*PID 100$/ }),
+      within(fila).getByRole("button", { name: /^Kill .*PID 100$/ }),
     );
 
     await waitFor(() =>
@@ -450,7 +450,7 @@ describe("auto-refresco", () => {
   it("guarda el intervalo elegido en los ajustes", async () => {
     const user = await montar();
 
-    await user.click(screen.getByRole("button", { name: "5s" }));
+    await user.click(screen.getByRole("radio", { name: "5s" }));
 
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith("save_settings", {
@@ -800,13 +800,14 @@ describe("nombres accesibles de la cabecera", () => {
   it("el contador dice de que es el numero, y en singular cuando toca", async () => {
     const user = await montar();
 
-    expect(screen.getByLabelText("4 procesos en la lista")).toBeInTheDocument();
+    // Como texto dentro de la región viva y no como `aria-label` (B6): un `aria-label` sobre un
+    // `<span>` sin rol no lo lee ningún lector de pantalla.
+    const recuento = screen.getByText("4 procesos en la lista");
+    expect(recuento.closest("[aria-live]")).toHaveAttribute("aria-live", "polite");
 
     await user.type(buscador(), "python");
 
-    expect(
-      await screen.findByLabelText("1 proceso en la lista"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("1 proceso en la lista")).toBeInTheDocument();
   });
 
   it("la tabla de procesos se anuncia con nombre", async () => {
