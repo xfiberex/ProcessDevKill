@@ -87,7 +87,14 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
 > usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
-**Publicado:** **v1.5.3** (2026-08-23), un añadido pequeño: el botón **Apoyar el proyecto** en
+**Publicado:** **v1.6.0** (2026-09-23), la **Fase A del Tier 11** entera: que no se cierre lo que
+no se quería. Sube a minor porque trae funcionalidad nueva —procesos protegidos, la segunda línea de
+cada fila, la combinación del atajo— y cambia comportamiento: **el atajo global viene apagado** y,
+encendido, **pide dos pulsaciones**, lo que sí alcanza a quien ya lo tenía activo. Antes de cortar,
+la CI en verde sobre el mismo commit y el dry run anotado para `-SkipTests`. 4 assets, hash
+comprobado tras publicar: `b7bd48c3…`.
+
+Antes: la **v1.5.3** (2026-08-23), un añadido pequeño: el botón **Apoyar el proyecto** en
 Ajustes → Acerca de. El repositorio tenía `.github/FUNDING.yml` desde el 2026-07-25, pero eso solo
 pinta el botón de patrocinio **en la página de GitHub**, por donde no pasa quien instala la app. El
 enlace queda ahora en dos sitios sin nada que los ate, y por eso la prueba comprueba **la URL
@@ -127,10 +134,11 @@ Sin firma de código, así que SmartScreen sigue avisando. Antes: la v1.3.2 (Tie
 la v1.3.1 con la **actualización silenciosa** (`/S /UPDATE /R`) y la v1.3.0 con el medidor del
 entorno. La primera versión pública fue la v1.1.1.
 
-> Verificado tras publicar, en las ocho versiones con el mismo criterio: los 4 assets están en el
+> Verificado tras publicar, en las nueve versiones con el mismo criterio: los 4 assets están en el
 > release, la API que consulta la app devuelve el `tag_name` correcto, y **el instalador descargado
 > del release coincide con el `.sha256` publicado** — la cadena entera que recorre la
-> auto-actualización, sobre los archivos reales. Para la v1.5.3, `504bed6a…`; para la v1.5.2,
+> auto-actualización, sobre los archivos reales. Para la v1.6.0, `b7bd48c3…`; para la v1.5.3,
+> `504bed6a…`; para la v1.5.2,
 > `7e4be6a5…`; para la v1.5.1,
 > `b764f7ef…`; para la v1.5.0,
 > `21fad0ad…`; para la v1.4.0, `a8738197…`; para la v1.3.2,
