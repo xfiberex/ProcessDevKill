@@ -65,6 +65,11 @@ async function montar(
 const buscador = () =>
   screen.getByPlaceholderText("Buscar por nombre, script, carpeta, PID o puerto…");
 const filas = () => screen.getAllByLabelText(/^Seleccionar PID/);
+/** El «Cerrar» de la barra de la selección (Tier 11, D7), por su nombre accesible. */
+const cerrarSeleccion = (n: number) =>
+  screen.getByRole("button", {
+    name: n === 1 ? "Cerrar el proceso seleccionado" : `Cerrar los ${n} procesos seleccionados`,
+  });
 
 describe("carga inicial", () => {
   it("pide la lista y se suscribe al evento de Rust", async () => {
@@ -169,7 +174,7 @@ describe("filtros por runtime del sidebar", () => {
 
 /**
  * Un PID seleccionado que muere entre el refresco y el clic seguiria contando
- * para "Matar N". La poda vive en applyList y es facil de perder en un refactor.
+ * para "Cerrar N". La poda vive en applyList y es facil de perder en un refactor.
  */
 describe("poda de la seleccion", () => {
   it("olvida los PIDs que desaparecen de la lista", async () => {
@@ -177,11 +182,11 @@ describe("poda de la seleccion", () => {
 
     await user.click(screen.getByLabelText("Seleccionar PID 100"));
     await user.click(screen.getByLabelText("Seleccionar PID 200"));
-    expect(screen.getByRole("button", { name: "Matar 2" })).toBeInTheDocument();
+    expect(cerrarSeleccion(2)).toBeInTheDocument();
 
     await emitir(LISTA.filter((p) => p.pid !== 200));
 
-    expect(screen.getByRole("button", { name: "Matar 1" })).toBeInTheDocument();
+    expect(cerrarSeleccion(1)).toBeInTheDocument();
   });
 
   it("mantiene la seleccion si todos siguen vivos", async () => {
@@ -190,7 +195,7 @@ describe("poda de la seleccion", () => {
     await user.click(screen.getByLabelText("Seleccionar PID 100"));
     await emitir(LISTA);
 
-    expect(screen.getByRole("button", { name: "Matar 1" })).toBeInTheDocument();
+    expect(cerrarSeleccion(1)).toBeInTheDocument();
   });
 });
 
@@ -200,13 +205,32 @@ describe("boton destructivo", () => {
     expect(await screen.findByRole("button", { name: "Nuke All" })).toBeDisabled();
   });
 
-  it("pasa de Nuke All a Matar N con la seleccion", async () => {
+  /**
+   * Tier 11, D7. Con una selección, la acción pasa a la barra de abajo y Nuke All se aparta:
+   * `invisible`, que conserva su hueco —el buscador no salta— y lo saca del tabulador y del lector.
+   * jsdom no aplica el CSS, así que se comprueba la clase.
+   */
+  it("con una seleccion, la accion pasa a la barra y Nuke All se aparta", async () => {
     const user = await montar();
 
-    expect(screen.getByRole("button", { name: "Nuke All" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nuke All" })).not.toHaveClass("invisible");
     await user.click(screen.getByLabelText("Seleccionar PID 100"));
-    expect(screen.queryByRole("button", { name: "Nuke All" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Matar 1" })).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: "Nuke All" })).toHaveClass("invisible");
+    expect(screen.getByRole("region", { name: "1 seleccionado" })).toBeInTheDocument();
+    expect(cerrarSeleccion(1)).toBeInTheDocument();
+  });
+
+  it("Quitar seleccion suelta todas las filas marcadas", async () => {
+    const user = await montar();
+
+    await user.click(screen.getByLabelText("Seleccionar PID 100"));
+    await user.click(screen.getByLabelText("Seleccionar PID 300"));
+    await user.click(screen.getByRole("button", { name: "Quitar selección" }));
+
+    expect(screen.getByLabelText("Seleccionar PID 100")).not.toBeChecked();
+    expect(screen.getByLabelText("Seleccionar PID 300")).not.toBeChecked();
+    expect(screen.queryByRole("region", { name: /seleccionad/ })).not.toBeInTheDocument();
   });
 
   /** "Se terminaran los 1 procesos seleccionados" fue un bug real del Tier 5. */
@@ -214,12 +238,12 @@ describe("boton destructivo", () => {
     const user = await montar();
 
     await user.click(screen.getByLabelText("Seleccionar PID 100"));
-    await user.click(screen.getByRole("button", { name: "Matar 1" }));
+    await user.click(cerrarSeleccion(1));
 
     const dialogo = await screen.findByRole("alertdialog");
     expect(within(dialogo).getByText("Cerrar 1 proceso")).toBeInTheDocument();
     expect(
-      within(dialogo).getByText(/Se terminará el proceso seleccionado/),
+      within(dialogo).getByText(/Se cerrará el proceso seleccionado/),
     ).toBeInTheDocument();
     expect(
       within(dialogo).getByRole("button", { name: "Cerrar proceso" }),
@@ -231,20 +255,29 @@ describe("boton destructivo", () => {
 
     await user.click(screen.getByLabelText("Seleccionar PID 100"));
     await user.click(screen.getByLabelText("Seleccionar PID 200"));
-    await user.click(screen.getByRole("button", { name: "Matar 2" }));
+    await user.click(cerrarSeleccion(2));
 
     const dialogo = await screen.findByRole("alertdialog");
     expect(within(dialogo).getByText("Cerrar 2 procesos")).toBeInTheDocument();
     expect(
-      within(dialogo).getByText(/Se terminarán los 2 procesos seleccionados/),
+      within(dialogo).getByText(/Se cerrarán los 2 procesos seleccionados/),
     ).toBeInTheDocument();
   });
 
-  it("Nuke All sobre una lista filtrada lo dice en el mensaje", async () => {
+  /**
+   * Tier 11, D3. Con un filtro o una búsqueda, «Nuke All» cerraba la lista filtrada y no todo, y
+   * eso solo se sabía abriendo el diálogo. Ahora lo dice el botón, y el diálogo lo repite.
+   */
+  it("Nuke All sobre una lista filtrada lo dice en el boton y en el mensaje", async () => {
     const user = await montar();
 
     await user.type(buscador(), "node");
-    await user.click(screen.getByRole("button", { name: "Nuke All" }));
+    expect(screen.queryByRole("button", { name: "Nuke All" })).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", {
+        name: "Nuke filtrados: cerrar los 2 procesos de la lista filtrada",
+      }),
+    );
 
     expect(
       await screen.findByText(/todos los procesos de la lista filtrada/),
@@ -281,7 +314,7 @@ describe("procesos protegidos", () => {
     const user = await montar(CON_PROTEGIDO);
 
     await user.click(screen.getByLabelText("Seleccionar PID 100"));
-    expect(screen.getByRole("button", { name: "Matar 0" })).toBeDisabled();
+    expect(cerrarSeleccion(1)).toBeDisabled();
   });
 
   it("el buscador encuentra por script y por carpeta", async () => {
@@ -327,7 +360,7 @@ describe("cierre de procesos", () => {
     const user = await montar();
 
     await user.click(screen.getByLabelText("Seleccionar PID 100"));
-    await user.click(screen.getByRole("button", { name: "Matar 1" }));
+    await user.click(cerrarSeleccion(1));
     await screen.findByRole("alertdialog");
 
     await user.keyboard("{Escape}");
@@ -345,7 +378,7 @@ describe("cierre de procesos", () => {
 
     await user.click(screen.getByLabelText("Seleccionar PID 100"));
     await user.click(screen.getByLabelText("Seleccionar PID 300"));
-    await user.click(screen.getByRole("button", { name: "Matar 2" }));
+    await user.click(cerrarSeleccion(2));
     await screen.findByRole("alertdialog");
 
     await user.click(screen.getByRole("button", { name: "Cerrar procesos" }));
@@ -937,12 +970,12 @@ describe("el aviso de administrador", () => {
 
   /**
    * Sin elevar, un Kill que falla suele ser un proceso abierto como administrador —comprobado en
-   * vivo— y el aviso de Rust solo dice «No se pudo terminar». La pista va solo en ese caso: elevada,
+   * vivo— y el aviso de Rust solo dice «No se pudo cerrar». La pista va solo en ese caso: elevada,
    * sería falsa.
    */
   it("un cierre fallido sin elevar sugiere el motivo; elevada, no", async () => {
     const fallo = [
-      { pid: 100, name: "node.exe", killed: false, error: "No se pudo terminar node.exe (PID 100)", freedPorts: [] },
+      { pid: 100, name: "node.exe", killed: false, error: "No se pudo cerrar node.exe (PID 100)", freedPorts: [] },
     ];
     for (const elevada of [false, true]) {
       const user = await montar(LISTA, { get_elevation: elevada, kill_processes: fallo });
@@ -951,7 +984,7 @@ describe("el aviso de administrador", () => {
       await user.click(screen.getByRole("button", { name: "Kill node.exe, PID 100" }));
 
       expect(
-        await screen.findByText("No se pudo terminar node.exe (PID 100)"),
+        await screen.findByText("No se pudo cerrar node.exe (PID 100)"),
       ).toBeInTheDocument();
       const pista = screen.queryByText(/Si se abrió como administrador/);
       if (elevada) expect(pista).not.toBeInTheDocument();
@@ -961,3 +994,24 @@ describe("el aviso de administrador", () => {
   });
 });
 
+/**
+ * Tier 11, D1. Cada vista empieza por su `h2`: Procesos e Historial no tenían ninguno, y quien salta
+ * por encabezados con un lector de pantalla no encontraba dónde empezaba la vista.
+ */
+describe("la cabecera de las vistas", () => {
+  it("las cuatro empiezan por su titulo", async () => {
+    const user = await montar(LISTA, { get_services: [], get_service_changes: [] });
+
+    expect(screen.getByRole("heading", { level: 2, name: "Procesos" })).toBeInTheDocument();
+    for (const [boton, titulo] of [
+      [/^Servicios/, "Servicios de desarrollo"],
+      [/^Historial/, "Historial"],
+      [/^Ajustes/, "Ajustes"],
+    ] as const) {
+      await user.click(screen.getByRole("button", { name: boton }));
+      expect(
+        await screen.findByRole("heading", { level: 2, name: titulo }),
+      ).toBeInTheDocument();
+    }
+  });
+});

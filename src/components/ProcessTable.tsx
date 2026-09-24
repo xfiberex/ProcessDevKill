@@ -29,6 +29,15 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 
+/**
+ * Un núcleo, en porcentaje del equipo: el suelo de la escala de la barra de CPU (ver `maxCpu`).
+ *
+ * `hardwareConcurrency` son los procesadores lógicos, los mismos que cuenta sysinfo para repartir
+ * la CPU de cada proceso (`cpu_usage() / cores` en processes.rs). Sin él —no pasa en WebView2—,
+ * se suponen 8.
+ */
+const CPU_UN_NUCLEO = 100 / (navigator.hardwareConcurrency || 8);
+
 type ProcessTableProps = {
   /** Ya filtrada **y ordenada**: aqui solo se pinta lo que llega. */
   processes: ProcessInfo[];
@@ -74,7 +83,13 @@ export function ProcessTable({
   }, [congelar, onFreezeChange]);
 
   // Referencias para las barras: el proceso que mas consume marca el 100 %.
-  const maxCpu = Math.max(...processes.map((p) => p.cpu), 0.001);
+  //
+  // La CPU, con un suelo de **un núcleo entero** (Tier 11, D6). Sin él, en reposo el mayor era un
+  // proceso al 2,5 % y salía con la barra llena, como si estuviera ardiendo. Un núcleo y no una
+  // cifra fija porque `cpu` es sobre el equipo entero: en 16 hilos, un Node que satura el suyo da
+  // 6,25 %, y esa sí es una barra llena. La RAM no lleva suelo: la decisión del 2026-07-23 se
+  // razonó para ella, y comparar entre sí lo que ocupa sigue siendo lo útil.
+  const maxCpu = Math.max(...processes.map((p) => p.cpu), CPU_UN_NUCLEO);
   const maxMemory = Math.max(...processes.map((p) => p.memoryMb), 1);
 
   const allSelected =
@@ -159,6 +174,7 @@ export function ProcessTable({
             // `node.exe`, es lo único que dice cuál es cuál. Mismo patrón que Servicios.
             const detalle = [p.script, p.project].filter(Boolean).join(" · ");
             const clave = claveProteccion(p);
+            const seleccionada = selected.has(p.pid);
 
             return (
               // ContextMenu (Base UI) no pinta ningun elemento propio, asi que
@@ -179,17 +195,31 @@ export function ProcessTable({
                       transition={{ duration: 0.18 }}
                       // El zombi se tiñe de ambar en toda la fila: la insignia
                       // sola se pierde en una tabla de veinte lineas.
-                      className={`border-t border-border data-popup-open:bg-muted/60 ${
-                        p.zombie
-                          ? "bg-amber-500/8 hover:bg-amber-500/15"
-                          : "hover:bg-muted/60"
+                      //
+                      // La seleccionada lleva fondo (Tier 11, D7), por encima del ámbar: con
+                      // la casilla sola, de 16 px en el borde, no se veía qué filas iban a caer.
+                      // `group/fila` es para el Kill, que se tiñe con la fila (D5).
+                      data-selected={seleccionada ? "" : undefined}
+                      className={`group/fila border-t border-border data-popup-open:bg-muted/60 ${
+                        seleccionada
+                          ? "bg-muted hover:bg-muted"
+                          : p.zombie
+                            ? "bg-amber-500/8 hover:bg-amber-500/15"
+                            : "hover:bg-muted/60"
                       }`}
                     />
                   }
                 >
-                  <td className="py-2 pl-5">
+                  {/* La barra de acento, en la celda y no en la fila: el `box-shadow` de un
+                      `<tr>` no lo pinta Chromium con `border-collapse`. Mismo acento que la vista
+                      activa del sidebar (B4), para que «elegido» se vea igual en toda la app. */}
+                  <td
+                    className={`py-2 pl-5 ${
+                      seleccionada ? "shadow-[inset_3px_0_0_var(--color-foreground)]" : ""
+                    }`}
+                  >
                     <Checkbox
-                      checked={selected.has(p.pid)}
+                      checked={seleccionada}
                       onCheckedChange={() => onToggle(p.pid)}
                       aria-label={t.tabla.seleccionarPid(p.pid)}
                     />
@@ -265,6 +295,9 @@ export function ProcessTable({
                       value={p.cpu}
                       max={maxCpu}
                       color={color}
+                      // «0.0%» en gris (D6): en reposo casi todas las filas lo dicen, y en el
+                      // blanco de las cifras con carga competía con ellas.
+                      apagada={p.cpu < 0.05}
                     />
                   </td>
 
@@ -282,9 +315,17 @@ export function ProcessTable({
                   </td>
 
                   <td className="px-5 py-2 text-right">
+                    {/* Neutro, y rojo solo con la fila bajo el puntero o con el foco dentro (Tier 11,
+                        D5). Un botón rojo por fila eran veinte manchas rojas compitiendo con los
+                        puertos, que son lo que se viene a mirar; el rojo lleno queda para Nuke All.
+                        Revisa la decisión del 2026-07-24, que pedía rojo para «la acción
+                        destructiva principal»: esa es Nuke All, no cada Kill. */}
                     <Button
                       size="xs"
-                      variant="destructive"
+                      variant="outline"
+                      // El borde, también con `dark:`: el `dark:border-control` del outline gana
+                      // por especificidad a un `group-hover` sin tema (medido en vivo).
+                      className="text-muted-foreground group-focus-within/fila:border-destructive/40 group-focus-within/fila:text-destructive-text group-hover/fila:border-destructive/40 group-hover/fila:text-destructive-text hover:bg-destructive/10 hover:text-destructive-text dark:group-focus-within/fila:border-destructive/50 dark:group-hover/fila:border-destructive/50 dark:hover:bg-destructive/20"
                       onClick={() => onKill(p.pid)}
                       // Protegido: el botón se queda a la vista pero apagado, con el motivo en el
                       // `title`. Quitarlo dejaría un hueco en la columna que se leería como un fallo.
@@ -359,7 +400,7 @@ export function ProcessTable({
                     onClick={() => onKill(p.pid)}
                   >
                     <SkullIcon />
-                    {t.tabla.matarProceso}
+                    {t.tabla.cerrarProceso}
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>

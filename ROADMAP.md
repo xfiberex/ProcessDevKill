@@ -1219,7 +1219,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 ---
 
 
-## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A, B y C hechas y verificadas (v1.6.0, v1.6.1 y v1.6.2)**
+## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A a D hechas y verificadas (v1.6.0 a v1.7.0)**
 *Objetivo: que la app no deje cerrar lo que no se quería, que se pueda usar entera con teclado y con poca vista, y que las cuatro vistas hablen el mismo idioma visual.*
 
 > **Sale de una auditoría de UX/UI hecha el 2026-09-23 sobre la v1.5.3**, con la app en marcha
@@ -1428,7 +1428,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > en «Cambiar arranque». Al principio el recuadro iba entero en `foreground` y la negrita no se
   > distinguía del resto: ahora va en el gris de la descripción.
 
-### Fuera de fase — modo administrador — ✅ **hecho y verificado el 2026-09-24**
+### Fuera de fase — modo administrador — ✅ **hecho y verificado el 2026-09-24** (v1.7.0)
 
 > Pedido por el usuario entre la C y la D. No salió de la auditoría, pero es del mismo terreno: la
 > app enseñaba huecos —«—» en la RAM de los servicios, filas sin script ni carpeta, Kills que
@@ -1455,28 +1455,61 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 - [x] **Un Kill fallido sin elevar dice el motivo probable** («Si se abrió como administrador…»).
   > ✅ Visto en vivo sobre el `node` de prueba; la pista no sale con la app elevada (probado).
 
-### Fase D — consistencia y claridad
+### Fase D — consistencia y claridad — ✅ **hecha y verificada el 2026-09-24** (v1.7.0)
 
-- [ ] **D1. Una cabecera común para las cuatro vistas** (título, una línea opcional, acciones a la
+> **Verificado en la app en marcha**, con los procesos y servicios reales del equipo, a 1000×680 y
+> 900×480: axe-core 4.13 da **cero violaciones y cero incompletos** en las cuatro vistas y los dos
+> temas, también con la barra de la selección a la vista y con una fila bajo el puntero. En vivo
+> solo se marcaron y desmarcaron casillas, se pasó el puntero y se escribió en el buscador: **no se
+> pulsó ningún Kill, Nuke All, Cerrar, Arrancar ni Detener**. 278 pruebas del frontend en verde.
+> Decisiones, en CONTEXT §4 (2026-09-24).
+
+- [x] **D1. Una cabecera común para las cuatro vistas** (título, una línea opcional, acciones a la
       derecha). Hoy cada una es distinta, y Procesos e Historial no tienen `h2`. La explicación de
       Servicios, en una línea con un desplegable «¿Por qué pide administrador?».
-- [ ] **D2. Ajustes agrupado**: General (Idioma —primero, como se decidió—, Apariencia, Al cerrar,
+  > ✅ **`ViewHeader` y `ViewBody`**: cada vista pinta su cabecera —fija, fuera del scroll— y su
+  > cuerpo, que es lo único que se desplaza. Las cuatro empiezan por su `h2` y miden al menos lo
+  > mismo (57 px). Servicios: una línea y un `<details>` nativo. **La verificación encontró un fallo
+  > nuevo**: con «Vaciar» en la cabecera, el cuerpo del Historial se quedó sin nada enfocable y con
+  > teclado no se podía desplazar (axe, `scrollable-region-focusable`). El cuerpo entra ahora en el
+  > tabulador con nombre.
+- [x] **D2. Ajustes agrupado**: General (Idioma —primero, como se decidió—, Apariencia, Al cerrar,
       Atajo) · Vigilancia (Procesos, Servicios) · Automatismos (Auto-Kill, Zombie Finder) ·
       Actualizaciones · Acerca de, **al final**. Hoy son 10 secciones en 1.697 px con «Acerca de» en
       medio.
-- [ ] **D3. Un solo verbo para cerrar procesos.** Hoy son cinco: Kill, Matar, Nuke, Cerrar y
+  > ✅ **Hecho**, con dos secciones que el plan no tenía: «Permisos de administrador» va en
+  > General y «Procesos protegidos» en Vigilancia. Encabezados en tres niveles —vista, grupo,
+  > sección— para quien salta por ellos con un lector de pantalla.
+- [x] **D3. Un solo verbo para cerrar procesos.** Hoy son cinco: Kill, Matar, Nuke, Cerrar y
       Terminar. «Kill» y «Nuke All» se quedan en inglés, que está decidido; el resto se alinea.
       Con un filtro activo, el botón dice que actúa sobre la lista filtrada.
-- [ ] **D4. Servicios parados sin explicaciones equivocadas.** El «—» de su RAM habla de permisos de
+  > ✅ **«Cerrar»**, en los dos idiomas («Close» en inglés): el menú de la fila, los diálogos, los
+  > avisos y el error de Rust. Con filtro o búsqueda, el botón pasa a **«Nuke filtrados»**, con el
+  > número en su nombre accesible; visto en vivo con la búsqueda «node».
+- [x] **D4. Servicios parados sin explicaciones equivocadas.** El «—» de su RAM habla de permisos de
       administrador y el de puertos de SQL Express sin TCP, cuando el motivo es que están parados; y
       el lector de pantalla lo lee en cada fila parada.
-- [ ] **D5. Menos rojo en la tabla**: Kill neutro que se tiñe al pasar o enfocar la fila; el rojo
+  > ✅ **Hecho**: «Parado: no ocupa RAM ni puertos» en el `title`, y nada para el lector de
+  > pantalla, porque la columna Estado ya lo dice. Y con la app elevada, la RAM que falta de un
+  > servicio corriendo dice «no se pudo leer» en vez de pedir administrador. Visto en vivo sobre los
+  > ocho servicios parados del equipo.
+- [x] **D5. Menos rojo en la tabla**: Kill neutro que se tiñe al pasar o enfocar la fila; el rojo
       lleno, solo para Nuke All. Hoy hay un botón rojo por fila compitiendo con los puertos.
-- [ ] **D6. Un suelo en la escala de la barra de CPU**, y `0.0%` en gris. Se escala al máximo de la
+  > ✅ **Hecho y medido en vivo**: en reposo, gris y con borde neutro; con la fila bajo el puntero o
+  > el foco dentro, texto y borde rojos. axe sobre la fila con el puntero encima, limpio. Primero el
+  > borde no cambiaba en oscuro —el `dark:` del outline ganaba—, y se corrigió.
+- [x] **D6. Un suelo en la escala de la barra de CPU**, y `0.0%` en gris. Se escala al máximo de la
       lista, y en reposo un proceso al 2,5 % sale con la barra llena. La decisión del 2026-07-23 se
       razonó para la RAM, que se queda como está.
-- [ ] **D7. Que se note la selección**: fondo en la fila seleccionada y una barra «3 seleccionados ·
+  > ✅ **El suelo es un núcleo entero** (`100 / hardwareConcurrency`), no una cifra fija: la CPU de
+  > cada proceso va sobre el equipo, y un Node que satura su núcleo en 16 hilos da 6,25 %, que sí
+  > es una barra llena. En reposo, en vivo, todas las barras quedaron vacías y los `0.0%` en gris.
+- [x] **D7. Que se note la selección**: fondo en la fila seleccionada y una barra «3 seleccionados ·
       Cerrar · Quitar selección».
+  > ✅ **Hecho**, con la barra **flotando abajo** y no intercalada sobre la tabla: medido, marcar
+  > dos casillas movió **0 px** las ocho primeras filas. La fila marcada lleva fondo y la barra de
+  > acento del sidebar. Con una selección, Nuke All se aparta (`invisible`, sin que salte el
+  > buscador) y la acción está en la barra; el «Cerrar» de la barra va en rojo tenue.
 
 ### Fase E — pulido
 

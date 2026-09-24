@@ -41,7 +41,8 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 - Busca por nombre, script, carpeta, PID **o número de puerto**: escribe `3000` y te queda la fila
   que lo ocupa.
 - Cierra procesos de uno en uno con **Kill**, o por selección múltiple o de golpe con **Nuke All**,
-  que piden confirmación. Mientras el puntero está sobre la tabla **las filas no cambian de
+  que piden confirmación. Al marcar filas aparece una barra con **Cerrar** y **Quitar selección**, y
+  con un filtro puesto el botón dice que cierra **la lista filtrada**. Mientras el puntero está sobre la tabla **las filas no cambian de
   sitio**, para que el Kill que tienes debajo siga siendo el del mismo proceso.
 - **Procesos protegidos**: los que marques —por ejecutable, script o carpeta— no los cierra nada de
   la app, ni Nuke All, ni la bandeja, ni el atajo, ni el Auto-Kill.
@@ -284,7 +285,7 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 265 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 278 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
 cd src-tauri && cargo test    # 117 pruebas del backend
 ```

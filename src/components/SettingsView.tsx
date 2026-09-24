@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -26,6 +27,7 @@ import { Marcado, useT } from "../i18n";
 import { formatMemory } from "../lib/format";
 import { Actualizaciones } from "./Actualizaciones";
 import { Segmented } from "./Segmented";
+import { ViewBody, ViewHeader } from "./ViewHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -303,521 +305,550 @@ export function SettingsView({
   }
 
   return (
-    <div className="max-w-2xl space-y-8 px-5 py-6">
-      {/* El idioma va **el primero de todos**: quien abra la app y no entienda la mitad tiene que
-          tropezarse con el selector sin buscarlo, y por eso el titulo va en los dos idiomas a la
-          vez. Cambiarlo retraduce tambien el menu de la bandeja y las notificaciones, que las
-          escribe Rust: ver `textos.rs`. */}
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.idioma.titulo}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t.idioma.descripcion}
-        </p>
+    <>
+      <ViewHeader title={t.sidebar.ajustes} />
+      <ViewBody>
+        <div className="max-w-2xl space-y-10 px-5 py-6">
+          {/* Tier 11, D2: diez secciones seguidas, en 1.697 px y con «Acerca de» en medio,
+              se leían como una lista sin orden. En grupos: lo general, lo que se vigila, lo
+              que actúa solo, las actualizaciones y, al final, «Acerca de». */}
+          <Grupo titulo={t.ajustes.grupos.general}>
+            {/* El idioma va **el primero de todos**: quien abra la app y no entienda la mitad tiene que
+                tropezarse con el selector sin buscarlo, y por eso el titulo va en los dos idiomas a la
+                vez. Cambiarlo retraduce tambien el menu de la bandeja y las notificaciones, que las
+                escribe Rust: ver `textos.rs`. */}
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
+                {t.idioma.titulo}
+              </h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t.idioma.descripcion}
+              </p>
 
-        <div className="mt-3">
-          <Segmented
-            label={t.idioma.titulo}
-            value={settings.language}
-            onChange={(language) => onChange({ ...settings, language })}
-            options={IDIOMAS.map((value) => ({
-              value,
-              label: (
-                <>
-                  <LanguagesIcon aria-hidden />
-                  {t.idioma.nombres[value]}
-                </>
-              ),
-            }))}
-          />
-        </div>
-      </section>
+              <div className="mt-3">
+                <Segmented
+                  label={t.idioma.titulo}
+                  value={settings.language}
+                  onChange={(language) => onChange({ ...settings, language })}
+                  options={IDIOMAS.map((value) => ({
+                    value,
+                    label: (
+                      <>
+                        <LanguagesIcon aria-hidden />
+                        {t.idioma.nombres[value]}
+                      </>
+                    ),
+                  }))}
+                />
+              </div>
+            </section>
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.apariencia.titulo}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <Marcado texto={t.ajustes.apariencia.descripcion} />
-        </p>
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
+                {t.ajustes.apariencia.titulo}
+              </h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                <Marcado texto={t.ajustes.apariencia.descripcion} />
+              </p>
 
-        <div className="mt-3">
-          <Segmented
-            label={t.ajustes.apariencia.titulo}
-            value={settings.theme}
-            onChange={(theme) => onChange({ ...settings, theme })}
-            options={THEMES.map((value) => {
-              const Icon = THEME_ICONS[value];
-              return {
-                value,
-                label: (
-                  <>
-                    <Icon aria-hidden />
-                    {t.temas[value]}
-                  </>
-                ),
-              };
-            })}
-          />
-        </div>
-      </section>
+              <div className="mt-3">
+                <Segmented
+                  label={t.ajustes.apariencia.titulo}
+                  value={settings.theme}
+                  onChange={(theme) => onChange({ ...settings, theme })}
+                  options={THEMES.map((value) => {
+                    const Icon = THEME_ICONS[value];
+                    return {
+                      value,
+                      label: (
+                        <>
+                          <Icon aria-hidden />
+                          {t.temas[value]}
+                        </>
+                      ),
+                    };
+                  })}
+                />
+              </div>
+            </section>
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.vigilados.titulo}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <Marcado texto={t.ajustes.vigilados.descripcion} />
-        </p>
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
+                {t.ajustes.alCerrar.titulo}
+              </h4>
+              <div className="mt-3 flex items-start gap-3">
+                <Switch
+                  id="close-to-tray"
+                  checked={settings.closeToTray}
+                  onCheckedChange={(checked) =>
+                    onChange({ ...settings, closeToTray: checked })
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor="close-to-tray" className="cursor-pointer text-sm">
+                  <span>{t.ajustes.alCerrar.interruptor}</span>
+                  <span className="mt-1 block text-muted-foreground">
+                    <Marcado texto={t.ajustes.alCerrar.detalle} />
+                  </span>
+                </label>
+              </div>
+            </section>
 
-        <div className="mt-3 flex gap-2">
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") addName();
-            }}
-            placeholder={t.ajustes.vigilados.placeholder}
-          />
-          <Button
-            variant="outline"
-            onClick={addName}
-            aria-label={t.ajustes.vigilados.anadirLabel}
-          >
-            {t.ajustes.vigilados.anadir}
-          </Button>
-        </div>
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
+                {t.ajustes.atajo.titulo}
+              </h4>
+              <div className="mt-3 flex items-start gap-3">
+                <Switch
+                  id="hotkey"
+                  checked={settings.hotkeyEnabled}
+                  onCheckedChange={(checked) =>
+                    onChange({ ...settings, hotkeyEnabled: checked })
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor="hotkey" className="cursor-pointer text-sm">
+                  <span>
+                    {t.ajustes.atajo.activar}{" "}
+                    {/* El `<kbd>` es estructura, no texto: se queda aqui y el catalogo solo pone
+                        la palabra que lo precede. */}
+                    <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                      {HOTKEYS.find((h) => h.value === settings.hotkey)?.label ??
+                        HOTKEYS[0].label}
+                    </kbd>
+                  </span>
+                  <span className="mt-1 block text-muted-foreground">
+                    <Marcado texto={t.ajustes.atajo.detalle} />
+                  </span>
+                </label>
+              </div>
 
-        {settings.customNames.length > 0 && (
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {settings.customNames.map((name) => (
-              <li
-                key={name}
-                className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2.5 text-sm"
+              {/* La combinacion y la doble pulsacion se pueden tocar con el atajo apagado, igual que el
+                  umbral del Auto-Kill: asi se deja preparado antes de encenderlo. */}
+              <div className="mt-3 pl-11">
+                <Segmented
+                  label={t.ajustes.atajo.combinacion}
+                  value={settings.hotkey}
+                  onChange={(hotkey) => onChange({ ...settings, hotkey })}
+                  options={HOTKEYS}
+                  itemClassName="font-mono text-xs"
+                />
+              </div>
+
+              <div className="mt-3 flex items-start gap-3 pl-11">
+                <Switch
+                  id="hotkey-doble"
+                  checked={settings.hotkeyDoublePress}
+                  onCheckedChange={(checked) =>
+                    onChange({ ...settings, hotkeyDoublePress: checked })
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor="hotkey-doble" className="cursor-pointer text-sm">
+                  <span>{t.ajustes.atajo.doble}</span>
+                  <span className="mt-1 block text-muted-foreground">
+                    <Marcado texto={t.ajustes.atajo.dobleDetalle} />
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <section>
+              <h4
+                ref={adminRef}
+                tabIndex={-1}
+                className="scroll-mt-6 font-heading text-sm font-semibold outline-none"
               >
-                <span className="font-mono text-xs">{name}</span>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={t.ajustes.vigilados.quitar(name)}
-                  onClick={() => removeName(name)}
-                >
-                  <XIcon />
+                {t.ajustes.administrador.titulo}
+              </h4>
+              {elevated !== null && (
+                <p className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
+                  {elevated ? (
+                    <ShieldCheckIcon
+                      className="mt-0.5 size-4 shrink-0 text-emerald-700 dark:text-emerald-400"
+                      aria-hidden
+                    />
+                  ) : (
+                    <ShieldAlertIcon
+                      className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-400"
+                      aria-hidden
+                    />
+                  )}
+                  <span>
+                    <Marcado
+                      texto={
+                        elevated
+                          ? t.ajustes.administrador.estadoSi
+                          : t.ajustes.administrador.estadoNo
+                      }
+                    />
+                  </span>
+                </p>
+              )}
+              {elevated === false && onRestartAsAdmin && (
+                <Button variant="outline" onClick={onRestartAsAdmin} className="mt-3 ml-6">
+                  <ShieldAlertIcon />
+                  {t.ajustes.administrador.reiniciar}
                 </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              )}
+              <div className="mt-3 flex items-start gap-3">
+                <Switch
+                  id="run-as-admin"
+                  checked={settings.runAsAdmin}
+                  onCheckedChange={(checked) =>
+                    onChange({ ...settings, runAsAdmin: checked })
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor="run-as-admin" className="cursor-pointer text-sm">
+                  <span>{t.ajustes.administrador.interruptor}</span>
+                  <span className="mt-1 block text-muted-foreground">
+                    <Marcado texto={t.ajustes.administrador.detalle} />
+                  </span>
+                </label>
+              </div>
+            </section>
+          </Grupo>
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.servicios.titulo}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <Marcado texto={t.ajustes.servicios.descripcion} />
-        </p>
+          <Grupo titulo={t.ajustes.grupos.vigilancia}>
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
+                {t.ajustes.vigilados.titulo}
+              </h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                <Marcado texto={t.ajustes.vigilados.descripcion} />
+              </p>
 
-        <div className="mt-3 flex gap-2">
-          <Input
-            value={servicioDraft}
-            onChange={(e) => setServicioDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") addServicio();
-            }}
-            placeholder={t.ajustes.servicios.placeholder}
-          />
-          <Button
-            variant="outline"
-            onClick={addServicio}
-            aria-label={t.ajustes.servicios.anadirLabel}
-          >
-            {t.ajustes.servicios.anadir}
-          </Button>
-        </div>
-
-        {settings.customServices.length > 0 && (
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {settings.customServices.map((nombre) => (
-              <li
-                key={nombre}
-                className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2.5 text-sm"
-              >
-                <span className="font-mono text-xs">{nombre}</span>
+              <div className="mt-3 flex gap-2">
+                <Input
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addName();
+                  }}
+                  placeholder={t.ajustes.vigilados.placeholder}
+                />
                 <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={t.ajustes.servicios.quitar(nombre)}
-                  onClick={() => removeServicio(nombre)}
+                  variant="outline"
+                  onClick={addName}
+                  aria-label={t.ajustes.vigilados.anadirLabel}
                 >
-                  <XIcon />
+                  {t.ajustes.vigilados.anadir}
                 </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              </div>
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.protegidos.titulo}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <Marcado texto={t.ajustes.protegidos.descripcion} />
-        </p>
+              {settings.customNames.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {settings.customNames.map((name) => (
+                    <li
+                      key={name}
+                      className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2.5 text-sm"
+                    >
+                      <span className="font-mono text-xs">{name}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={t.ajustes.vigilados.quitar(name)}
+                        onClick={() => removeName(name)}
+                      >
+                        <XIcon />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-        <div className="mt-3 flex gap-2">
-          <Input
-            value={protegidoDraft}
-            onChange={(e) => setProtegidoDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") addProtegido();
-            }}
-            placeholder={t.ajustes.protegidos.placeholder}
-            aria-label={t.ajustes.protegidos.titulo}
-          />
-          <Button
-            variant="outline"
-            onClick={addProtegido}
-            aria-label={t.ajustes.protegidos.anadirLabel}
-          >
-            {t.ajustes.protegidos.anadir}
-          </Button>
-        </div>
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
+                {t.ajustes.servicios.titulo}
+              </h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                <Marcado texto={t.ajustes.servicios.descripcion} />
+              </p>
 
-        {settings.protected.length > 0 && (
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {settings.protected.map((nombre) => (
-              <li
-                key={nombre}
-                className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2.5 text-sm"
-              >
-                <span className="font-mono text-xs">{nombre}</span>
+              <div className="mt-3 flex gap-2">
+                <Input
+                  value={servicioDraft}
+                  onChange={(e) => setServicioDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addServicio();
+                  }}
+                  placeholder={t.ajustes.servicios.placeholder}
+                />
                 <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={t.ajustes.protegidos.quitar(nombre)}
-                  onClick={() => removeProtegido(nombre)}
+                  variant="outline"
+                  onClick={addServicio}
+                  aria-label={t.ajustes.servicios.anadirLabel}
                 >
-                  <XIcon />
+                  {t.ajustes.servicios.anadir}
                 </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              </div>
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.autoKill.titulo}
-        </h2>
-        <div className="mt-3 flex items-start gap-3">
-          <Switch
-            id="auto-kill"
-            checked={settings.autoKillEnabled}
-            onCheckedChange={(checked) =>
-              onChange({ ...settings, autoKillEnabled: checked })
-            }
-            className="mt-0.5"
-          />
-          <label htmlFor="auto-kill" className="cursor-pointer text-sm">
-            <span>{t.ajustes.autoKill.interruptor}</span>
-            <span className="mt-1 block text-muted-foreground">
-              <Marcado texto={t.ajustes.autoKill.detalle} />
-            </span>
-          </label>
-        </div>
+              {settings.customServices.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {settings.customServices.map((nombre) => (
+                    <li
+                      key={nombre}
+                      className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2.5 text-sm"
+                    >
+                      <span className="font-mono text-xs">{nombre}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={t.ajustes.servicios.quitar(nombre)}
+                        onClick={() => removeServicio(nombre)}
+                      >
+                        <XIcon />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-        <div className="mt-3 flex items-center gap-2 pl-11">
-          <Input
-            id="auto-kill-mb"
-            type="number"
-            inputMode="numeric"
-            min={AUTO_KILL_MIN_MB}
-            step={256}
-            value={mbDraft}
-            // El campo se deja editable aunque el Auto-Kill este apagado: si no,
-            // habria que armarlo con el umbral por defecto para poder cambiarlo,
-            // y ese rato con 2 GB puede llevarse por delante algo legitimo.
-            onChange={(e) => setMbDraft(e.target.value)}
-            // Se guarda al salir del campo, no en cada tecla: escribir "2048"
-            // pasa por "2", y guardar eso con el Auto-Kill encendido bajaria el
-            // umbral al minimo durante un instante, con el vigilante mirando.
-            onBlur={commitMb}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            // El texto de al lado va en aria-describedby, que es descripcion y no
-            // nombre: sin este aria-label el campo se anuncia sin decir que es.
-            aria-label={t.ajustes.autoKill.campoLabel}
-            aria-describedby="auto-kill-equivalencia"
-            className="w-28 tabular-nums"
-          />
-          <span
-            id="auto-kill-equivalencia"
-            className="text-sm text-muted-foreground"
-          >
-            {t.ajustes.autoKill.unidad(equivalencia, AUTO_KILL_MIN_MB)}
-          </span>
-        </div>
-      </section>
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
+                {t.ajustes.protegidos.titulo}
+              </h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                <Marcado texto={t.ajustes.protegidos.descripcion} />
+              </p>
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.zombie.titulo}
-        </h2>
-        <div className="mt-3 flex items-start gap-3">
-          <Switch
-            id="zombie"
-            checked={settings.zombieEnabled}
-            onCheckedChange={(checked) =>
-              onChange({ ...settings, zombieEnabled: checked })
-            }
-            className="mt-0.5"
-          />
-          <label htmlFor="zombie" className="cursor-pointer text-sm">
-            <span>{t.ajustes.zombie.interruptor}</span>
-            <span className="mt-1 block text-muted-foreground">
-              <Marcado texto={t.ajustes.zombie.detalle} />
-            </span>
-          </label>
-        </div>
+              <div className="mt-3 flex gap-2">
+                <Input
+                  value={protegidoDraft}
+                  onChange={(e) => setProtegidoDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addProtegido();
+                  }}
+                  placeholder={t.ajustes.protegidos.placeholder}
+                  aria-label={t.ajustes.protegidos.titulo}
+                />
+                <Button
+                  variant="outline"
+                  onClick={addProtegido}
+                  aria-label={t.ajustes.protegidos.anadirLabel}
+                >
+                  {t.ajustes.protegidos.anadir}
+                </Button>
+              </div>
 
-        <div className="mt-3 flex items-center gap-2 pl-11">
-          <Input
-            id="zombie-minutos"
-            type="number"
-            inputMode="numeric"
-            min={ZOMBIE_MIN_MINUTES}
-            step={5}
-            value={minutosDraft}
-            onChange={(e) => setMinutosDraft(e.target.value)}
-            onBlur={commitMinutos}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            aria-label={t.ajustes.zombie.campoLabel}
-            aria-describedby="zombie-explicacion"
-            className="w-28 tabular-nums"
-          />
-          <span
-            id="zombie-explicacion"
-            className="text-sm text-muted-foreground"
-          >
-            {t.ajustes.zombie.unidad(ZOMBIE_MIN_MINUTES)}
-          </span>
-        </div>
-      </section>
+              {settings.protected.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {settings.protected.map((nombre) => (
+                    <li
+                      key={nombre}
+                      className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2.5 text-sm"
+                    >
+                      <span className="font-mono text-xs">{nombre}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={t.ajustes.protegidos.quitar(nombre)}
+                        onClick={() => removeProtegido(nombre)}
+                      >
+                        <XIcon />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </Grupo>
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.actualizaciones.titulo}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <Marcado texto={t.ajustes.actualizaciones.descripcion} />
-        </p>
-        <Actualizaciones updater={updater} />
-      </section>
+          <Grupo titulo={t.ajustes.grupos.automatismos}>
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
+                {t.ajustes.autoKill.titulo}
+              </h4>
+              <div className="mt-3 flex items-start gap-3">
+                <Switch
+                  id="auto-kill"
+                  checked={settings.autoKillEnabled}
+                  onCheckedChange={(checked) =>
+                    onChange({ ...settings, autoKillEnabled: checked })
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor="auto-kill" className="cursor-pointer text-sm">
+                  <span>{t.ajustes.autoKill.interruptor}</span>
+                  <span className="mt-1 block text-muted-foreground">
+                    <Marcado texto={t.ajustes.autoKill.detalle} />
+                  </span>
+                </label>
+              </div>
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.acercaDe.titulo}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <Marcado
-            texto={t.ajustes.acercaDe.descripcion(version ? ` ${version}` : "")}
-          />
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => abrirRecurso("LICENSE.txt")}>
-            <ScaleIcon />
-            {t.ajustes.acercaDe.licencia}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => abrirRecurso("THIRD-PARTY-NOTICES.txt")}
-          >
-            <FileTextIcon />
-            {t.ajustes.acercaDe.avisos}
-          </Button>
-          <Button variant="ghost" onClick={abrirRepositorio}>
-            <ExternalLinkIcon />
-            {t.ajustes.acercaDe.repositorio}
-          </Button>
-          {/* El ultimo de la fila y en `ghost`: es una invitacion, no una de las cosas
-              que uno viene a hacer a Ajustes. */}
-          <Button variant="ghost" onClick={abrirApoyo}>
-            <HeartIcon />
-            {t.ajustes.acercaDe.apoyar}
-          </Button>
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {t.ajustes.acercaDe.apoyarDetalle}
-        </p>
+              <div className="mt-3 flex items-center gap-2 pl-11">
+                <Input
+                  id="auto-kill-mb"
+                  type="number"
+                  inputMode="numeric"
+                  min={AUTO_KILL_MIN_MB}
+                  step={256}
+                  value={mbDraft}
+                  // El campo se deja editable aunque el Auto-Kill este apagado: si no,
+                  // habria que armarlo con el umbral por defecto para poder cambiarlo,
+                  // y ese rato con 2 GB puede llevarse por delante algo legitimo.
+                  onChange={(e) => setMbDraft(e.target.value)}
+                  // Se guarda al salir del campo, no en cada tecla: escribir "2048"
+                  // pasa por "2", y guardar eso con el Auto-Kill encendido bajaria el
+                  // umbral al minimo durante un instante, con el vigilante mirando.
+                  onBlur={commitMb}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                  // El texto de al lado va en aria-describedby, que es descripcion y no
+                  // nombre: sin este aria-label el campo se anuncia sin decir que es.
+                  aria-label={t.ajustes.autoKill.campoLabel}
+                  aria-describedby="auto-kill-equivalencia"
+                  className="w-28 tabular-nums"
+                />
+                <span
+                  id="auto-kill-equivalencia"
+                  className="text-sm text-muted-foreground"
+                >
+                  {t.ajustes.autoKill.unidad(equivalencia, AUTO_KILL_MIN_MB)}
+                </span>
+              </div>
+            </section>
 
-        {logPath && (
-          <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
-            <p className="text-sm">
-              <strong className="font-medium">
-                {t.ajustes.acercaDe.logTitulo}
-              </strong>
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              <Marcado texto={t.ajustes.acercaDe.logDescripcion} />
-            </p>
-            <p className="mt-2 font-mono text-xs break-all text-muted-foreground">
-              {logPath}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button variant="outline" onClick={abrirCarpetaDelLog}>
-                <ScrollTextIcon />
-                {t.ajustes.acercaDe.abrirCarpeta}
-              </Button>
-              <Button variant="ghost" onClick={copiarRutaDelLog}>
-                {t.ajustes.acercaDe.copiarRuta}
-              </Button>
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
+                {t.ajustes.zombie.titulo}
+              </h4>
+              <div className="mt-3 flex items-start gap-3">
+                <Switch
+                  id="zombie"
+                  checked={settings.zombieEnabled}
+                  onCheckedChange={(checked) =>
+                    onChange({ ...settings, zombieEnabled: checked })
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor="zombie" className="cursor-pointer text-sm">
+                  <span>{t.ajustes.zombie.interruptor}</span>
+                  <span className="mt-1 block text-muted-foreground">
+                    <Marcado texto={t.ajustes.zombie.detalle} />
+                  </span>
+                </label>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2 pl-11">
+                <Input
+                  id="zombie-minutos"
+                  type="number"
+                  inputMode="numeric"
+                  min={ZOMBIE_MIN_MINUTES}
+                  step={5}
+                  value={minutosDraft}
+                  onChange={(e) => setMinutosDraft(e.target.value)}
+                  onBlur={commitMinutos}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                  aria-label={t.ajustes.zombie.campoLabel}
+                  aria-describedby="zombie-explicacion"
+                  className="w-28 tabular-nums"
+                />
+                <span
+                  id="zombie-explicacion"
+                  className="text-sm text-muted-foreground"
+                >
+                  {t.ajustes.zombie.unidad(ZOMBIE_MIN_MINUTES)}
+                </span>
+              </div>
+            </section>
+          </Grupo>
+
+          <Grupo titulo={t.ajustes.actualizaciones.titulo}>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                <Marcado texto={t.ajustes.actualizaciones.descripcion} />
+              </p>
+              <Actualizaciones updater={updater} />
             </div>
-          </div>
-        )}
-      </section>
+          </Grupo>
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.alCerrar.titulo}
-        </h2>
-        <div className="mt-3 flex items-start gap-3">
-          <Switch
-            id="close-to-tray"
-            checked={settings.closeToTray}
-            onCheckedChange={(checked) =>
-              onChange({ ...settings, closeToTray: checked })
-            }
-            className="mt-0.5"
-          />
-          <label htmlFor="close-to-tray" className="cursor-pointer text-sm">
-            <span>{t.ajustes.alCerrar.interruptor}</span>
-            <span className="mt-1 block text-muted-foreground">
-              <Marcado texto={t.ajustes.alCerrar.detalle} />
-            </span>
-          </label>
-        </div>
-      </section>
+          <Grupo titulo={t.ajustes.acercaDe.titulo}>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                <Marcado
+                  texto={t.ajustes.acercaDe.descripcion(version ? ` ${version}` : "")}
+                />
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => abrirRecurso("LICENSE.txt")}>
+                  <ScaleIcon />
+                  {t.ajustes.acercaDe.licencia}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => abrirRecurso("THIRD-PARTY-NOTICES.txt")}
+                >
+                  <FileTextIcon />
+                  {t.ajustes.acercaDe.avisos}
+                </Button>
+                <Button variant="ghost" onClick={abrirRepositorio}>
+                  <ExternalLinkIcon />
+                  {t.ajustes.acercaDe.repositorio}
+                </Button>
+                {/* El ultimo de la fila y en `ghost`: es una invitacion, no una de las cosas
+                    que uno viene a hacer a Ajustes. */}
+                <Button variant="ghost" onClick={abrirApoyo}>
+                  <HeartIcon />
+                  {t.ajustes.acercaDe.apoyar}
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t.ajustes.acercaDe.apoyarDetalle}
+              </p>
 
-      <section>
-        <h2
-          ref={adminRef}
-          tabIndex={-1}
-          className="scroll-mt-6 font-heading text-sm font-semibold outline-none"
-        >
-          {t.ajustes.administrador.titulo}
-        </h2>
-        {elevated !== null && (
-          <p className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
-            {elevated ? (
-              <ShieldCheckIcon
-                className="mt-0.5 size-4 shrink-0 text-emerald-700 dark:text-emerald-400"
-                aria-hidden
-              />
-            ) : (
-              <ShieldAlertIcon
-                className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-400"
-                aria-hidden
-              />
-            )}
-            <span>
-              <Marcado
-                texto={
-                  elevated
-                    ? t.ajustes.administrador.estadoSi
-                    : t.ajustes.administrador.estadoNo
-                }
-              />
-            </span>
-          </p>
-        )}
-        {elevated === false && onRestartAsAdmin && (
-          <Button variant="outline" onClick={onRestartAsAdmin} className="mt-3 ml-6">
-            <ShieldAlertIcon />
-            {t.ajustes.administrador.reiniciar}
-          </Button>
-        )}
-        <div className="mt-3 flex items-start gap-3">
-          <Switch
-            id="run-as-admin"
-            checked={settings.runAsAdmin}
-            onCheckedChange={(checked) =>
-              onChange({ ...settings, runAsAdmin: checked })
-            }
-            className="mt-0.5"
-          />
-          <label htmlFor="run-as-admin" className="cursor-pointer text-sm">
-            <span>{t.ajustes.administrador.interruptor}</span>
-            <span className="mt-1 block text-muted-foreground">
-              <Marcado texto={t.ajustes.administrador.detalle} />
-            </span>
-          </label>
+              {logPath && (
+                <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
+                  <p className="text-sm">
+                    <strong className="font-medium">
+                      {t.ajustes.acercaDe.logTitulo}
+                    </strong>
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <Marcado texto={t.ajustes.acercaDe.logDescripcion} />
+                  </p>
+                  <p className="mt-2 font-mono text-xs break-all text-muted-foreground">
+                    {logPath}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={abrirCarpetaDelLog}>
+                      <ScrollTextIcon />
+                      {t.ajustes.acercaDe.abrirCarpeta}
+                    </Button>
+                    <Button variant="ghost" onClick={copiarRutaDelLog}>
+                      {t.ajustes.acercaDe.copiarRuta}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Grupo>
         </div>
-      </section>
+      </ViewBody>
+    </>
+  );
+}
 
-      <section>
-        <h2 className="font-heading text-sm font-semibold">
-          {t.ajustes.atajo.titulo}
-        </h2>
-        <div className="mt-3 flex items-start gap-3">
-          <Switch
-            id="hotkey"
-            checked={settings.hotkeyEnabled}
-            onCheckedChange={(checked) =>
-              onChange({ ...settings, hotkeyEnabled: checked })
-            }
-            className="mt-0.5"
-          />
-          <label htmlFor="hotkey" className="cursor-pointer text-sm">
-            <span>
-              {t.ajustes.atajo.activar}{" "}
-              {/* El `<kbd>` es estructura, no texto: se queda aqui y el catalogo solo pone
-                  la palabra que lo precede. */}
-              <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                {HOTKEYS.find((h) => h.value === settings.hotkey)?.label ??
-                  HOTKEYS[0].label}
-              </kbd>
-            </span>
-            <span className="mt-1 block text-muted-foreground">
-              <Marcado texto={t.ajustes.atajo.detalle} />
-            </span>
-          </label>
-        </div>
-
-        {/* La combinacion y la doble pulsacion se pueden tocar con el atajo apagado, igual que el
-            umbral del Auto-Kill: asi se deja preparado antes de encenderlo. */}
-        <div className="mt-3 pl-11">
-          <Segmented
-            label={t.ajustes.atajo.combinacion}
-            value={settings.hotkey}
-            onChange={(hotkey) => onChange({ ...settings, hotkey })}
-            options={HOTKEYS}
-            itemClassName="font-mono text-xs"
-          />
-        </div>
-
-        <div className="mt-3 flex items-start gap-3 pl-11">
-          <Switch
-            id="hotkey-doble"
-            checked={settings.hotkeyDoublePress}
-            onCheckedChange={(checked) =>
-              onChange({ ...settings, hotkeyDoublePress: checked })
-            }
-            className="mt-0.5"
-          />
-          <label htmlFor="hotkey-doble" className="cursor-pointer text-sm">
-            <span>{t.ajustes.atajo.doble}</span>
-            <span className="mt-1 block text-muted-foreground">
-              <Marcado texto={t.ajustes.atajo.dobleDetalle} />
-            </span>
-          </label>
-        </div>
-      </section>
-    </div>
+/**
+ * Un grupo de Ajustes, con su rótulo (Tier 11, D2).
+ *
+ * El rótulo es un `h3` entre el `h2` de la vista y los `h4` de cada sección: quien salta por
+ * encabezados con un lector de pantalla recorre primero los grupos y luego entra en uno.
+ */
+function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <section className="space-y-6">
+      <h3 className="border-b border-border pb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        {titulo}
+      </h3>
+      {children}
+    </section>
   );
 }

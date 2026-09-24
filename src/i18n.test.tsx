@@ -45,7 +45,9 @@ const FRASES: ((c: typeof es) => string)[] = [
   (c) => c.medidor.tituloRam("1.2 GB", "15.6 GB", "31.9 GB"),
   (c) => c.cabecera.enLaLista(1),
   (c) => c.cabecera.enLaLista(7),
-  (c) => c.cabecera.matar(3),
+  (c) => c.cabecera.nukeFiltradosLabel(3),
+  (c) => c.seleccion.recuento(3),
+  (c) => c.seleccion.cerrarLabel(3),
   (c) => c.tabla.seleccionarPid(4242),
   (c) => c.tabla.zombiTitulo("2h 10m", [3000]),
   (c) => c.tabla.zombiTitulo("2h 10m", [3000, 5173]),
@@ -169,6 +171,7 @@ describe("el catálogo de idiomas", () => {
       "servicios.familias.iis": "nombre de producto",
       // «Manual» se escribe igual en los dos idiomas, y es la palabra que usa el propio Windows.
       "servicios.arranques.manual": "misma palabra en los dos idiomas",
+      "ajustes.grupos.general": "misma palabra en los dos idiomas",
       "sidebar.subtitulo": "ya estaba en ingles",
       "cabecera.nukeAll": "ya estaba en ingles",
       "tabla.kill": "ya estaba en ingles",

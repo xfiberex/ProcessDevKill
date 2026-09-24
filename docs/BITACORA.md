@@ -8,6 +8,24 @@
 
 ---
 
+### 2026-09-24 (noche) — Tier 11, Fase D: consistencia y claridad (v1.7.0)
+
+- **Las siete tareas, hechas y verificadas en vivo**:
+  - cabecera común y fija en las cuatro vistas;
+  - Ajustes en cinco grupos;
+  - «cerrar» como único verbo y «Nuke filtrados» con filtro;
+  - servicios parados con su motivo;
+  - Kill neutro que se tiñe con la fila;
+  - la barra de CPU con suelo de un núcleo;
+  - una barra de la selección que flota sin mover las filas (0 px, medido).
+- **axe encontró dos cosas que la fase había roto.** El Historial se quedó sin nada enfocable dentro
+  del scroll al subir «Vaciar» a la cabecera: con teclado no se podía desplazar. Y el «✕» en negrita
+  de «Al cerrar la ventana» era un texto solo de símbolos. Arreglados: axe queda en cero violaciones
+  y cero incompletos en las cuatro vistas, los dos temas, con la selección y con una fila bajo el
+  puntero.
+- **Un tropiezo de la verificación**: Vite no recargó el catálogo de textos en caliente y la primera
+  medida seguía con los textos viejos. Recargando la página, bien. 278 pruebas del frontend.
+
 ### 2026-09-24 (noche) — Modo administrador
 
 - **Pedido por el usuario: que la app diga cuándo no corre como administrador, y que se pueda

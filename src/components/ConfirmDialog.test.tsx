@@ -26,7 +26,7 @@ function Anfitrion({
         onClick={() =>
           setRequest({
             title: "Cerrar 2 procesos",
-            message: "Se terminarán los 2 procesos seleccionados.",
+            message: "Se cerrarán los 2 procesos seleccionados.",
             confirmLabel: "Cerrar procesos",
             onConfirm,
             ...extra,
@@ -58,7 +58,7 @@ describe("ConfirmDialog", () => {
     await abrir();
     expect(screen.getByText("Cerrar 2 procesos")).toBeInTheDocument();
     expect(
-      screen.getByText("Se terminarán los 2 procesos seleccionados."),
+      screen.getByText("Se cerrarán los 2 procesos seleccionados."),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Cerrar procesos" }),
@@ -152,7 +152,7 @@ describe("ConfirmDialog", () => {
       dialogo.getAttribute("aria-describedby")!,
     )!;
     expect(descripcion).toHaveTextContent(
-      "Se terminarán los 2 procesos seleccionados.No se deshace solo.Pedirá permisos.",
+      "Se cerrarán los 2 procesos seleccionados.No se deshace solo.Pedirá permisos.",
     );
     expect(within(descripcion).getByText("No se deshace").tagName).toBe("STRONG");
   });

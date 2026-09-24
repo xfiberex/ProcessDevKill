@@ -10,6 +10,7 @@ function pintar(
   services: ServiceInfo[] | null,
   busy: string | null = null,
   changes: ServiceChange[] = [],
+  elevated: boolean | null = null,
 ) {
   const onRefresh = vi.fn();
   const onIrAAjustes = vi.fn();
@@ -26,6 +27,7 @@ function pintar(
       changes={changes}
       onUndo={onUndo}
       busy={busy}
+      elevated={elevated}
     />,
   );
   return {
@@ -193,6 +195,49 @@ describe("lo que no se sabe", () => {
     const explicado = within(fila("MSSQL$SQLEXPRESS")).getAllByTitle(/TCP\/IP/);
     expect(explicado.length).toBeGreaterThan(0);
     expect(explicado[0]).toHaveTextContent("—");
+  });
+});
+
+/**
+ * Tier 11, D4. Un servicio parado decía que su RAM pedía administrador y que su puerto faltaba
+ * porque SQL Express viene sin TCP: explicaciones de otra cosa. Y el lector de pantalla las leía en
+ * cada fila parada.
+ */
+describe("un servicio parado", () => {
+  it("explica su guion por lo que es: esta parado", () => {
+    pintar([servicio({ name: "MySQL80", state: "stopped", memoryMb: null, ports: [] })]);
+
+    const guiones = within(fila("MySQL80")).getAllByTitle("Parado: no ocupa RAM ni puertos.");
+    expect(guiones).toHaveLength(2);
+    expect(within(fila("MySQL80")).queryByTitle(/administrador|TCP/)).not.toBeInTheDocument();
+  });
+
+  /** El criterio negativo: la columna Estado ya dice «Parado»; repetirlo en cada fila es ruido. */
+  it("no repite la explicacion para el lector de pantalla", () => {
+    pintar([servicio({ name: "MySQL80", state: "stopped", memoryMb: null, ports: [] })]);
+
+    expect(within(fila("MySQL80")).queryByText(/administrador|TCP|Parado:/)).not.toBeInTheDocument();
+  });
+
+  it("corriendo y con la app elevada, la RAM que falta no es cosa de permisos", () => {
+    pintar([servicio({ name: "MiServicio", memoryMb: null })], null, [], true);
+
+    expect(within(fila("MiServicio")).getByTitle("No se pudo leer la RAM de este servicio.")).toBeInTheDocument();
+    expect(within(fila("MiServicio")).queryByTitle(/administrador/)).not.toBeInTheDocument();
+  });
+});
+
+describe("la cabecera", () => {
+  /** Tier 11, D1: una línea, y lo del administrador en un desplegable que se abre al pedirlo. */
+  it("explica lo del administrador en un desplegable", async () => {
+    const { user } = pintar([servicio({ name: "MySQL80" })]);
+
+    expect(screen.getByRole("heading", { level: 2, name: "Servicios de desarrollo" })).toBeInTheDocument();
+    const detalle = screen.getByText(/Windows solo deja tocar un servicio/);
+    expect(detalle).not.toBeVisible();
+
+    await user.click(screen.getByText("¿Por qué pide administrador?"));
+    expect(detalle).toBeVisible();
   });
 });
 

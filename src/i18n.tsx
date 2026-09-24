@@ -160,8 +160,32 @@ export const es = {
     enLaLista: (n: number): string =>
       n === 1 ? "1 proceso en la lista" : `${n} procesos en la lista`,
     refrescar: "Refrescar",
-    matar: (n: number) => `Matar ${n}`,
     nukeAll: "Nuke All",
+    /**
+     * Nuke All con un filtro o una búsqueda puestos (Tier 11, D3). Decía «Nuke All» igual, y lo que
+     * cerraba era **la lista filtrada**: el rótulo prometía más de lo que hacía, al revés de lo
+     * peligroso, pero había que ir al diálogo para saberlo. «Nuke» se queda en inglés, como Kill.
+     */
+    nukeFiltrados: "Nuke filtrados",
+    nukeFiltradosLabel: (n: number): string =>
+      n === 1
+        ? "Nuke filtrados: cerrar el proceso de la lista filtrada"
+        : `Nuke filtrados: cerrar los ${n} procesos de la lista filtrada`,
+  },
+
+  /**
+   * La barra de la selección (Tier 11, D7): cuántos, cerrarlos y deshacer la selección.
+   *
+   * Hasta aquí seleccionar cambiaba el Nuke All de la cabecera por «Matar 3», y no había forma de
+   * soltar la selección salvo desmarcar una a una.
+   */
+  seleccion: {
+    recuento: (n: number): string =>
+      n === 1 ? "1 seleccionado" : `${n} seleccionados`,
+    cerrar: "Cerrar",
+    cerrarLabel: (n: number): string =>
+      n === 1 ? "Cerrar el proceso seleccionado" : `Cerrar los ${n} procesos seleccionados`,
+    quitar: "Quitar selección",
   },
 
   vacio: {
@@ -189,7 +213,8 @@ export const es = {
      * criterio que ya seguían los dos «Añadir» de Ajustes. En inglés sale igual.
      */
     killLabel: (name: string, pid: number) => `Kill ${name}, PID ${pid}`,
-    matarProceso: "Matar proceso",
+    /** «Cerrar» y no «Matar» (Tier 11, D3): Kill y Nuke All en inglés; todo lo demás, «cerrar». */
+    cerrarProceso: "Cerrar proceso",
     protegido: "Protegido",
     /** Va en el `title` del candado y en el del Kill apagado: dice qué lo frena y cómo quitarlo. */
     protegidoTitulo:
@@ -215,7 +240,11 @@ export const es = {
      * por qué antes de que el usuario lo busque.
      */
     descripcion:
-      "Los que instalan las herramientas de desarrollo y arrancan con Windows sin que se note. Arrancarlos o detenerlos pide permisos de administrador **solo en ese momento**: la app nunca se eleva entera. Cambiar el tipo de arranque, igual, y queda anotado para poder deshacerlo." as Rico,
+      "Los que arrancan con Windows sin que se note." as Rico,
+    /** En un desplegable bajo la descripción (Tier 11, D1): se lee una vez, no en cada visita. */
+    porQueAdmin: "¿Por qué pide administrador?",
+    porQueAdminDetalle:
+      "Windows solo deja tocar un servicio con permisos de administrador. Si la app no corre como administrador, arrancar, detener o cambiar el arranque saca el aviso de UAC **solo para esa acción**. El tipo de arranque sobrevive al reinicio, así que cada cambio queda anotado abajo para poder deshacerlo." as Rico,
     recuento: (n: number) => (n === 1 ? "1 servicio" : `${n} servicios`),
     vacio: "No se ha encontrado ningún servicio de desarrollo.",
     vacioDetalle:
@@ -258,6 +287,10 @@ export const es = {
     /** Por qué la RAM sale casi siempre en blanco. Va como `title`, donde se busca. */
     ramDesconocida:
       "La RAM de un servicio solo se puede leer con permisos de administrador. La app puede arrancar con ellos desde Ajustes.",
+    /** La app corre elevada y aun así no la pudo leer: no es cosa de permisos. */
+    ramNoLeida: "No se pudo leer la RAM de este servicio.",
+    /** El «—» de RAM y puertos de un servicio parado (Tier 11, D4): parado no ocupa ninguno. */
+    parado: "Parado: no ocupa RAM ni puertos.",
     sinPuertos:
       "No escucha en ningún puerto TCP. Es normal: SQL Express, por ejemplo, viene con TCP/IP desactivado.",
     pidTitulo: (pid: number) => `PID ${pid}`,
@@ -360,7 +393,7 @@ export const es = {
     cerrarTitulo: (n: number) =>
       `Cerrar ${n} ${n === 1 ? "proceso" : "procesos"}`,
     cerrarMensaje: (n: number, ambito: string) =>
-      `Se ${n === 1 ? "terminará" : "terminarán"} ${ambito}. ${
+      `Se ${n === 1 ? "cerrará" : "cerrarán"} ${ambito}. ${
         n === 1 ? "El proceso se cierra" : "Los procesos se cierran"
       } de golpe, sin guardar nada. Esta acción no se puede deshacer.`,
     cerrarBoton: (n: number): string =>
@@ -382,7 +415,7 @@ export const es = {
 
   avisos: {
     ajustesNoGuardados: "No se pudieron guardar los ajustes",
-    noSePudoTerminar: "No se pudo terminar el proceso",
+    noSePudoCerrar: "No se pudo cerrar el proceso",
     /**
      * Se añade a un cierre fallido **solo si la app corre sin elevar**. Es el motivo más común y el
      * único que el usuario puede arreglar: Windows no deja a un proceso normal cerrar uno abierto
@@ -392,7 +425,7 @@ export const es = {
     quizaAdmin:
       "Si se abrió como administrador, la app necesita ese permiso para cerrarlo: ver Ajustes.",
     fallosParciales: (fallidos: number, total: number) =>
-      `${fallidos} de ${total} no se pudieron terminar`,
+      `${fallidos} de ${total} no se pudieron cerrar`,
     cerradoUno: (name: string) => `${name} cerrado`,
     cerradosVarios: (n: number) => `${n} procesos cerrados`,
     puertosLiberados: (lista: number[]): string =>
@@ -416,6 +449,12 @@ export const es = {
   },
 
   ajustes: {
+    /** Los grupos de Ajustes (Tier 11, D2): diez secciones seguidas se leían como una lista. */
+    grupos: {
+      general: "General",
+      vigilancia: "Vigilancia",
+      automatismos: "Automatismos",
+    },
     apariencia: {
       titulo: "Apariencia",
       descripcion:
@@ -510,7 +549,7 @@ export const es = {
       titulo: "Al cerrar la ventana",
       interruptor: "Dejarla en la bandeja en vez de cerrar la app",
       detalle:
-        "Con esto activado, el botón **✕** esconde la ventana y ProcessDevKill **sigue funcionando** en segundo plano: el Auto-Kill y el atajo global siguen vigilando. Para recuperarla, pulsa su icono en la bandeja; para salir del todo, **Salir** en el menú de ese icono." as Rico,
+        "Con esto activado, **el botón ✕** esconde la ventana y ProcessDevKill **sigue funcionando** en segundo plano: el Auto-Kill y el atajo global siguen vigilando. Para recuperarla, pulsa su icono en la bandeja; para salir del todo, **Salir** en el menú de ese icono." as Rico,
     },
     atajo: {
       titulo: "Atajo global",
@@ -619,8 +658,20 @@ export const en: Catalogo = {
     buscarLabel: "Search processes",
     enLaLista: (n) => (n === 1 ? "1 process listed" : `${n} processes listed`),
     refrescar: "Refresh",
-    matar: (n) => `Kill ${n}`,
     nukeAll: "Nuke All",
+    nukeFiltrados: "Nuke filtered",
+    nukeFiltradosLabel: (n) =>
+      n === 1
+        ? "Nuke filtered: close the process in the filtered list"
+        : `Nuke filtered: close the ${n} processes in the filtered list`,
+  },
+
+  seleccion: {
+    recuento: (n) => (n === 1 ? "1 selected" : `${n} selected`),
+    cerrar: "Close",
+    cerrarLabel: (n) =>
+      n === 1 ? "Close the selected process" : `Close the ${n} selected processes`,
+    quitar: "Clear selection",
   },
 
   vacio: {
@@ -643,7 +694,7 @@ export const en: Catalogo = {
       } ${puertos(lista)}`,
     kill: "Kill",
     killLabel: (name, pid) => `Kill ${name}, PID ${pid}`,
-    matarProceso: "Kill process",
+    cerrarProceso: "Close process",
     protegido: "Protected",
     protegidoTitulo:
       "Protected: neither Kill, Nuke All, the tray, the shortcut nor Auto-Kill will close it. Remove it from the row menu or in Settings.",
@@ -661,7 +712,10 @@ export const en: Catalogo = {
     titulo: "Development services",
     cargando: "Reading the services…",
     descripcion:
-      "The ones your development tools install, starting with Windows without you noticing. Starting or stopping one asks for administrator rights **just for that moment**: the app never runs elevated as a whole. Changing the startup type works the same way, and each change is recorded so you can undo it.",
+      "The ones that start with Windows without you noticing.",
+    porQueAdmin: "Why does it ask for administrator?",
+    porQueAdminDetalle:
+      "Windows only lets administrators touch a service. If the app is not running as administrator, starting, stopping or changing the startup type shows the UAC prompt **just for that action**. The startup type survives a reboot, so each change is recorded below so you can undo it.",
     recuento: (n) => (n === 1 ? "1 service" : `${n} services`),
     vacio: "No development service was found.",
     vacioDetalle:
@@ -702,6 +756,8 @@ export const en: Catalogo = {
     },
     ramDesconocida:
       "A service's RAM can only be read with administrator rights. The app can start with them from Settings.",
+    ramNoLeida: "This service's RAM could not be read.",
+    parado: "Stopped: it uses no RAM or ports.",
     sinPuertos:
       "It is not listening on any TCP port. That is normal: SQL Express, for one, ships with TCP/IP disabled.",
     pidTitulo: (pid) => `PID ${pid}`,
@@ -770,7 +826,7 @@ export const en: Catalogo = {
     // «This will terminate …» y no el ámbito de primero: en inglés el ámbito empieza por
     // minúscula («the selected process»), y abrir la frase con él la deja mal escrita.
     cerrarMensaje: (n, ambito) =>
-      `This will terminate ${ambito}. ${
+      `This will close ${ambito}. ${
         n === 1 ? "The process is closed" : "The processes are closed"
       } at once, without saving anything. This action cannot be undone.`,
     cerrarBoton: (n) => (n === 1 ? "Close process" : "Close processes"),
@@ -790,11 +846,11 @@ export const en: Catalogo = {
 
   avisos: {
     ajustesNoGuardados: "Settings could not be saved",
-    noSePudoTerminar: "The process could not be terminated",
+    noSePudoCerrar: "The process could not be closed",
     quizaAdmin:
       "If it was opened as administrator, the app needs that right to close it: see Settings.",
     fallosParciales: (fallidos, total) =>
-      `${fallidos} of ${total} could not be terminated`,
+      `${fallidos} of ${total} could not be closed`,
     cerradoUno: (name) => `${name} closed`,
     cerradosVarios: (n) => `${n} processes closed`,
     puertosLiberados: (lista) =>
@@ -818,6 +874,11 @@ export const en: Catalogo = {
   },
 
   ajustes: {
+    grupos: {
+      general: "General",
+      vigilancia: "Watching",
+      automatismos: "Automation",
+    },
     apariencia: {
       titulo: "Appearance",
       descripcion:
@@ -904,7 +965,7 @@ export const en: Catalogo = {
       titulo: "When the window is closed",
       interruptor: "Leave it in the tray instead of quitting the app",
       detalle:
-        "With this on, the **✕** button hides the window and ProcessDevKill **keeps running** in the background: Auto-Kill and the global shortcut go on watching. To bring it back, click its tray icon; to quit for good, **Quit** in that icon's menu.",
+        "With this on, **the ✕ button** hides the window and ProcessDevKill **keeps running** in the background: Auto-Kill and the global shortcut go on watching. To bring it back, click its tray icon; to quit for good, **Quit** in that icon's menu.",
     },
     atajo: {
       titulo: "Global shortcut",

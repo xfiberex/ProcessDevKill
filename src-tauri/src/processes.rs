@@ -622,7 +622,7 @@ fn kill_one(
     if process.kill() {
         Ok((name, freed))
     } else {
-        Err(format!("No se pudo terminar {name} (PID {pid})"))
+        Err(format!("No se pudo cerrar {name} (PID {pid})"))
     }
 }
 

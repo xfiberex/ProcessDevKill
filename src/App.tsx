@@ -33,6 +33,8 @@ import { SettingsView } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
 import type { Filter, View } from "./components/Sidebar";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { SelectionBar } from "./components/SelectionBar";
+import { ViewBody, ViewHeader } from "./components/ViewHeader";
 import type { ConfirmRequest } from "./components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -516,6 +518,8 @@ export default function App() {
   // el diálogo cuenten lo mismo que va a pasar. Rust los rechazaría igual; esto es para no mentir.
   const cerrablesSeleccionados = selectedVisible.filter((p) => !p.protected);
   const cerrablesVisibles = visible.filter((p) => !p.protected);
+  /** Si lo que se ve es una parte de la lista: con filtro de runtime o con búsqueda. */
+  const filtrada = filter !== "all" || query !== "";
 
   /** Repetir la columna activa invierte; cambiar de columna estrena su direccion. */
   function ordenarPor(key: SortKey) {
@@ -538,7 +542,7 @@ export default function App() {
       const pista = elevated === false ? t.avisos.quizaAdmin : undefined;
 
       if (failed.length === outcomes.length) {
-        toast.error(failed[0].error ?? t.avisos.noSePudoTerminar, {
+        toast.error(failed[0].error ?? t.avisos.noSePudoCerrar, {
           description: pista,
         });
       } else if (failed.length > 0) {
@@ -655,9 +659,12 @@ export default function App() {
           }}
         />
 
-        <main className="flex min-w-0 flex-1 flex-col">
+        {/* `relative` por la barra de la selección, que flota abajo sin empujar las filas. */}
+        <main className="relative flex min-w-0 flex-1 flex-col">
+          {/* Cada vista pinta su cabecera y su cuerpo con scroll (Tier 11, D1; ver `ViewHeader`).
+              Procesos los pinta aquí porque su estado —búsqueda, selección, orden— vive en App. */}
           {view === "processes" && (
-            <header className="flex items-center gap-3 border-b border-border px-5 py-3">
+            <ViewHeader title={t.sidebar.procesos}>
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -687,43 +694,33 @@ export default function App() {
                 {t.cabecera.refrescar}
               </Button>
 
-              {selectedVisible.length > 0 ? (
-                <Button
-                  variant="destructive"
-                  className={SOLID_DESTRUCTIVE}
-                  disabled={cerrablesSeleccionados.length === 0}
-                  onClick={() =>
-                    askNuke(
-                      cerrablesSeleccionados.map((p) => p.pid),
-                      t.confirmar.ambitoSeleccionados(cerrablesSeleccionados.length),
-                      selectedVisible.length - cerrablesSeleccionados.length,
-                    )
-                  }
-                >
-                  {t.cabecera.matar(cerrablesSeleccionados.length)}
-                </Button>
-              ) : (
-                <Button
-                  variant="destructive"
-                  className={SOLID_DESTRUCTIVE}
-                  disabled={cerrablesVisibles.length === 0}
-                  onClick={() =>
-                    askNuke(
-                      cerrablesVisibles.map((p) => p.pid),
-                      filter === "all" && !query
-                        ? t.confirmar.ambitoTodos
-                        : t.confirmar.ambitoFiltrados,
-                      visible.length - cerrablesVisibles.length,
-                    )
-                  }
-                >
-                  {t.cabecera.nukeAll}
-                </Button>
-              )}
-            </header>
+              {/* Con una selección, Nuke All se aparta y la acción pasa a la barra de abajo: una
+                  sola acción destructiva a la vista, la que corresponde a lo que se está haciendo.
+                  `invisible` y no quitarlo: conserva el hueco y el buscador no salta al marcar la
+                  primera casilla. `visibility: hidden` lo saca también del tabulador y del lector.
+
+                  Con un filtro o una búsqueda, **el rótulo lo dice** (D3): «Nuke All» cerraba la
+                  lista filtrada, no todo, y eso solo se sabía abriendo el diálogo. */}
+              <Button
+                variant="destructive"
+                className={`${SOLID_DESTRUCTIVE} ${selectedVisible.length > 0 ? "invisible" : ""}`}
+                disabled={cerrablesVisibles.length === 0}
+                aria-label={
+                  filtrada ? t.cabecera.nukeFiltradosLabel(cerrablesVisibles.length) : undefined
+                }
+                onClick={() =>
+                  askNuke(
+                    cerrablesVisibles.map((p) => p.pid),
+                    filtrada ? t.confirmar.ambitoFiltrados : t.confirmar.ambitoTodos,
+                    visible.length - cerrablesVisibles.length,
+                  )
+                }
+              >
+                {filtrada ? t.cabecera.nukeFiltrados : t.cabecera.nukeAll}
+              </Button>
+            </ViewHeader>
           )}
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
             {view === "settings" && (
               <SettingsView
                 settings={settings}
@@ -776,8 +773,11 @@ export default function App() {
               />
             )}
 
-            {view === "processes" &&
-              (ordenados.length === 0 ? (
+            {view === "processes" && (
+              // Con la barra de la selección a la vista, sitio debajo para que la última fila
+              // pueda subir por encima de ella.
+              <ViewBody className={selectedVisible.length > 0 ? "pb-16" : undefined}>
+              {ordenados.length === 0 ? (
                 <EmptyState
                   sinProcesos={processes.length === 0}
                   onIrAAjustes={() => setView("settings")}
@@ -796,8 +796,24 @@ export default function App() {
                   onProtect={protegerFila}
                   onFreezeChange={alCongelar}
                 />
-              ))}
-          </div>
+              )}
+              </ViewBody>
+            )}
+
+          {view === "processes" && selectedVisible.length > 0 && (
+            <SelectionBar
+              count={selectedVisible.length}
+              closable={cerrablesSeleccionados.length}
+              onClose={() =>
+                askNuke(
+                  cerrablesSeleccionados.map((p) => p.pid),
+                  t.confirmar.ambitoSeleccionados(cerrablesSeleccionados.length),
+                  selectedVisible.length - cerrablesSeleccionados.length,
+                )
+              }
+              onClear={() => setSelected(new Set())}
+            />
+          )}
         </main>
 
         <ConfirmDialog request={confirm} onCancel={() => setConfirm(null)} />

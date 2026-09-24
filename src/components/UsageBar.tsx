@@ -6,6 +6,8 @@ type UsageBarProps = {
   /** Mayor valor de la lista visible. */
   max: number;
   color: string;
+  /** La cifra en gris: para el «0.0%» de un proceso en reposo (Tier 11, D6). */
+  apagada?: boolean;
 };
 
 /**
@@ -21,12 +23,16 @@ type UsageBarProps = {
  *
  * `whitespace-nowrap` en la cifra: en una columna estrecha, «126 MB» partía en dos líneas.
  */
-export function UsageBar({ label, value, max, color }: UsageBarProps) {
+export function UsageBar({ label, value, max, color, apagada = false }: UsageBarProps) {
   const percent = max > 0 ? Math.min(100, (value / max) * 100) : 0;
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <span className="whitespace-nowrap tabular-nums">{label}</span>
+      <span
+        className={`whitespace-nowrap tabular-nums ${apagada ? "text-muted-foreground" : ""}`}
+      >
+        {label}
+      </span>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div
           className="h-full rounded-full transition-[width] duration-300"

@@ -70,6 +70,11 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 
 ## Frontend (`src/`)
 
+- **Una vista nueva usa `ViewHeader` y `ViewBody`** (`components/ViewHeader.tsx`): cabecera fija
+  con su `h2` y cuerpo con scroll. Si el cuerpo no tiene nada enfocable, `ViewBody` con `label`, o
+  con teclado no se puede desplazar (Tier 11, D1).
+- **Un solo verbo para cerrar procesos**: «Kill» y «Nuke All» en inglés en los dos idiomas; todo lo
+  demás, «cerrar» / «close». Nada de «matar» ni «terminar» en textos de cara al usuario (D3).
 - `src/types.ts` es el **espejo** de los tipos de Rust. Al cambiar un `struct` o una constante en
   `storage.rs`, hay que cambiarlo aquí — `src/types.test.ts` lee el fuente de Rust y falla si no.
 - Nada de `navigator.clipboard`: exige que el documento tenga el foco y falla justo cuando la

@@ -188,7 +188,7 @@ describe("menu contextual", () => {
     await abrirMenu(proceso({ pid: 50, ports: [3000] }));
 
     const menu = screen.getByRole("menu");
-    expect(within(menu).getByText("Matar proceso")).toBeInTheDocument();
+    expect(within(menu).getByText("Cerrar proceso")).toBeInTheDocument();
     expect(within(menu).getByText("Copiar PID")).toBeInTheDocument();
     expect(within(menu).getByText("Copiar nombre")).toBeInTheDocument();
     expect(within(menu).getByText("Copiar puerto")).toBeInTheDocument();
@@ -227,16 +227,16 @@ describe("menu contextual", () => {
   });
 
   /**
-   * Tier 11, A6. «Matar proceso» era la primera entrada: abierto por teclado, la primera flecha
+   * Tier 11, A6. «Cerrar proceso» —«Matar proceso» hasta D3— era la primera entrada: abierto por teclado, la primera flecha
    * caía en él, y cierra sin diálogo. Ahora va la última, tras un separador.
    */
-  it("deja «Matar proceso» la última, tras un separador", async () => {
+  it("deja «Cerrar proceso» la última, tras un separador", async () => {
     await abrirMenu(proceso({ pid: 54, ports: [3000] }));
 
     const menu = screen.getByRole("menu");
     const entradas = within(menu).getAllByRole("menuitem");
     expect(entradas[0]).toHaveTextContent("Copiar PID");
-    expect(entradas[entradas.length - 1]).toHaveTextContent("Matar proceso");
+    expect(entradas[entradas.length - 1]).toHaveTextContent("Cerrar proceso");
     // El elemento justo antes de la entrada destructiva es un separador.
     expect(entradas[entradas.length - 1]!.previousElementSibling).toHaveAttribute("role", "separator");
   });
@@ -281,14 +281,14 @@ describe("procesos protegidos", () => {
     expect(within(fila(80)).getByText("Protegido")).toBeInTheDocument();
   });
 
-  it("en el menú, «Matar proceso» sale apagado y se ofrece quitar la protección", async () => {
+  it("en el menú, «Cerrar proceso» sale apagado y se ofrece quitar la protección", async () => {
     const user = userEvent.setup();
     const p = proceso({ pid: 82, protected: true, project: "mi-api" });
     const { onKill, onProtect } = pintar([p]);
     await user.pointer({ target: fila(82), keys: "[MouseRight]" });
     const menu = await screen.findByRole("menu");
 
-    const matar = within(menu).getByRole("menuitem", { name: "Matar proceso" });
+    const matar = within(menu).getByRole("menuitem", { name: "Cerrar proceso" });
     expect(matar).toHaveAttribute("aria-disabled", "true");
     await user.click(matar);
     expect(onKill).not.toHaveBeenCalled();
@@ -386,3 +386,60 @@ describe("encabezados que ordenan", () => {
     expect(screen.queryByRole("button", { name: "Acciones" })).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Tier 11, D5 a D7: menos rojo, una escala de CPU que no exagera y una selección que se ve.
+ * El color de verdad se midió en vivo; aquí se fija la regla que lo produce.
+ */
+describe("lo que se ve de cada fila", () => {
+  /** jsdom no pinta: la barra se lee por el ancho que se le pone. */
+  const barraCpu = (pid: number) =>
+    within(fila(pid)).getByText(/%$/).parentElement!.querySelector<HTMLElement>("[style]")!;
+
+  it("el Kill de la fila es neutro; el rojo solo llega con la fila bajo el puntero o el foco", () => {
+    pintar([proceso({ pid: 60 })]);
+    const kill = screen.getByRole("button", { name: "Kill node.exe, PID 60" });
+
+    expect(kill).toHaveClass("text-muted-foreground");
+    expect(kill).not.toHaveClass("bg-destructive/10");
+    expect(kill).toHaveClass("group-hover/fila:text-destructive-text");
+    expect(kill).toHaveClass("group-focus-within/fila:text-destructive-text");
+    expect(fila(60)).toHaveClass("group/fila");
+  });
+
+  /**
+   * En reposo el mayor era un proceso al 2,5 % y salía con la barra llena. Con el suelo de un
+   * núcleo, en un equipo de 8 hilos (12,5 %), ese 2,5 % es una quinta parte.
+   */
+  it("la barra de CPU no se llena con un proceso casi en reposo", () => {
+    pintar([proceso({ pid: 61, cpu: 2.5 }), proceso({ pid: 62, cpu: 0 })]);
+    const ancho = parseFloat(barraCpu(61).style.width);
+
+    expect(ancho).toBeLessThan(100);
+    expect(ancho).toBeGreaterThan(0);
+  });
+
+  it("con carga de verdad, el mayor sigue marcando el 100 %", () => {
+    pintar([proceso({ pid: 63, cpu: 80 }), proceso({ pid: 64, cpu: 40 })]);
+
+    expect(barraCpu(63).style.width).toBe("100%");
+    expect(barraCpu(64).style.width).toBe("50%");
+  });
+
+  it("el 0.0% va en gris y una cifra con carga no", () => {
+    pintar([proceso({ pid: 65, cpu: 0 }), proceso({ pid: 66, cpu: 12 })]);
+
+    expect(within(fila(65)).getByText("0.0%")).toHaveClass("text-muted-foreground");
+    expect(within(fila(66)).getByText("12.0%")).not.toHaveClass("text-muted-foreground");
+  });
+
+  it("la fila seleccionada se marca, y solo ella", () => {
+    pintar([proceso({ pid: 67 }), proceso({ pid: 68 })], { selected: new Set([67]) });
+
+    expect(fila(67)).toHaveAttribute("data-selected");
+    expect(fila(67)).toHaveClass("bg-muted");
+    expect(fila(68)).not.toHaveAttribute("data-selected");
+    expect(fila(68)).not.toHaveClass("bg-muted");
+  });
+});
+

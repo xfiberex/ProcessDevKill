@@ -641,3 +641,30 @@ describe("permisos de administrador", () => {
     expect(reiniciar()).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Tier 11, D2. Diez secciones seguidas, con «Acerca de» en medio, se leían como una lista sin orden.
+ * Se fija el orden de los grupos y que el idioma sigue siendo lo primero de todo.
+ */
+describe("los grupos de Ajustes", () => {
+  it("van en su orden, con Acerca de al final", () => {
+    pintar();
+
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+    ).toEqual(["General", "Vigilancia", "Automatismos", "Actualizaciones", "Acerca de"]);
+  });
+
+  it("el idioma sigue siendo lo primero, y cada seccion va en su grupo", () => {
+    pintar();
+    const secciones = screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent);
+
+    expect(secciones[0]).toBe("Idioma / Language");
+    expect(secciones.indexOf("Procesos vigilados")).toBeGreaterThan(
+      secciones.indexOf("Permisos de administrador"),
+    );
+    expect(secciones.indexOf("Zombie Finder")).toBeGreaterThan(
+      secciones.indexOf("Procesos protegidos"),
+    );
+  });
+});

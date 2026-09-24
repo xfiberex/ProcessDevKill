@@ -21,6 +21,7 @@ import type {
 import { Marcado, useT } from "../i18n";
 import type { Catalogo } from "../i18n";
 import { formatMemory } from "../lib/format";
+import { ViewBody, ViewHeader } from "./ViewHeader";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -47,6 +48,11 @@ type ServicesViewProps = {
    * formas, y permitir dos a la vez seria ofrecer dos ventanas de UAC encimadas.
    */
   busy: string | null;
+  /**
+   * Si la app corre como administrador (`null` mientras no se sabe). Cambia **por qué** falta la
+   * RAM de un servicio que corre: sin elevar es lo esperado; elevada, es que no se pudo leer.
+   */
+  elevated?: boolean | null;
 };
 
 /**
@@ -86,136 +92,161 @@ export function ServicesView({
   changes,
   onUndo,
   busy,
+  elevated = null,
 }: ServicesViewProps) {
   const t = useT();
 
+  // Tier 11, D1: una línea, y lo del administrador en un desplegable. Eran tres líneas de párrafo
+  // encima de la tabla, que se leían una vez y después solo empujaban la tabla hacia abajo.
+  // `<details>` nativo: se abre con Enter o Espacio y anuncia si está abierto, sin código propio.
+  const cabecera = (
+    <ViewHeader
+      title={t.servicios.titulo}
+      description={
+        <>
+          <p>
+            <Marcado texto={t.servicios.descripcion} />
+          </p>
+          <details className="group mt-0.5 text-xs">
+            <summary className="w-fit cursor-pointer underline-offset-2 hover:text-foreground hover:underline">
+              {t.servicios.porQueAdmin}
+            </summary>
+            <p className="mt-1 max-w-xl">
+              <Marcado texto={t.servicios.porQueAdminDetalle} />
+            </p>
+          </details>
+        </>
+      }
+    >
+      <div className="ml-auto flex shrink-0 items-center gap-3 self-start">
+        {services !== null && (
+          <span className="text-sm text-muted-foreground tabular-nums">
+            {t.servicios.recuento(services.length)}
+          </span>
+        )}
+        <Button variant="outline" onClick={onRefresh}>
+          {t.cabecera.refrescar}
+        </Button>
+      </div>
+    </ViewHeader>
+  );
+
   if (services === null) {
     return (
-      <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-        {t.servicios.cargando}
-      </p>
+      <>
+        {cabecera}
+        <ViewBody>
+          <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+            {t.servicios.cargando}
+          </p>
+        </ViewBody>
+      </>
     );
   }
 
   return (
-    <div>
-      <div className="px-5 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="font-heading text-sm font-semibold">
-              {t.servicios.titulo}
-            </h2>
-            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              <Marcado texto={t.servicios.descripcion} />
+    <>
+      {cabecera}
+      <ViewBody>
+
+        {/*
+          La tabla va con `table-fixed` y anchos declarados, y no automática como las otras dos.
+
+          **Sin esto la vista desbordaba a lo ancho y arrastraba la página entera.** La celda del
+          nombre lleva dos líneas largas —`MSSQLFDLauncher$SQLEXPRESS` y su nombre visible, que en un
+          equipo en español pasa de 45 caracteres— y en una tabla automática eso *empuja* en vez de
+          truncar. Con ARRANQUE y ACCIONES encima, pedía unos 980 px cuando en la ventana mínima (900,
+          menos 208 de barra lateral) solo hay 692. El contenedor de `App.tsx` solo controla el eje Y,
+          así que el sobrante se escapaba al documento: la cabecera, la descripción y **la columna del
+          nombre** acababan fuera de pantalla, que es justo lo que identifica cada fila.
+
+          Con los anchos declarados, lo que sobra se trunca —con los dos nombres en el `title`— y el
+          nombre corto, que es la clave, se ve siempre. Los cinco anchos fijos suman 540 px: al nombre
+          le quedan 152 en la ventana más pequeña y 252 en la de fábrica.
+        */}
+        {services.length === 0 ? (
+          <div className="px-5 py-10 text-center">
+            <p className="text-sm text-muted-foreground">{t.servicios.vacio}</p>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+              <Marcado texto={t.servicios.vacioDetalle} />
             </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="text-sm text-muted-foreground tabular-nums">
-              {t.servicios.recuento(services.length)}
-            </span>
-            <Button variant="outline" onClick={onRefresh}>
-              {t.cabecera.refrescar}
+            <Button variant="outline" onClick={onIrAAjustes} className="mt-4">
+              <SettingsIcon />
+              {t.servicios.irAAjustes}
             </Button>
           </div>
-        </div>
-      </div>
+        ) : (
+          <table className="w-full table-fixed text-sm">
+            {/* Mismo motivo que en las otras dos tablas: sin `caption` no dice de qué es. */}
+            <caption className="sr-only">{t.servicios.caption}</caption>
+            <colgroup>
+              {/* Sin ancho: el nombre se queda con lo que sobre, y es lo único que crece. */}
+              <col />
+              <col className="w-[100px]" />
+              {/* 200 sale de medirlo, no de estimarlo: «Automático (retrasado)» ocupa 128,5 px a
+                  `text-xs` con Geist, y con la flecha, el relleno, el borde y la celda se iba a
+                  195,5 con el `select` nativo, que **no** pone puntos suspensivos: cortaba la palabra
+                  a media letra. Desde el Tier 11 el control es el `Select` de Base UI (ver
+                  `Arranque`), que cabe con holgura en el mismo ancho; se deja en 200 para no mover
+                  la tabla que ya se habia ajustado en la v1.5.1. */}
+              <col className="w-[200px]" />
+              <col className="w-[76px]" />
+              <col className="w-[76px]" />
+              <col className="w-[116px]" />
+            </colgroup>
+            <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
+              <tr>
+                <th scope="col" className="px-4 py-2 text-left font-medium">
+                  {t.servicios.columnas.servicio}
+                </th>
+                <th scope="col" className="px-3 py-2 text-left font-medium">
+                  {t.servicios.columnas.estado}
+                </th>
+                <th scope="col" className="px-3 py-2 text-left font-medium">
+                  {t.servicios.columnas.arranque}
+                </th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">
+                  {t.servicios.columnas.ram}
+                </th>
+                <th scope="col" className="px-3 py-2 text-left font-medium">
+                  {t.servicios.columnas.puertos}
+                </th>
+                <th scope="col" className="px-4 py-2 text-right font-medium">
+                  {/* El rótulo existe para el lector de pantalla; a la vista, una columna
+                      de botones titulada «Acciones» solo repite lo que ya se ve. */}
+                  <span className="sr-only">{t.servicios.columnas.acciones}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {services.map((s) => (
+                <Fila
+                  key={s.name}
+                  servicio={s}
+                  t={t}
+                  onAction={onAction}
+                  onStartupChange={onStartupChange}
+                  trabajando={busy === s.name}
+                  // Con una accion en curso se apagan **todos** los botones, no solo el suyo: el
+                  // UAC de la primera todavia esta en pantalla cuando se podria pulsar la segunda.
+                  bloqueado={busy !== null}
+                  elevated={elevated}
+                />
+              ))}
+            </tbody>
+          </table>
+        )}
 
-      {/*
-        La tabla va con `table-fixed` y anchos declarados, y no automática como las otras dos.
-
-        **Sin esto la vista desbordaba a lo ancho y arrastraba la página entera.** La celda del
-        nombre lleva dos líneas largas —`MSSQLFDLauncher$SQLEXPRESS` y su nombre visible, que en un
-        equipo en español pasa de 45 caracteres— y en una tabla automática eso *empuja* en vez de
-        truncar. Con ARRANQUE y ACCIONES encima, pedía unos 980 px cuando en la ventana mínima (900,
-        menos 208 de barra lateral) solo hay 692. El contenedor de `App.tsx` solo controla el eje Y,
-        así que el sobrante se escapaba al documento: la cabecera, la descripción y **la columna del
-        nombre** acababan fuera de pantalla, que es justo lo que identifica cada fila.
-
-        Con los anchos declarados, lo que sobra se trunca —con los dos nombres en el `title`— y el
-        nombre corto, que es la clave, se ve siempre. Los cinco anchos fijos suman 540 px: al nombre
-        le quedan 152 en la ventana más pequeña y 252 en la de fábrica.
-      */}
-      {services.length === 0 ? (
-        <div className="px-5 py-10 text-center">
-          <p className="text-sm text-muted-foreground">{t.servicios.vacio}</p>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            <Marcado texto={t.servicios.vacioDetalle} />
-          </p>
-          <Button variant="outline" onClick={onIrAAjustes} className="mt-4">
-            <SettingsIcon />
-            {t.servicios.irAAjustes}
-          </Button>
-        </div>
-      ) : (
-        <table className="w-full table-fixed text-sm">
-          {/* Mismo motivo que en las otras dos tablas: sin `caption` no dice de qué es. */}
-          <caption className="sr-only">{t.servicios.caption}</caption>
-          <colgroup>
-            {/* Sin ancho: el nombre se queda con lo que sobre, y es lo único que crece. */}
-            <col />
-            <col className="w-[100px]" />
-            {/* 200 sale de medirlo, no de estimarlo: «Automático (retrasado)» ocupa 128,5 px a
-                `text-xs` con Geist, y con la flecha, el relleno, el borde y la celda se iba a
-                195,5 con el `select` nativo, que **no** pone puntos suspensivos: cortaba la palabra
-                a media letra. Desde el Tier 11 el control es el `Select` de Base UI (ver
-                `Arranque`), que cabe con holgura en el mismo ancho; se deja en 200 para no mover
-                la tabla que ya se habia ajustado en la v1.5.1. */}
-            <col className="w-[200px]" />
-            <col className="w-[76px]" />
-            <col className="w-[76px]" />
-            <col className="w-[116px]" />
-          </colgroup>
-          <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
-            <tr>
-              <th scope="col" className="px-4 py-2 text-left font-medium">
-                {t.servicios.columnas.servicio}
-              </th>
-              <th scope="col" className="px-3 py-2 text-left font-medium">
-                {t.servicios.columnas.estado}
-              </th>
-              <th scope="col" className="px-3 py-2 text-left font-medium">
-                {t.servicios.columnas.arranque}
-              </th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">
-                {t.servicios.columnas.ram}
-              </th>
-              <th scope="col" className="px-3 py-2 text-left font-medium">
-                {t.servicios.columnas.puertos}
-              </th>
-              <th scope="col" className="px-4 py-2 text-right font-medium">
-                {/* El rótulo existe para el lector de pantalla; a la vista, una columna
-                    de botones titulada «Acciones» solo repite lo que ya se ve. */}
-                <span className="sr-only">{t.servicios.columnas.acciones}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {services.map((s) => (
-              <Fila
-                key={s.name}
-                servicio={s}
-                t={t}
-                onAction={onAction}
-                onStartupChange={onStartupChange}
-                trabajando={busy === s.name}
-                // Con una accion en curso se apagan **todos** los botones, no solo el suyo: el
-                // UAC de la primera todavia esta en pantalla cuando se podria pulsar la segunda.
-                bloqueado={busy !== null}
-              />
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {changes.length > 0 && (
-        <Registro
-          cambios={changes}
-          t={t}
-          onUndo={onUndo}
-          bloqueado={busy !== null}
-        />
-      )}
-    </div>
+        {changes.length > 0 && (
+          <Registro
+            cambios={changes}
+            t={t}
+            onUndo={onUndo}
+            bloqueado={busy !== null}
+          />
+        )}
+      </ViewBody>
+    </>
   );
 }
 
@@ -289,6 +320,7 @@ function Fila({
   onStartupChange,
   trabajando,
   bloqueado,
+  elevated,
 }: {
   servicio: ServiceInfo;
   t: Catalogo;
@@ -296,8 +328,10 @@ function Fila({
   onStartupChange: (servicio: ServiceInfo, tipo: SettableStartType) => void;
   trabajando: boolean;
   bloqueado: boolean;
+  elevated: boolean | null;
 }) {
   const Icon = FAMILY_ICONS[s.family];
+  const parado = s.state === "stopped";
 
   return (
     <tr className="border-t border-border hover:bg-muted/60">
@@ -334,16 +368,20 @@ function Fila({
       </td>
 
       <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
-        {s.memoryMb === null ? (
+        {parado ? (
+          <SinDato titulo={t.servicios.parado} />
+        ) : s.memoryMb === null ? (
           // El guion **con su explicación**, no a secas: que la RAM de un servicio necesite
           // administrador no lo adivina nadie, y sin decirlo parece que la app no sabe leerla.
           <span
             className="cursor-help text-xs text-muted-foreground"
-            title={t.servicios.ramDesconocida}
+            title={elevated ? t.servicios.ramNoLeida : t.servicios.ramDesconocida}
           >
             {/* El motivo, ademas de en el `title`, para el lector de pantalla: un `title` solo
                 se descubre pasando el raton, y quien navega con teclado no lo alcanza nunca. */}
-            <span className="sr-only">{t.servicios.ramDesconocida}</span>
+            <span className="sr-only">
+              {elevated ? t.servicios.ramNoLeida : t.servicios.ramDesconocida}
+            </span>
             <span aria-hidden>—</span>
           </span>
         ) : (
@@ -352,7 +390,9 @@ function Fila({
       </td>
 
       <td className="px-3 py-2">
-        {s.ports.length === 0 ? (
+        {parado ? (
+          <SinDato titulo={t.servicios.parado} />
+        ) : s.ports.length === 0 ? (
           <span
             className="cursor-help text-xs text-muted-foreground"
             title={t.servicios.sinPuertos}
@@ -519,6 +559,22 @@ function Accion({
       {corriendo ? <SquareIcon className="text-destructive-text" /> : <PlayIcon />}
       {corriendo ? a.detener : a.arrancar}
     </Button>
+  );
+}
+
+/**
+ * El «—» de un servicio parado, en RAM y en puertos (Tier 11, D4).
+ *
+ * Hasta aquí un servicio parado decía que su RAM pedía administrador y que su puerto faltaba porque
+ * SQL Express viene sin TCP: explicaciones de otra cosa. Parado no ocupa ninguna de las dos. El
+ * motivo va en el `title`, y **no se repite para el lector de pantalla**: la columna Estado de la
+ * misma fila ya dice «Parado», y leer la explicación en cada fila parada era ruido.
+ */
+function SinDato({ titulo }: { titulo: string }) {
+  return (
+    <span className="cursor-help text-xs text-muted-foreground" title={titulo} aria-hidden>
+      —
+    </span>
   );
 }
 
