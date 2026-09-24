@@ -155,9 +155,10 @@ repositorio público): `.github/workflows/ci.yml` corre ESLint, `npm test`, `npm
 y `cargo test` en `windows-latest`, y las dos auditorías en Ubuntu —estas también cada lunes,
 porque un aviso nuevo sale sin que nadie haga push—. Cubre el hueco que antes quedaba dicho aquí:
 **que el proyecto compile y pase en un equipo limpio**. No publica nada ni tiene secretos; el corte
-sigue siendo `release.ps1`. ⚠️ **La primera ejecución en el runner está pendiente**: hasta que
-corra, que las pruebas de Rust pasen en una máquina sin los servicios ni los procesos de este equipo
-es una suposición.
+sigue siendo `release.ps1`. ✅ **Verificado en el runner el 2026-09-23**: las pruebas de los dos
+lados pasan en una máquina sin los servicios ni los procesos de este equipo. La primera ejecución
+paró en `cargo audit` por RUSTSEC-2026-0285 (`rustls`), que se arregló en el mismo día: justo lo
+que se esperaba de ella.
 
 ### Rendimiento medido (2026-08-18)
 
