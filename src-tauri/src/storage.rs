@@ -136,6 +136,12 @@ pub struct Settings {
     /// nombres del SCM. Mezclarlas haria que añadir `docker` para ver el proceso arrastrase
     /// tambien el servicio, y al reves.
     pub custom_services: Vec<String>,
+    /// Si la app se relanza como administrador al arrancar (ver `elevation.rs`).
+    ///
+    /// **Apagado de fábrica**: con esto, Windows pide confirmación (UAC) en cada arranque, y eso
+    /// tiene que pedirlo quien lo quiera. Sin elevar la app funciona entera; lo que no ve es la RAM
+    /// de los servicios ni el detalle de los procesos lanzados como administrador, y lo dice.
+    pub run_as_admin: bool,
 }
 
 impl Default for Settings {
@@ -166,6 +172,8 @@ impl Default for Settings {
             // Vacia: el catalogo de fabrica ya cubre SQL Server, PostgreSQL, MySQL, Mongo, Redis,
             // Docker e IIS. Esto es para lo que no esta ahi.
             custom_services: Vec::new(),
+            // Apagado: ver el comentario del campo.
+            run_as_admin: false,
         }
     }
 }
@@ -517,6 +525,8 @@ mod tests {
             // No vacia, por el mismo motivo que el idioma: una lista vacia sobreviviria al viaje
             // aunque el campo no llegara a escribirse.
             custom_services: vec!["elasticsearch-service-x64".into()],
+            // Encendido, por lo mismo: el de fábrica es `false`.
+            run_as_admin: true,
         };
 
         storage.save_settings(&settings).unwrap();
@@ -610,6 +620,21 @@ mod tests {
         assert!(!fabrica.hotkey_enabled);
         assert!(fabrica.hotkey_double_press);
         assert!(fabrica.protected.is_empty());
+    }
+
+    /// Arrancar como administrador pide un UAC en cada arranque: lo pide quien lo quiera. Y quien
+    /// actualiza desde una versión sin el campo no se encuentra de repente con el UAC.
+    #[test]
+    fn arrancar_como_administrador_viene_apagado() {
+        assert!(!Settings::default().run_as_admin);
+
+        let storage = temp_storage("sin-run-as-admin");
+        fs::write(
+            storage.settings_file(),
+            r#"{"customNames":[],"hotkeyEnabled":false,"refreshMs":2000}"#,
+        )
+        .unwrap();
+        assert!(!storage.load_settings().run_as_admin);
     }
 
     /// Quien actualiza con el atajo ya encendido lo conserva —su archivo trae `hotkeyEnabled`—,

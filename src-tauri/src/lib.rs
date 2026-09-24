@@ -1,5 +1,6 @@
 mod auto_kill;
 mod commands;
+mod elevation;
 mod hotkey;
 // `pub` porque el macro `avisar!` que exporta se resuelve como `$crate::logging::escribir`.
 pub mod logging;
@@ -276,6 +277,14 @@ pub fn run() {
         std::process::exit(codigo as i32);
     }
 
+    // Después, y también antes de Tauri: si el usuario pidió arrancar siempre como administrador,
+    // esta instancia lanza la elevada y se va sin registrarse como instancia única, que es lo que
+    // le dejaría a la nueva el sitio ocupado. Ver `elevation::al_arrancar`.
+    let context = tauri::generate_context!();
+    if elevation::al_arrancar(&context.config().identifier) {
+        std::process::exit(0);
+    }
+
     tauri::Builder::default()
         // El primero de todos, como pide su documentacion. Si la app ya esta
         // corriendo, la instancia nueva avisa a esta y se cierra sola en vez de
@@ -398,9 +407,11 @@ pub fn run() {
             // el ultimo segmento, asi que desde el frontend siguen siendo `log_error` y `log_path`.
             logging::log_error,
             logging::log_path,
-            logging::open_log_dir
+            logging::open_log_dir,
+            elevation::get_elevation,
+            elevation::restart_as_admin
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }
 

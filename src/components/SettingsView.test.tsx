@@ -15,14 +15,25 @@ import { AUTO_KILL_MIN_MB, ZOMBIE_MIN_MINUTES } from "../types";
 import type { Settings } from "../types";
 import type { UpdateState } from "../hooks/useUpdater";
 
-function pintar(parcial: Partial<Settings> = {}, estadoUpdater?: UpdateState) {
+function pintar(
+  parcial: Partial<Settings> = {},
+  estadoUpdater?: UpdateState,
+  elevated: boolean | null = null,
+) {
   const settings: Settings = { ...DEFAULT_TEST_SETTINGS, ...parcial };
   const onChange = vi.fn();
+  const onRestartAsAdmin = vi.fn();
   const updater = updaterFalso(estadoUpdater);
   render(
-    <SettingsView settings={settings} onChange={onChange} updater={updater} />,
+    <SettingsView
+      settings={settings}
+      onChange={onChange}
+      updater={updater}
+      elevated={elevated}
+      onRestartAsAdmin={onRestartAsAdmin}
+    />,
   );
-  return { onChange, updater, user: userEvent.setup(), settings };
+  return { onChange, onRestartAsAdmin, updater, user: userEvent.setup(), settings };
 }
 
 // Por nombre accesible: el texto de al lado ("MB por proceso…") es
@@ -577,5 +588,56 @@ describe("el idioma", () => {
     expect(openUrl).toHaveBeenCalledWith(
       "https://github.com/xfiberex/ProcessDevKill",
     );
+  });
+});
+
+
+describe("permisos de administrador", () => {
+  const interruptor = () =>
+    screen.getByRole("switch", { name: /Iniciar siempre como administrador/ });
+  const reiniciar = () =>
+    screen.queryByRole("button", { name: "Reiniciar como administrador" });
+
+  /** El UAC en cada arranque lo pide quien lo quiera: a un usuario nuevo no le sale. */
+  it("arrancar siempre como administrador viene apagado", () => {
+    pintar();
+    expect(interruptor()).not.toBeChecked();
+  });
+
+  it("se puede encender, y avisa de que Windows lo confirmara en cada arranque", async () => {
+    const { user, onChange } = pintar();
+
+    await user.click(interruptor());
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ runAsAdmin: true }),
+    );
+    expect(screen.getByText("UAC")).toBeInTheDocument();
+  });
+
+  it("sin elevar, dice que falta y ofrece reiniciar", async () => {
+    const { user, onRestartAsAdmin } = pintar({}, undefined, false);
+
+    expect(screen.getByText("sin permisos de administrador")).toBeInTheDocument();
+    expect(screen.getByText(/la RAM de los servicios/)).toBeInTheDocument();
+
+    await user.click(reiniciar()!);
+    expect(onRestartAsAdmin).toHaveBeenCalledTimes(1);
+  });
+
+  it("elevada, lo dice y no ofrece reiniciar", () => {
+    pintar({}, undefined, true);
+
+    expect(screen.getByText("como administrador")).toBeInTheDocument();
+    expect(reiniciar()).not.toBeInTheDocument();
+  });
+
+  /** Mientras Rust no contesta no se afirma nada: ni una cosa ni la otra. */
+  it("sin saberlo todavia, no dice ni una cosa ni la otra", () => {
+    pintar();
+
+    expect(screen.queryByText("sin permisos de administrador")).not.toBeInTheDocument();
+    expect(screen.queryByText("como administrador")).not.toBeInTheDocument();
+    expect(reiniciar()).not.toBeInTheDocument();
   });
 });

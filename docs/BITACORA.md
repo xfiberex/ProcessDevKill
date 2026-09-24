@@ -8,6 +8,22 @@
 
 ---
 
+### 2026-09-24 (noche) — Modo administrador
+
+- **Pedido por el usuario: que la app diga cuándo no corre como administrador, y que se pueda
+  pedir.** Un aviso en el hueco del sidebar, una sección en Ajustes con el estado, «Reiniciar como
+  administrador» y «Iniciar siempre como administrador» (apagado de fábrica), y la pista en un Kill
+  que falla sin elevar.
+- **Probarlo pidió lanzar la app de-elevada**: la terminal de la sesión es elevada, y todo lo que
+  lanza también. Con `explorer.exe <exe>` la app hereda el token sin elevar del escritorio. Así se
+  vio lo que el aviso promete: todos los `node` sin script ni carpeta y el Kill de uno de prueba
+  fallando; elevada, las dos cosas funcionan.
+- **El primer aviso no cabía**: 116 px en un hueco de 98, y la navegación hacía scroll a 1000×680.
+  Ahora mide 80, se queda en el título entre 620 y 679 px de alto y desaparece por debajo.
+- El reinicio se probó desde la instancia elevada, donde `runas` no pide UAC: la nueva espera a que
+  la vieja termine y queda una sola. **El camino con UAC queda por probar a mano.** 265 pruebas del
+  frontend y 117 del backend.
+
 ### 2026-09-24 (tarde) — Tier 11, Fase C: maquetación (v1.6.2)
 
 - **Las cuatro tareas, hechas y medidas en vivo**, sin publicar todavía. La tabla de procesos va con

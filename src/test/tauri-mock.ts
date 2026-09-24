@@ -130,6 +130,7 @@ export const DEFAULT_TEST_SETTINGS: Settings = {
   // campo nuevo falle aqui, en un sitio, y no en cada archivo que arma unos ajustes.
   language: "es",
   customServices: [],
+  runAsAdmin: false,
 };
 
 /** Un ServiceInfo completo con lo justo cambiado. Por defecto, uno corriendo y sin puerto. */

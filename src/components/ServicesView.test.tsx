@@ -126,8 +126,8 @@ describe("lo que no se sabe", () => {
   /**
    * **La prueba que de verdad importa de esta vista.**
    *
-   * La RAM de un servicio solo se lee con permisos de administrador, y ProcessDevKill no los pide:
-   * llega `null` para casi todos. Pintar eso como «0 MB» sería una cifra que el usuario se cree, y
+   * La RAM de un servicio solo se lee con permisos de administrador, y la app arranca sin ellos
+   * salvo que se le pida (`runAsAdmin`): llega `null` para casi todos. Pintar eso como «0 MB» sería una cifra que el usuario se cree, y
    * es falsa — un SQL Server corriendo no ocupa cero. El guion dice la verdad, que es que no se
    * sabe, y el `title` dice por qué.
    */

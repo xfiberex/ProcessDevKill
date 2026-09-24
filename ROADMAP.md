@@ -1428,6 +1428,33 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > en «Cambiar arranque». Al principio el recuadro iba entero en `foreground` y la negrita no se
   > distinguía del resto: ahora va en el gris de la descripción.
 
+### Fuera de fase — modo administrador — ✅ **hecho y verificado el 2026-09-24**
+
+> Pedido por el usuario entre la C y la D. No salió de la auditoría, pero es del mismo terreno: la
+> app enseñaba huecos —«—» en la RAM de los servicios, filas sin script ni carpeta, Kills que
+> fallaban— sin decir por qué, salvo en un `title`. Decisión en CONTEXT §4 (2026-09-24).
+
+- [x] **Aviso de que la app corre sin permisos de administrador**, en el hueco del sidebar entre la
+      navegación y el medidor, que lleva a su sección de Ajustes con el foco en el título.
+  > ✅ **Visto en vivo sin elevar** (la app lanzada con `explorer.exe` desde una sesión elevada):
+  > aviso de 80 px a 1000×680 sin que la navegación haga scroll; con el alto justo, solo el título
+  > (620–679 px), y nada por debajo de 620. La primera versión medía 116 px y hacía scroll:
+  > medido y corregido. Todos los `node` de la sesión, que era elevada, salían sin script ni
+  > carpeta; los servicios, con «—».
+- [x] **«Iniciar siempre como administrador»**, apagado de fábrica, y **«Reiniciar como
+      administrador»** en Ajustes.
+  > ✅ **Visto en vivo elevada**: sin aviso, el `node` de prueba con «servidor-prueba.js ·
+  > prueba-elevada», PostgreSQL con su RAM (110 y 144 MB) y el Kill de ese `node` cerrándolo, que
+  > sin elevar había fallado. **El reinicio, probado desde la instancia elevada**, donde `runas`
+  > no pide UAC: la vieja se cerró, la nueva arrancó con la marca y el PID de la vieja, y quedó
+  > una sola instancia, elevada. ⚠️ **No se probó el camino con UAC** —sin elevar, pulsar
+  > Reiniciar o arrancar con el ajuste encendido—, porque el UAC lo tiene que aprobar una persona;
+  > tampoco se encendió el ajuste en vivo, para no escribir en el `settings.json` del usuario. Lo
+  > cubren las pruebas: `debe_relanzarse` con su criterio negativo (la relanzada no se relanza) y
+  > el interruptor en la vista.
+- [x] **Un Kill fallido sin elevar dice el motivo probable** («Si se abrió como administrador…»).
+  > ✅ Visto en vivo sobre el `node` de prueba; la pista no sale con la app elevada (probado).
+
 ### Fase D — consistencia y claridad
 
 - [ ] **D1. Una cabecera común para las cuatro vistas** (título, una línea opcional, acciones a la

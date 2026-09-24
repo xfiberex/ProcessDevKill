@@ -217,6 +217,8 @@ export type Settings = {
   language: Language;
   /** Servicios extra a vigilar. Lista aparte de `customNames`, que son ejecutables. */
   customServices: string[];
+  /** Relanzarse como administrador al arrancar. Apagado de fábrica: ver `elevation.rs`. */
+  runAsAdmin: boolean;
 };
 
 /** Espejo de `MIN_AUTO_KILL_MB` en src-tauri/src/storage.rs. Rust lo impone; aqui

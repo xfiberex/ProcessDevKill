@@ -5,6 +5,7 @@ import {
   ListIcon,
   ServerIcon,
   SettingsIcon,
+  ShieldAlertIcon,
 } from "lucide-react";
 import { REFRESH_INTERVALS, RUNTIME_COLORS } from "../types";
 import type { ProcessInfo, Runtime, SystemUsage } from "../types";
@@ -38,6 +39,10 @@ type SidebarProps = {
   onRefreshMsChange: (ms: number) => void;
   /** Ultima medida que empujo Rust, o `null` si todavia no ha llegado ninguna. */
   usage: SystemUsage | null;
+  /** Si la app corre como administrador; `null` mientras no se sabe. Con `false`, sale el aviso. */
+  elevated: boolean | null;
+  /** Lleva a la sección de Ajustes que explica el aviso y deja reiniciar elevada. */
+  onVerAdmin: () => void;
 };
 
 export function Sidebar({
@@ -49,6 +54,8 @@ export function Sidebar({
   refreshMs,
   onRefreshMsChange,
   usage,
+  elevated,
+  onVerAdmin,
 }: SidebarProps) {
   const t = useT();
 
@@ -164,6 +171,7 @@ export function Sidebar({
       {/* Abajo del todo, pegado al auto-refresco: los dos hablan del pulso de la
           app, y el medidor depende de que ese pulso este encendido. */}
       <div className="mt-auto shrink-0">
+        {elevated === false && <AvisoSinAdmin onClick={onVerAdmin} />}
         <UsageMeter usage={usage} pausado={refreshMs === 0} />
       </div>
 
@@ -181,6 +189,48 @@ export function Sidebar({
         />
       </div>
     </aside>
+  );
+}
+
+/**
+ * El aviso de que la app corre sin permisos de administrador.
+ *
+ * Va en el hueco entre la navegación y el medidor, que a 680 px de alto —el de fábrica— quedaba
+ * vacío, y pegado al medidor porque habla de lo mismo: lo que la app puede medir. Es un botón que
+ * lleva a Ajustes, donde está la explicación entera, el reinicio elevado y el ajuste para arrancar
+ * siempre así; aquí solo cabe qué falta.
+ *
+ * **Cabe en el hueco, no lo agranda.** Con los filtros desplegados el sidebar pide 582 px sin el
+ * aviso, así que a 680 —el alto de fábrica— quedan 98: el aviso entero mide unos 84. Por debajo va
+ * por escalones, para que la navegación no tenga que hacer scroll: de 620 a 679 px de alto, solo
+ * el título (el detalle pasa a `sr-only`); por debajo de 620, nada, que el sidebar ya va justo
+ * (Tier 11, C3) y lo que no puede quedar fuera es el auto-refresco. El aviso sigue en Ajustes.
+ * La primera versión, con el icono sangrando el texto, medía 116 px y hacía scroll a 680: medido.
+ */
+function AvisoSinAdmin({ onClick }: { onClick: () => void }) {
+  const t = useT();
+  const a = t.sidebar.sinAdmin;
+
+  return (
+    <div className="px-2 pb-2 [@media(max-height:619px)]:hidden">
+      <button
+        type="button"
+        onClick={onClick}
+        className="block w-full cursor-pointer rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-left text-xs transition-colors hover:bg-amber-500/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        <span className="flex items-center gap-1.5 font-medium">
+          <ShieldAlertIcon
+            className="size-3.5 shrink-0 text-amber-700 dark:text-amber-400"
+            aria-hidden
+          />
+          {a.titulo}
+        </span>
+        <span className="mt-0.5 block text-muted-foreground [@media(max-height:679px)]:sr-only">
+          {a.detalle}
+        </span>
+        <span className="sr-only">{a.destino}</span>
+      </button>
+    </div>
   );
 }
 

@@ -128,6 +128,19 @@ export const es = {
     historial: "Historial",
     ajustes: "Ajustes",
     autoRefresco: "Auto-refresco",
+    /**
+     * El aviso de que la app corre sin permisos de administrador, en el hueco bajo la navegación.
+     *
+     * Dice **qué** falta y no solo que falta algo: «sin administrador» a secas suena a error, y la
+     * app funciona entera; lo que no ve son dos cosas concretas. El resto está en Ajustes, adonde
+     * lleva el aviso.
+     */
+    sinAdmin: {
+      titulo: "Sin modo administrador",
+      detalle: "No se ve la RAM de los servicios ni el detalle de algunos procesos.",
+      /** Solo para el lector de pantalla: a la vista, que es un botón lo dice el cursor. */
+      destino: "Ver en Ajustes",
+    },
   },
 
   medidor: {
@@ -244,7 +257,7 @@ export const es = {
     } satisfies Record<ServiceFamily, string>,
     /** Por qué la RAM sale casi siempre en blanco. Va como `title`, donde se busca. */
     ramDesconocida:
-      "La RAM de un servicio solo se puede leer con permisos de administrador, y ProcessDevKill no los pide.",
+      "La RAM de un servicio solo se puede leer con permisos de administrador. La app puede arrancar con ellos desde Ajustes.",
     sinPuertos:
       "No escucha en ningún puerto TCP. Es normal: SQL Express, por ejemplo, viene con TCP/IP desactivado.",
     pidTitulo: (pid: number) => `PID ${pid}`,
@@ -370,6 +383,14 @@ export const es = {
   avisos: {
     ajustesNoGuardados: "No se pudieron guardar los ajustes",
     noSePudoTerminar: "No se pudo terminar el proceso",
+    /**
+     * Se añade a un cierre fallido **solo si la app corre sin elevar**. Es el motivo más común y el
+     * único que el usuario puede arreglar: Windows no deja a un proceso normal cerrar uno abierto
+     * como administrador. Va como posibilidad y no como diagnóstico, porque también falla con un
+     * proceso que acaba de morir por su cuenta.
+     */
+    quizaAdmin:
+      "Si se abrió como administrador, la app necesita ese permiso para cerrarlo: ver Ajustes.",
     fallosParciales: (fallidos: number, total: number) =>
       `${fallidos} de ${total} no se pudieron terminar`,
     cerradoUno: (name: string) => `${name} cerrado`,
@@ -473,6 +494,18 @@ export const es = {
       abrirCarpeta: "Abrir la carpeta",
       copiarRuta: "Copiar la ruta",
     },
+    administrador: {
+      titulo: "Permisos de administrador",
+      estadoSi:
+        "La app corre **como administrador**: ve la RAM de los servicios y el detalle de todos los procesos, y puede cerrarlos todos." as Rico,
+      estadoNo:
+        "La app corre **sin permisos de administrador**. Windows no le deja ver la RAM de los servicios, ni el script y la carpeta de los procesos abiertos como administrador —por ejemplo, desde una terminal elevada—, ni cerrarlos. Todo lo demás funciona igual." as Rico,
+      reiniciar: "Reiniciar como administrador",
+      interruptor: "Iniciar siempre como administrador",
+      detalle:
+        "Windows pedirá confirmación (**UAC**) cada vez que se abra la app. Si se cierra sin aprobarla, la app arranca igual, sin permisos. Se aplica desde el próximo arranque." as Rico,
+      noSePudo: "No se pudo reiniciar como administrador",
+    },
     alCerrar: {
       titulo: "Al cerrar la ventana",
       interruptor: "Dejarla en la bandeja en vez de cerrar la app",
@@ -563,6 +596,11 @@ export const en: Catalogo = {
     historial: "History",
     ajustes: "Settings",
     autoRefresco: "Auto-refresh",
+    sinAdmin: {
+      titulo: "Not running as admin",
+      detalle: "Service RAM and some process details are not visible.",
+      destino: "See in Settings",
+    },
   },
 
   medidor: {
@@ -663,7 +701,7 @@ export const en: Catalogo = {
       other: "Other",
     },
     ramDesconocida:
-      "A service's RAM can only be read with administrator rights, and ProcessDevKill does not ask for them.",
+      "A service's RAM can only be read with administrator rights. The app can start with them from Settings.",
     sinPuertos:
       "It is not listening on any TCP port. That is normal: SQL Express, for one, ships with TCP/IP disabled.",
     pidTitulo: (pid) => `PID ${pid}`,
@@ -753,6 +791,8 @@ export const en: Catalogo = {
   avisos: {
     ajustesNoGuardados: "Settings could not be saved",
     noSePudoTerminar: "The process could not be terminated",
+    quizaAdmin:
+      "If it was opened as administrator, the app needs that right to close it: see Settings.",
     fallosParciales: (fallidos, total) =>
       `${fallidos} of ${total} could not be terminated`,
     cerradoUno: (name) => `${name} closed`,
@@ -847,6 +887,18 @@ export const en: Catalogo = {
         "When something fails inside —saving the settings, reading the ports—, the app writes it down here. It is a local file: **it is never sent anywhere** and you can delete it whenever you want. Attaching it to an issue helps.",
       abrirCarpeta: "Open the folder",
       copiarRuta: "Copy the path",
+    },
+    administrador: {
+      titulo: "Administrator rights",
+      estadoSi:
+        "The app is running **as administrator**: it sees service RAM and the details of every process, and can close them all.",
+      estadoNo:
+        "The app is running **without administrator rights**. Windows does not let it see service RAM, or the script and folder of processes opened as administrator — from an elevated terminal, for instance — or close them. Everything else works the same.",
+      reiniciar: "Restart as administrator",
+      interruptor: "Always start as administrator",
+      detalle:
+        "Windows will ask for confirmation (**UAC**) every time the app opens. If it is closed without approving, the app starts anyway, without the rights. Takes effect from the next start.",
+      noSePudo: "Could not restart as administrator",
     },
     alCerrar: {
       titulo: "When the window is closed",

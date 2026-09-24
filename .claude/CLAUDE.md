@@ -44,9 +44,9 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 - Comandos de Tauri en `snake_case`: `get_processes`, `kill_process`.
 - `lib.rs` es **arranque y `AppState`, y nada más**; los comandos viven en `commands.rs` y la
   lógica en `processes`, `ports`, `storage`, `tray`, `poller`, `auto_kill`, `hotkey`, `notify`,
-  `textos`, `services`, `service_control` y `update`. **Cuando `lib.rs` vuelva a pasar de ~450
+  `textos`, `services`, `service_control`, `elevation` y `update`. **Cuando `lib.rs` vuelva a pasar de ~450
   líneas de código, se parte otra vez**: ya ha pasado cuatro veces (Tier 4, Tier 7.6, Tier 10 y
-  Tier 11, que sacó el atajo global a `hotkey.rs`). **Ahora mismo van 406** — medidas sin el
+  Tier 11, que sacó el atajo global a `hotkey.rs`). **Ahora mismo van 417** — medidas sin el
   `mod tests`, que es como cuenta esta regla.
 - Los comandos que tienen lógica propia detrás **no** están en `commands.rs`: los de servicios van
   en `service_control.rs` junto a su guardia, los del actualizador en `update.rs` y los del log en

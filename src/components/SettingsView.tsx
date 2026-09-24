@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -14,6 +14,8 @@ import {
   MoonIcon,
   ScaleIcon,
   ScrollTextIcon,
+  ShieldAlertIcon,
+  ShieldCheckIcon,
   SunIcon,
   XIcon,
 } from "lucide-react";
@@ -33,6 +35,16 @@ type SettingsViewProps = {
   onChange: (settings: Settings) => void;
   /** Solo se reenvia a `Actualizaciones`; el estado lo pone App (ver ese archivo). */
   updater: ReturnType<typeof useUpdater>;
+  /** Si la app corre como administrador; `null` mientras no se sabe. */
+  elevated?: boolean | null;
+  onRestartAsAdmin?: () => void;
+  /**
+   * Se llega desde el aviso del sidebar: hay que ir a la sección de administrador y no dejar al
+   * usuario arriba del todo buscando por qué se le trajo aquí. `onIdoAAdmin` lo apaga, para que
+   * volver a Ajustes más tarde no salte otra vez a la sección.
+   */
+  irAAdmin?: boolean;
+  onIdoAAdmin?: () => void;
 };
 
 const THEME_ICONS: Record<Theme, typeof SunIcon> = {
@@ -48,8 +60,22 @@ export function SettingsView({
   settings,
   onChange,
   updater,
+  elevated = null,
+  onRestartAsAdmin,
+  irAAdmin = false,
+  onIdoAAdmin,
 }: SettingsViewProps) {
   const t = useT();
+  const adminRef = useRef<HTMLHeadingElement>(null);
+
+  // El foco va al título, y no solo el scroll: con teclado o lector de pantalla, lo siguiente que
+  // se lee es la sección que explica el aviso, no el selector de idioma.
+  useEffect(() => {
+    if (!irAAdmin) return;
+    adminRef.current?.scrollIntoView({ block: "start" });
+    adminRef.current?.focus();
+    onIdoAAdmin?.();
+  }, [irAAdmin, onIdoAAdmin]);
   const [draft, setDraft] = useState("");
   const [servicioDraft, setServicioDraft] = useState("");
   const [protegidoDraft, setProtegidoDraft] = useState("");
@@ -673,6 +699,62 @@ export function SettingsView({
             <span>{t.ajustes.alCerrar.interruptor}</span>
             <span className="mt-1 block text-muted-foreground">
               <Marcado texto={t.ajustes.alCerrar.detalle} />
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2
+          ref={adminRef}
+          tabIndex={-1}
+          className="scroll-mt-6 font-heading text-sm font-semibold outline-none"
+        >
+          {t.ajustes.administrador.titulo}
+        </h2>
+        {elevated !== null && (
+          <p className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
+            {elevated ? (
+              <ShieldCheckIcon
+                className="mt-0.5 size-4 shrink-0 text-emerald-700 dark:text-emerald-400"
+                aria-hidden
+              />
+            ) : (
+              <ShieldAlertIcon
+                className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-400"
+                aria-hidden
+              />
+            )}
+            <span>
+              <Marcado
+                texto={
+                  elevated
+                    ? t.ajustes.administrador.estadoSi
+                    : t.ajustes.administrador.estadoNo
+                }
+              />
+            </span>
+          </p>
+        )}
+        {elevated === false && onRestartAsAdmin && (
+          <Button variant="outline" onClick={onRestartAsAdmin} className="mt-3 ml-6">
+            <ShieldAlertIcon />
+            {t.ajustes.administrador.reiniciar}
+          </Button>
+        )}
+        <div className="mt-3 flex items-start gap-3">
+          <Switch
+            id="run-as-admin"
+            checked={settings.runAsAdmin}
+            onCheckedChange={(checked) =>
+              onChange({ ...settings, runAsAdmin: checked })
+            }
+            className="mt-0.5"
+          />
+          <label htmlFor="run-as-admin" className="cursor-pointer text-sm">
+            <span>{t.ajustes.administrador.interruptor}</span>
+            <span className="mt-1 block text-muted-foreground">
+              <Marcado texto={t.ajustes.administrador.detalle} />
             </span>
           </label>
         </div>

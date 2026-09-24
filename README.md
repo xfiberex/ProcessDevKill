@@ -63,8 +63,12 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
   con su estado, su tipo de arranque y el puerto que ocupan. Es donde se ve que tienes dos
   PostgreSQL arrancando con Windows sin saberlo. Se pueden **arrancar, detener y cambiarles el
   tipo de arranque** desde ahí: Windows pide permisos de administrador **solo en ese momento**,
-  porque la app nunca se eleva entera. Y como el tipo de arranque sobrevive al reinicio, la app
+  porque de fábrica la app no se eleva entera. Y como el tipo de arranque sobrevive al reinicio, la app
   **anota lo que cambió** y deja deshacerlo.
+- **Dice lo que no puede ver sin ser administrador**: la RAM de los servicios y el script y la
+  carpeta de los procesos abiertos desde una terminal elevada, que tampoco puede cerrar. El aviso
+  sale en el sidebar, y desde Ajustes se puede reiniciar elevada o pedir que **arranque siempre como
+  administrador** (apagado de fábrica: supone un aviso de UAC en cada arranque).
 - Tema claro/oscuro que sigue al de Windows, o fijo si lo prefieres.
 - **Español e inglés**, y no solo la ventana: el menú de la bandeja y las notificaciones de Windows
   cambian con ella, que es lo único que se ve con la app escondida. Se elige en Ajustes y no hay que
@@ -174,10 +178,13 @@ Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz a
   catálogo de servicios instalados, su estado, su tipo de arranque y qué depende de qué. Es lectura,
   no pide privilegios, y se hace **solo al abrir esa vista o al pulsar Refrescar** — no en cada
   ciclo de refresco.
-- **La app nunca se ejecuta como administrador.** Arrancar o detener un servicio, y cambiarle el
-  tipo de arranque, sí lo requieren: para eso relanza **su propio ejecutable** con el aviso de UAC,
-  ese proceso hace **una** llamada al sistema y termina. Vive elevado unos milisegundos, sin ventana
-  y sin red. Si cierras el aviso, no se hace nada.
+- **De fábrica, la app no se ejecuta como administrador.** Arrancar o detener un servicio, y
+  cambiarle el tipo de arranque, sí lo requieren: para eso relanza **su propio ejecutable** con el
+  aviso de UAC, ese proceso hace **una** llamada al sistema y termina. Vive elevado unos
+  milisegundos, sin ventana y sin red. Si cierras el aviso, no se hace nada.
+- **Correr elevada entera es opcional**, desde Ajustes: una vez («Reiniciar como administrador») o
+  siempre («Iniciar siempre como administrador», apagado de fábrica). Windows lo confirma con su
+  aviso de UAC cada vez, y si se cierra sin aprobar la app arranca igual, sin elevar.
 - Los ajustes, el historial y los cambios de arranque se guardan **en tu equipo**, en
   `%APPDATA%\com.processdevkill.app\` (`settings.json`, `history.json` y `service-changes.json`).
   Se pueden abrir, copiar entre equipos o borrar; el historial se puede vaciar desde la propia app y
@@ -277,9 +284,9 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 255 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 265 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
-cd src-tauri && cargo test    # 112 pruebas del backend
+cd src-tauri && cargo test    # 117 pruebas del backend
 ```
 
 Las pruebas de Rust leen los procesos reales del equipo y **solo matan procesos que lanzan ellas
@@ -330,7 +337,8 @@ Cada push a `main` y cada pull request pasan por **GitHub Actions**, en
 | `src-tauri/src/{processes,ports,storage,tray}.rs` | Procesos, puertos, persistencia y bandeja |
 | `src-tauri/src/{poller,auto_kill,notify}.rs` | Hilo de refresco, cierre automático por RAM y avisos nativos |
 | `src-tauri/src/services.rs` | Servicios de desarrollo, **solo lectura**: no puede arrancar ni detener nada |
-| `src-tauri/src/service_control.rs` | Lo único que eleva: arrancar, detener y cambiar el arranque, con su guardia |
+| `src-tauri/src/service_control.rs` | Eleva una acción: arrancar, detener y cambiar el arranque, con su guardia |
+| `src-tauri/src/elevation.rs` | Si la app corre como administrador, y relanzarla elevada cuando se pide |
 | `src-tauri/src/textos.rs` | Todo el texto que escribe Rust (bandeja y notificaciones), en los dos idiomas |
 | `src-tauri/src/update.rs` | Actualizaciones: consulta a GitHub, descarga y verificación SHA-256 |
 | `src-tauri/src/logging.rs` | Registro de avisos en archivo, con rotación (en release no hay consola) |

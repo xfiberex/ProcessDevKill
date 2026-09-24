@@ -71,6 +71,8 @@ const DEFAULT_SETTINGS: Settings = {
   language: "es",
   // Vacia: el catalogo de fabrica de `services.rs` ya cubre los motores conocidos.
   customServices: [],
+  // Apagado: el UAC en cada arranque tiene que pedirlo quien lo quiera.
+  runAsAdmin: false,
 };
 
 export default function App() {
@@ -84,6 +86,13 @@ export default function App() {
   /** Los cambios de arranque que ha hecho la app y siguen puestos en Windows. */
   const [serviceChanges, setServiceChanges] = useState<ServiceChange[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  /**
+   * Si la app corre como administrador. `null` mientras no se sabe: el aviso solo sale con un
+   * `false` explícito, para no enseñarlo de más en el instante que tarda Rust en contestar.
+   */
+  const [elevated, setElevated] = useState<boolean | null>(null);
+  /** El aviso del sidebar lleva a la sección de Ajustes que lo explica, no al principio. */
+  const [irAAdmin, setIrAAdmin] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   // El orden vive aqui y no en la tabla porque la tabla se desmonta al filtrar a
@@ -371,6 +380,8 @@ export default function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
     invoke<Settings>("get_settings").then(setSettings).catch(() => {});
+    // Una vez: la elevación no cambia mientras la app vive. Para cambiarla hay que reiniciarla.
+    invoke<boolean>("get_elevation").then(setElevated).catch(() => {});
   }, [refresh]);
 
   // El historial cambia al matar procesos desde cualquier sitio, asi que se
@@ -523,11 +534,16 @@ export default function App() {
       const outcomes = await invoke<KillOutcome[]>("kill_processes", { pids });
       const failed = outcomes.filter((o) => !o.killed);
 
+      // Sin elevar, el motivo más probable de un fallo es un proceso abierto como administrador.
+      const pista = elevated === false ? t.avisos.quizaAdmin : undefined;
+
       if (failed.length === outcomes.length) {
-        toast.error(failed[0].error ?? t.avisos.noSePudoTerminar);
+        toast.error(failed[0].error ?? t.avisos.noSePudoTerminar, {
+          description: pista,
+        });
       } else if (failed.length > 0) {
         toast.warning(t.avisos.fallosParciales(failed.length, outcomes.length), {
-          description: failed[0].error ?? undefined,
+          description: [failed[0].error, pista].filter(Boolean).join(" ") || undefined,
         });
       } else {
         // Los puertos liberados son la razon de ser de la app, asi que si los
@@ -585,6 +601,16 @@ export default function App() {
     setSelected(allSelected ? new Set() : new Set(visible.map((p) => p.pid)));
   }
 
+  async function restartAsAdmin() {
+    try {
+      // Si se aprueba el UAC, Rust lanza la elevada y cierra esta: no hay nada más que hacer. Si
+      // se cierra, contesta `cancelled`, que no merece aviso: es una respuesta.
+      await invoke("restart_as_admin");
+    } catch (e) {
+      toast.error(t.ajustes.administrador.noSePudo, { description: String(e) });
+    }
+  }
+
   function askNuke(pids: number[], ambito: string, protegidosFuera: number) {
     setConfirm({
       title: t.confirmar.cerrarTitulo(pids.length),
@@ -622,6 +648,11 @@ export default function App() {
           refreshMs={settings.refreshMs}
           onRefreshMsChange={(ms) => saveSettings({ ...settings, refreshMs: ms })}
           usage={usage}
+          elevated={elevated}
+          onVerAdmin={() => {
+            setIrAAdmin(true);
+            setView("settings");
+          }}
         />
 
         <main className="flex min-w-0 flex-1 flex-col">
@@ -698,6 +729,10 @@ export default function App() {
                 settings={settings}
                 onChange={saveSettings}
                 updater={updater}
+                elevated={elevated}
+                onRestartAsAdmin={restartAsAdmin}
+                irAAdmin={irAAdmin}
+                onIdoAAdmin={() => setIrAAdmin(false)}
               />
             )}
 

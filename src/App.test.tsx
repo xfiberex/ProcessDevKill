@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import App from "./App";
@@ -31,8 +31,13 @@ async function emitir(lista: ProcessInfo[]) {
   });
 }
 
-async function montar(lista: ProcessInfo[] = LISTA) {
+async function montar(
+  lista: ProcessInfo[] = LISTA,
+  /** Respuestas de más, para los comandos que la prueba necesita y el resto no. */
+  extra: Record<string, unknown> = {},
+) {
   invoke.mockImplementation(async (cmd: string) => {
+    if (cmd in extra) return extra[cmd];
     if (cmd === "get_processes") return lista;
     if (cmd === "get_history") return [];
     // Sobre `DEFAULT_TEST_SETTINGS` y no escritos a mano: esta copia se habia quedado sin
@@ -888,3 +893,71 @@ describe("el dialogo de cambiar el arranque", () => {
     ).toHaveClass("bg-destructive");
   });
 });
+
+describe("el aviso de administrador", () => {
+  const aviso = () =>
+    screen.queryByRole("button", { name: /Sin modo administrador/ });
+
+  it("sale en el sidebar cuando la app no corre como administrador", async () => {
+    await montar(LISTA, { get_elevation: false });
+
+    expect(await screen.findByRole("button", { name: /Sin modo administrador/ }))
+      .toHaveTextContent("No se ve la RAM de los servicios");
+  });
+
+  /** El criterio negativo: elevada, o sin saberlo todavía, no se avisa de nada. */
+  it("no sale si corre como administrador, ni mientras no se sabe", async () => {
+    await montar(LISTA, { get_elevation: true });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("get_elevation"));
+    expect(aviso()).not.toBeInTheDocument();
+  });
+
+  it("lleva a su seccion de Ajustes, con el foco en el titulo", async () => {
+    const user = await montar(LISTA, { get_elevation: false });
+
+    await user.click(await screen.findByRole("button", { name: /Sin modo administrador/ }));
+
+    expect(
+      screen.getByRole("heading", { name: "Permisos de administrador" }),
+    ).toHaveFocus();
+    expect(screen.getByRole("button", { name: /^Ajustes/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("reiniciar como administrador se lo pide a Rust", async () => {
+    const user = await montar(LISTA, { get_elevation: false, restart_as_admin: "cancelled" });
+
+    await user.click(await screen.findByRole("button", { name: /Sin modo administrador/ }));
+    await user.click(screen.getByRole("button", { name: "Reiniciar como administrador" }));
+
+    expect(invoke).toHaveBeenCalledWith("restart_as_admin");
+  });
+
+  /**
+   * Sin elevar, un Kill que falla suele ser un proceso abierto como administrador —comprobado en
+   * vivo— y el aviso de Rust solo dice «No se pudo terminar». La pista va solo en ese caso: elevada,
+   * sería falsa.
+   */
+  it("un cierre fallido sin elevar sugiere el motivo; elevada, no", async () => {
+    const fallo = [
+      { pid: 100, name: "node.exe", killed: false, error: "No se pudo terminar node.exe (PID 100)", freedPorts: [] },
+    ];
+    for (const elevada of [false, true]) {
+      const user = await montar(LISTA, { get_elevation: elevada, kill_processes: fallo });
+      await waitFor(() => expect(invoke).toHaveBeenCalledWith("get_elevation"));
+
+      await user.click(screen.getByRole("button", { name: "Kill node.exe, PID 100" }));
+
+      expect(
+        await screen.findByText("No se pudo terminar node.exe (PID 100)"),
+      ).toBeInTheDocument();
+      const pista = screen.queryByText(/Si se abrió como administrador/);
+      if (elevada) expect(pista).not.toBeInTheDocument();
+      else expect(pista).toBeInTheDocument();
+      cleanup();
+    }
+  });
+});
+
