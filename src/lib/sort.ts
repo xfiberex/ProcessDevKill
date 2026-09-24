@@ -70,3 +70,25 @@ export function sortProcesses(processes: ProcessInfo[], { key, dir }: Sort): Pro
     return a.pid - b.pid;
   });
 }
+
+/**
+ * Aplica a `procesos` un orden ya visto, para que las filas no cambien de sitio.
+ *
+ * Es la A5 del Tier 11. Kill cierra sin confirmar, y con el orden por RAM las filas se mueven
+ * solas: en la auditoria, un refresco movio **5 filas a la vez** con el raton en reposo, y el
+ * boton que quedaba bajo el cursor pasaba a ser el de otro proceso. Mientras el puntero esta sobre
+ * la tabla o hay un menu abierto, la posicion se congela; los valores siguen llegando.
+ *
+ * - Los que ya estaban conservan su puesto relativo.
+ * - Los que mueren salen, sin dejar hueco.
+ * - Los nuevos van **al final**, en el orden en que llegan: meterlos en medio moveria justo las
+ *   filas que se querian quietas.
+ */
+export function freezeOrder(procesos: ProcessInfo[], orden: number[]): ProcessInfo[] {
+  const puesto = new Map(orden.map((pid, i) => [pid, i]));
+  const conocidos = procesos
+    .filter((p) => puesto.has(p.pid))
+    .sort((a, b) => puesto.get(a.pid)! - puesto.get(b.pid)!);
+  const nuevos = procesos.filter((p) => !puesto.has(p.pid));
+  return [...conocidos, ...nuevos];
+}

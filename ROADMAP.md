@@ -1219,7 +1219,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 ---
 
 
-## 🧭 Tier 11: Auditoría UX/UI — ⏳ **pendiente**
+## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fase A hecha y verificada (v1.6.0)**
 *Objetivo: que la app no deje cerrar lo que no se quería, que se pueda usar entera con teclado y con poca vista, y que las cuatro vistas hablen el mismo idioma visual.*
 
 > **Sale de una auditoría de UX/UI hecha el 2026-09-23 sobre la v1.5.3**, con la app en marcha
@@ -1236,24 +1236,50 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 > (A1), el `select` nativo del arranque (A4), el estilo del Kill de cada fila (D5) y el menú
 > contextual «solo de ratón» (F1). Si se adoptan, la decisión nueva va allí con su fecha.
 
-### Fase A — riesgo de cerrar lo que no se quería
+### Fase A — riesgo de cerrar lo que no se quería — ✅ **hecha y verificada el 2026-09-23**
 
-- [ ] **A1. Ctrl+Alt+K apagado de fábrica** ([storage.rs](src-tauri/src/storage.rs), `hotkey_enabled: true`).
+> Con 112 pruebas de Rust y 245 del frontend en verde, clippy y ESLint limpios, y la app en marcha
+> por CDP con los procesos y servicios reales del equipo. En la verificación en vivo **no se pulsó
+> ningún Kill ni se eligió ningún tipo de arranque**: los menús y la lista se cerraron con Escape.
+> Las decisiones, con su porqué, en CONTEXT §4 (2026-09-23).
+
+- [x] **A1. Ctrl+Alt+K apagado de fábrica** ([storage.rs](src-tauri/src/storage.rs), `hotkey_enabled: true`).
   > Cierra **todos** los procesos vigilados sin confirmar y, al ser global (`RegisterHotKey`), se lo
   > quita a todas las apps: en los IDE de JetBrains Ctrl+Alt+K es *Commit and Push*, así que quien lo
   > pulse ahí cierra sus servidores y el IDE ni recibe la tecla. El Auto-Kill y el Zombie Finder nacen
   > apagados por matar sin preguntar; esto merece el mismo criterio. Cambiar el valor de fábrica solo
   > afecta a quien no tenga el campo guardado. Además: combinación configurable, y valorar una doble
   > pulsación.
-- [ ] **A2. Distinguir las filas**: segunda línea en gris con el script y la carpeta del proyecto.
+  >
+  > ✅ **Hecho, con las dos cosas.** Apagado de fábrica; combinación elegible entre Ctrl+Alt+K,
+  > Ctrl+Alt+Shift+K y Ctrl+Alt+F12; y **dos pulsaciones en 3 s**, encendido de fábrica, que sí
+  > alcanza a quien ya tenía el atajo activo. La primera pulsación avisa de cuántos caerían. Probado
+  > con pruebas unitarias (`hotkey::decidir`, los valores de fábrica y la migración de un
+  > `settings.json` antiguo). ⚠️ **Lo que quedó fuera: no se pulsó el atajo de verdad**, porque
+  > dispararlo cierra los procesos reales del equipo; el registro con `RegisterHotKey` es el mismo
+  > camino de siempre, y la combinación nueva solo cambia el `Shortcut` que se le pasa.
+- [x] **A2. Distinguir las filas**: segunda línea en gris con el script y la carpeta del proyecto.
   > En la auditoría, **13 de 15 filas eran `node.exe`**, y dos de ellas eran el CLI de Tauri y el Vite
   > que había lanzado la propia sesión: nada en la fila lo decía. Kill y Nuke All se usan a ciegas. Es
   > el mismo patrón de dos líneas que ya usa Servicios. Script + carpeta, **no la línea de comandos
   > entera**, que puede llevar tokens. El buscador también debe mirarla. Es la mejora de más valor.
-- [ ] **A3. Lista de procesos protegidos** que respeten Nuke All, la bandeja, el atajo y el Auto-Kill.
+  >
+  > ✅ **Hecho y visto en vivo**: las filas pasaron a decir `vite · ProcessDevKill`,
+  > `@tauri-apps/cli · src-tauri`, `chrome-devtools-mcp · ProcessDevKill`… La verificación destapó
+  > dos cosas que se arreglaron en el momento: los lanzadores de npm (`node_modules\.bin\..\vite`)
+  > salían como `.bin`, y una línea larga sacaba la tabla de la ventana a 1000 px. El buscador mira
+  > también las dos.
+- [x] **A3. Lista de procesos protegidos** que respeten Nuke All, la bandeja, el atajo y el Auto-Kill.
   > Entra por `kill_and_record`, que es por donde pasa toda muerte. Prueba obligatoria: el criterio
   > negativo, que un protegido **no** cae por ninguna de las cuatro vías.
-- [ ] **A4. El tipo de arranque no se confirma en `change`.**
+  >
+  > ✅ **Hecho.** En Ajustes y desde el menú de cada fila (por la carpeta). Tampoco lo cierra el Kill
+  > de su fila, que sale apagado con un candado. La prueba del criterio negativo lanza un `node` desde
+  > una carpeta propia, lo protege por ella y comprueba que ni la bandeja, ni el atajo, ni la guardia
+  > de `kill_many` —por la que pasan la ventana y el Auto-Kill— lo tocan, y que **sigue vivo**; sin
+  > protegerlo, el mismo PID muere. ⚠️ **En vivo no se protegió nada**, para no escribir en el
+  > `settings.json` del usuario: la parte de la ventana está cubierta por las pruebas del frontend.
+- [x] **A4. El tipo de arranque no se confirma en `change`.**
   > Un `<select>` nativo en WebView2 lanza `change` **con cada flecha** (medido: 1 flecha → 1
   > `change`, 2 → 2). En Servicios, ↓ sobre «Automático» abre ya la confirmación para «Automático
   > (retrasado)» con el foco en «Cambiar arranque»; «Deshabilitado» no se alcanza con flechas y un
@@ -1261,13 +1287,24 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > sobrevive al reinicio. Salidas: el `Select` de Base UI (las flechas abren la lista, no cambian el
   > valor) o el nativo como borrador con un botón «Aplicar». Contradice la nota de `ServicesView.tsx`
   > que defiende el nativo porque «trae gratis el teclado».
-- [ ] **A5. Congelar el orden de la tabla mientras el puntero está encima** o hay un menú abierto.
+  >
+  > ✅ **Hecho con el `Select` de Base UI**, y solo se acepta un cambio al **elegir una entrada**:
+  > Base UI también cambiaba el valor tecleando una letra con la lista cerrada. Verificado en vivo
+  > sobre los 10 servicios del equipo: una letra no abre el diálogo, ↓ abre la lista sin cambiar el
+  > valor y Escape lo deja todo como estaba.
+- [x] **A5. Congelar el orden de la tabla mientras el puntero está encima** o hay un menú abierto.
   > Kill cierra sin confirmar —bien, como el Administrador de tareas—, pero con el orden por RAM las
   > filas cambian de sitio solas: en 30 s de reposo hubo un refresco que movió **5 filas a la vez**.
   > Los valores siguen actualizándose; lo que se congela es la posición.
-- [ ] **A6. «Matar proceso» al final del menú contextual**, tras un separador.
+  >
+  > ✅ **Hecho y visto en vivo**: 8 refrescos seguidos con el puntero encima, sin que se moviera una
+  > fila. Los que mueren salen sin dejar hueco y los nuevos van al final.
+- [x] **A6. «Matar proceso» al final del menú contextual**, tras un separador.
   > Abierto por teclado, **la primera flecha cae en él**, y cierra sin diálogo. Con el ratón es la
   > entrada que queda justo bajo el cursor. Lo convencional es lo destructivo al final.
+  >
+  > ✅ **Hecho y visto en vivo**: abierto con Shift+F10, la primera flecha cae en «Copiar PID».
+  > Entre medias queda «Proteger», con su propio separador.
 
 ### Fase B — accesibilidad medida
 

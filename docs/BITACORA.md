@@ -8,6 +8,29 @@
 
 ---
 
+### 2026-09-23 (noche) — Tier 11, Fase A: que no se cierre lo que no se quería (v1.6.0)
+
+- **Las seis tareas de la fase de riesgo, hechas y verificadas.** El atajo global viene apagado,
+  con la combinación elegible y **dos pulsaciones**; cada fila dice su script y su carpeta;
+  procesos protegidos que nada cierra; el tipo de arranque ya no cambia con una flecha; el orden de
+  la tabla se congela bajo el puntero; y «Matar proceso» pasa al final del menú. Las decisiones, en
+  CONTEXT §4 con fecha de hoy.
+- **La verificación en vivo encontró dos fallos míos antes de publicar.** Los lanzadores de npm
+  llaman a `node_modules\.bin\..\vite\bin\vite.js`, y sin resolver el `..` el Vite y el CLI de
+  Tauri de la propia sesión salían como `.bin`. Y la segunda línea más larga
+  (`@colbymchenry/codegraph-win32-x64 · ProcessDevKill`) sacaba la tabla de la ventana a 1000 px,
+  porque en una tabla automática `truncate` empuja en vez de recortar. Arreglados y medidos: tabla
+  y contenedor, 777 px los dos.
+- **El `Select` de Base UI también cambia el valor con una letra**, con la lista cerrada, igual que
+  el nativo. Pasarse a él no bastaba: solo se acepta el cambio que viene de elegir una entrada.
+- **`shadcn add select` metió un paquete ajeno.** El archivo generado importaba `cn` desde el
+  paquete de npm `cn` —y lo instaló como dependencia— en vez de `@/lib/utils`. Se desinstaló y se
+  corrigió el import antes de seguir: una dependencia de producción que nadie pidió es justo lo que
+  una auditoría de la cadena de suministro no quiere encontrarse.
+- `lib.rs` baja a 406 líneas: el atajo global sale a `hotkey.rs`. Pruebas: 112 de Rust y 245 del
+  frontend. **No se pulsó el atajo de verdad**, porque dispararlo cierra los procesos reales del
+  equipo, ni se protegió nada en vivo, para no escribir en el `settings.json` del usuario.
+
 ### 2026-09-23 — Auditoría de UX/UI, y la CI que se había descartado
 
 - **Auditoría de UX/UI sobre la v1.5.3, con la app en marcha** (`tauri dev` por CDP y datos reales

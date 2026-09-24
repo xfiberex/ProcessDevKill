@@ -29,6 +29,7 @@ pub fn show_main_window(app: &AppHandle) {
 fn kill_all_of(app: &AppHandle, runtime: Runtime) {
     let state = app.state::<AppState>();
     let custom = state.custom_names();
+    let protected = state.protected_names();
     let lang = state.language();
 
     // Via `pids_of_runtime` y no repitiendo el filtro aqui: es la funcion que
@@ -38,7 +39,7 @@ fn kill_all_of(app: &AppHandle, runtime: Runtime) {
         let Ok(mut sys) = state.sys.lock() else {
             return;
         };
-        pids_of_runtime(&mut sys, &custom, runtime)
+        pids_of_runtime(&mut sys, &custom, &protected, runtime)
     };
 
     if targets.is_empty() {
@@ -52,7 +53,7 @@ fn kill_all_of(app: &AppHandle, runtime: Runtime) {
         app,
         textos::con_puertos(
             lang,
-            textos::closed_sentence(lang, killed, Some(runtime.label()), false),
+            textos::closed_sentence(lang, killed, Some(runtime.label()), None),
             &crate::processes::freed_ports(&outcomes),
         ),
     );

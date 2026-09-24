@@ -55,14 +55,55 @@ pub enum Theme {
     Dark,
 }
 
+/// Combinacion del atajo global. Una lista cerrada y no una tecla libre: grabar cualquier
+/// combinacion pediria un capturador de teclas y validar choques con el sistema, para algo que se
+/// elige una vez. Las dos alternativas estan elegidas por no chocar con los IDE de uso comun.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum Hotkey {
+    /// La de siempre. En los IDE de JetBrains es *Commit and Push*: ver `hotkey_enabled`.
+    #[default]
+    CtrlAltK,
+    CtrlAltShiftK,
+    CtrlAltF12,
+}
+
+impl Hotkey {
+    /// Como se escribe en la UI y en las notificaciones. No se traduce: son nombres de teclas.
+    pub fn label(self) -> &'static str {
+        match self {
+            Hotkey::CtrlAltK => "Ctrl+Alt+K",
+            Hotkey::CtrlAltShiftK => "Ctrl+Alt+Shift+K",
+            Hotkey::CtrlAltF12 => "Ctrl+Alt+F12",
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
 pub struct Settings {
     /// Nombres extra a vigilar ademas de node/python/dotnet (ej. "docker", "go").
     pub custom_names: Vec<String>,
-    /// Si el atajo global Ctrl+Alt+K esta activo.
+    /// Si el atajo global esta activo.
+    ///
+    /// **Apagado de fabrica desde la v1.6.0** (Tier 11, A1). Cierra todos los vigilados sin
+    /// confirmar y, al ser global, se lo quita a todas las apps: en los IDE de JetBrains
+    /// Ctrl+Alt+K es *Commit and Push*, y quien lo pulsara ahi cerraba sus servidores sin que el
+    /// IDE llegara a recibir la tecla. El Auto-Kill nace apagado por matar sin preguntar; esto,
+    /// por lo mismo. Solo cambia para quien no tenga el campo guardado.
     pub hotkey_enabled: bool,
+    /// Que combinacion dispara el atajo.
+    pub hotkey: Hotkey,
+    /// Si el atajo pide **dos pulsaciones** seguidas para disparar. La primera solo avisa.
+    ///
+    /// Encendido de fabrica, y eso si alcanza a quien ya tenia el atajo activo: su
+    /// `settings.json` no trae el campo. Ver `hotkey::decidir`.
+    pub hotkey_double_press: bool,
+    /// Procesos que nada de la app cierra: ni Nuke All, ni la bandeja, ni el atajo, ni el
+    /// Auto-Kill. Cada entrada se compara exacta con el ejecutable, el script o la carpeta del
+    /// proceso (ver `processes::is_protected`).
+    pub protected: Vec<String>,
     /// Si cerrar la ventana la esconde en la bandeja en vez de terminar la app.
     ///
     /// **Apagado por defecto**: el boton X de Windows cierra, y que una app siga
@@ -101,7 +142,11 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             custom_names: Vec::new(),
-            hotkey_enabled: true,
+            // Apagado: ver el comentario del campo.
+            hotkey_enabled: false,
+            hotkey: Hotkey::default(),
+            hotkey_double_press: true,
+            protected: Vec::new(),
             // Cerrar cierra. Ver el comentario del campo: esconderse en la bandeja
             // sin pedirlo es lo que hacia que se acumularan instancias.
             close_to_tray: false,
@@ -145,19 +190,28 @@ impl Settings {
     /// Normaliza los nombres introducidos por el usuario: minusculas, sin `.exe`,
     /// sin espacios ni duplicados. Asi `classify` puede comparar directamente.
     pub fn normalized_names(&self) -> Vec<String> {
-        let mut names: Vec<String> = self
-            .custom_names
-            .iter()
-            .map(|n| {
-                let lower = n.trim().to_lowercase();
-                lower.strip_suffix(".exe").unwrap_or(&lower).to_string()
-            })
-            .filter(|n| !n.is_empty())
-            .collect();
-        names.sort();
-        names.dedup();
-        names
+        normalize(&self.custom_names)
     }
+
+    /// Los protegidos, con la misma normalizacion: `is_protected` compara directamente.
+    pub fn normalized_protected(&self) -> Vec<String> {
+        normalize(&self.protected)
+    }
+}
+
+/// Minusculas, sin `.exe`, sin espacios ni duplicados.
+fn normalize(lista: &[String]) -> Vec<String> {
+    let mut names: Vec<String> = lista
+        .iter()
+        .map(|n| {
+            let lower = n.trim().to_lowercase();
+            lower.strip_suffix(".exe").unwrap_or(&lower).to_string()
+        })
+        .filter(|n| !n.is_empty())
+        .collect();
+    names.sort();
+    names.dedup();
+    names
 }
 
 /// De donde salio la orden de cerrar un proceso.
@@ -445,7 +499,11 @@ mod tests {
         let storage = temp_storage("ajustes");
         let settings = Settings {
             custom_names: vec!["php".into()],
-            hotkey_enabled: false,
+            // Encendido y no el de fabrica, por el mismo motivo que el idioma de abajo.
+            hotkey_enabled: true,
+            hotkey: Hotkey::CtrlAltF12,
+            hotkey_double_press: false,
+            protected: vec!["mi-api".into()],
             close_to_tray: true,
             refresh_ms: 5000,
             theme: Theme::Dark,
@@ -540,6 +598,45 @@ mod tests {
     #[test]
     fn cerrar_la_ventana_cierra_la_app_de_fabrica() {
         assert!(!Settings::default().close_to_tray);
+    }
+
+    /// El atajo global cierra todo sin confirmar y le roba la combinacion a cualquier app que la
+    /// use. Encendido de fabrica, Ctrl+Alt+K cerraba los servidores de quien lo pulsaba en un IDE
+    /// de JetBrains para hacer *Commit and Push*. Si alguien lo vuelve a encender por descuido,
+    /// que falle aqui.
+    #[test]
+    fn el_atajo_global_viene_apagado_y_pide_dos_pulsaciones() {
+        let fabrica = Settings::default();
+        assert!(!fabrica.hotkey_enabled);
+        assert!(fabrica.hotkey_double_press);
+        assert!(fabrica.protected.is_empty());
+    }
+
+    /// Quien actualiza con el atajo ya encendido lo conserva —su archivo trae `hotkeyEnabled`—,
+    /// pero **si** le llega la doble pulsacion, porque ese campo no lo trae. Es la mitad de la
+    /// correccion que alcanza a los usuarios que ya estaban expuestos.
+    #[test]
+    fn quien_ya_tenia_el_atajo_lo_conserva_con_doble_pulsacion() {
+        let storage = temp_storage("atajo-heredado");
+        fs::write(
+            storage.settings_file(),
+            r#"{"customNames":[],"hotkeyEnabled":true,"refreshMs":2000}"#,
+        )
+        .unwrap();
+
+        let settings = storage.load_settings();
+        assert!(settings.hotkey_enabled, "no se le apaga lo que tenia");
+        assert_eq!(settings.hotkey, Hotkey::CtrlAltK, "ni se le cambia la combinacion");
+        assert!(settings.hotkey_double_press);
+    }
+
+    #[test]
+    fn los_protegidos_se_normalizan_como_los_vigilados() {
+        let settings = Settings {
+            protected: vec![" Mi-API ".into(), "mi-api".into(), "Node.EXE".into(), "".into()],
+            ..Settings::default()
+        };
+        assert_eq!(settings.normalized_protected(), vec!["mi-api", "node"]);
     }
 
     #[test]

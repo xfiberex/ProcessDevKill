@@ -19,6 +19,8 @@ function pintar(processes: ProcessInfo[], extra: Partial<Parameters<typeof Proce
     onToggleAll: vi.fn(),
     onKill: vi.fn(),
     onCopy: vi.fn(),
+    onProtect: vi.fn(),
+    onFreezeChange: vi.fn(),
     ...extra,
   };
   // Se devuelve tambien lo que da `render` (sobre todo `unmount`) para que nadie
@@ -222,6 +224,94 @@ describe("menu contextual", () => {
     await user.click(screen.getByText("Copiar PID"));
 
     expect(onCopy).toHaveBeenCalledWith("53", "PID 53");
+  });
+
+  /**
+   * Tier 11, A6. «Matar proceso» era la primera entrada: abierto por teclado, la primera flecha
+   * caía en él, y cierra sin diálogo. Ahora va la última, tras un separador.
+   */
+  it("deja «Matar proceso» la última, tras un separador", async () => {
+    await abrirMenu(proceso({ pid: 54, ports: [3000] }));
+
+    const menu = screen.getByRole("menu");
+    const entradas = within(menu).getAllByRole("menuitem");
+    expect(entradas[0]).toHaveTextContent("Copiar PID");
+    expect(entradas[entradas.length - 1]).toHaveTextContent("Matar proceso");
+    // El elemento justo antes de la entrada destructiva es un separador.
+    expect(entradas[entradas.length - 1]!.previousElementSibling).toHaveAttribute("role", "separator");
+  });
+
+  it("protege por la carpeta del proyecto desde el menú", async () => {
+    const p = proceso({ pid: 55, script: "vite", project: "mi-web" });
+    const { user, onProtect } = await abrirMenu(p);
+
+    await user.click(screen.getByText("Proteger «mi-web»"));
+
+    expect(onProtect).toHaveBeenCalledWith(p, true);
+  });
+
+  it("congela el orden mientras el menú está abierto", async () => {
+    const { onFreezeChange } = await abrirMenu(proceso({ pid: 56 }));
+    expect(onFreezeChange).toHaveBeenLastCalledWith(true);
+  });
+});
+
+/** Tier 11, A2: con trece `node.exe` en la lista, la segunda línea es lo que dice cuál es cuál. */
+describe("segunda línea de la fila", () => {
+  it("enseña el script y la carpeta debajo del nombre", () => {
+    pintar([proceso({ pid: 70, script: "vite", project: "mi-web" })]);
+    expect(within(fila(70)).getByText("vite · mi-web")).toBeInTheDocument();
+  });
+
+  it("no pinta una línea vacía si no se pudo leer ninguno", () => {
+    pintar([proceso({ pid: 71 })]);
+    expect(within(fila(71)).queryByText(/·/)).not.toBeInTheDocument();
+  });
+});
+
+/** Tier 11, A3: un protegido no se puede cerrar desde su fila, ni por el botón ni por el menú. */
+describe("procesos protegidos", () => {
+  it("apaga el Kill de la fila protegida y solo el de esa", () => {
+    pintar([proceso({ pid: 80, protected: true }), proceso({ pid: 81 })]);
+
+    const kill = (pid: number) =>
+      screen.getByRole("button", { name: `Cerrar node.exe, PID ${pid}` });
+    expect(kill(80)).toBeDisabled();
+    expect(kill(81)).not.toBeDisabled();
+    expect(within(fila(80)).getByText("Protegido")).toBeInTheDocument();
+  });
+
+  it("en el menú, «Matar proceso» sale apagado y se ofrece quitar la protección", async () => {
+    const user = userEvent.setup();
+    const p = proceso({ pid: 82, protected: true, project: "mi-api" });
+    const { onKill, onProtect } = pintar([p]);
+    await user.pointer({ target: fila(82), keys: "[MouseRight]" });
+    const menu = await screen.findByRole("menu");
+
+    const matar = within(menu).getByRole("menuitem", { name: "Matar proceso" });
+    expect(matar).toHaveAttribute("aria-disabled", "true");
+    await user.click(matar);
+    expect(onKill).not.toHaveBeenCalled();
+
+    await user.click(within(menu).getByText("Dejar de proteger «mi-api»"));
+    expect(onProtect).toHaveBeenCalledWith(p, false);
+  });
+});
+
+/**
+ * Tier 11, A5. La tabla no reordena por su cuenta: avisa de cuándo congelar y App aplica el
+ * orden. Lo que se prueba aquí es el aviso; el orden congelado, en `lib/sort.test.ts`.
+ */
+describe("orden congelado", () => {
+  it("pide congelar con el puntero sobre las filas y soltar al salir", async () => {
+    const user = userEvent.setup();
+    const { onFreezeChange } = pintar([proceso({ pid: 90 })]);
+
+    await user.hover(fila(90));
+    expect(onFreezeChange).toHaveBeenLastCalledWith(true);
+
+    await user.unhover(fila(90));
+    expect(onFreezeChange).toHaveBeenLastCalledWith(false);
   });
 });
 

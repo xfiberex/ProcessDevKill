@@ -1,5 +1,6 @@
 mod auto_kill;
 mod commands;
+mod hotkey;
 // `pub` porque el macro `avisar!` que exporta se resuelve como `$crate::logging::escribir`.
 pub mod logging;
 mod notify;
@@ -18,11 +19,11 @@ use std::time::Duration;
 
 use sysinfo::System;
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri_plugin_global_shortcut::ShortcutState;
 
 use processes::{
-    collect_processes, collect_system_usage, kill_many, new_system, warm_up_cpu, KillOutcome,
-    ProcessInfo, SystemUsage,
+    collect_processes, collect_system_usage, kill_many, mark_protected, new_system, warm_up_cpu,
+    KillOutcome, ProcessInfo, SystemUsage,
 };
 use storage::{now_millis, HistoryEntry, KillSource, Language, Settings, Storage};
 
@@ -60,6 +61,14 @@ impl AppState {
         self.settings
             .lock()
             .map(|s| s.normalized_names())
+            .unwrap_or_default()
+    }
+
+    /// Los protegidos, ya normalizados. Mismo criterio que `custom_names`: copiar y soltar.
+    fn protected_names(&self) -> Vec<String> {
+        self.settings
+            .lock()
+            .map(|s| s.normalized_protected())
             .unwrap_or_default()
     }
 
@@ -148,6 +157,7 @@ impl AppState {
 /// desaparecerian segun de donde viniera la lista.
 pub(crate) fn read_list(state: &AppState) -> Result<Vec<ProcessInfo>, String> {
     let custom = state.custom_names();
+    let protected = state.protected_names();
     let zombie_after = state.zombie_after();
 
     let mut list = {
@@ -157,16 +167,13 @@ pub(crate) fn read_list(state: &AppState) -> Result<Vec<ProcessInfo>, String> {
             .map_err(|_| textos::de(state.language()).estado_corrupto.to_string())?;
         collect_processes(&mut sys, &custom)
     };
+    mark_protected(&mut list, &protected);
 
     if let Ok(mut watch) = state.zombies.lock() {
         watch.track(&mut list, now_millis(), zombie_after);
     }
 
     Ok(list)
-}
-
-fn atajo_nuke() -> Shortcut {
-    Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyK)
 }
 
 pub(crate) fn publish(app: &AppHandle, list: Vec<ProcessInfo>) {
@@ -214,13 +221,16 @@ pub(crate) fn kill_and_record(
 ) -> Vec<KillOutcome> {
     let state = app.state::<AppState>();
     let custom = state.custom_names();
+    // Los protegidos se vuelven a mirar aqui aunque cada via ya los deje fuera: es la unica puerta
+    // por la que pasan las cuatro, y la ventana manda los PIDs que quiera.
+    let protected = state.protected_names();
 
     let outcomes: Vec<KillOutcome> = {
         let Ok(mut sys) = state.sys.lock() else {
             return Vec::new();
         };
         // `kill_many` lee la tabla de sockets una sola vez para todo el lote.
-        kill_many(&mut sys, &custom, pids)
+        kill_many(&mut sys, &custom, &protected, pids)
     };
 
     let killed_at = now_millis();
@@ -255,56 +265,6 @@ pub(crate) fn kill_and_record(
 
 // ------------------------------------------------------------------ arranque ---
 
-/// Registra o quita el atajo global segun los ajustes.
-pub(crate) fn apply_hotkey(app: &AppHandle, enabled: bool) {
-    let shortcut = atajo_nuke();
-    let manager = app.global_shortcut();
-
-    let registered = manager.is_registered(shortcut);
-    let result = match (enabled, registered) {
-        (true, false) => manager.register(shortcut),
-        (false, true) => manager.unregister(shortcut),
-        _ => Ok(()),
-    };
-
-    if let Err(e) = result {
-        crate::avisar!("No se pudo cambiar el atajo global: {e}");
-    }
-}
-
-/// Cierra de golpe todo lo vigilado. Es la accion del atajo global.
-fn nuke_everything(app: &AppHandle) {
-    let state = app.state::<AppState>();
-    let custom = state.custom_names();
-    let lang = state.language();
-
-    let pids: Vec<u32> = {
-        let Ok(mut sys) = state.sys.lock() else {
-            return;
-        };
-        collect_processes(&mut sys, &custom)
-            .into_iter()
-            .map(|p| p.pid)
-            .collect()
-    };
-
-    if pids.is_empty() {
-        notify::show(app, textos::de(lang).sin_procesos.into());
-        return;
-    }
-
-    let outcomes = kill_and_record(app, pids, KillSource::Hotkey);
-    let killed = outcomes.iter().filter(|o| o.killed).count();
-    notify::show(
-        app,
-        textos::con_puertos(
-            lang,
-            textos::closed_sentence(lang, killed, None, true),
-            &processes::freed_ports(&outcomes),
-        ),
-    );
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Lo primero de todo, antes de que exista una app de Tauri.
@@ -338,9 +298,10 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, shortcut, event| {
-                    if event.state() == ShortcutState::Pressed && shortcut == &atajo_nuke() {
-                        nuke_everything(app);
+                // Sin mirar cual: `hotkey::apply` deja registrada una sola combinacion.
+                .with_handler(|app, _shortcut, event| {
+                    if event.state() == ShortcutState::Pressed {
+                        hotkey::on_press(app);
                     }
                 })
                 .build(),
@@ -371,7 +332,7 @@ pub fn run() {
             });
 
             tray::build(&handle, settings.language)?;
-            apply_hotkey(&handle, settings.hotkey_enabled);
+            hotkey::apply(&handle, settings.hotkey_enabled, settings.hotkey);
 
             // Calentamiento en segundo plano para que la primera lectura de la UI
             // traiga CPU real. En un hilo aparte para no retrasar la ventana: si
@@ -464,6 +425,9 @@ mod tests {
             ports: vec![5173],
             idle_secs: 0,
             zombie: false,
+            script: Some("vite".into()),
+            project: Some("mi-web".into()),
+            protected: false,
         };
         let json = serde_json::to_value(&info).expect("ProcessInfo deberia serializar");
         for clave in [
@@ -476,6 +440,9 @@ mod tests {
             "ports",
             "idleSecs",
             "zombie",
+            "script",
+            "project",
+            "protected",
         ] {
             assert!(json.get(clave).is_some(), "falta '{clave}' en ProcessInfo");
         }
@@ -524,10 +491,18 @@ mod tests {
             "autoKillMb",
             "zombieEnabled",
             "zombieMinutes",
+            "hotkey",
+            "hotkeyDoublePress",
+            "protected",
         ] {
             assert!(settings.get(clave).is_some(), "falta '{clave}' en Settings");
         }
         assert_eq!(settings["theme"], "system");
+        assert_eq!(settings["hotkey"], "ctrlAltK");
+        assert_eq!(
+            settings["hotkeyEnabled"], false,
+            "el atajo global cierra todo sin confirmar: tiene que venir apagado de fabrica"
+        );
         assert_eq!(
             settings["closeToTray"], false,
             "cerrar la ventana cierra la app: esconderse en la bandeja hay que pedirlo"

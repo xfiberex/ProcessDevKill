@@ -180,6 +180,58 @@ describe("interruptores", () => {
   });
 });
 
+/** Tier 11, A1: la combinación se elige, y la doble pulsación se puede quitar. */
+describe("el atajo global", () => {
+  it("cambia de combinación y el rótulo del interruptor la sigue", async () => {
+    const { user, onChange } = pintar({ hotkey: "ctrlAltF12" });
+
+    expect(screen.getByRole("switch", { name: /Ctrl\+Alt\+F12/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ctrl+Alt+F12" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ctrl+Alt+Shift+K" }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ hotkey: "ctrlAltShiftK" }),
+    );
+  });
+
+  it("la doble pulsación se puede quitar", async () => {
+    const { user, onChange } = pintar({ hotkeyDoublePress: true });
+
+    await user.click(screen.getByRole("switch", { name: /Pedir dos pulsaciones/ }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ hotkeyDoublePress: false }),
+    );
+  });
+});
+
+/** Tier 11, A3: la lista de protegidos se escribe como la de vigilados. */
+describe("procesos protegidos", () => {
+  it("añade uno y evita el duplicado evidente", async () => {
+    const { user, onChange } = pintar({ protected: ["mi-api"] });
+
+    const campo = screen.getByRole("textbox", { name: "Procesos protegidos" });
+    await user.type(campo, "MI-API{Enter}");
+    expect(onChange).not.toHaveBeenCalled();
+
+    await user.type(campo, "vite{Enter}");
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ protected: ["mi-api", "vite"] }),
+    );
+  });
+
+  it("se quita con su botón", async () => {
+    const { user, onChange } = pintar({ protected: ["mi-api"] });
+
+    await user.click(screen.getByRole("button", { name: "Quitar mi-api" }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ protected: [] }),
+    );
+  });
+});
+
 /**
  * Cerrar la ventana cierra la app mientras nadie diga lo contrario.
  *

@@ -101,13 +101,14 @@ pub fn ninguno_activo(lang: Language, runtime: &str) -> String {
 ///
 /// La firma es **semantica** y no de huecos de texto: hasta el Tier 4 recibia un `que` y una
 /// `cola` que el llamante rellenaba con trozos de frase ya escritos en español. Con dos idiomas
-/// eso obligaria a que la bandeja supiera decir «con Ctrl+Alt+K» en ingles, que es justo el
+/// eso obligaria a que la bandeja supiera decir «con Ctrl+Alt+K» en ingles. Desde el Tier 11 la
+/// combinacion se elige en Ajustes, asi que llega como `atajo` y ya no es una constante, que es justo el
 /// reparto que este modulo viene a evitar.
 pub fn closed_sentence(
     lang: Language,
     killed: usize,
     runtime: Option<&str>,
-    con_atajo: bool,
+    atajo: Option<&str>,
 ) -> String {
     // Cero es plural en los dos idiomas: «0 procesos cerrados», «0 processes closed».
     let plural = killed != 1;
@@ -117,14 +118,35 @@ pub fn closed_sentence(
             let procesos = if plural { "procesos" } else { "proceso" };
             let cerrados = if plural { "cerrados" } else { "cerrado" };
             let que = runtime.map(|r| format!(" {r}")).unwrap_or_default();
-            let cola = if con_atajo { " con Ctrl+Alt+K" } else { "" };
+            let cola = atajo.map(|a| format!(" con {a}")).unwrap_or_default();
             format!("{killed} {procesos}{que} {cerrados}{cola}.")
         }
         Language::En => {
             let procesos = if plural { "processes" } else { "process" };
             let que = runtime.map(|r| format!("{r} ")).unwrap_or_default();
-            let cola = if con_atajo { " with Ctrl+Alt+K" } else { "" };
+            let cola = atajo.map(|a| format!(" with {a}")).unwrap_or_default();
             format!("{killed} {que}{procesos} closed{cola}.")
+        }
+    }
+}
+
+/// Aviso de la primera pulsacion del atajo, cuando pide dos.
+///
+/// Dice **cuantos** caerian: «pulsa otra vez para cerrar» a secas no deja decidir, y lo que se
+/// decide en esos tres segundos es justo si esos procesos pueden morir.
+pub fn atajo_armado(lang: Language, atajo: &str, n: usize) -> String {
+    match (lang, n == 1) {
+        (Language::Es, true) => {
+            format!("Pulsa {atajo} otra vez en 3 s para cerrar 1 proceso de desarrollo.")
+        }
+        (Language::Es, false) => {
+            format!("Pulsa {atajo} otra vez en 3 s para cerrar {n} procesos de desarrollo.")
+        }
+        (Language::En, true) => {
+            format!("Press {atajo} again within 3 s to close 1 development process.")
+        }
+        (Language::En, false) => {
+            format!("Press {atajo} again within 3 s to close {n} development processes.")
         }
     }
 }
@@ -227,46 +249,46 @@ mod tests {
     #[test]
     fn el_recuento_concuerda_en_singular_y_en_plural() {
         assert_eq!(
-            closed_sentence(Language::Es, 1, Some("Node"), false),
+            closed_sentence(Language::Es, 1, Some("Node"), None),
             "1 proceso Node cerrado."
         );
         assert_eq!(
-            closed_sentence(Language::Es, 3, Some("Node"), false),
+            closed_sentence(Language::Es, 3, Some("Node"), None),
             "3 procesos Node cerrados."
         );
         // Cero tambien es plural en español: «0 procesos cerrados».
         assert_eq!(
-            closed_sentence(Language::Es, 0, Some("Python"), false),
+            closed_sentence(Language::Es, 0, Some("Python"), None),
             "0 procesos Python cerrados."
         );
         // El atajo global no lleva runtime, pero si cola.
         assert_eq!(
-            closed_sentence(Language::Es, 1, None, true),
+            closed_sentence(Language::Es, 1, None, Some("Ctrl+Alt+K")),
             "1 proceso cerrado con Ctrl+Alt+K."
         );
         assert_eq!(
-            closed_sentence(Language::Es, 5, None, true),
+            closed_sentence(Language::Es, 5, None, Some("Ctrl+Alt+K")),
             "5 procesos cerrados con Ctrl+Alt+K."
         );
 
         assert_eq!(
-            closed_sentence(Language::En, 1, Some("Node"), false),
+            closed_sentence(Language::En, 1, Some("Node"), None),
             "1 Node process closed."
         );
         assert_eq!(
-            closed_sentence(Language::En, 3, Some("Node"), false),
+            closed_sentence(Language::En, 3, Some("Node"), None),
             "3 Node processes closed."
         );
         assert_eq!(
-            closed_sentence(Language::En, 0, Some("Python"), false),
+            closed_sentence(Language::En, 0, Some("Python"), None),
             "0 Python processes closed."
         );
         assert_eq!(
-            closed_sentence(Language::En, 1, None, true),
+            closed_sentence(Language::En, 1, None, Some("Ctrl+Alt+K")),
             "1 process closed with Ctrl+Alt+K."
         );
         assert_eq!(
-            closed_sentence(Language::En, 5, None, true),
+            closed_sentence(Language::En, 5, None, Some("Ctrl+Alt+K")),
             "5 processes closed with Ctrl+Alt+K."
         );
     }
@@ -277,7 +299,7 @@ mod tests {
         assert_eq!(
             con_puertos(
                 Language::Es,
-                closed_sentence(Language::Es, 2, Some("Node"), false),
+                closed_sentence(Language::Es, 2, Some("Node"), None),
                 &[3000, 5173]
             ),
             "2 procesos Node cerrados. Los puertos 3000, 5173 han quedado libres."
@@ -285,7 +307,7 @@ mod tests {
         assert_eq!(
             con_puertos(
                 Language::En,
-                closed_sentence(Language::En, 2, Some("Node"), false),
+                closed_sentence(Language::En, 2, Some("Node"), None),
                 &[3000, 5173]
             ),
             "2 Node processes closed. Ports 3000, 5173 are now free."
@@ -295,7 +317,7 @@ mod tests {
         assert_eq!(
             con_puertos(
                 Language::Es,
-                closed_sentence(Language::Es, 1, Some("Node"), false),
+                closed_sentence(Language::Es, 1, Some("Node"), None),
                 &[]
             ),
             "1 proceso Node cerrado."
@@ -345,7 +367,7 @@ mod tests {
             EN.sin_elevacion.into(),
             cerrar_todos(Language::En, "Node"),
             ninguno_activo(Language::En, "Node"),
-            closed_sentence(Language::En, 2, Some("Node"), true),
+            closed_sentence(Language::En, 2, Some("Node"), Some("Ctrl+Alt+K")),
             auto_kill_varios(Language::En, 3, "2.0 GB"),
             auto_kill_uno(Language::En, "node.exe", 1, "3.0 GB", "2.0 GB"),
         ];

@@ -142,7 +142,7 @@ export const es = {
   },
 
   cabecera: {
-    buscarPlaceholder: "Buscar por nombre, PID o puerto…",
+    buscarPlaceholder: "Buscar por nombre, script, carpeta, PID o puerto…",
     buscarLabel: "Buscar procesos",
     enLaLista: (n: number): string =>
       n === 1 ? "1 proceso en la lista" : `${n} procesos en la lista`,
@@ -172,6 +172,12 @@ export const es = {
     kill: "Kill",
     killLabel: (name: string, pid: number) => `Cerrar ${name}, PID ${pid}`,
     matarProceso: "Matar proceso",
+    protegido: "Protegido",
+    /** Va en el `title` del candado y en el del Kill apagado: dice qué lo frena y cómo quitarlo. */
+    protegidoTitulo:
+      "Protegido: ni Kill, ni Nuke All, ni la bandeja, ni el atajo, ni el Auto-Kill lo cierran. Se quita desde el menú de la fila o en Ajustes.",
+    proteger: (clave: string) => `Proteger «${clave}»`,
+    desproteger: (clave: string) => `Dejar de proteger «${clave}»`,
     copiarPid: "Copiar PID",
     copiarNombre: "Copiar nombre",
     copiarPuertos: (n: number): string =>
@@ -345,6 +351,11 @@ export const es = {
       n === 1 ? "el proceso seleccionado" : `los ${n} procesos seleccionados`,
     ambitoTodos: "todos los procesos de desarrollo activos",
     ambitoFiltrados: "todos los procesos de la lista filtrada",
+    /** Se añade al mensaje cuando el lote deja fuera a alguno: que no parezca que se olvidó. */
+    protegidosFuera: (n: number): string =>
+      n === 1
+        ? "El proceso protegido de la lista no se toca."
+        : `Los ${n} procesos protegidos de la lista no se tocan.`,
     vaciarTitulo: "Vaciar el historial",
     vaciarMensaje:
       "Se borrará el registro de procesos cerrados. No afecta a ningún proceso en ejecución.",
@@ -374,6 +385,8 @@ export const es = {
     recursoNoAbierto: (nombre: string) => `No se pudo abrir ${nombre}`,
     navegadorNoAbierto: "No se pudo abrir el navegador",
     serviciosNoLeidos: "No se pudieron leer los servicios",
+    protegido: (clave: string) => `«${clave}» protegido`,
+    desprotegido: (clave: string) => `«${clave}» ya no está protegido`,
   },
 
   ajustes: {
@@ -406,6 +419,15 @@ export const es = {
       placeholder: "nombre del servicio",
       anadir: "Añadir",
       anadirLabel: "Añadir servicio vigilado",
+      quitar: (nombre: string) => `Quitar ${nombre}`,
+    },
+    protegidos: {
+      titulo: "Procesos protegidos",
+      descripcion:
+        "Lo que pongas aquí **no lo cierra nada** de la app: ni Kill, ni Nuke All, ni la bandeja, ni el atajo, ni el Auto-Kill. Vale el ejecutable (`node`), el script (`vite`) o la carpeta del proyecto (`mi-api`), exacto. También se protege desde el menú de cada fila." as Rico,
+      placeholder: "ejecutable, script o carpeta",
+      anadir: "Añadir",
+      anadirLabel: "Añadir proceso protegido",
       quitar: (nombre: string) => `Quitar ${nombre}`,
     },
     autoKill: {
@@ -457,7 +479,11 @@ export const es = {
       /** Va delante del `<kbd>`, que es estructura y se queda en el componente. */
       activar: "Activar",
       detalle:
-        "Cierra **todos** los procesos vigilados al instante, funcione o no la ventana, y **sin pedir confirmación**. Queda registrado en el historial." as Rico,
+        "Cierra **todos** los procesos vigilados que no estén protegidos, funcione o no la ventana. Es global: mientras esté activo, **ninguna otra app recibe esa combinación** —en los IDE de JetBrains, Ctrl+Alt+K es «Commit and Push»—. Queda registrado en el historial." as Rico,
+      combinacion: "Combinación",
+      doble: "Pedir dos pulsaciones",
+      dobleDetalle:
+        "La primera solo avisa de cuántos procesos caerían; la segunda, **dentro de 3 segundos**, los cierra. Sin esto, una pulsación suelta cierra todo sin preguntar." as Rico,
     },
   },
 
@@ -546,7 +572,7 @@ export const en: Catalogo = {
   },
 
   cabecera: {
-    buscarPlaceholder: "Search by name, PID or port…",
+    buscarPlaceholder: "Search by name, script, folder, PID or port…",
     buscarLabel: "Search processes",
     enLaLista: (n) => (n === 1 ? "1 process listed" : `${n} processes listed`),
     refrescar: "Refresh",
@@ -575,6 +601,11 @@ export const en: Catalogo = {
     kill: "Kill",
     killLabel: (name, pid) => `Close ${name}, PID ${pid}`,
     matarProceso: "Kill process",
+    protegido: "Protected",
+    protegidoTitulo:
+      "Protected: neither Kill, Nuke All, the tray, the shortcut nor Auto-Kill will close it. Remove it from the row menu or in Settings.",
+    proteger: (clave) => `Protect “${clave}”`,
+    desproteger: (clave) => `Stop protecting “${clave}”`,
     copiarPid: "Copy PID",
     copiarNombre: "Copy name",
     copiarPuertos: (n) => (n === 1 ? "Copy port" : "Copy ports"),
@@ -704,6 +735,10 @@ export const en: Catalogo = {
       n === 1 ? "the selected process" : `the ${n} selected processes`,
     ambitoTodos: "every active development process",
     ambitoFiltrados: "every process in the filtered list",
+    protegidosFuera: (n) =>
+      n === 1
+        ? "The protected process in the list is left alone."
+        : `The ${n} protected processes in the list are left alone.`,
     vaciarTitulo: "Clear the history",
     vaciarMensaje:
       "The record of closed processes will be deleted. It does not affect any running process.",
@@ -733,6 +768,8 @@ export const en: Catalogo = {
     recursoNoAbierto: (nombre) => `Could not open ${nombre}`,
     navegadorNoAbierto: "Could not open the browser",
     serviciosNoLeidos: "The services could not be read",
+    protegido: (clave) => `“${clave}” protected`,
+    desprotegido: (clave) => `“${clave}” is no longer protected`,
   },
 
   ajustes: {
@@ -757,6 +794,15 @@ export const en: Catalogo = {
       placeholder: "service name",
       anadir: "Add",
       anadirLabel: "Add watched service",
+      quitar: (nombre) => `Remove ${nombre}`,
+    },
+    protegidos: {
+      titulo: "Protected processes",
+      descripcion:
+        "What you add here is **never closed by the app**: not by Kill, Nuke All, the tray, the shortcut or Auto-Kill. It can be the executable (`node`), the script (`vite`) or the project folder (`my-api`), matched exactly. You can also protect a process from its row menu.",
+      placeholder: "executable, script or folder",
+      anadir: "Add",
+      anadirLabel: "Add protected process",
       quitar: (nombre) => `Remove ${nombre}`,
     },
     autoKill: {
@@ -807,7 +853,11 @@ export const en: Catalogo = {
       titulo: "Global shortcut",
       activar: "Enable",
       detalle:
-        "Closes **every** watched process at once, whether or not the window is working, and **without asking for confirmation**. It is recorded in the history.",
+        "Closes **every** watched process that is not protected, whether or not the window is working. It is global: while it is on, **no other app receives that combination** —in JetBrains IDEs, Ctrl+Alt+K is “Commit and Push”—. It is recorded in the history.",
+      combinacion: "Combination",
+      doble: "Require two presses",
+      dobleDetalle:
+        "The first one only tells you how many processes would go; the second, **within 3 seconds**, closes them. Without this, a single stray press closes everything without asking.",
     },
   },
 

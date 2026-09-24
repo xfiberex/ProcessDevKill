@@ -115,6 +115,9 @@ export function resetTauriMocks() {
 export const DEFAULT_TEST_SETTINGS: Settings = {
   customNames: [],
   hotkeyEnabled: true,
+  hotkey: "ctrlAltK",
+  hotkeyDoublePress: true,
+  protected: [],
   closeToTray: false,
   refreshMs: 2000,
   theme: "dark" as const,
@@ -159,6 +162,9 @@ export function proceso(parcial: Partial<ProcessInfo> & { pid: number }): Proces
     ports: [],
     idleSecs: 0,
     zombie: false,
+    script: null,
+    project: null,
+    protected: false,
     ...parcial,
   };
 }

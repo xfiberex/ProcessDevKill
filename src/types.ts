@@ -15,6 +15,12 @@ export type ProcessInfo = {
   idleSecs: number;
   /** Parado desde hace mas del tiempo configurado y ocupando algun puerto. */
   zombie: boolean;
+  /** Lo que ejecuta, reducido a un nombre (`vite`, `-m uvicorn`). Nunca la linea entera. */
+  script: string | null;
+  /** El ultimo tramo de la carpeta desde la que se lanzo. */
+  project: string | null;
+  /** Protegido por el usuario: nada de la app lo cierra. */
+  protected: boolean;
 };
 
 /** Espejo de `KillOutcome` en src-tauri/src/processes.rs. */
@@ -175,10 +181,30 @@ export type Theme = "system" | "light" | "dark";
 /** Espejo de `Language` en src-tauri/src/storage.rs. */
 export type Language = "es" | "en";
 
+/** Espejo de `Hotkey` en src-tauri/src/storage.rs. */
+export type Hotkey = "ctrlAltK" | "ctrlAltShiftK" | "ctrlAltF12";
+
+/**
+ * Las combinaciones en el orden en que se ofrecen, con su rotulo.
+ *
+ * El rotulo es el mismo que `Hotkey::label` en Rust, que es el que sale en las notificaciones. No
+ * se traduce: son nombres de teclas.
+ */
+export const HOTKEYS: { value: Hotkey; label: string }[] = [
+  { value: "ctrlAltK", label: "Ctrl+Alt+K" },
+  { value: "ctrlAltShiftK", label: "Ctrl+Alt+Shift+K" },
+  { value: "ctrlAltF12", label: "Ctrl+Alt+F12" },
+];
+
 /** Espejo de `Settings` en src-tauri/src/storage.rs. */
 export type Settings = {
   customNames: string[];
   hotkeyEnabled: boolean;
+  hotkey: Hotkey;
+  /** La primera pulsacion solo avisa; la segunda, dentro de 3 s, cierra. */
+  hotkeyDoublePress: boolean;
+  /** Ejecutables, scripts o carpetas que nada de la app cierra. */
+  protected: string[];
   /** Si cerrar la ventana la esconde en la bandeja en vez de terminar la app. */
   closeToTray: boolean;
   refreshMs: number;

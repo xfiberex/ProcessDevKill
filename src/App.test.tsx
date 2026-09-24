@@ -57,7 +57,7 @@ async function montar(lista: ProcessInfo[] = LISTA) {
 }
 
 const buscador = () =>
-  screen.getByPlaceholderText("Buscar por nombre, PID o puerto…");
+  screen.getByPlaceholderText("Buscar por nombre, script, carpeta, PID o puerto…");
 const filas = () => screen.getAllByLabelText(/^Seleccionar PID/);
 
 describe("carga inicial", () => {
@@ -246,6 +246,76 @@ describe("boton destructivo", () => {
   });
 });
 
+/**
+ * Tier 11, A3. Rust rechaza a un protegido pase lo que pase, pero la ventana tiene que contar lo
+ * mismo que va a ocurrir: un Nuke All que dice «4 procesos» y cierra 3 es un botón que miente.
+ */
+describe("procesos protegidos", () => {
+  const CON_PROTEGIDO: ProcessInfo[] = [
+    proceso({ pid: 100, project: "mi-web", protected: true, memoryMb: 900 }),
+    proceso({ pid: 200, project: "otra", memoryMb: 500 }),
+  ];
+
+  it("Nuke All deja fuera al protegido y lo dice", async () => {
+    const user = await montar(CON_PROTEGIDO);
+
+    await user.click(screen.getByRole("button", { name: "Nuke All" }));
+    const dialogo = await screen.findByRole("alertdialog");
+    expect(
+      within(dialogo).getByText(/El proceso protegido de la lista no se toca/),
+    ).toBeInTheDocument();
+
+    await user.click(within(dialogo).getByRole("button", { name: "Cerrar proceso" }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("kill_processes", { pids: [200] }),
+    );
+  });
+
+  it("con solo protegidos seleccionados no hay nada que matar", async () => {
+    const user = await montar(CON_PROTEGIDO);
+
+    await user.click(screen.getByLabelText("Seleccionar PID 100"));
+    expect(screen.getByRole("button", { name: "Matar 0" })).toBeDisabled();
+  });
+
+  it("el buscador encuentra por script y por carpeta", async () => {
+    const user = await montar([
+      proceso({ pid: 100, script: "vite", project: "mi-web" }),
+      proceso({ pid: 200, script: "server.js", project: "api" }),
+    ]);
+
+    await user.type(buscador(), "vite");
+    expect(filas()).toHaveLength(1);
+    await user.clear(buscador());
+    await user.type(buscador(), "api");
+    expect(screen.getByLabelText("Seleccionar PID 200")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Seleccionar PID 100")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Tier 11, A5. Con el puntero encima, un refresco que cambia la RAM no mueve las filas; al salir,
+ * la tabla vuelve al orden de verdad.
+ */
+describe("orden congelado", () => {
+  it("no reordena con el puntero sobre la tabla y reordena al salir", async () => {
+    const user = await montar([
+      proceso({ pid: 1, memoryMb: 900 }),
+      proceso({ pid: 2, memoryMb: 500 }),
+    ]);
+    const orden = () =>
+      filas().map((f) => f.getAttribute("aria-label")!.replace("Seleccionar PID ", ""));
+    expect(orden()).toEqual(["1", "2"]);
+
+    await user.hover(screen.getByLabelText("Seleccionar PID 1"));
+    await emitir([proceso({ pid: 1, memoryMb: 100 }), proceso({ pid: 2, memoryMb: 2000 })]);
+    expect(orden()).toEqual(["1", "2"]);
+
+    await user.unhover(screen.getByLabelText("Seleccionar PID 1"));
+    await waitFor(() => expect(orden()).toEqual(["2", "1"]));
+  });
+});
+
 describe("cierre de procesos", () => {
   it("Escape cancela sin llamar a Rust", async () => {
     const user = await montar();
@@ -350,7 +420,7 @@ describe("navegacion", () => {
     await user.click(screen.getByRole("button", { name: "Ajustes" }));
 
     expect(
-      screen.queryByPlaceholderText("Buscar por nombre, PID o puerto…"),
+      screen.queryByPlaceholderText("Buscar por nombre, script, carpeta, PID o puerto…"),
     ).not.toBeInTheDocument();
   });
 

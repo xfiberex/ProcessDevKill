@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   AUTO_KILL_MIN_MB,
+  HOTKEYS,
   PROCESSES_UPDATED,
   SETTABLE_START_TYPES,
   SYSTEM_USAGE,
@@ -215,6 +216,26 @@ describe("el contrato con Rust", () => {
     expect(enRust).not.toContain("boot");
     expect(enRust).not.toContain("system");
     expect(enRust).not.toContain("unknown");
+  });
+
+  /**
+   * La combinacion del atajo se elige aqui y la registra Rust. Si Rust ganara una variante y aqui
+   * no, Ajustes no la ofreceria; si el rotulo cambiara solo en un lado, la ventana diria una tecla
+   * y la notificacion otra.
+   */
+  it("ofrece las mismas combinaciones del atajo que Hotkey, con el mismo rotulo", () => {
+    const rust = leerRust("storage.rs");
+    const bloque = rust.match(/pub enum Hotkey\s*\{([\s\S]*?)^\}/m);
+    expect(bloque, "no se encontro el enum Hotkey").not.toBeNull();
+    const variantes = [...bloque![1].matchAll(/^\s*([A-Z]\w+),/gm)].map(
+      (v) => v[1].charAt(0).toLowerCase() + v[1].slice(1),
+    );
+    expect(variantes.sort()).toEqual(HOTKEYS.map((h) => h.value).sort());
+
+    for (const { value, label } of HOTKEYS) {
+      const variante = value.charAt(0).toUpperCase() + value.slice(1);
+      expect(rust).toContain(`Hotkey::${variante} => "${label}"`);
+    }
   });
 
   it("cubre los cuatro origenes de KillSource", () => {

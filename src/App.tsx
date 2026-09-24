@@ -21,7 +21,8 @@ import type {
 } from "./types";
 import { ThemeProvider } from "./theme";
 import { CATALOGOS, I18nProvider } from "./i18n";
-import { DEFAULT_SORT, FIRST_DIR, sortProcesses } from "./lib/sort";
+import { DEFAULT_SORT, FIRST_DIR, freezeOrder, sortProcesses } from "./lib/sort";
+import { claveProteccion, entradasQueLoProtegen } from "./lib/protect";
 import type { SortKey } from "./lib/sort";
 import { useUpdater } from "./hooks/useUpdater";
 import { EmptyState } from "./components/EmptyState";
@@ -49,7 +50,12 @@ const SOLID_DESTRUCTIVE =
 
 const DEFAULT_SETTINGS: Settings = {
   customNames: [],
-  hotkeyEnabled: true,
+  // Igual que en Rust: el atajo global viene apagado y, encendido, pide dos pulsaciones. Cierra
+  // todo sin confirmar y le quita la combinación a las demás apps; ver `hotkey_enabled`.
+  hotkeyEnabled: false,
+  hotkey: "ctrlAltK",
+  hotkeyDoublePress: true,
+  protected: [],
   // Igual que en Rust: cerrar la ventana cierra la app. Esconderla en la bandeja
   // hay que pedirlo, porque si no se acumulan instancias invisibles.
   closeToTray: false,
@@ -84,6 +90,8 @@ export default function App() {
   // cero y al cambiar de vista; dentro, la eleccion del usuario se perderia cada
   // vez que pasa por Historial y vuelve.
   const [sort, setSort] = useState(DEFAULT_SORT);
+  /** El orden congelado mientras el puntero está sobre la tabla o hay un menú abierto. */
+  const [ordenCongelado, setOrdenCongelado] = useState<number[] | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [killing, setKilling] = useState<Set<number>>(new Set());
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -428,18 +436,66 @@ export default function App() {
       if (!needle) return true;
       return (
         p.name.toLowerCase().includes(needle) ||
+        // La segunda línea de la fila también se busca: es lo que distingue a trece `node.exe`.
+        (p.script?.toLowerCase().includes(needle) ?? false) ||
+        (p.project?.toLowerCase().includes(needle) ?? false) ||
         String(p.pid).includes(needle) ||
         p.ports.some((port) => String(port).includes(needle))
       );
     });
   }, [processes, filter, query]);
 
-  const ordenados = useMemo(() => sortProcesses(visible, sort), [visible, sort]);
+  const ordenados = useMemo(() => {
+    const vivos = sortProcesses(visible, sort);
+    return ordenCongelado ? freezeOrder(vivos, ordenCongelado) : vivos;
+  }, [visible, sort, ordenCongelado]);
+
+  /**
+   * Congela el orden con el que se ve la tabla **ahora**, o lo suelta.
+   *
+   * Se guarda la foto de lo que hay en pantalla, no la de la lista de Rust: lo que no puede moverse
+   * es lo que el usuario tiene delante. Si ya estaba congelado, se deja la foto que había.
+   */
+  const alCongelar = useCallback(
+    (congelar: boolean) => {
+      setOrdenCongelado((prev) =>
+        congelar ? (prev ?? ordenados.map((p) => p.pid)) : null,
+      );
+    },
+    [ordenados],
+  );
+
+  /**
+   * Protege una fila desde su menú, o le quita la protección.
+   *
+   * Pasa por los ajustes y no por un comando propio: la lista vive en `settings.json` junto a los
+   * vigilados, y Rust la vuelve a leer en cada cierre. Al guardarlos, Rust reemite la lista y el
+   * candado aparece sin esperar al ciclo.
+   */
+  function protegerFila(p: ProcessInfo, proteger: boolean) {
+    const clave = claveProteccion(p);
+    if (proteger) {
+      saveSettings({ ...settings, protected: [...settings.protected, clave] });
+      toast.success(t.avisos.protegido(clave));
+    } else {
+      const quitar = entradasQueLoProtegen(p, settings.protected);
+      saveSettings({
+        ...settings,
+        protected: settings.protected.filter((e) => !quitar.includes(e)),
+      });
+      toast.success(t.avisos.desprotegido(quitar[0] ?? clave));
+    }
+  }
 
   const selectedVisible = useMemo(
     () => visible.filter((p) => selected.has(p.pid)),
     [visible, selected],
   );
+
+  // Lo que de verdad caería en cada lote: los protegidos se quedan fuera aquí, para que el botón y
+  // el diálogo cuenten lo mismo que va a pasar. Rust los rechazaría igual; esto es para no mentir.
+  const cerrablesSeleccionados = selectedVisible.filter((p) => !p.protected);
+  const cerrablesVisibles = visible.filter((p) => !p.protected);
 
   /** Repetir la columna activa invierte; cambiar de columna estrena su direccion. */
   function ordenarPor(key: SortKey) {
@@ -520,10 +576,13 @@ export default function App() {
     setSelected(allSelected ? new Set() : new Set(visible.map((p) => p.pid)));
   }
 
-  function askNuke(pids: number[], ambito: string) {
+  function askNuke(pids: number[], ambito: string, protegidosFuera: number) {
     setConfirm({
       title: t.confirmar.cerrarTitulo(pids.length),
-      message: t.confirmar.cerrarMensaje(pids.length, ambito),
+      message:
+        protegidosFuera > 0
+          ? `${t.confirmar.cerrarMensaje(pids.length, ambito)} ${t.confirmar.protegidosFuera(protegidosFuera)}`
+          : t.confirmar.cerrarMensaje(pids.length, ambito),
       confirmLabel: t.confirmar.cerrarBoton(pids.length),
       onConfirm: () => killMany(pids),
     });
@@ -589,26 +648,29 @@ export default function App() {
                 <Button
                   variant="destructive"
                   className={SOLID_DESTRUCTIVE}
+                  disabled={cerrablesSeleccionados.length === 0}
                   onClick={() =>
                     askNuke(
-                      selectedVisible.map((p) => p.pid),
-                      t.confirmar.ambitoSeleccionados(selectedVisible.length),
+                      cerrablesSeleccionados.map((p) => p.pid),
+                      t.confirmar.ambitoSeleccionados(cerrablesSeleccionados.length),
+                      selectedVisible.length - cerrablesSeleccionados.length,
                     )
                   }
                 >
-                  {t.cabecera.matar(selectedVisible.length)}
+                  {t.cabecera.matar(cerrablesSeleccionados.length)}
                 </Button>
               ) : (
                 <Button
                   variant="destructive"
                   className={SOLID_DESTRUCTIVE}
-                  disabled={visible.length === 0}
+                  disabled={cerrablesVisibles.length === 0}
                   onClick={() =>
                     askNuke(
-                      visible.map((p) => p.pid),
+                      cerrablesVisibles.map((p) => p.pid),
                       filter === "all" && !query
                         ? t.confirmar.ambitoTodos
                         : t.confirmar.ambitoFiltrados,
+                      visible.length - cerrablesVisibles.length,
                     )
                   }
                 >
@@ -684,6 +746,8 @@ export default function App() {
                   onToggleAll={toggleAll}
                   onKill={(pid) => killMany([pid])}
                   onCopy={copyToClipboard}
+                  onProtect={protegerFila}
+                  onFreezeChange={alCongelar}
                 />
               ))}
           </div>

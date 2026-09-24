@@ -1,9 +1,13 @@
 //! Lectura y cierre de los procesos de desarrollo vigilados.
 
 use std::collections::HashMap;
+use std::ffi::OsString;
+use std::path::Path;
 
 use serde::Serialize;
-use sysinfo::{CpuRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System};
+use sysinfo::{
+    CpuRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System, UpdateKind,
+};
 
 use crate::ports::listening_ports;
 
@@ -52,6 +56,131 @@ pub struct ProcessInfo {
     /// Ocioso desde hace mas del tiempo configurado y **ademas** ocupando un
     /// puerto. Lo decide Rust y la UI solo lo pinta.
     pub zombie: bool,
+    /// Lo que ejecuta el proceso, reducido a un nombre: `vite`, `@tauri-apps/cli`, `-m uvicorn`.
+    /// `None` si no se pudo leer la linea de comandos. Ver [`describe`].
+    pub script: Option<String>,
+    /// La carpeta desde la que se lanzo, solo su ultimo tramo: `mi-proyecto`, no la ruta entera.
+    pub project: Option<String>,
+    /// Si el usuario lo ha protegido. Lo marca `read_list`; cada lectura sale sin marcar.
+    pub protected: bool,
+}
+
+impl ProcessInfo {
+    /// Si alguno de sus tres nombres —ejecutable, script o carpeta— esta en la lista de protegidos.
+    pub fn is_protected(&self, protected: &[String]) -> bool {
+        is_protected(
+            &self.name,
+            self.script.as_deref(),
+            self.project.as_deref(),
+            protected,
+        )
+    }
+}
+
+/// Decide si un proceso esta protegido. `protected` llega ya normalizado (minusculas, sin `.exe`).
+///
+/// Se compara **exacto** con cualquiera de los tres nombres, no por contenido: con `api` protegido,
+/// una busqueda por subcadena salvaria tambien a `rapid-prototype`, y una lista que protege de mas
+/// acaba ignorandose igual que una que protege de menos.
+pub fn is_protected(
+    name: &str,
+    script: Option<&str>,
+    project: Option<&str>,
+    protected: &[String],
+) -> bool {
+    if protected.is_empty() {
+        return false;
+    }
+    let lower = name.to_lowercase();
+    let stem = lower.strip_suffix(".exe").unwrap_or(&lower);
+
+    protected.iter().any(|p| {
+        p == stem
+            || script.is_some_and(|s| s.to_lowercase() == *p)
+            || project.is_some_and(|d| d.to_lowercase() == *p)
+    })
+}
+
+/// Reduce la linea de comandos y la carpeta de trabajo a los dos nombres que identifican una fila.
+///
+/// Existe porque en la auditoria del 2026-09-23 **13 de 15 filas eran `node.exe`** y nada en la
+/// tabla decia cual era cual: Kill y Nuke All se usaban a ciegas. Se enseña el script y la carpeta,
+/// **nunca la linea de comandos entera**, que puede llevar tokens (`--token=...`, una URL con
+/// credenciales) y acabaria en una captura de pantalla.
+///
+/// - Del script, solo el nombre del archivo. Si esta dentro de `node_modules`, el del paquete:
+///   `node_modules\vite\bin\vite.js` dice mucho mas como `vite` que como `vite.js`.
+/// - `python -m uvicorn` es un modulo, no un archivo: sale `-m uvicorn`.
+/// - `node -e "..."` es codigo en linea: sale `-e` y no el codigo, que puede ser cualquier cosa.
+/// - De la carpeta, solo el ultimo tramo. `System32` y compañia no dicen nada de un proyecto —es
+///   donde arranca lo que lanza Windows— y se omiten.
+pub fn describe(cmd: &[OsString], cwd: Option<&Path>) -> (Option<String>, Option<String>) {
+    (script_of(cmd), cwd.and_then(project_of))
+}
+
+fn script_of(cmd: &[OsString]) -> Option<String> {
+    let args: Vec<String> = cmd
+        .iter()
+        .skip(1)
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+
+    for (i, a) in args.iter().enumerate() {
+        match a.as_str() {
+            "-m" => return args.get(i + 1).map(|m| format!("-m {m}")),
+            "-e" | "-p" | "-c" | "--eval" | "--print" => return Some(a.clone()),
+            // `dotnet exec app.dll`: el verbo no identifica nada, el ensamblado si.
+            "exec" => {}
+            _ if a.starts_with('-') => {}
+            _ => return Some(script_name(a)),
+        }
+    }
+    None
+}
+
+/// El nombre corto de un script: el paquete si vive en `node_modules`, el archivo si no.
+fn script_name(arg: &str) -> String {
+    // Resolviendo `..` y `.` antes de buscar: los lanzadores de npm llaman a
+    // `node_modules\.bin\..\vite\bin\vite.js`, y sin esto el paquete salia como `.bin`. Visto en la
+    // verificacion en vivo, en el Vite y el CLI de Tauri de la propia sesion.
+    let mut tramos: Vec<&str> = Vec::new();
+    for t in arg.split(['\\', '/']) {
+        match t {
+            "" | "." => {}
+            ".." => {
+                tramos.pop();
+            }
+            _ => tramos.push(t),
+        }
+    }
+
+    // El ultimo `node_modules`, por si hay paquetes anidados: el que se ejecuta es el de dentro.
+    if let Some(pos) = tramos
+        .iter()
+        .rposition(|t| t.eq_ignore_ascii_case("node_modules"))
+    {
+        match (tramos.get(pos + 1), tramos.get(pos + 2)) {
+            (Some(scope), Some(pkg)) if scope.starts_with('@') => return format!("{scope}/{pkg}"),
+            // `.bin` no es un paquete, es la carpeta de lanzadores: ahi vale el nombre del archivo.
+            (Some(pkg), _) if !pkg.starts_with('@') && *pkg != ".bin" => {
+                return (*pkg).to_string()
+            }
+            _ => {}
+        }
+    }
+
+    tramos.last().copied().unwrap_or(arg).to_string()
+}
+
+fn project_of(cwd: &Path) -> Option<String> {
+    let ultimo = cwd.file_name()?.to_string_lossy().into_owned();
+    if matches!(
+        ultimo.to_lowercase().as_str(),
+        "system32" | "syswow64" | "windows"
+    ) {
+        return None;
+    }
+    Some(ultimo)
 }
 
 /// Que paso con cada PID de un intento de cierre en lote.
@@ -231,12 +360,46 @@ pub fn collect_processes(sys: &mut System, custom: &[String]) -> Vec<ProcessInfo
                 // refrescos anteriores; aqui cada lectura es una foto sin pasado.
                 idle_secs: 0,
                 zombie: false,
+                // Los rellena el bloque de abajo, cuando ya se sabe a quien vigilar.
+                script: None,
+                project: None,
+                protected: false,
             })
         })
         .collect();
 
+    // La linea de comandos y la carpeta, **solo de los vigilados y solo la primera vez**.
+    //
+    // Pedirlas en el refresco de arriba las leeria de los ~300 procesos del equipo, y leerlas obliga
+    // a abrir cada proceso y copiar un trozo de su memoria. Con `OnlyIfNotSet` se leen una vez por
+    // proceso: no cambian mientras vive. Los que no se dejan leer —de otro usuario, elevados— se
+    // reintentan en cada ciclo, pero son de los vigilados y son pocos.
+    let pids: Vec<Pid> = processes.iter().map(|p| Pid::from_u32(p.pid)).collect();
+    if !pids.is_empty() {
+        sys.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&pids),
+            false,
+            ProcessRefreshKind::nothing()
+                .with_cmd(UpdateKind::OnlyIfNotSet)
+                .with_cwd(UpdateKind::OnlyIfNotSet),
+        );
+        for info in processes.iter_mut() {
+            if let Some(p) = sys.process(Pid::from_u32(info.pid)) {
+                (info.script, info.project) = describe(p.cmd(), p.cwd());
+            }
+        }
+    }
+
     processes.sort_by(|a, b| b.memory_mb.total_cmp(&a.memory_mb));
     processes
+}
+
+/// Marca los protegidos de la lista. Aparte de `collect_processes` porque la lista vive en los
+/// ajustes, y quien lee procesos no tiene por que saber de ajustes.
+pub fn mark_protected(list: &mut [ProcessInfo], protected: &[String]) {
+    for p in list.iter_mut() {
+        p.protected = p.is_protected(protected);
+    }
 }
 
 /// Toma las muestras previas que sysinfo necesita para que `cpu_usage()` sea real.
@@ -270,9 +433,13 @@ pub fn warm_up_cpu(sys: &mut System, custom: &[String]) {
 /// sin preguntar a nadie. Un `>=` de mas aqui cerraria procesos que estan justo en
 /// el limite, asi que conviene poder probarla sin montar una `App` ni el sistema.
 /// La comparacion es **estricta**: el umbral hay que superarlo, no alcanzarlo.
+///
+/// Los protegidos no se eligen nunca, pasen de lo que pasen. `kill_one` los rechazaria igual, pero
+/// elegirlos aqui haria que el Auto-Kill lo intentara en cada ciclo, cada dos segundos, contra un
+/// proceso que el usuario ya dijo que no se toca.
 pub fn over_memory_limit(list: &[ProcessInfo], limit_mb: u64) -> Vec<&ProcessInfo> {
     list.iter()
-        .filter(|p| p.memory_mb > limit_mb as f64)
+        .filter(|p| !p.protected && p.memory_mb > limit_mb as f64)
         .collect()
 }
 
@@ -340,10 +507,28 @@ impl ZombieWatch {
     }
 }
 
-pub fn pids_of_runtime(sys: &mut System, custom: &[String], runtime: Runtime) -> Vec<u32> {
+/// Los PIDs de un runtime, **sin los protegidos**. Es lo que cierra el menu de la bandeja.
+///
+/// Se filtran aqui y no solo en `kill_one` para que las cuentas salgan bien: si todos los Node
+/// estan protegidos, la bandeja tiene que decir «no hay procesos Node activos», no «0 cerrados».
+pub fn pids_of_runtime(
+    sys: &mut System,
+    custom: &[String],
+    protected: &[String],
+    runtime: Runtime,
+) -> Vec<u32> {
     collect_processes(sys, custom)
         .into_iter()
-        .filter(|p| p.runtime == runtime)
+        .filter(|p| p.runtime == runtime && !p.is_protected(protected))
+        .map(|p| p.pid)
+        .collect()
+}
+
+/// Todos los PIDs vigilados salvo los protegidos. Es lo que cierra el atajo global.
+pub fn unprotected_pids(sys: &mut System, custom: &[String], protected: &[String]) -> Vec<u32> {
+    collect_processes(sys, custom)
+        .into_iter()
+        .filter(|p| !p.is_protected(protected))
         .map(|p| p.pid)
         .collect()
 }
@@ -358,11 +543,19 @@ pub fn pids_of_runtime(sys: &mut System, custom: &[String], runtime: Runtime) ->
 ///
 /// De paso queda mas correcto: la foto de puertos se toma con todos los procesos
 /// del lote todavia vivos, en vez de irse degradando conforme caen.
-pub fn kill_many(sys: &mut System, custom: &[String], pids: Vec<u32>) -> Vec<KillOutcome> {
+///
+/// `protected` es la segunda guardia, detras de la de `classify`. Quien llama ya deja fuera a los
+/// protegidos, pero aqui se vuelven a mirar: un comando de Tauri acepta los PIDs que le manden.
+pub fn kill_many(
+    sys: &mut System,
+    custom: &[String],
+    protected: &[String],
+    pids: Vec<u32>,
+) -> Vec<KillOutcome> {
     let mut ports = listening_ports();
 
     pids.into_iter()
-        .map(|pid| match kill_one(sys, custom, pid, &mut ports) {
+        .map(|pid| match kill_one(sys, custom, protected, pid, &mut ports) {
             Ok((name, freed_ports)) => KillOutcome {
                 pid,
                 killed: true,
@@ -389,6 +582,7 @@ pub fn kill_many(sys: &mut System, custom: &[String], pids: Vec<u32>) -> Vec<Kil
 fn kill_one(
     sys: &mut System,
     custom: &[String],
+    protected: &[String],
     pid: u32,
     ports: &mut HashMap<u32, Vec<u16>>,
 ) -> Result<(String, Vec<u16>), String> {
@@ -396,10 +590,13 @@ fn kill_one(
 
     // Releer solo este PID antes de matarlo: si el sistema lo reciclo desde el
     // ultimo refresco, el nombre ya no coincidira y la guardia de abajo corta.
+    // Con la linea de comandos y la carpeta, que es con lo que se decide si esta protegido.
     sys.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[target]),
         true,
-        ProcessRefreshKind::nothing(),
+        ProcessRefreshKind::nothing()
+            .with_cmd(UpdateKind::OnlyIfNotSet)
+            .with_cwd(UpdateKind::OnlyIfNotSet),
     );
 
     let process = sys
@@ -411,6 +608,11 @@ fn kill_one(
     // acepta cualquier entrada: sin esta guardia seria un "mata lo que quieras".
     if classify(&name, custom).is_none() {
         return Err(format!("{name} no es un proceso de desarrollo vigilado"));
+    }
+
+    let (script, project) = describe(process.cmd(), process.cwd());
+    if is_protected(&name, script.as_deref(), project.as_deref(), protected) {
+        return Err(format!("{name} (PID {pid}) está protegido"));
     }
 
     // Los puertos ya venian leidos de antes de empezar el lote, que es cuando
@@ -479,7 +681,7 @@ mod tests {
         let mut sys = new_system();
 
         for runtime in Runtime::BUILT_INS {
-            let elegidos = pids_of_runtime(&mut sys, SIN_EXTRAS, runtime);
+            let elegidos = pids_of_runtime(&mut sys, SIN_EXTRAS, SIN_EXTRAS, runtime);
             // Foto inmediatamente posterior con la que contrastar.
             let ahora = collect_processes(&mut sys, SIN_EXTRAS);
 
@@ -516,6 +718,9 @@ mod tests {
                 ports: Vec::new(),
                 idle_secs: 0,
                 zombie: false,
+                script: None,
+                project: None,
+                protected: false,
             }
         }
 
@@ -548,6 +753,9 @@ mod tests {
             ports,
             idle_secs: 0,
             zombie: false,
+            script: None,
+            project: None,
+            protected: false,
         }
     }
 
@@ -692,7 +900,7 @@ mod tests {
         }
 
         let mut sys = new_system();
-        let outcomes = kill_many(&mut sys, SIN_EXTRAS, vec![pid_uno, pid_dos]);
+        let outcomes = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid_uno, pid_dos]);
 
         // Recoger a los hijos pase lo que pase, antes de cualquier asercion.
         let _ = uno.wait();
@@ -784,7 +992,7 @@ mod tests {
         }
 
         // 1. Sin vigilar: la guardia tiene que cortar.
-        let rechazo = kill_many(&mut sys, SIN_EXTRAS, vec![pid]);
+        let rechazo = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid]);
 
         // ¿Sigue vivo? Se mira ANTES de limpiar, que es la comprobacion que de verdad importa:
         // que la guardia no solo devolviera un error, sino que ademas no matara nada.
@@ -797,7 +1005,7 @@ mod tests {
 
         // 2. Declarandolo vigilado, el mismo PID si muere.
         let permitido = vec!["cmd".to_string()];
-        let aceptado = kill_many(&mut sys, &permitido, vec![pid]);
+        let aceptado = kill_many(&mut sys, &permitido, SIN_EXTRAS, vec![pid]);
 
         // Recoger al hijo pase lo que pase, antes de cualquier asercion.
         let _ = ajeno.kill();
@@ -877,6 +1085,9 @@ mod tests {
             ports: Vec::new(),
             idle_secs: 0,
             zombie: false,
+            script: None,
+            project: None,
+            protected: false,
         }
     }
 
@@ -1130,6 +1341,237 @@ mod medicion {
         println!(
             "diferencia: {} (lo normal es que fluctue: la maquina abre y cierra procesos)",
             al_final as i64 - al_principio as i64
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_identidad {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn cmd(args: &[&str]) -> Vec<OsString> {
+        args.iter().map(OsString::from).collect()
+    }
+
+    #[test]
+    fn un_script_de_node_modules_se_nombra_por_su_paquete() {
+        let (script, _) = describe(
+            &cmd(&["node.exe", r"C:\web\node_modules\vite\bin\vite.js", "--port", "5173"]),
+            None,
+        );
+        assert_eq!(script.as_deref(), Some("vite"));
+
+        let (script, _) = describe(
+            &cmd(&["node.exe", r"C:\app\node_modules\@tauri-apps\cli\tauri.js", "dev"]),
+            None,
+        );
+        assert_eq!(script.as_deref(), Some("@tauri-apps/cli"));
+    }
+
+    /// Los lanzadores de npm pasan por `node_modules\.bin\..\paquete`: sin resolver el `..`, el
+    /// paquete salia como `.bin`. Rutas copiadas tal cual de la verificacion en vivo.
+    #[test]
+    fn resuelve_los_lanzadores_de_npm() {
+        let (script, _) = describe(
+            &cmd(&["node", r"C:\p\node_modules\.bin\\..\vite\bin\vite.js"]),
+            None,
+        );
+        assert_eq!(script.as_deref(), Some("vite"));
+
+        let (script, _) = describe(
+            &cmd(&["node", r"C:\p\node_modules\.bin\\..\@tauri-apps\cli\tauri.js", "dev"]),
+            None,
+        );
+        assert_eq!(script.as_deref(), Some("@tauri-apps/cli"));
+
+        let (script, _) = describe(&cmd(&["node", r"C:\p\node_modules\.bin\vite"]), None);
+        assert_eq!(script.as_deref(), Some("vite"));
+    }
+
+    #[test]
+    fn fuera_de_node_modules_sale_el_archivo_sin_la_ruta() {
+        let (script, _) = describe(&cmd(&["node", "--inspect", "/srv/api/server.js"]), None);
+        assert_eq!(script.as_deref(), Some("server.js"));
+
+        let (script, _) = describe(
+            &cmd(&["dotnet.exe", "exec", r"C:\bin\Microsoft.CodeAnalysis.LanguageServer.dll"]),
+            None,
+        );
+        assert_eq!(
+            script.as_deref(),
+            Some("Microsoft.CodeAnalysis.LanguageServer.dll")
+        );
+    }
+
+    #[test]
+    fn un_modulo_de_python_se_nombra_como_modulo() {
+        let (script, _) = describe(&cmd(&["python.exe", "-m", "uvicorn", "main:app"]), None);
+        assert_eq!(script.as_deref(), Some("-m uvicorn"));
+    }
+
+    /// **Lo que no puede pasar**: que el codigo en linea, o cualquier argumento, acabe en la tabla.
+    /// Un `-e` puede llevar una URL con credenciales; se enseña que es codigo en linea y nada mas.
+    #[test]
+    fn el_codigo_en_linea_no_se_muestra() {
+        let (script, _) = describe(
+            &cmd(&["node", "-e", "fetch('https://user:secreto@host')"]),
+            None,
+        );
+        assert_eq!(script.as_deref(), Some("-e"));
+    }
+
+    #[test]
+    fn sin_argumentos_no_hay_script() {
+        assert_eq!(describe(&cmd(&["node.exe"]), None).0, None);
+        assert_eq!(describe(&[], None).0, None);
+    }
+
+    #[test]
+    fn de_la_carpeta_solo_el_ultimo_tramo_y_nunca_system32() {
+        let (_, proyecto) = describe(&[], Some(&PathBuf::from(r"C:\dev\mi-web")));
+        assert_eq!(proyecto.as_deref(), Some("mi-web"));
+
+        let (_, proyecto) = describe(&[], Some(&PathBuf::from(r"C:\Windows\System32")));
+        assert_eq!(proyecto, None);
+
+        let (_, proyecto) = describe(&[], Some(&PathBuf::from(r"C:\")));
+        assert_eq!(proyecto, None, "la raiz de una unidad no es un proyecto");
+    }
+}
+
+#[cfg(test)]
+mod tests_protegidos {
+    use super::*;
+
+    const NADA: &[String] = &[];
+
+    fn fila(pid: u32, name: &str, script: Option<&str>, project: Option<&str>) -> ProcessInfo {
+        ProcessInfo {
+            pid,
+            name: name.into(),
+            runtime: Runtime::Node,
+            cpu: 0.0,
+            memory_mb: 9000.0,
+            run_time_secs: 0,
+            ports: Vec::new(),
+            idle_secs: 0,
+            zombie: false,
+            script: script.map(Into::into),
+            project: project.map(Into::into),
+            protected: false,
+        }
+    }
+
+    #[test]
+    fn se_protege_por_ejecutable_script_o_carpeta() {
+        let p = fila(1, "node.exe", Some("vite"), Some("Mi-Web"));
+        assert!(p.is_protected(&["node".into()]));
+        assert!(p.is_protected(&["vite".into()]));
+        assert!(p.is_protected(&["mi-web".into()]), "sin distinguir mayusculas");
+        assert!(!p.is_protected(NADA));
+    }
+
+    /// Exacto y no por contenido: proteger `web` no puede salvar a `mi-web`, ni `api` a `rapid-api`.
+    #[test]
+    fn la_comparacion_es_exacta_y_no_por_contenido() {
+        let p = fila(1, "node.exe", Some("vite"), Some("mi-web"));
+        assert!(!p.is_protected(&["web".into()]));
+        assert!(!p.is_protected(&["vit".into()]));
+        assert!(!p.is_protected(&["nod".into()]));
+    }
+
+    /// El Auto-Kill no elige a un protegido por mucho que se pase de RAM.
+    #[test]
+    fn el_auto_kill_no_elige_a_un_protegido() {
+        let mut lista = vec![
+            fila(1, "node.exe", Some("vite"), Some("mi-web")),
+            fila(2, "node.exe", Some("server.js"), Some("api")),
+        ];
+        mark_protected(&mut lista, &["mi-web".into()]);
+
+        let elegidos: Vec<u32> = over_memory_limit(&lista, 2048).iter().map(|p| p.pid).collect();
+        assert_eq!(elegidos, vec![2]);
+    }
+
+    /// Un proceso de verdad, lanzado por la prueba desde una carpeta con nombre propio y protegido
+    /// **por esa carpeta**. Cubre las cuatro vias por las que se cierra un proceso:
+    ///
+    /// - la bandeja (`pids_of_runtime`) y el atajo (`unprotected_pids`) no lo eligen;
+    /// - la ventana, que puede mandar el PID que quiera, choca con la guardia de `kill_many`, que
+    ///   es tambien por donde pasa el Auto-Kill;
+    /// - y el proceso **sigue vivo** despues de todo eso.
+    ///
+    /// La segunda mitad —sin protegerlo, el mismo PID muere— es la que demuestra que lo que frena
+    /// es la proteccion y no otra cosa. Solo mata el proceso que lanza.
+    #[test]
+    fn un_protegido_no_cae_por_ninguna_via() {
+        let carpeta = std::env::temp_dir().join(format!("pdk-protegido-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&carpeta);
+        let nombre = carpeta.file_name().unwrap().to_string_lossy().to_lowercase();
+
+        let Ok(mut hijo) = std::process::Command::new("node")
+            .args(["-e", "setTimeout(()=>{},60000)"])
+            .current_dir(&carpeta)
+            .spawn()
+        else {
+            println!("sin node instalado: no hay nada que comprobar");
+            return;
+        };
+        let pid = hijo.id();
+        let protegidos = vec![nombre.clone()];
+
+        let mut sys = new_system();
+
+        // Esperar a que se vea con su carpeta: es la lectura que decide.
+        let mut visto = None;
+        for _ in 0..40 {
+            visto = collect_processes(&mut sys, NADA)
+                .into_iter()
+                .find(|p| p.pid == pid && p.project.is_some());
+            if visto.is_some() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        let Some(visto) = visto else {
+            let _ = hijo.kill();
+            let _ = hijo.wait();
+            println!("no se llego a leer la carpeta del proceso de prueba; se omite");
+            return;
+        };
+
+        let bandeja = pids_of_runtime(&mut sys, NADA, &protegidos, Runtime::Node);
+        let atajo = unprotected_pids(&mut sys, NADA, &protegidos);
+        let ventana = kill_many(&mut sys, NADA, &protegidos, vec![pid]);
+
+        sys.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
+            true,
+            ProcessRefreshKind::nothing(),
+        );
+        let sigue_vivo = sys.process(Pid::from_u32(pid)).is_some();
+
+        let sin_proteger = kill_many(&mut sys, NADA, NADA, vec![pid]);
+
+        let _ = hijo.kill();
+        let _ = hijo.wait();
+        let _ = std::fs::remove_dir(&carpeta);
+
+        assert_eq!(visto.project.as_deref().map(str::to_lowercase), Some(nombre));
+        assert_eq!(visto.script.as_deref(), Some("-e"));
+        assert!(!bandeja.contains(&pid), "la bandeja eligio a un protegido");
+        assert!(!atajo.contains(&pid), "el atajo eligio a un protegido");
+        assert!(!ventana[0].killed, "la guardia dejo matar a un protegido");
+        assert!(
+            ventana[0].error.as_deref().unwrap_or_default().contains("protegido"),
+            "{:?}",
+            ventana[0].error
+        );
+        assert!(sigue_vivo, "la guardia devolvio error pero el proceso murio igual");
+        assert!(
+            sin_proteger[0].killed,
+            "sin protegerlo el mismo PID tiene que morir; si no, la prueba no demuestra nada"
         );
     }
 }

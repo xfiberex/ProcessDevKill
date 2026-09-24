@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SORT, sortProcesses } from "./sort";
+import { DEFAULT_SORT, freezeOrder, sortProcesses } from "./sort";
 import { proceso } from "../test/tauri-mock";
 
 const pids = (lista: ReturnType<typeof sortProcesses>) => lista.map((p) => p.pid);
@@ -98,5 +98,26 @@ describe("lo que no se ve en una sola pasada", () => {
     const lista = [proceso({ pid: 9, cpu: 0 }), proceso({ pid: 3, cpu: 0 })];
     expect(pids(sortProcesses(lista, { key: "cpu", dir: "asc" }))).toEqual([3, 9]);
     expect(pids(sortProcesses(lista, { key: "cpu", dir: "desc" }))).toEqual([3, 9]);
+  });
+});
+
+describe("orden congelado", () => {
+  it("mantiene cada fila donde estaba aunque cambien los valores", () => {
+    // Antes: 1 (900 MB), 2 (500), 3 (100). Ahora el 3 se dispara y ordenaria primero.
+    const ahora = sortProcesses(
+      [
+        proceso({ pid: 1, memoryMb: 900 }),
+        proceso({ pid: 2, memoryMb: 500 }),
+        proceso({ pid: 3, memoryMb: 2000 }),
+      ],
+      DEFAULT_SORT,
+    );
+    expect(pids(ahora)).toEqual([3, 1, 2]);
+    expect(pids(freezeOrder(ahora, [1, 2, 3]))).toEqual([1, 2, 3]);
+  });
+
+  it("quita los que mueren sin dejar hueco y pone los nuevos al final", () => {
+    const ahora = [proceso({ pid: 9 }), proceso({ pid: 3 }), proceso({ pid: 1 })];
+    expect(pids(freezeOrder(ahora, [1, 2, 3]))).toEqual([1, 3, 9]);
   });
 });

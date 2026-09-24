@@ -21,7 +21,7 @@ use crate::storage::{
     HistoryEntry, KillSource, Settings, MIN_AUTO_KILL_MB, MIN_ZOMBIE_MINUTES,
 };
 use crate::{
-    apply_hotkey, emit_processes, kill_and_record, read_list, services, textos, tray, AppState,
+    emit_processes, hotkey, kill_and_record, read_list, services, textos, tray, AppState,
 };
 
 #[tauri::command]
@@ -86,7 +86,7 @@ pub fn save_settings(
     };
 
     state.storage.save_settings(&settings)?;
-    apply_hotkey(&app, settings.hotkey_enabled);
+    hotkey::apply(&app, settings.hotkey_enabled, settings.hotkey);
     // El menu de la bandeja se arma una vez y Windows no lo retraduce solo: si cambio el idioma,
     // hay que rehacerlo. Se hace **antes** de escribir el ajuste nuevo para poder comparar con el
     // que habia; despues ya no habria con que.

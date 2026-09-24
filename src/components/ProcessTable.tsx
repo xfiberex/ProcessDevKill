@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowDownIcon,
@@ -5,6 +6,8 @@ import {
   ChevronsUpDownIcon,
   CopyIcon,
   GhostIcon,
+  LockIcon,
+  LockOpenIcon,
   SkullIcon,
 } from "lucide-react";
 import { RUNTIME_ICONS } from "../icons";
@@ -13,6 +16,7 @@ import type { ProcessInfo } from "../types";
 import { useT } from "../i18n";
 import type { Catalogo } from "../i18n";
 import { formatMemory, formatUptime } from "../lib/format";
+import { claveProteccion } from "../lib/protect";
 import type { Sort, SortKey } from "../lib/sort";
 import { UsageBar } from "./UsageBar";
 import { Button } from "@/components/ui/button";
@@ -36,6 +40,13 @@ type ProcessTableProps = {
   onToggleAll: () => void;
   onKill: (pid: number) => void;
   onCopy: (text: string, what: string) => void;
+  /** Proteger (`true`) o dejar de proteger una fila desde su menú. */
+  onProtect: (proceso: ProcessInfo, proteger: boolean) => void;
+  /**
+   * Avisa de cuándo hay que congelar el orden: con el puntero encima de las filas o con un menú
+   * abierto. El orden lo aplica App, que es quien ordena; ver `freezeOrder`.
+   */
+  onFreezeChange: (congelar: boolean) => void;
 };
 
 export function ProcessTable({
@@ -48,8 +59,19 @@ export function ProcessTable({
   onToggleAll,
   onKill,
   onCopy,
+  onProtect,
+  onFreezeChange,
 }: ProcessTableProps) {
   const t = useT();
+
+  // Dos motivos para congelar, por separado: al pasar al menú —que va en un portal, fuera de la
+  // tabla— el puntero sale del `<tbody>`, y el orden tiene que seguir quieto mientras el menú viva.
+  const [encima, setEncima] = useState(false);
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const congelar = encima || menuAbierto;
+  useEffect(() => {
+    onFreezeChange(congelar);
+  }, [congelar, onFreezeChange]);
 
   // Referencias para las barras: el proceso que mas consume marca el 100 %.
   const maxCpu = Math.max(...processes.map((p) => p.cpu), 0.001);
@@ -100,19 +122,26 @@ export function ProcessTable({
         </tr>
       </thead>
 
-      <tbody>
+      <tbody
+        onPointerEnter={() => setEncima(true)}
+        onPointerLeave={() => setEncima(false)}
+      >
         <AnimatePresence initial={false}>
           {processes.map((p) => {
             const Icon = RUNTIME_ICONS[p.runtime];
             const color = RUNTIME_COLORS[p.runtime];
             const label = t.runtimes[p.runtime];
             const isKilling = killing.has(p.pid);
+            // Script y carpeta, en gris debajo del nombre: con 13 de 15 filas llamadas
+            // `node.exe`, es lo único que dice cuál es cuál. Mismo patrón que Servicios.
+            const detalle = [p.script, p.project].filter(Boolean).join(" · ");
+            const clave = claveProteccion(p);
 
             return (
               // ContextMenu (Base UI) no pinta ningun elemento propio, asi que
               // puede envolver una fila sin romper el <tbody>; el trigger es la
               // <tr> de siempre, via `render`.
-              <ContextMenu key={p.pid}>
+              <ContextMenu key={p.pid} onOpenChange={setMenuAbierto}>
                 <ContextMenuTrigger
                   render={
                     <motion.tr
@@ -146,8 +175,28 @@ export function ProcessTable({
                   <td className="px-3 py-2">
                     <span className="flex items-center gap-2">
                       <Icon className="size-4 shrink-0" style={{ color }} />
-                      <span className="truncate">{p.name}</span>
+                      {/* Con tope de ancho: en una tabla automática `truncate` no recorta nada,
+                          empuja. Sin él, una línea como `@colbymchenry/codegraph-win32-x64 ·
+                          ProcessDevKill` sacaba la tabla de la ventana a 1000 px (medido). El
+                          texto entero queda en el `title`. */}
+                      <span className="max-w-32 min-w-0" title={detalle || undefined}>
+                        <span className="block truncate">{p.name}</span>
+                        {detalle && (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {detalle}
+                          </span>
+                        )}
+                      </span>
                       <span className="sr-only">{label}</span>
+                      {p.protected && (
+                        <span
+                          className="flex shrink-0 items-center text-muted-foreground"
+                          title={t.tabla.protegidoTitulo}
+                        >
+                          <LockIcon className="size-3.5" aria-hidden />
+                          <span className="sr-only">{t.tabla.protegido}</span>
+                        </span>
+                      )}
                       {p.zombie && (
                         <span
                           className="flex shrink-0 items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
@@ -214,7 +263,10 @@ export function ProcessTable({
                       size="xs"
                       variant="destructive"
                       onClick={() => onKill(p.pid)}
-                      disabled={isKilling}
+                      // Protegido: el botón se queda a la vista pero apagado, con el motivo en el
+                      // `title`. Quitarlo dejaría un hueco en la columna que se leería como un fallo.
+                      disabled={isKilling || p.protected}
+                      title={p.protected ? t.tabla.protegidoTitulo : undefined}
                       // Sin esto hay veinte botones que se anuncian "Kill" a secas,
                       // sin decir cual mata cada uno. El checkbox de la misma fila ya
                       // se nombraba bien; para el boton que cierra un proceso es
@@ -226,15 +278,10 @@ export function ProcessTable({
                   </td>
                 </ContextMenuTrigger>
 
+                {/* Lo destructivo, **al final** y tras un separador (Tier 11, A6). Estaba el primero:
+                    abierto por teclado, la primera flecha caía en «Matar proceso», que cierra sin
+                    diálogo, y con el ratón era la entrada que quedaba justo bajo el cursor. */}
                 <ContextMenuContent>
-                  <ContextMenuItem
-                    variant="destructive"
-                    onClick={() => onKill(p.pid)}
-                  >
-                    <SkullIcon />
-                    {t.tabla.matarProceso}
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
                   <ContextMenuItem
                     onClick={() => onCopy(String(p.pid), `PID ${p.pid}`)}
                   >
@@ -270,6 +317,27 @@ export function ProcessTable({
                       {t.tabla.copiarUrl(`http://localhost:${p.ports[0]}`)}
                     </ContextMenuItem>
                   )}
+                  <ContextMenuSeparator />
+                  {p.protected ? (
+                    <ContextMenuItem onClick={() => onProtect(p, false)}>
+                      <LockOpenIcon />
+                      {t.tabla.desproteger(clave)}
+                    </ContextMenuItem>
+                  ) : (
+                    <ContextMenuItem onClick={() => onProtect(p, true)}>
+                      <LockIcon />
+                      {t.tabla.proteger(clave)}
+                    </ContextMenuItem>
+                  )}
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    variant="destructive"
+                    disabled={p.protected}
+                    onClick={() => onKill(p.pid)}
+                  >
+                    <SkullIcon />
+                    {t.tabla.matarProceso}
+                  </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
             );

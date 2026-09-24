@@ -1,6 +1,5 @@
 import {
   BoxIcon,
-  ChevronDownIcon,
   ContainerIcon,
   DatabaseIcon,
   GlobeIcon,
@@ -23,6 +22,13 @@ import { Marcado, useT } from "../i18n";
 import type { Catalogo } from "../i18n";
 import { formatMemory } from "../lib/format";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type ServicesViewProps = {
   /** `null` mientras no ha llegado la primera lectura. Vacío ya es una respuesta. */
@@ -149,14 +155,11 @@ export function ServicesView({
             <col />
             <col className="w-[100px]" />
             {/* 200 sale de medirlo, no de estimarlo: «Automático (retrasado)» ocupa 128,5 px a
-                `text-xs` con Geist, mas 21 de flecha, 20 de relleno del control, 2 de borde y 24
-                de la celda — 195,5. Con menos, un `select` nativo **no** pone puntos suspensivos:
-                corta la palabra a media letra y deja «Automático (retrasa».
-
-                Eran 192 hasta que el relleno derecho subio de 8 a 12 para despegar la flecha del
-                borde, asi que **el ancho del control y el de la columna van juntos**. Los 4,5 px
-                que sobran son a proposito: la cuenta exacta daba 196 y medio pixel de margen, que
-                es lo mismo que no tener ninguno en cuanto cambie la fuente o el zoom. */}
+                `text-xs` con Geist, y con la flecha, el relleno, el borde y la celda se iba a
+                195,5 con el `select` nativo, que **no** pone puntos suspensivos: cortaba la palabra
+                a media letra. Desde el Tier 11 el control es el `Select` de Base UI (ver
+                `Arranque`), que cabe con holgura en el mismo ancho; se deja en 200 para no mover
+                la tabla que ya se habia ajustado en la v1.5.1. */}
             <col className="w-[200px]" />
             <col className="w-[76px]" />
             <col className="w-[76px]" />
@@ -387,9 +390,16 @@ function Fila({
 /**
  * El tipo de arranque, editable.
  *
- * Un `select` nativo y no un menú propio: es una lista corta de valores excluyentes, que es
- * exactamente para lo que existe, y trae gratis el teclado, el lector de pantalla y el
- * comportamiento que el usuario ya conoce de `services.msc`.
+ * **El `Select` de Base UI y no un `<select>` nativo, desde el Tier 11 (A4).** Hasta entonces era
+ * nativo porque «trae gratis el teclado», y ese teclado era el problema: en WebView2 un `<select>`
+ * cerrado lanza `change` **con cada flecha** (medido: 1 flecha → 1 `change`, 2 → 2). Sobre
+ * «Automático», ↓ abría ya la confirmación para «Automático (retrasado)» con el foco en «Cambiar
+ * arranque», y un Enter confirmaba lo que no se quería —en la única acción de la app que
+ * sobrevive al reinicio—. En el de Base UI las flechas **abren la lista**, no cambian el valor.
+ *
+ * Y solo se acepta un cambio que venga de **elegir una entrada** (`item-press`: clic o Enter sobre
+ * ella). Base UI también cambia el valor tecleando una letra con la lista cerrada, como el nativo;
+ * eso se ignora por el mismo motivo que las flechas.
  *
  * **Los que la app no pone se pintan como texto**, no como un desplegable deshabilitado: un
  * servicio en `Arranque del sistema` es de un controlador del núcleo, y enseñar ahí un control
@@ -423,48 +433,41 @@ function Arranque({
   }
 
   return (
-    <span className="relative block">
-      <select
-        // Los mismos tokens que el resto de controles de la casa: sin esto el navegador pinta su
-        // anillo de foco blanco por defecto, que no se parece a nada de la app.
-        //
-        // Y el texto va a `foreground` **siempre**, tambien en Manual y Deshabilitado. Pintarlos en
-        // `muted` los hacia parecer deshabilitados sin estarlo; lo que arranca solo se distingue por
-        // el peso, que es jerarquia sin robarle contraste a lo demas.
-        //
-        // **`appearance-none` y flecha propia, y `bg-card` en vez de `bg-transparent`.** Las dos
-        // cosas se comprobaron en la ventana en marcha, y las dos desmienten lo que parecia obvio:
-        //
-        // - El relleno **no** mueve la flecha nativa. Chromium la dibuja contra el borde de la caja,
-        //   ignorando `padding-right`, asi que subirlo a 12 px no la aparto ni un pixel. La unica
-        //   forma de colocarla donde queremos es quitarla y poner la nuestra.
-        // - El fondo del control es el que usa el navegador para **la lista desplegada**. Con
-        //   `transparent` la pintaba blanca, y encima el texto heredado de `--foreground`, que en el
-        //   tema oscuro es casi blanco: ilegible. `color-scheme` por si solo no bastaba.
-        className={`h-8 w-full appearance-none rounded-md border border-input bg-card pr-7 pl-2 text-xs text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 ${
-          arrancaSolo ? "font-medium" : ""
-        }`}
+    <Select
+      // Controlado por lo que dice el SCM: elegir otro valor **no** lo cambia aquí, abre la
+      // confirmación. Si se cancela, el control sigue enseñando lo que de verdad hay puesto.
+      value={s.startType}
+      items={SETTABLE_START_TYPES.map((tipo) => ({
+        value: tipo,
+        label: t.servicios.arranques[tipo],
+      }))}
+      disabled={bloqueado}
+      onValueChange={(valor, detalles) => {
+        if (detalles.reason !== "item-press") return;
+        if (valor && valor !== s.startType) {
+          onStartupChange(s, valor as SettableStartType);
+        }
+      }}
+    >
+      <SelectTrigger
+        size="sm"
         aria-label={t.servicios.arranque.etiqueta(s.name)}
         title={arrancaSolo ? t.servicios.arrancaSolo : undefined}
-        disabled={bloqueado}
-        value={s.startType}
-        onChange={(e) =>
-          onStartupChange(s, e.currentTarget.value as SettableStartType)
-        }
+        // El texto va a `foreground` **siempre**, también en Manual y Deshabilitado: pintarlos en
+        // `muted` los hacía parecer deshabilitados sin estarlo. Lo que arranca solo se distingue
+        // por el peso, que es jerarquía sin robarle contraste a lo demás.
+        className={`w-full rounded-md text-xs text-foreground ${arrancaSolo ? "font-medium" : ""}`}
       >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
         {SETTABLE_START_TYPES.map((tipo) => (
-          <option key={tipo} value={tipo}>
+          <SelectItem key={tipo} value={tipo} className="text-xs">
             {t.servicios.arranques[tipo]}
-          </option>
+          </SelectItem>
         ))}
-      </select>
-      {/* `pointer-events-none` para que el clic siga llegando al `select` de debajo: la flecha es
-          decoracion, no un boton aparte, y el control ya se anuncia solo. */}
-      <ChevronDownIcon
-        className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-muted-foreground"
-        aria-hidden
-      />
-    </span>
+      </SelectContent>
+    </Select>
   );
 }
 

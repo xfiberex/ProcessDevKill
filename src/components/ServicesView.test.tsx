@@ -98,13 +98,12 @@ describe("la tabla", () => {
     expect(within(fila("Redis")).getByText("Cambiando…")).toBeVisible();
 
     // El arranque ya no es texto: es el desplegable de la fase C, y lo que importa es el valor
-    // que trae puesto.
-    const arranque = (n: string) =>
-      within(fila(n)).getByRole("combobox") as HTMLSelectElement;
-    expect(arranque("postgresql-x64-17").value).toBe("automatic");
-    expect(arranque("MySQL80").value).toBe("manual");
-    expect(arranque("SQLBrowser").value).toBe("disabled");
-    expect(arranque("Redis").value).toBe("automaticDelayed");
+    // que trae puesto. Exacto: «Automático» está dentro de «Automático (retrasado)».
+    const arranque = (n: string) => within(fila(n)).getByRole("combobox");
+    expect(within(arranque("postgresql-x64-17")).getByText("Automático")).toBeVisible();
+    expect(within(arranque("MySQL80")).getByText("Manual")).toBeVisible();
+    expect(within(arranque("SQLBrowser")).getByText("Deshabilitado")).toBeVisible();
+    expect(within(arranque("Redis")).getByText("Automático (retrasado)")).toBeVisible();
   });
 
   it("enseña los puertos que ocupa", () => {
@@ -218,7 +217,7 @@ describe("en ingles", () => {
 
     expect(screen.getByText("Development services")).toBeVisible();
     expect(screen.getByText("Stopped")).toBeVisible();
-    expect(screen.getByRole("option", { name: "Disabled" })).toBeInTheDocument();
+    expect(within(screen.getByRole("combobox")).getByText("Disabled")).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Start MySQL80" }),
     ).toBeVisible();
@@ -322,21 +321,24 @@ describe("el tipo de arranque", () => {
    * No aparecen en el desplegable, y un servicio que ya esta en uno de ellos ni siquiera tiene
    * desplegable: se pinta como texto, porque no hay nada que hacer ahi.
    */
-  it("no ofrece los arranques del nucleo, ni siquiera para deshacerlos", () => {
-    pintar([
+  it("no ofrece los arranques del nucleo, ni siquiera para deshacerlos", async () => {
+    const { user } = pintar([
       servicio({ name: "MySQL80", startType: "manual" }),
       servicio({ name: "UnDriver", startType: "boot" }),
     ]);
 
-    const opciones = within(fila("MySQL80"))
+    await user.click(within(fila("MySQL80")).getByRole("combobox"));
+    const lista = await screen.findByRole("listbox");
+    const opciones = within(lista)
       .getAllByRole("option")
-      .map((o) => (o as HTMLOptionElement).value);
+      .map((o) => o.textContent);
     expect(opciones).toEqual([
-      "automatic",
-      "automaticDelayed",
-      "manual",
-      "disabled",
+      "Automático",
+      "Automático (retrasado)",
+      "Manual",
+      "Deshabilitado",
     ]);
+    await user.keyboard("{Escape}");
 
     // El de `boot` no es editable en absoluto, y dice por que.
     const f = within(fila("UnDriver"));
@@ -349,17 +351,50 @@ describe("el tipo de arranque", () => {
       servicio({ name: "SQLTELEMETRY$SQLEXPRESS", startType: "automaticDelayed" }),
     ]);
 
-    await user.selectOptions(
+    await user.click(
       screen.getByRole("combobox", {
         name: "Tipo de arranque de SQLTELEMETRY$SQLEXPRESS",
       }),
-      "disabled",
     );
+    await user.click(await screen.findByRole("option", { name: "Deshabilitado" }));
 
     expect(onStartupChange).toHaveBeenCalledWith(
       expect.objectContaining({ name: "SQLTELEMETRY$SQLEXPRESS" }),
       "disabled",
     );
+  });
+
+  /**
+   * **El criterio negativo de A4 (Tier 11).** Con el `<select>` nativo, una flecha sobre el control
+   * cerrado ya cambiaba el valor y abría la confirmación con el foco en «Cambiar arranque»: un
+   * Enter después confirmaba lo que no se había elegido. Ni la flecha ni una letra pueden pedir
+   * un cambio; solo elegir una entrada.
+   */
+  it("ni una flecha ni una letra con la lista cerrada piden un cambio", async () => {
+    const { onStartupChange, user } = pintar([
+      servicio({ name: "MySQL80", startType: "automatic" }),
+    ]);
+
+    const control = screen.getByRole("combobox", {
+      name: "Tipo de arranque de MySQL80",
+    });
+    control.focus();
+    await user.keyboard("d");
+    await user.keyboard("{ArrowDown}");
+
+    expect(onStartupChange).not.toHaveBeenCalled();
+  });
+
+  /** Elegir el que ya está puesto no es un cambio: no puede abrir una confirmación vacía. */
+  it("elegir el mismo valor no pide nada", async () => {
+    const { onStartupChange, user } = pintar([
+      servicio({ name: "MySQL80", startType: "manual" }),
+    ]);
+
+    await user.click(screen.getByRole("combobox", { name: "Tipo de arranque de MySQL80" }));
+    await user.click(await screen.findByRole("option", { name: "Manual" }));
+
+    expect(onStartupChange).not.toHaveBeenCalled();
   });
 });
 

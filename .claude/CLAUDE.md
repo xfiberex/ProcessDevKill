@@ -43,10 +43,11 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 
 - Comandos de Tauri en `snake_case`: `get_processes`, `kill_process`.
 - `lib.rs` es **arranque y `AppState`, y nada más**; los comandos viven en `commands.rs` y la
-  lógica en `processes`, `ports`, `storage`, `tray`, `poller`, `auto_kill`, `notify`, `textos`,
-  `services`, `service_control` y `update`. **Cuando `lib.rs` vuelva a pasar de ~450 líneas de
-  código, se parte otra vez**: ya ha pasado tres veces (Tier 4, Tier 7.6 y Tier 10). **Ahora mismo
-  van 445** — medidas sin el `mod tests`, que es como cuenta esta regla.
+  lógica en `processes`, `ports`, `storage`, `tray`, `poller`, `auto_kill`, `hotkey`, `notify`,
+  `textos`, `services`, `service_control` y `update`. **Cuando `lib.rs` vuelva a pasar de ~450
+  líneas de código, se parte otra vez**: ya ha pasado cuatro veces (Tier 4, Tier 7.6, Tier 10 y
+  Tier 11, que sacó el atajo global a `hotkey.rs`). **Ahora mismo van 406** — medidas sin el
+  `mod tests`, que es como cuenta esta regla.
 - Los comandos que tienen lógica propia detrás **no** están en `commands.rs`: los de servicios van
   en `service_control.rs` junto a su guardia, los del actualizador en `update.rs` y los del log en
   `logging.rs`. Se registran con su ruta (`service_control::control_service`) y el nombre por IPC
@@ -58,7 +59,9 @@ Ejemplo del estilo que se busca, de `processes.rs`:
   nombre por IPC lo da el **último segmento**, así que `invoke("check_update")` no cambia.
 - **Toda muerte de proceso pasa por `kill_and_record`.** La ventana, la bandeja, el atajo global y
   el Auto-Kill comparten camino, así que los cuatro notifican, registran en el historial y refrescan
-  igual. Tres rutas separadas se desincronizaron a la primera.
+  igual. Tres rutas separadas se desincronizaron a la primera. Por ahí pasa también la guardia de
+  los **procesos protegidos**: una vía nueva que cierre procesos los deja fuera al elegir, y
+  `kill_one` los vuelve a rechazar.
 - Separar la lógica pura del comando de Tauri (como `collect_processes` / `get_processes`) para
   poder probarla sin montar una `App`.
 - Los candados: copiar los ajustes y **soltar** su candado antes de bloquear `sys`. Nunca anidarlos.

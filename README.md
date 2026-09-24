@@ -35,13 +35,21 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 
 - Lista **Node, Python y .NET** —más los ejecutables que añadas— con CPU, RAM, tiempo activo y los
   puertos TCP en escucha de cada proceso.
-- Busca por nombre, PID **o número de puerto**: escribe `3000` y te queda la fila que lo ocupa.
-- Cierra procesos de uno en uno, por selección múltiple o de golpe con **Nuke All**, siempre con
-  confirmación.
-- **Menú contextual** en cada fila: matar, o copiar el PID, el nombre, el puerto o
-  `http://localhost:PUERTO`.
-- **Icono en la bandeja** con acciones rápidas y atajo global <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd>
-  (desactivable) que cierra todo lo vigilado sin abrir la ventana.
+- **Cada fila dice qué es**: debajo de `node.exe`, el script y la carpeta del proyecto
+  —`vite · mi-web`—, para no tener que adivinar cuál de los trece `node.exe` es el tuyo. Nunca la
+  línea de comandos entera, que puede llevar tokens.
+- Busca por nombre, script, carpeta, PID **o número de puerto**: escribe `3000` y te queda la fila
+  que lo ocupa.
+- Cierra procesos de uno en uno con **Kill**, o por selección múltiple o de golpe con **Nuke All**,
+  que piden confirmación. Mientras el puntero está sobre la tabla **las filas no cambian de
+  sitio**, para que el Kill que tienes debajo siga siendo el del mismo proceso.
+- **Procesos protegidos**: los que marques —por ejecutable, script o carpeta— no los cierra nada de
+  la app, ni Nuke All, ni la bandeja, ni el atajo, ni el Auto-Kill.
+- **Menú contextual** en cada fila: copiar el PID, el nombre, el puerto o `http://localhost:PUERTO`,
+  proteger el proceso y, al final, matarlo.
+- **Icono en la bandeja** con acciones rápidas, y un **atajo global** opcional (apagado de fábrica)
+  que cierra todo lo vigilado sin abrir la ventana. La combinación se elige —<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd>
+  por defecto— y pide **dos pulsaciones**: la primera solo avisa de cuántos caerían.
 - **Auto-Kill** (opcional, apagado de fábrica): cierra solo los procesos que pasen de un umbral de
   RAM, avisa por notificación y lo registra. Para fugas de memoria y watchers desbocados.
 - **Zombie Finder** (opcional, apagado de fábrica): resalta los procesos que llevan minutos sin
@@ -210,7 +218,7 @@ flowchart LR
         U["Tabla, Historial, Ajustes"]
     end
     B["Bandeja"]
-    A["Ctrl+Alt+K"]
+    A["Atajo global"]
 
     S --> H
     L --> H
@@ -230,7 +238,8 @@ Cuatro decisiones explican casi todo el diseño; el resto están en
   `processes-updated`; React solo escucha. El intervalo se configura desde la UI.
 - **Todo cierre pasa por `kill_and_record`.** La ventana, la bandeja, el atajo global y el Auto-Kill
   comparten camino, así que los cuatro notifican, registran en el historial y refrescan igual. Tres
-  rutas separadas se habrían desincronizado a la primera.
+  rutas separadas se habrían desincronizado a la primera. Es también donde se rechaza a los
+  procesos protegidos, venga la orden de donde venga.
 - **Los puertos se filtran por TCP + `Listen`.** `listeners::get_all()` devuelve también las
   conexiones salientes: sin ese filtro la columna enseñaría puertos efímeros al azar en vez del
   puerto donde sirve tu servidor.
@@ -268,9 +277,9 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 221 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 245 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
-cd src-tauri && cargo test    # 93 pruebas del backend
+cd src-tauri && cargo test    # 112 pruebas del backend
 ```
 
 Las pruebas de Rust leen los procesos reales del equipo y **solo matan procesos que lanzan ellas
@@ -337,7 +346,7 @@ Cada push a `main` y cada pull request pasan por **GitHub Actions**, en
 
 ## Estado
 
-La versión actual es la **v1.5.3**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.6.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
 instalar algo que no podía actualizarse.
 

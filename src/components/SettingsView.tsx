@@ -18,7 +18,7 @@ import {
   XIcon,
 } from "lucide-react";
 import type { useUpdater } from "../hooks/useUpdater";
-import { AUTO_KILL_MIN_MB, THEMES, ZOMBIE_MIN_MINUTES } from "../types";
+import { AUTO_KILL_MIN_MB, HOTKEYS, THEMES, ZOMBIE_MIN_MINUTES } from "../types";
 import type { Language, Settings, Theme } from "../types";
 import { Marcado, useT } from "../i18n";
 import { formatMemory } from "../lib/format";
@@ -51,6 +51,7 @@ export function SettingsView({
   const t = useT();
   const [draft, setDraft] = useState("");
   const [servicioDraft, setServicioDraft] = useState("");
+  const [protegidoDraft, setProtegidoDraft] = useState("");
   const [mbDraft, setMbDraft] = useState(String(settings.autoKillMb));
 
   // Los ajustes tambien llegan de Rust (carga inicial, o el valor ya corregido si
@@ -253,6 +254,27 @@ export function SettingsView({
     });
   }
 
+  /** Mismo criterio que los vigilados: Rust normaliza, aquí solo se evita el duplicado evidente. */
+  function addProtegido() {
+    const nombre = protegidoDraft.trim();
+    if (!nombre) return;
+    if (
+      settings.protected.some((n) => n.toLowerCase() === nombre.toLowerCase())
+    ) {
+      setProtegidoDraft("");
+      return;
+    }
+    onChange({ ...settings, protected: [...settings.protected, nombre] });
+    setProtegidoDraft("");
+  }
+
+  function removeProtegido(nombre: string) {
+    onChange({
+      ...settings,
+      protected: settings.protected.filter((n) => n !== nombre),
+    });
+  }
+
   return (
     <div className="max-w-2xl space-y-8 px-5 py-6">
       {/* El idioma va **el primero de todos**: quien abra la app y no entienda la mitad tiene que
@@ -395,6 +417,55 @@ export function SettingsView({
                   size="icon-xs"
                   aria-label={t.ajustes.servicios.quitar(nombre)}
                   onClick={() => removeServicio(nombre)}
+                >
+                  <XIcon />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h2 className="font-heading text-sm font-semibold">
+          {t.ajustes.protegidos.titulo}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <Marcado texto={t.ajustes.protegidos.descripcion} />
+        </p>
+
+        <div className="mt-3 flex gap-2">
+          <Input
+            value={protegidoDraft}
+            onChange={(e) => setProtegidoDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addProtegido();
+            }}
+            placeholder={t.ajustes.protegidos.placeholder}
+            aria-label={t.ajustes.protegidos.titulo}
+          />
+          <Button
+            variant="outline"
+            onClick={addProtegido}
+            aria-label={t.ajustes.protegidos.anadirLabel}
+          >
+            {t.ajustes.protegidos.anadir}
+          </Button>
+        </div>
+
+        {settings.protected.length > 0 && (
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {settings.protected.map((nombre) => (
+              <li
+                key={nombre}
+                className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2.5 text-sm"
+              >
+                <span className="font-mono text-xs">{nombre}</span>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={t.ajustes.protegidos.quitar(nombre)}
+                  onClick={() => removeProtegido(nombre)}
                 >
                   <XIcon />
                 </Button>
@@ -619,11 +690,50 @@ export function SettingsView({
               {/* El `<kbd>` es estructura, no texto: se queda aqui y el catalogo solo pone
                   la palabra que lo precede. */}
               <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                Ctrl+Alt+K
+                {HOTKEYS.find((h) => h.value === settings.hotkey)?.label ??
+                  HOTKEYS[0].label}
               </kbd>
             </span>
             <span className="mt-1 block text-muted-foreground">
               <Marcado texto={t.ajustes.atajo.detalle} />
+            </span>
+          </label>
+        </div>
+
+        {/* La combinacion y la doble pulsacion se pueden tocar con el atajo apagado, igual que el
+            umbral del Auto-Kill: asi se deja preparado antes de encenderlo. */}
+        <div
+          role="group"
+          aria-label={t.ajustes.atajo.combinacion}
+          className="mt-3 flex flex-wrap gap-2 pl-11"
+        >
+          {HOTKEYS.map(({ value, label }) => (
+            <Button
+              key={value}
+              size="sm"
+              variant={settings.hotkey === value ? "secondary" : "outline"}
+              aria-pressed={settings.hotkey === value}
+              onClick={() => onChange({ ...settings, hotkey: value })}
+              className="font-mono text-xs"
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="mt-3 flex items-start gap-3 pl-11">
+          <Switch
+            id="hotkey-doble"
+            checked={settings.hotkeyDoublePress}
+            onCheckedChange={(checked) =>
+              onChange({ ...settings, hotkeyDoublePress: checked })
+            }
+            className="mt-0.5"
+          />
+          <label htmlFor="hotkey-doble" className="cursor-pointer text-sm">
+            <span>{t.ajustes.atajo.doble}</span>
+            <span className="mt-1 block text-muted-foreground">
+              <Marcado texto={t.ajustes.atajo.dobleDetalle} />
             </span>
           </label>
         </div>
