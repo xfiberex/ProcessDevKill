@@ -2969,7 +2969,7 @@ dependencies = [
 
 [[package]]
 name = "processdevkill"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "futures-util",
  "listeners",
