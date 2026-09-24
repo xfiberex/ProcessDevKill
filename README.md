@@ -249,6 +249,7 @@ Cuatro decisiones explican casi todo el diseño; el resto están en
 | Procesos | crate **`sysinfo`** |
 | Puertos por PID | crate **`listeners`** — `sysinfo` no los expone |
 | Pruebas | **Vitest + Testing Library** (frontend) y `cargo test` (backend) |
+| CI | **GitHub Actions** en `windows-latest`: solo comprueba, no publica |
 | Plugins Tauri | `notification`, `global-shortcut`, `clipboard-manager`, `opener` + `tray-icon` |
 | Actualizaciones | crate **`reqwest`** (rustls) + **`sha2`** — implementación propia, sin plugin |
 
@@ -267,9 +268,9 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 160 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 221 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
-cd src-tauri && cargo test    # 52 pruebas del backend
+cd src-tauri && cargo test    # 93 pruebas del backend
 ```
 
 Las pruebas de Rust leen los procesos reales del equipo y **solo matan procesos que lanzan ellas
@@ -281,9 +282,26 @@ nada, la búsqueda por puerto, el suelo de 256 MB del Auto-Kill y que el portapa
 plugin de Tauri. [`src/types.test.ts`](src/types.test.ts) además lee el fuente de Rust y compara las
 constantes espejo, para que el contrato entre los dos lados no se desincronice en silencio.
 
-Cada push y cada pull request pasan por [GitHub Actions](.github/workflows/ci.yml): ESLint, las
-pruebas de los dos lados, el build del frontend y clippy en Windows, más `npm audit` y
-`cargo audit`. La CI solo comprueba; las versiones se siguen cortando en local con `release.ps1`.
+### Integración continua
+
+Cada push a `main` y cada pull request pasan por **GitHub Actions**, en
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml). Son las mismas comprobaciones que hace
+`release.ps1` antes de cortar una versión, así que un fallo se ve en el PR y no el día del release.
+
+| Trabajo | Dónde | Qué comprueba | Cuándo |
+|---|---|---|---|
+| **Pruebas, lint y build** | `windows-latest` | `npm run lint` (ESLint), `npm test`, `npm run build` (tipos + Vite), `cargo clippy -D warnings` y `cargo test` | Push, pull request y a mano |
+| **Auditoría de dependencias** | `ubuntu-latest` | `npm audit --omit=dev --audit-level=high` y `cargo audit` | Lo mismo, y **cada lunes** |
+
+- **En Windows** porque la app es solo de Windows: el Gestor de control de servicios, los sockets
+  de `listeners` y la crate `windows` solo se prueban de verdad ahí. Las pruebas de Rust leen
+  procesos reales y lanzan sus propios `node`; en el runner no hay procesos de nadie más.
+- **La auditoría corre también cada semana** porque un aviso de seguridad nuevo sale sin que nadie
+  haga push. Ya se ha ganado el sitio: su primera ejecución paró en una vulnerabilidad de `rustls`
+  que el siguiente release habría encontrado igual.
+- **Solo comprueba.** Corre con permiso de lectura, sin secretos, y no publica nada: las versiones se
+  siguen cortando en local con `release.ps1`, en el mismo equipo donde se prueba la app. Por eso no
+  hay ningún workflow de release.
 
 | Herramienta | Para qué |
 |---|---|
@@ -309,6 +327,7 @@ pruebas de los dos lados, el build del frontend y clippy en Windows, más `npm a
 | `src-tauri/src/logging.rs` | Registro de avisos en archivo, con rotación (en release no hay consola) |
 | `src-tauri/capabilities/` | Permisos concedidos a la ventana |
 | `tools/`, `docs/screenshots/` | Utilidades del repositorio y capturas del README |
+| `.github/workflows/` | La CI de GitHub Actions: pruebas, lint, build y auditorías |
 | `.claude/skills/`, `.agents/skills/` | Packs de skills de agente (material de terceros; ni se compila ni se distribuye) |
 | `app-icon.svg` | Icono fuente del que salen todos los tamaños |
 | [ROADMAP.md](ROADMAP.md) | Plan de desarrollo por fases, con lo verificado en cada una |
@@ -318,7 +337,7 @@ pruebas de los dos lados, el build del frontend y clippy en Windows, más `npm a
 
 ## Estado
 
-La versión actual es la **v1.5.1**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.5.3**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
 instalar algo que no podía actualizarse.
 
