@@ -8,6 +8,24 @@
 
 ---
 
+### 2026-09-24 (tarde) — Tier 11, Fase C: maquetación
+
+- **Las cuatro tareas, hechas y medidas en vivo**, sin publicar todavía. La tabla de procesos va con
+  anchos fijos: 0 px de salto entre refrescos, ocupa justo su contenedor a 1000 y a 900 px, y un
+  nombre largo se trunca. Los rótulos numéricos quedan a 0 px de sus cifras. El sidebar cabe a 480
+  px de alto con los filtros desplegados: pide 469. Y el diálogo de cambiar el arranque tiene mensaje,
+  aviso en recuadro y nota, con el nombre sin partir y en rojo solo si deshabilita.
+- **Medir antes de fijar anchos cambió el plan.** Con la barra de uso al lado de la cifra, las
+  columnas fijas se comían 612 px y al nombre le quedaban 65 en la ventana mínima. La barra pasó
+  debajo de la cifra, y la fila no crece porque la segunda línea del nombre ya ocupaba ese alto.
+- **El primer intento de medir los anchos daba de más**: los clones de las celdas se colgaban de
+  `body` y perdían el `text-sm` y el `text-xs uppercase` que heredan de la tabla. Medidos dentro de
+  su propia fila, salieron bien.
+- **El diálogo se abrió siempre desde el desplegable y se cerró con Cancelar**, en los dos tonos y
+  los dos temas, y ningún arranque cambió. En la primera captura la negrita del aviso no se
+  distinguía, porque el recuadro iba entero en blanco: pasó al gris de la descripción. axe, en cero
+  en las cuatro vistas y en el diálogo. 255 pruebas del frontend.
+
 ### 2026-09-24 — Tier 11, Fase B: accesibilidad medida (v1.6.1)
 
 - **axe pasa de varias violaciones a cero, en las cuatro vistas y los dos temas**, con las mismas

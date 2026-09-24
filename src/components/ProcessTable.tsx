@@ -81,17 +81,40 @@ export function ProcessTable({
     processes.length > 0 && processes.every((p) => selected.has(p.pid));
 
   return (
-    <table className="w-full text-sm">
+    <table className="w-full table-fixed text-sm">
       {/* Sin esto la tabla se anuncia como "tabla, 8 columnas" y nada mas. `sr-only` porque el
           titulo ya esta a la vista en la cabecera: es informacion que le falta al lector de
           pantalla, no a la ventana. */}
       <caption className="sr-only">{t.tabla.caption}</caption>
+      {/*
+        Anchos fijos, como en Servicios desde la v1.5.1 (Tier 11, C1). En una tabla automática,
+        medido: las columnas se movían **hasta 13 px** entre refrescos —cada cifra nueva recalcula
+        todas—, a 900 px la tabla pedía 743 donde había 677, y un nombre largo como
+        `Microsoft.CodeAnalysis.LanguageServer.exe` no se truncaba: empujaba Activo y Kill fuera de
+        la ventana.
+
+        Cada ancho sale de medir lo que pide la columna en la app, en español —el idioma con los
+        rótulos más largos—, con la flecha de orden visible y el relleno: Puerto lo marca su
+        encabezado (91), PID un PID de 6 cifras, CPU y RAM su cifra más larga sobre la barra
+        (ver `UsageBar`) y Activo su encabezado (87). Suman 520: al nombre le quedan 157 px en
+        la ventana mínima y 257 en la de fábrica, y es la única columna que crece.
+      */}
+      <colgroup>
+        <col className="w-9" />
+        <col />
+        <col className="w-23" />
+        <col className="w-16" />
+        <col className="w-19" />
+        <col className="w-22" />
+        <col className="w-22" />
+        <col className="w-19" />
+      </colgroup>
       <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
         <tr>
           {/* scope="col": en una tabla de ocho columnas es lo que hace que un
               lector de pantalla diga "Puerto: 3000" al recorrer celdas, en vez de
               leer numeros sueltos sin saber de que son. */}
-          <th scope="col" className="w-9 py-2 pl-5">
+          <th scope="col" className="py-2 pl-5">
             <Checkbox
               checked={allSelected}
               onCheckedChange={onToggleAll}
@@ -175,11 +198,11 @@ export function ProcessTable({
                   <td className="px-3 py-2">
                     <span className="flex items-center gap-2">
                       <Icon className="size-4 shrink-0" style={{ color }} />
-                      {/* Con tope de ancho: en una tabla automática `truncate` no recorta nada,
-                          empuja. Sin él, una línea como `@colbymchenry/codegraph-win32-x64 ·
-                          ProcessDevKill` sacaba la tabla de la ventana a 1000 px (medido). El
-                          texto entero queda en el `title`. */}
-                      <span className="max-w-32 min-w-0" title={detalle || undefined}>
+                      {/* `min-w-0` para que el flex le deje encoger y `truncate` recorte: la
+                          columna ya tiene el ancho que le deja la tabla fija (C1). Hasta entonces
+                          llevaba un tope de 128 px, porque en una tabla automática `truncate` no
+                          recortaba, empujaba. El texto entero queda en el `title`. */}
+                      <span className="min-w-0" title={detalle || undefined}>
                         <span className="block truncate">{p.name}</span>
                         {detalle && (
                           <span className="block truncate text-xs text-muted-foreground">
@@ -398,8 +421,12 @@ function SortableHeader({
         // `group` para que la flecha fantasma de las columnas inactivas aparezca
         // al pasar por encima: sin ninguna pista, que la tabla se ordena no lo
         // descubre nadie. Con focus-visible sale tambien navegando con teclado.
-        className={`group flex w-full cursor-pointer items-center gap-1 pr-3 ${junto ? "pl-1" : "pl-3"} py-2 tracking-wide uppercase transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${
-          align === "right" ? "justify-end" : "justify-start"
+        // En las columnas alineadas a la derecha, la flecha va a la **izquierda** del rótulo
+        // (Tier 11, C2): a la derecha, su hueco —invisible mientras la columna no ordena— dejaba el
+        // rótulo 18 px a la izquierda de sus cifras. `flex-row-reverse` con `justify-start` la
+        // pone delante y pega el rótulo al borde derecho, al mismo relleno que las celdas.
+        className={`group flex w-full cursor-pointer items-center justify-start gap-1 pr-3 ${junto ? "pl-1" : "pl-3"} py-2 tracking-wide uppercase transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${
+          align === "right" ? "flex-row-reverse" : ""
         } ${activa ? "text-foreground" : ""}`}
       >
         {t.columnas[sortKey]}

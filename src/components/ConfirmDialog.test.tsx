@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -11,7 +11,13 @@ import type { ConfirmRequest } from "./ConfirmDialog";
  * interesante es justo que el contenido sobrevive a que vuelva a null para que
  * la animacion de cierre tenga algo que pintar.
  */
-function Anfitrion({ onConfirm }: { onConfirm: () => void }) {
+function Anfitrion({
+  onConfirm,
+  extra = {},
+}: {
+  onConfirm: () => void;
+  extra?: Partial<ConfirmRequest>;
+}) {
   const [request, setRequest] = useState<ConfirmRequest | null>(null);
 
   return (
@@ -23,6 +29,7 @@ function Anfitrion({ onConfirm }: { onConfirm: () => void }) {
             message: "Se terminarán los 2 procesos seleccionados.",
             confirmLabel: "Cerrar procesos",
             onConfirm,
+            ...extra,
           })
         }
       >
@@ -33,9 +40,9 @@ function Anfitrion({ onConfirm }: { onConfirm: () => void }) {
   );
 }
 
-async function abrir(onConfirm = vi.fn()) {
+async function abrir(onConfirm = vi.fn(), extra: Partial<ConfirmRequest> = {}) {
   const user = userEvent.setup();
-  render(<Anfitrion onConfirm={onConfirm} />);
+  render(<Anfitrion onConfirm={onConfirm} extra={extra} />);
   await user.click(screen.getByRole("button", { name: "abrir" }));
   await screen.findByRole("alertdialog");
   return { user, onConfirm };
@@ -123,4 +130,31 @@ describe("ConfirmDialog", () => {
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
+
+  it("sin tono, es un peligro: rojo por defecto", async () => {
+    await abrir();
+
+    expect(screen.getByRole("button", { name: "Cerrar procesos" })).toHaveClass(
+      "bg-destructive",
+    );
+  });
+
+  it("el aviso y la nota forman parte de la descripcion que se anuncia", async () => {
+    await abrir(vi.fn(), {
+      warning: "**No se deshace** solo.",
+      note: "Pedirá permisos.",
+    });
+
+    const dialogo = screen.getByRole("alertdialog");
+    // `aria-describedby` apunta a un solo elemento: si el aviso quedara fuera, el lector de
+    // pantalla leería el mensaje al abrir y se saltaría justo lo que no se puede pasar por alto.
+    const descripcion = document.getElementById(
+      dialogo.getAttribute("aria-describedby")!,
+    )!;
+    expect(descripcion).toHaveTextContent(
+      "Se terminarán los 2 procesos seleccionados.No se deshace solo.Pedirá permisos.",
+    );
+    expect(within(descripcion).getByText("No se deshace").tagName).toBe("STRONG");
+  });
 });
+

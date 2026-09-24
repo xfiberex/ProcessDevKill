@@ -1219,7 +1219,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 ---
 
 
-## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A y B hechas y verificadas (v1.6.0 y v1.6.1)**
+## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A, B y C hechas y verificadas (v1.6.0, v1.6.1; la C, sin publicar)**
 *Objetivo: que la app no deje cerrar lo que no se quería, que se pueda usar entera con teclado y con poca vista, y que las cuatro vistas hablen el mismo idioma visual.*
 
 > **Sale de una auditoría de UX/UI hecha el 2026-09-23 sobre la v1.5.3**, con la app en marcha
@@ -1374,26 +1374,59 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > ✅ **Hecho**: la frase va en texto `sr-only` dentro de la región viva, y el número visible
   > `aria-hidden` para no leerlo dos veces. axe ya no lo marca. La nota en T3-10 sigue siendo la F2.
 
-### Fase C — maquetación
+### Fase C — maquetación — ✅ **hecha y verificada el 2026-09-24**
 
-- [ ] **C1. Anchos fijos en la tabla de procesos**, como la de Servicios desde la v1.5.1.
+> **Todo medido en la app en marcha**, con los procesos y servicios reales del equipo, a 1000×680 y
+> 900×480 y en los dos temas. axe-core 4.13 sigue en cero violaciones y cero incompletos en las
+> cuatro vistas, y da lo mismo sobre el diálogo abierto en sus dos tonos. El diálogo se abrió desde
+> el desplegable de Servicios y **se cerró siempre con Cancelar**: ningún arranque cambió. 255
+> pruebas del frontend en verde. Decisiones, en CONTEXT §4 (2026-09-24).
+
+- [x] **C1. Anchos fijos en la tabla de procesos**, como la de Servicios desde la v1.5.1.
   > Medido: las columnas se desplazan **hasta 13 px** entre refrescos; a 900 px la tabla desborda y la
   > RAM parte en dos líneas («126 / MB»); un nombre largo (`Microsoft.CodeAnalysis.LanguageServer.exe`)
   > **no se trunca**, ensancha la tabla de 777 a 898 px y saca Activo y Kill de la vista. `table-fixed`
   > + `colgroup` con anchos medidos, y `whitespace-nowrap` en la etiqueta de `UsageBar`.
-- [ ] **C2. Encabezados numéricos alineados con sus cifras.** Quedan ~18 px a la izquierda por el
+  >
+  > ✅ **Hecho, y con un cambio que el plan no preveía: la barra de CPU y RAM va debajo de la
+  > cifra.** Midiendo lo que pedía cada columna, las fijas sumaban 612 px con la barra al lado, y a
+  > 900 px al nombre le quedaban 65. Debajo, CPU y RAM caben en 76 y 88, las fijas suman 520 y el
+  > nombre se queda con **157 px en la ventana mínima y 257 en la de fábrica**. La fila no crece
+  > (53 px): la segunda línea del nombre ya ocupaba ese alto. **Medido en vivo**: 0 px de salto en
+  > 8 refrescos, la tabla ocupa justo su contenedor a 1000 y a 900 (777 y 677), ninguna cifra en dos
+  > líneas, y el nombre largo se trunca sin mover nada. Sobra el tope de 128 px que A2 le puso a la
+  > segunda línea.
+- [x] **C2. Encabezados numéricos alineados con sus cifras.** Quedan ~18 px a la izquierda por el
       hueco del icono de orden invisible; en las columnas alineadas a la derecha, el icono a la
       izquierda.
-- [ ] **C3. El sidebar cabe a 480 px de alto**, que es el `minHeight` que se promete.
+  > ✅ **Hecho con `flex-row-reverse`**: la flecha va delante del rótulo en PID, CPU, RAM y Activo.
+  > Medido en vivo, borde derecho del rótulo contra el de la cifra más ancha: **0 px** en las cuatro.
+- [x] **C3. El sidebar cabe a 480 px de alto**, que es el `minHeight` que se promete.
   > Necesita 578 px con los filtros desplegados —el estado de fábrica— y el auto-refresco queda
   > fuera, **sin scroll para alcanzarlo**. Que la navegación haga scroll o compactar el medidor por
   > debajo de ~600 px.
-- [ ] **C4. El diálogo de confirmación deja de ser un párrafo en 384 px.**
+  >
+  > ✅ **Las dos cosas.** Con la ventana a 600 px de alto o menos (variante `short:` en
+  > `index.css`), el sidebar se compacta: sin el subtítulo, y el medidor sin su título ni las cifras
+  > del equipo, que pasan a `sr-only` y siguen en el `title`. En pausa el título se queda. Y la
+  > navegación hace scroll por si algún día no basta. **Medido en vivo** con los filtros
+  > desplegados: pedía 582 y ahora **469 de 480**, con el auto-refresco entero a la vista; a 601 px
+  > de alto vuelve el sidebar completo y cabe (582).
+- [x] **C4. El diálogo de confirmación deja de ser un párrafo en 384 px.**
   > El de cambiar el arranque mete 285 caracteres seguidos, y «Este cambio sobrevive al reinicio»
   > **pierde la negrita** porque `message` es texto plano y `App.tsx` quita los `**`. El nombre del
   > servicio se parte en el título («postgresql-» / «x64-17»). Y todo sale en rojo, también
   > «Manual → Automático». `message` como `Rico` con `Marcado`, el aviso en un recuadro aparte,
   > `sm:max-w-md`, el nombre sin partir y el tono según la gravedad.
+  >
+  > ✅ **Hecho entero.** `ConfirmRequest` tiene mensaje (`Rico`), aviso en recuadro, nota en letra
+  > pequeña —el aviso del UAC y los protegidos que quedan fuera de un lote— y tono: `danger` por
+  > defecto y `change` —icono de información y botón neutro— para los arranques que no dejan el
+  > servicio deshabilitado. Las tres partes siguen siendo la descripción del diálogo. **Visto en vivo
+  > sobre `postgresql-x64-17`**, en los dos temas: 448 px de ancho, el nombre en una línea, la
+  > negrita en su recuadro, el tono que toca a «Automático (retrasado)» y a «Deshabilitado», y el foco
+  > en «Cambiar arranque». Al principio el recuadro iba entero en `foreground` y la negrita no se
+  > distinguía del resto: ahora va en el gris de la descripción.
 
 ### Fase D — consistencia y claridad
 

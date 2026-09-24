@@ -277,7 +277,7 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 249 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 255 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
 cd src-tauri && cargo test    # 112 pruebas del backend
 ```

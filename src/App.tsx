@@ -251,10 +251,12 @@ export default function App() {
 
       setConfirm({
         title: a.detenerTitulo(servicio.name),
+        name: servicio.name,
         message:
           dependientes.length > 0
             ? a.dependientes(dependientes.map((d) => d.name))
-            : `${a.detenerMensaje(servicio.name)} ${a.pideAdmin}`,
+            : a.detenerMensaje(servicio.name),
+        note: dependientes.length > 0 ? undefined : a.pideAdmin,
         confirmLabel: a.detenerBoton,
         onConfirm: () => ejecutarAccion(servicio, "stop"),
       });
@@ -287,11 +289,18 @@ export default function App() {
 
       setConfirm({
         title: a.titulo(servicio.name),
-        message: `${a.mensaje(
+        name: servicio.name,
+        message: a.mensaje(
           servicio.name,
           t.servicios.arranques[servicio.startType],
           t.servicios.arranques[tipo],
-        )} ${aviso.replace(/\*\*/g, "")} ${t.servicios.acciones.pideAdmin}`,
+        ),
+        warning: aviso,
+        note: t.servicios.acciones.pideAdmin,
+        // En rojo solo si lo deja deshabilitado, que es lo que puede romper algo que dependa de
+        // él. «Manual → Automático» es un cambio, no un peligro, y pintarlo igual que cerrar
+        // procesos enseña a no mirar el color (Tier 11, C4).
+        tone: tipo === "disabled" ? "danger" : "change",
         confirmLabel: a.boton,
         onConfirm: async () => {
           setServicioOcupado(servicio.name);
@@ -579,10 +588,9 @@ export default function App() {
   function askNuke(pids: number[], ambito: string, protegidosFuera: number) {
     setConfirm({
       title: t.confirmar.cerrarTitulo(pids.length),
-      message:
-        protegidosFuera > 0
-          ? `${t.confirmar.cerrarMensaje(pids.length, ambito)} ${t.confirmar.protegidosFuera(protegidosFuera)}`
-          : t.confirmar.cerrarMensaje(pids.length, ambito),
+      message: t.confirmar.cerrarMensaje(pids.length, ambito),
+      note:
+        protegidosFuera > 0 ? t.confirmar.protegidosFuera(protegidosFuera) : undefined,
       confirmLabel: t.confirmar.cerrarBoton(pids.length),
       onConfirm: () => killMany(pids),
     });

@@ -25,8 +25,18 @@ export function UsageMeter({ usage, pausado }: UsageMeterProps) {
   const t = useT();
 
   return (
-    <div className="border-t border-sidebar-border p-3">
-      <p className="mb-2 text-xs text-muted-foreground">{t.medidor.titulo}</p>
+    // `short:`, en una ventana baja: el sidebar se compacta para caber en 480 px (Tier 11, C3; ver
+    // `Sidebar`). El título y las cifras del equipo pasan a `sr-only` y no a `hidden`: a la vista
+    // sobran, pero un lector de pantalla se quedaría sin saber de qué son las cifras. En pausa el
+    // título se queda: sin las métricas hay sitio, y «En pausa» a secas no dice qué se pausó.
+    <div className="border-t border-sidebar-border p-3 short:py-2">
+      <p
+        className={`mb-2 text-xs text-muted-foreground ${
+          pausado || !usage ? "" : "short:sr-only"
+        }`}
+      >
+        {t.medidor.titulo}
+      </p>
 
       {pausado || !usage ? (
         // Sin el `/70` que tenia: era el unico texto de la app con la opacidad rebajada, y sobre
@@ -36,7 +46,7 @@ export function UsageMeter({ usage, pausado }: UsageMeterProps) {
           {pausado ? t.medidor.enPausa : t.medidor.midiendo}
         </p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 short:gap-2">
           <Metrica
             label="CPU"
             dev={`${usage.devCpu.toFixed(1)}%`}
@@ -133,7 +143,7 @@ function Metrica({
           Antes iba pegada arriba como "1008 MB de 15.6 GB", y el primero que lo
           vio leyo ese 15,6 como su RAM instalada (tiene 32 GB): era lo que usaba
           la maquina. Ahorrar una linea salio caro. */}
-      <div className="mt-1 flex items-baseline justify-between gap-1 text-[11px] text-muted-foreground">
+      <div className="mt-1 flex items-baseline justify-between gap-1 text-[11px] text-muted-foreground short:sr-only">
         <span>{equipoLabel}</span>
         <span className="tabular-nums">{equipo}</span>
       </div>

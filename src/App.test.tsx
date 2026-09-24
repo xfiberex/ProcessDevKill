@@ -7,6 +7,7 @@ import {
   invoke,
   listen,
   proceso,
+  servicio,
   writeText,
 } from "./test/tauri-mock";
 import { PROCESSES_UPDATED, SYSTEM_USAGE } from "./types";
@@ -816,5 +817,74 @@ describe("nombres accesibles de la cabecera", () => {
     expect(
       screen.getByRole("table", { name: "Procesos de desarrollo activos" }),
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * El diálogo de cambiar el arranque, entero: desde el desplegable de Servicios hasta lo que dice.
+ * Tier 11, C4: era un párrafo de 285 caracteres, el aviso perdía la negrita porque App le quitaba
+ * los `**`, y todo salía en rojo, también «Manual → Automático».
+ */
+describe("el dialogo de cambiar el arranque", () => {
+  async function pedirCambio(de: "manual" | "automatic", a: string) {
+    const user = await montar();
+    const base = invoke.getMockImplementation()!;
+    invoke.mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd === "get_services")
+        return [servicio({ name: "postgresql-x64-17", startType: de })];
+      if (cmd === "get_service_changes") return [];
+      return base(cmd, args);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Servicios" }));
+    await user.click(
+      await screen.findByRole("combobox", {
+        name: "Tipo de arranque de postgresql-x64-17",
+      }),
+    );
+    await user.click(await screen.findByRole("option", { name: a }));
+    return screen.findByRole("alertdialog");
+  }
+
+  it("separa el mensaje, el aviso —en negrita— y la nota del administrador", async () => {
+    const dialogo = await pedirCambio("manual", "Automático");
+
+    expect(
+      within(dialogo).getByText("postgresql-x64-17 pasará de «Manual» a «Automático».", {
+        selector: "p",
+      }),
+    ).toBeInTheDocument();
+    // Los `**` ya no se quitan: llegan al diálogo y salen como negrita.
+    const negrita = within(dialogo).getByText("Este cambio sobrevive al reinicio");
+    expect(negrita.tagName).toBe("STRONG");
+    expect(dialogo).not.toHaveTextContent("**");
+    expect(
+      within(dialogo).getByText(/Hará falta aprobar el aviso de administrador/),
+    ).toBeInTheDocument();
+  });
+
+  it("el nombre del servicio no se parte en el titulo", async () => {
+    const dialogo = await pedirCambio("manual", "Automático");
+
+    const titulo = within(dialogo).getByRole("heading", {
+      name: "Cambiar el arranque de postgresql-x64-17",
+    });
+    expect(within(titulo).getByText("postgresql-x64-17")).toHaveClass("inline-block");
+  });
+
+  it("de Manual a Automatico no se pinta como un peligro", async () => {
+    const dialogo = await pedirCambio("manual", "Automático");
+
+    expect(
+      within(dialogo).getByRole("button", { name: "Cambiar arranque" }),
+    ).not.toHaveClass("bg-destructive");
+  });
+
+  it("dejarlo deshabilitado, si", async () => {
+    const dialogo = await pedirCambio("automatic", "Deshabilitado");
+
+    expect(
+      within(dialogo).getByRole("button", { name: "Cambiar arranque" }),
+    ).toHaveClass("bg-destructive");
   });
 });

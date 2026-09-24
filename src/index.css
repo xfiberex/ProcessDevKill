@@ -8,6 +8,11 @@
    u oscuro). Ver el script de index.html para la primera pintura. */
 @custom-variant dark (&:is(.dark *));
 
+/* Ventana baja: la usa el sidebar para caber entero en el alto mínimo de 480 px (Tier 11, C3).
+   Con los filtros desplegados —el estado de fábrica— pedía 582, y el auto-refresco quedaba fuera
+   sin scroll que lo alcanzara. 600 y no 582: un margen por si crece una línea. */
+@custom-variant short (@media (max-height: 600px));
+
 html,
 body,
 #root {

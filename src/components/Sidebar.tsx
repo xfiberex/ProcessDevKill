@@ -79,17 +79,27 @@ export function Sidebar({
 
   return (
     <aside className="flex w-52 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="border-b border-sidebar-border px-4 py-4">
+      {/*
+        En una ventana baja (`short:`, ≤ 600 px de alto) el sidebar se compacta: sin subtítulo, y
+        el medidor sin su título ni las cifras del equipo, que siguen en el `title` de cada métrica
+        y para el lector de pantalla. Tier 11, C3: a 480 px, el alto mínimo que se promete, pedía
+        582 con los filtros desplegados y el auto-refresco quedaba fuera **sin scroll que lo
+        alcanzara**. Compactado pide unos 480. Por si un idioma o un tamaño de letra lo pasa, la
+        navegación hace scroll: lo que no puede quedar fuera es el auto-refresco.
+      */}
+      <div className="shrink-0 border-b border-sidebar-border px-4 py-4 short:py-3">
         <h1 className="font-heading text-sm font-semibold tracking-wide">
           ProcessDevKill
         </h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t.sidebar.subtitulo}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground short:hidden">
+          {t.sidebar.subtitulo}
+        </p>
       </div>
 
       {/* En vertical, y no tres pestañas en fila: con 208 px de ancho no cabian
           sin recortarles el padding, y asi los filtros por runtime pasan a colgar
           de "Procesos" en vez de flotar debajo sin decir de que dependen. */}
-      <nav className="flex flex-col gap-0.5 p-2">
+      <nav className="flex min-h-0 flex-col gap-0.5 overflow-y-auto p-2">
         <NavItem
           icon={ListIcon}
           label={t.sidebar.procesos}
@@ -153,12 +163,14 @@ export function Sidebar({
 
       {/* Abajo del todo, pegado al auto-refresco: los dos hablan del pulso de la
           app, y el medidor depende de que ese pulso este encendido. */}
-      <div className="mt-auto">
+      <div className="mt-auto shrink-0">
         <UsageMeter usage={usage} pausado={refreshMs === 0} />
       </div>
 
-      <div className="border-t border-sidebar-border p-3">
-        <p className="mb-2 text-xs text-muted-foreground">{t.sidebar.autoRefresco}</p>
+      <div className="shrink-0 border-t border-sidebar-border p-3 short:py-2">
+        <p className="mb-2 text-xs text-muted-foreground short:mb-1.5">
+          {t.sidebar.autoRefresco}
+        </p>
         <Segmented
           label={t.sidebar.autoRefresco}
           value={refreshMs}
