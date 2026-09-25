@@ -19,6 +19,8 @@
   sobre otro código.
 - Con la F se cierra el **Tier 11 entero**: seis fases en tres días, publicadas de la v1.6.0 a la
   v1.8.0.
+- **Publicada la v1.8.0** con la E y la F, tras la CI en verde y el dry run sobre el mismo commit.
+  Descargado el instalador, su hash coincide con el `.sha256` publicado (`d3a4dbd7…`).
 
 ### 2026-09-25 — Tier 11, Fase E: pulido
 

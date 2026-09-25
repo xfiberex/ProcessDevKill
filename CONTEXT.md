@@ -102,7 +102,13 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
 > usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
-**Publicado:** **v1.7.0** (2026-09-25), la **Fase D del Tier 11** y el **modo administrador**:
+**Publicado:** **v1.8.0** (2026-09-25), las **fases E y F del Tier 11**, con las que se cierra: sube a
+menor porque añade funciones —Ctrl+F, el zoom de la ventana, el Historial agrupado—. CI en verde y
+dry run sobre el mismo commit antes del corte; el aviso de `THIRD-PARTY-NOTICES.txt` volvió a ser
+espurio —ningún manifiesto cambió desde la v1.7.0—. 4 assets, hash comprobado tras publicar:
+`d3a4dbd7…`.
+
+Antes: la **v1.7.0** (2026-09-25), la **Fase D del Tier 11** y el **modo administrador**:
 sube a menor porque añade una función —arrancar elevada, apagado de fábrica— y cambia la forma de
 las cuatro vistas. CI en verde y dry run sobre el mismo commit antes del corte. El aviso de
 `THIRD-PARTY-NOTICES.txt` volvió a ser espurio: desde la v1.6.1 solo cambia la versión de la propia
