@@ -32,8 +32,8 @@
 
 ## 3. Estado actual
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md), desde el 2026-09-25, con 4 de 39 tareas
-hechas** (T12-01, T12-21, T12-22 y T12-29; T12-06, escrita, espera su prueba en vivo). Es la tercera revisión amplia del repositorio y la primera que mira como código —no como
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md), desde el 2026-09-25, con 5 de 39 tareas
+hechas** (T12-01, T12-06, T12-21, T12-22 y T12-29). Es la tercera revisión amplia del repositorio y la primera que mira como código —no como
 UX— lo que entró desde la del 2026-08-18: unas 10.300 líneas en 43 commits, con los servicios, la
 elevación, el atajo, la traducción y la CI. **Ningún hallazgo crítico ni alto**: nueve medios y
 treinta bajos. Los medios son:

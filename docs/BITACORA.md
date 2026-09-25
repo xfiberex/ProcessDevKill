@@ -23,15 +23,27 @@ release, y luego T12-01, T12-06 y T12-29.
 - **Procesos críticos (T12-01).** Para la prueba negativa de `kill_many`, una copia de `PING.EXE`
   renombrada a `svchost.exe`: tener un proceso con ese nombre sin acercarse a uno del sistema. Las
   dos pruebas de Rust se vieron fallar con la guardia desactivada.
-- **Servicios fuera del hilo principal (T12-06).** Escrito y compilado, **sin marcar**: el criterio
-  pide arrancar o detener un servicio de verdad, con UAC, y eso no se hace sin el usuario delante.
+- **Servicios fuera del hilo principal (T12-06).** Probado en vivo con el usuario sobre MySQL80:
+  con la corrección, `get_settings` contestó en 1-2 ms durante un ciclo real de 6,8 s; sin ella,
+  todo el IPC quedó bloqueado 45 s. Por el camino:
+  - La primera vez la build se cerraba al arrancar. El usuario tenía abierta su app instalada,
+    elevada, y el plugin de instancia única le pasaba el testigo. Hubo que pedirle que la cerrara
+    desde la bandeja.
+  - El primer UAC se contestó a los 1,6 s y el segundo se aprobó. Sirvió igual: fue una ejecución
+    completa. Para la versión sin la corrección se pidió «Detener» sobre el servicio ya detenido,
+    para que cualquier respuesta fuera inocua.
+  - El ping `WM_NULL` a la ventana no distinguió los dos casos, porque `ShellExecuteEx` atiende
+    mensajes mientras espera el UAC.
+
+  `settings.json` y `tauri.conf.json` se restauraron desde el respaldo, con los mismos hashes.
 - **Privacidad del README (T12-29).** Al contrastar el texto nuevo con `script_of`, la primera
   redacción también prometía de más: un `--token abc123` con el valor aparte **sí** sale como
   script. El README lo dice, con el consejo de usar `=`, y una prueba nueva fija los dos casos.
   T12-10 lleva anotado que no lo resuelve del todo.
 
 Resultado: 301 pruebas del frontend y 120 de Rust en verde, ESLint y clippy limpios, el dry run
-entero sin fallos. Nada commiteado.
+entero sin fallos. Commiteado en dos partes, el código y la documentación, y T12-06 en un tercer
+commit tras su prueba.
 
 ---
 

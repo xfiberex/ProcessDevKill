@@ -1714,7 +1714,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     `el_catalogo_ingles_no_tiene_letras_del_espanol`).
   - **Esfuerzo:** medio · **Depende de:** ninguna
 
-- [ ] **[T12-06] Arrancar, detener y cambiar el arranque, fuera del hilo principal**
+- [x] **[T12-06] Arrancar, detener y cambiar el arranque, fuera del hilo principal**
   - **Severidad:** media · **Área:** Código / Arquitectura
   - **Ubicación:** `src-tauri/src/service_control.rs:284-338`, `:351-414`; `src-tauri/src/commands.rs:118-133`
   - **Qué hacer:** en Tauri 2 un comando síncrono corre en el hilo principal (documentación oficial),
@@ -1724,9 +1724,19 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** durante una acción sobre un servicio la ventana se mueve y cambia de
     vista, probado en vivo (con la app elevada no hay UAC de por medio).
   - **Esfuerzo:** bajo · **Depende de:** ninguna
-  - **Escrito el 2026-09-25, sin marcar:** los tres comandos llevan `#[tauri::command(async)]`, y
-    compilan, pasan clippy y las suites. **Falta la prueba en vivo del criterio**, que exige arrancar
-    o detener un servicio de verdad con el UAC delante: queda para hacerla con el usuario.
+  - **Hecho el 2026-09-25**: los tres comandos llevan `#[tauri::command(async)]`. **Probado en vivo
+    con el usuario**, sobre el binario de release y MySQL80. Una sonda por CDP lanza
+    `control_service` sin esperar la respuesta y, mientras tanto, cronometra `get_settings` cada
+    medio segundo:
+    - **Con la corrección**, el usuario aprobó el UAC y el servicio se detuvo de verdad. El ciclo
+      entero duró 6,8 s, y las 14 muestras contestaron en 1-2 ms.
+    - **Sin ella** (los tres atributos quitados y recompilado), pidiendo «Detener» sobre el servicio
+      ya detenido para que no pudiera cambiar nada, **todo comando quedó bloqueado 45 s**: el UAC
+      más la espera.
+  - **Lo que no discriminó, y se dice:** un `SendMessageTimeout(WM_NULL)` a la ventana contestó en
+    los dos casos. `ShellExecuteEx` sigue atendiendo los mensajes mientras espera el UAC, así que la
+    ventana se podía mover; lo que se congelaba era el IPC. La interfaz no podía hacer nada, ni
+    cambiar de vista con datos nuevos. La prueba que cuenta es la del IPC.
 
 - [ ] **[T12-07] Pasarle a Servicios si la app está elevada** — *cierre en falso parcial de Tier 11 · D4*
   - **Severidad:** baja · **Área:** Código
@@ -2109,8 +2119,8 @@ Y dos que salen de esta re-auditoría:
 - **2026-09-25** — Tier abierto con **0 de 39** tareas hechas. Estado de partida, medido ese día:
   299 pruebas del frontend y 117 de Rust (+3 ignoradas) en verde, cobertura del 81,41 %, ESLint y
   clippy limpios, `npm audit --omit=dev` y `cargo audit` sin avisos.
-- **2026-09-25 (segunda sesión)** — **4 de 39**: T12-21, T12-22, T12-01 y T12-29. T12-06 está
-  escrita pero sin marcar, a falta de su prueba en vivo. 301 pruebas del frontend y 120 de Rust
+- **2026-09-25 (segunda sesión)** — **4 de 39**: T12-21, T12-22, T12-01 y T12-29. Y luego
+  **5 de 39**, con T12-06 probada en vivo con el usuario. 301 pruebas del frontend y 120 de Rust
   (+3 ignoradas) en verde; ESLint, clippy y el dry run entero, limpios.
 
 ---

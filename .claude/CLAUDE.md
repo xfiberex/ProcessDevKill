@@ -129,6 +129,10 @@ cd src-tauri && cargo test    # backend: lee procesos reales del equipo
   cualquier programa del equipo puede conducir. Además, una consola sin elevar no puede cerrarla,
   porque UIPI se lo impide. Apágalo, respaldando antes el archivo, mientras dure la inspección.
   Pasó el 2026-09-25 (T12-27).
+- **Si la build que lanzas se cierra sola al arrancar, hay otra instancia abierta**: la app es de
+  instancia única y le pasa el testigo a la que ya corre, casi siempre la instalada del usuario. Si
+  esa corre elevada, `Get-Process` no enseña su ruta y no se puede cerrar desde una consola sin
+  elevar: hay que pedírselo al usuario («Salir» en la bandeja; cerrar la ventana solo la esconde).
 - **El binario de release se construye con `npx tauri build --no-bundle`, no con `cargo build
   --release`.** Los assets de `dist/` los embebe el CLI de Tauri; el que sale de `cargo` arranca
   apuntando al `devUrl` y la ventana enseña `ERR_CONNECTION_REFUSED`. Se lee como si la app
