@@ -39,7 +39,7 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
   —`vite · mi-web`—, para no tener que adivinar cuál de los trece `node.exe` es el tuyo. Nunca la
   línea de comandos entera, que puede llevar tokens.
 - Busca por nombre, script, carpeta, PID **o número de puerto**: escribe `3000` y te queda la fila
-  que lo ocupa.
+  que lo ocupa. <kbd>Ctrl</kbd>+<kbd>F</kbd> lleva al buscador desde cualquier vista.
 - Cierra procesos de uno en uno con **Kill**, o por selección múltiple o de golpe con **Nuke All**,
   que piden confirmación. Al marcar filas aparece una barra con **Cerrar** y **Quitar selección**, y
   con un filtro puesto el botón dice que cierra **la lista filtrada**. Mientras el puntero está sobre la tabla **las filas no cambian de
@@ -59,7 +59,8 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 - **Medidor del entorno** en el sidebar: cuánta CPU y cuánta RAM de tu equipo se está llevando el
   entorno de desarrollo, sobre el total de la máquina. Las barras de la tabla comparan procesos
   entre sí; ésta te dice si el problema es tuyo o del equipo.
-- **Historial** de cierres con el origen de cada uno: ventana, bandeja, atajo o Auto-Kill.
+- **Historial** de cierres con el origen de cada uno —ventana, bandeja, atajo o Auto-Kill—,
+  agrupado por acción: un Nuke All de quince procesos es una fila que se despliega.
 - **Panel de servicios de desarrollo**: SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS,
   con su estado, su tipo de arranque y el puerto que ocupan. Es donde se ve que tienes dos
   PostgreSQL arrancando con Windows sin saberlo. Se pueden **arrancar, detener y cambiarles el
@@ -285,7 +286,7 @@ npm run tauri build    # genera los instaladores NSIS y MSI
 ```
 
 ```bash
-npm test                      # 278 pruebas del frontend (Vitest + Testing Library)
+npm test                      # 299 pruebas del frontend (Vitest + Testing Library)
 npm run test:watch            # las mismas, en modo vigilancia
 cd src-tauri && cargo test    # 117 pruebas del backend
 ```

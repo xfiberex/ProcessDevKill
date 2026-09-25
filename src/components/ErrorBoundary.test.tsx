@@ -104,4 +104,14 @@ describe("ErrorBoundary", () => {
     expect(recargar).toHaveBeenCalledOnce();
     consola.mockRestore();
   });
+
+  /**
+   * Tier 11, E. Esta pantalla dice existir para copiar el error en un issue, y el `user-select:
+   * none` global de la app impedía seleccionarlo.
+   */
+  it("deja seleccionar el error para copiarlo", () => {
+    pintarConFallo("se rompio algo concreto");
+
+    expect(screen.getByText("se rompio algo concreto")).toHaveClass("select-text");
+  });
 });

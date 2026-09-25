@@ -1219,7 +1219,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 ---
 
 
-## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A a D hechas y verificadas (v1.6.0 a v1.7.0)**
+## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A a E hechas y verificadas (v1.6.0 a v1.7.0; la E, sin publicar)**
 *Objetivo: que la app no deje cerrar lo que no se quería, que se pueda usar entera con teclado y con poca vista, y que las cuatro vistas hablen el mismo idioma visual.*
 
 > **Sale de una auditoría de UX/UI hecha el 2026-09-23 sobre la v1.5.3**, con la app en marcha
@@ -1511,21 +1511,56 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > acento del sidebar. Con una selección, Nuke All se aparta (`invisible`, sin que salte el
   > buscador) y la acción está en la barra; el «Cerrar» de la barra va en rojo tenue.
 
-### Fase E — pulido
+### Fase E — pulido — ✅ **hecha y verificada el 2026-09-25**
 
-- [ ] Texto seleccionable donde hace falta: `user-select: none` global impide copiar nada, **ni el
+> **Verificado en la app en marcha**: axe-core 4.13 en **cero violaciones y cero incompletos** en
+> las cuatro vistas, los dos temas y el Historial con una tanda abierta. El zoom y Ctrl+F se
+> probaron **con teclas reales** (`keybd_event`, solo con la ventana de la app en primer plano), y
+> el aviso para medirlo se sacó con «Copiar PID», **guardando y restaurando el portapapeles**. No
+> se cerró nada ni se cambió ningún ajuste. 299 pruebas del frontend en verde. Decisiones, en
+> CONTEXT §4 (2026-09-25).
+
+- [x] Texto seleccionable donde hace falta: `user-select: none` global impide copiar nada, **ni el
       error de la pantalla de fallo**, que dice existir para copiarlo en un issue.
-- [ ] Buscador con Ctrl+F y botón ×; hoy hay 12 paradas de Tab antes de llegar a él. El vacío
+  > ✅ En las tablas de Procesos, Servicios e Historial, el registro de cambios de arranque, el
+  > error de la pantalla de fallo, el error y las notas de Actualizaciones y la ruta del log. **En
+  > Procesos no bastó con ponerlo en el `<tbody>`**: medido en vivo, cada celda seguía en `none`
+  > porque el `ContextMenuTrigger` de shadcn pone `select-none` en la fila; va en el disparador.
+  > Los avisos flotantes se quedan sin seleccionar: arrastrarlos es como se descartan.
+- [x] Buscador con Ctrl+F y botón ×; hoy hay 12 paradas de Tab antes de llegar a él. El vacío
       «Ningún proceso coincide» ofrece «Quitar filtro».
-- [ ] Historial agrupado por acción y con hora relativa: hoy son 89 filas planas con la misma hora
+  > ✅ Ctrl+F lleva al buscador desde cualquier vista —probado con la tecla de verdad— y le gana a
+  > la búsqueda propia de WebView2. Vacío, enseña la pista «Ctrl F»; con texto, una ×. Escape
+  > también lo borra. «Quitar filtro» quita a la vez la búsqueda y el filtro de runtime.
+- [x] Historial agrupado por acción y con hora relativa: hoy son 89 filas planas con la misma hora
       repetida en cada tanda.
-- [ ] «Refrescar» como icono, o destacado solo con el auto-refresco en «Off».
-- [ ] Los textos de 11 px del medidor, a 12.
-- [ ] Valorar `zoomHotkeysEnabled`, comprobando que el ancho mínimo aguanta el zoom.
-- [ ] Comprobar si los toasts, abajo a la derecha, tapan la columna Kill (no se midió).
-- [ ] Menores: captions `sr-only` sin tilde («estan», «mas» ×2); `pidTitulo` sin uso; comentarios
+  > ✅ **Las tandas son exactas, no adivinadas**: `kill_and_record` da la misma marca y el mismo
+  > origen a todo un lote. Plegadas, dicen cuántos, de qué («dotnet.exe ×4») y qué puertos
+  > soltaron. La hora es relativa —«ayer», «16 sept»—, con la exacta en el `title`. En vivo, las 90
+  > entradas del equipo quedaron en 35 filas, 18 de ellas tandas.
+- [x] «Refrescar» como icono, o destacado solo con el auto-refresco en «Off».
+  > ✅ Las dos cosas: icono con el motivo en el `title` mientras la lista se refresca sola, y con su
+  > texto en «Off», cuando es la única forma de ver datos nuevos.
+- [x] Los textos de 11 px del medidor, a 12.
+  > ✅ El sidebar completo pasa a pedir 579 px y sigue cabiendo; el compacto, 467 de 480.
+- [x] Valorar `zoomHotkeysEnabled`, comprobando que el ancho mínimo aguanta el zoom.
+  > ✅ **Activado**, y probado con Ctrl+= y Ctrl+0 reales. Con zoom, el ancho útil baja, y **la
+  > tabla de procesos dejaba el nombre a 0 px** al 125 % en la ventana mínima (medido): las dos
+  > tablas de ancho fijo llevan ahora un mínimo (620 y 660 px) y hacen scroll horizontal en vez de
+  > perder la columna que identifica la fila. Al 110 % todo cabe en cualquier tamaño; al 125 % y al
+  > 150 %, la tabla hace scroll y nada queda fuera de alcance.
+- [x] Comprobar si los toasts, abajo a la derecha, tapan la columna Kill (no se midió).
+  > ✅ **Medido: sí.** El aviso mide 356×54 px a 24 del borde y cae sobre la columna Kill (x
+  > 945–980) de la última fila visible mientras dura. Se deja donde está, y la tabla de procesos
+  > lleva siempre 80 px de hueco debajo, para que cualquier fila pueda subir por encima del aviso y
+  > de la barra de la selección.
+- [x] Menores: captions `sr-only` sin tilde («estan», «mas» ×2); `pidTitulo` sin uso; comentarios
       que describen Servicios como de solo lectura o la fase C como pendiente; «—.» huérfano en
       Servicios vigilados; «0.0%» en la tabla frente a «0.0 %» en el medidor.
+  > ✅ Todos. Los comentarios de «fase C» de `services.rs` y `storage.rs` se quedan: hablan de la del
+  > Tier 10, que está hecha, y describen bien el código. De paso, la barra de acento del sidebar
+  > dejó de ser un `::before`: axe no sabía el fondo del recuento del filtro activo y lo marcaba
+  > como contraste por revisar.
 
 ### Fase F — correcciones a la documentación
 

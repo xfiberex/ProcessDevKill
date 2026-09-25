@@ -240,9 +240,20 @@ function AvisoSinAdmin({ onClick }: { onClick: () => void }) {
  * Tier 11, B4. Solo con el fondo de `secondary`, la vista activa se separaba del resto por
  * **1,03:1** en claro (1,21:1 en oscuro) y con el mismo peso de letra: había que adivinarla. La
  * barra va en `foreground`, que contrasta de sobra con el sidebar en los dos temas.
+ *
+ * **La barra es un elemento, no un `::before`** (Tier 11, E). Con el pseudoelemento, axe no sabía
+ * de qué color era el fondo del recuento del filtro activo y lo dejaba como contraste por revisar.
  */
-const MARCA_ACTIVA =
-  "font-semibold before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-foreground";
+const MARCA_ACTIVA = "font-semibold";
+
+function BarraActiva() {
+  return (
+    <span
+      aria-hidden
+      className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-foreground"
+    />
+  );
+}
 
 /**
  * Una de las tres vistas.
@@ -281,6 +292,7 @@ function NavItem({
       onClick={onClick}
       className={`relative justify-start gap-2 px-2 ${active ? MARCA_ACTIVA : ""}`}
     >
+      {active && <BarraActiva />}
       {esDesplegable ? (
         <ChevronRightIcon
           className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${
@@ -325,6 +337,7 @@ function FilterButton({
       onClick={onClick}
       className={`relative justify-start gap-2 px-2 ${active ? MARCA_ACTIVA : ""}`}
     >
+      {active && <BarraActiva />}
       {Icon ? (
         <Icon
           className="size-4 shrink-0"

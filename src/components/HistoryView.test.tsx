@@ -113,3 +113,60 @@ describe("vaciar el historial", () => {
     expect(screen.getByText("node.exe")).toBeInTheDocument();
   });
 });
+
+/**
+ * Tier 11, E. Eran 89 filas planas con la misma hora repetida en cada tanda: un Nuke All de quince
+ * procesos eran quince filas iguales salvo el PID.
+ */
+describe("agrupado por accion", () => {
+  const NUKE = [
+    entrada({ pid: 1, name: "node.exe", freedPorts: [5173], killedAt: 1_700_000_000_000 }),
+    entrada({ pid: 2, name: "node.exe", freedPorts: [3000], killedAt: 1_700_000_000_000 }),
+    entrada({ pid: 3, name: "dotnet.exe", freedPorts: [], killedAt: 1_700_000_000_000 }),
+  ];
+
+  it("una tanda es una fila, con el recuento, de que era y los puertos de todos", () => {
+    pintar(NUKE);
+    const tanda = screen.getByRole("button", { name: /3 procesos cerrados a la vez/ });
+    const fila = tanda.closest("tr")!;
+
+    expect(within(fila).getByText("node.exe ×2 · dotnet.exe")).toBeInTheDocument();
+    expect(within(fila).getByText("3000")).toBeInTheDocument();
+    expect(within(fila).getByText("5173")).toBeInTheDocument();
+    // Plegada: los PIDs sueltos no están.
+    expect(screen.queryByText("2")).not.toBeInTheDocument();
+    expect(tanda).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("se despliega para ver cada proceso, y se vuelve a plegar", async () => {
+    pintar(NUKE);
+    const user = userEvent.setup();
+    const tanda = screen.getByRole("button", { name: /3 procesos/ });
+
+    await user.click(tanda);
+    expect(tanda).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+
+    await user.click(tanda);
+    expect(screen.queryByText("2")).not.toBeInTheDocument();
+  });
+
+  it("un cierre suelto sigue siendo una fila normal, sin desplegable", () => {
+    pintar([entrada({ pid: 42, killedAt: 1_700_000_000_000 })]);
+
+    expect(screen.queryByRole("button", { name: /procesos/ })).not.toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
+  });
+
+  it("dice la hora relativa, con la exacta a mano", () => {
+    const hace5min = Date.now() - 5 * 60_000;
+    pintar([entrada({ killedAt: hace5min })]);
+
+    const hora = screen.getByText("hace 5 minutos");
+    expect(hora.tagName).toBe("TIME");
+    expect(hora).toHaveAttribute("dateTime", new Date(hace5min).toISOString());
+    expect(hora).toHaveAttribute("title");
+  });
+});

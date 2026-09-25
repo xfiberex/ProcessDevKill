@@ -814,7 +814,7 @@ export function SettingsView({
                   <p className="text-sm text-muted-foreground">
                     <Marcado texto={t.ajustes.acercaDe.logDescripcion} />
                   </p>
-                  <p className="mt-2 font-mono text-xs break-all text-muted-foreground">
+                  <p className="mt-2 font-mono text-xs break-all text-muted-foreground select-text">
                     {logPath}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">

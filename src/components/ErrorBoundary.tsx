@@ -63,7 +63,9 @@ export class ErrorBoundary extends Component<Props, State> {
           </p>
         </div>
 
-        <pre className="max-h-40 max-w-full overflow-auto rounded-md bg-muted px-3 py-2 text-left font-mono text-xs whitespace-pre-wrap text-muted-foreground">
+        {/* `select-text`: esta pantalla dice existir para copiar el error en un issue, y con el
+            `user-select: none` global de `index.css` no se podía seleccionar (Tier 11, E). */}
+        <pre className="max-h-40 max-w-full overflow-auto rounded-md bg-muted px-3 py-2 text-left font-mono text-xs whitespace-pre-wrap text-muted-foreground select-text">
           {error.message || String(error)}
         </pre>
 

@@ -441,5 +441,16 @@ describe("lo que se ve de cada fila", () => {
     expect(fila(68)).not.toHaveAttribute("data-selected");
     expect(fila(68)).not.toHaveClass("bg-muted");
   });
-});
 
+  /**
+   * Tier 11, E. El texto de la fila se puede seleccionar, y la clase tiene que llegar **a la fila**:
+   * el disparador del menú contextual pone `select-none`, y con el `select-text` en el tbody las
+   * celdas seguían sin dejarse seleccionar (medido en vivo).
+   */
+  it("el texto de la fila se puede seleccionar", () => {
+    pintar([proceso({ pid: 69 })]);
+
+    expect(fila(69)).toHaveClass("select-text");
+    expect(fila(69)).not.toHaveClass("select-none");
+  });
+});

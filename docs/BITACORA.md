@@ -8,6 +8,27 @@
 
 ---
 
+### 2026-09-25 — Tier 11, Fase E: pulido
+
+- **Las ocho tareas, hechas y verificadas en vivo**:
+  - texto seleccionable en tablas y errores;
+  - Ctrl+F, la × y «Quitar filtro»;
+  - el Historial por tandas y con hora relativa;
+  - Refrescar en icono;
+  - el medidor a 12 px;
+  - el zoom de la ventana;
+  - los avisos medidos;
+  - los menores.
+- **Tres cosas salieron al medir, no al escribir**:
+  - el `select-text` del `<tbody>` no llegaba a las celdas de Procesos, porque el disparador del
+    menú contextual pone `select-none` en cada fila;
+  - con zoom, la columna del nombre se quedaba en 0 px;
+  - los avisos sí tapan el Kill de la última fila.
+- **Zoom y Ctrl+F se probaron con teclas reales**, con `keybd_event` y solo si la ventana de la app
+  estaba en primer plano: los eventos de CDP no llegan a los atajos del navegador. Para sacar un
+  aviso se usó «Copiar PID», guardando y restaurando el portapapeles.
+- axe en cero en las cuatro vistas y los dos temas. 299 pruebas del frontend.
+
 ### 2026-09-24 (noche) — Tier 11, Fase D: consistencia y claridad (v1.7.0)
 
 - **Las siete tareas, hechas y verificadas en vivo**:

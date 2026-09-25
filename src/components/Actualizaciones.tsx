@@ -51,7 +51,8 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
         )}
 
         {state.fase === "error" && (
-          <span className="flex items-start gap-1.5 text-sm text-destructive-text">
+          // Seleccionable, como las notas: es lo que se pega al buscar el error o al abrir un issue.
+          <span className="flex items-start gap-1.5 text-sm text-destructive-text select-text">
             <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
             {t.actualizador.error(state.mensaje)}
           </span>
@@ -65,7 +66,7 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
             <strong className="font-medium">v{state.version}</strong>
           </p>
           {state.notas && (
-            <p className="mt-1 max-h-32 overflow-y-auto text-sm whitespace-pre-line text-muted-foreground">
+            <p className="mt-1 max-h-32 overflow-y-auto text-sm whitespace-pre-line text-muted-foreground select-text">
               {state.notas}
             </p>
           )}

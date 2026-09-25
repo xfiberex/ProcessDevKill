@@ -80,8 +80,8 @@ const FAMILY_ICONS: Record<ServiceFamily, typeof DatabaseIcon> = {
  * está corriendo. Por eso los iconos van en gris y la única nota de color es la píldora de estado.
  *
  * Los botones no elevan nada por sí solos: llaman a `control_service`, que relanza la app para esa
- * única acción y vuelve. Cambiar el tipo de arranque —lo único que sobreviviría a un reinicio— sigue
- * fuera, en la fase C.
+ * única acción y vuelve —si la app no corre ya como administrador—. Cambiar el tipo de arranque, lo
+ * único que sobrevive a un reinicio, pasa siempre por una confirmación y queda en el `Registro`.
  */
 export function ServicesView({
   services,
@@ -176,7 +176,8 @@ export function ServicesView({
             </Button>
           </div>
         ) : (
-          <table className="w-full table-fixed text-sm">
+          // Con ancho mínimo por el zoom, como la de procesos: 540 px fijos más 120 para el nombre.
+        <table className="w-full min-w-165 table-fixed text-sm">
             {/* Mismo motivo que en las otras dos tablas: sin `caption` no dice de qué es. */}
             <caption className="sr-only">{t.servicios.caption}</caption>
             <colgroup>
@@ -218,7 +219,9 @@ export function ServicesView({
                 </th>
               </tr>
             </thead>
-            <tbody>
+            {/* Seleccionable como la de procesos: el nombre del servicio es lo que se busca o se
+                pega en `sc.exe` (Tier 11, E). */}
+            <tbody className="select-text">
               {services.map((s) => (
                 <Fila
                   key={s.name}
@@ -281,7 +284,7 @@ function Registro({
         <Marcado texto={a.registroDetalle} />
       </p>
 
-      <ul className="mt-3 flex flex-col gap-2">
+      <ul className="mt-3 flex flex-col gap-2 select-text">
         {cambios.map((c) => (
           <li
             key={c.name}

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RefreshCwIcon, XIcon } from "lucide-react";
 import { MotionConfig } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { toast } from "sonner";
-import { PROCESSES_UPDATED, SETTABLE_START_TYPES, SYSTEM_USAGE } from "./types";
+import { PROCESSES_UPDATED, REFRESH_INTERVALS, SETTABLE_START_TYPES, SYSTEM_USAGE } from "./types";
 import type {
   HistoryEntry,
   KillOutcome,
@@ -95,6 +96,37 @@ export default function App() {
   const [elevated, setElevated] = useState<boolean | null>(null);
   /** El aviso del sidebar lleva a la sección de Ajustes que lo explica, no al principio. */
   const [irAAdmin, setIrAAdmin] = useState(false);
+  const buscadorRef = useRef<HTMLInputElement>(null);
+  /** Pide enfocar el buscador en cuanto esté pintado: puede que haya que cambiar de vista antes. */
+  const [enfocarBuscador, setEnfocarBuscador] = useState(false);
+
+  /**
+   * Ctrl+F lleva al buscador desde cualquier vista (Tier 11, E).
+   *
+   * Hasta aquí había **12 paradas de tabulador** antes de llegar a él: todo el sidebar va delante en
+   * el documento. `preventDefault` también le quita a WebView2 su propia búsqueda en la página, que
+   * aquí no encontraría nada útil: la lista ya se filtra.
+   */
+  useEffect(() => {
+    function alPulsar(e: KeyboardEvent) {
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setView("processes");
+        setEnfocarBuscador(true);
+      }
+    }
+    window.addEventListener("keydown", alPulsar);
+    return () => window.removeEventListener("keydown", alPulsar);
+  }, []);
+
+  useEffect(() => {
+    if (!enfocarBuscador || view !== "processes") return;
+    buscadorRef.current?.focus();
+    buscadorRef.current?.select();
+    // Consumida la petición en el mismo efecto que la cumple: es un aviso de un solo uso.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEnfocarBuscador(false);
+  }, [enfocarBuscador, view]);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   // El orden vive aqui y no en la tabla porque la tabla se desmonta al filtrar a
@@ -665,15 +697,49 @@ export default function App() {
               Procesos los pinta aquí porque su estado —búsqueda, selección, orden— vive en App. */}
           {view === "processes" && (
             <ViewHeader title={t.sidebar.procesos}>
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t.cabecera.buscarPlaceholder}
-                // El placeholder desaparece en cuanto se escribe, asi que no vale como nombre
-                // accesible (WCAG 3.3.2): con texto dentro, el campo se anunciaba sin decir que es.
-                aria-label={t.cabecera.buscarLabel}
-                className="min-w-0 flex-1"
-              />
+              <div className="relative min-w-0 flex-1">
+                <Input
+                  ref={buscadorRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  // Escape borra lo escrito, como en el buscador del Explorador de Windows.
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && query !== "") {
+                      e.preventDefault();
+                      setQuery("");
+                    }
+                  }}
+                  placeholder={t.cabecera.buscarPlaceholder}
+                  // El placeholder desaparece en cuanto se escribe, asi que no vale como nombre
+                  // accesible (WCAG 3.3.2): con texto dentro, el campo se anunciaba sin decir que es.
+                  aria-label={t.cabecera.buscarLabel}
+                  aria-keyshortcuts="Control+F"
+                  className="pr-12"
+                />
+                {/* Vacío, la pista del atajo; con texto, la × para borrarlo (Tier 11, E). Ocupan el
+                    mismo sitio porque nunca hacen falta a la vez. */}
+                {query === "" ? (
+                  <kbd
+                    aria-hidden
+                    className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-border px-1 font-mono text-xs text-muted-foreground"
+                  >
+                    Ctrl F
+                  </kbd>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t.cabecera.borrarBusqueda}
+                    className="absolute top-1/2 right-1 -translate-y-1/2"
+                    onClick={() => {
+                      setQuery("");
+                      buscadorRef.current?.focus();
+                    }}
+                  >
+                    <XIcon />
+                  </Button>
+                )}
+              </div>
 
               {/* Una región viva, porque el número cambia al filtrar sin que nada lo anuncie.
                   `polite` y no `assertive`: interesa que se diga, no que interrumpa.
@@ -690,9 +756,29 @@ export default function App() {
                 <span className="sr-only">{t.cabecera.enLaLista(visible.length)}</span>
               </span>
 
-              <Button variant="outline" onClick={refresh} className="shrink-0">
-                {t.cabecera.refrescar}
-              </Button>
+              {/* Con el auto-refresco puesto, Refrescar casi no hace falta: queda como icono, con el
+                  motivo en el `title`. En «Off» es la única forma de ver datos nuevos, y va con su
+                  texto (Tier 11, E). */}
+              {settings.refreshMs > 0 ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={refresh}
+                  aria-label={t.cabecera.refrescar}
+                  title={t.cabecera.refrescarTitulo(
+                    REFRESH_INTERVALS.find((i) => i.ms === settings.refreshMs)?.label ??
+                      `${settings.refreshMs / 1000}s`,
+                  )}
+                  className="shrink-0"
+                >
+                  <RefreshCwIcon />
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={refresh} className="shrink-0">
+                  <RefreshCwIcon />
+                  {t.cabecera.refrescar}
+                </Button>
+              )}
 
               {/* Con una selección, Nuke All se aparta y la acción pasa a la barra de abajo: una
                   sola acción destructiva a la vista, la que corresponde a lo que se está haciendo.
@@ -774,13 +860,19 @@ export default function App() {
             )}
 
             {view === "processes" && (
-              // Con la barra de la selección a la vista, sitio debajo para que la última fila
-              // pueda subir por encima de ella.
-              <ViewBody className={selectedVisible.length > 0 ? "pb-16" : undefined}>
+              // Siempre con 80 px de sitio debajo (Tier 11, E): lo que flota abajo —la barra de la
+              // selección y los avisos, que abajo a la derecha caen **sobre la columna Kill**
+              // (medido: 356×54 px a 24 del borde)— tapaba la última fila, y sin ese hueco no
+              // había forma de subirla por encima.
+              <ViewBody className="pb-20">
               {ordenados.length === 0 ? (
                 <EmptyState
                   sinProcesos={processes.length === 0}
                   onIrAAjustes={() => setView("settings")}
+                  onQuitarFiltro={() => {
+                    setQuery("");
+                    setFilter("all");
+                  }}
                 />
               ) : (
                 <ProcessTable

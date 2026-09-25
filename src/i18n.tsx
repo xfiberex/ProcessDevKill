@@ -160,6 +160,10 @@ export const es = {
     enLaLista: (n: number): string =>
       n === 1 ? "1 proceso en la lista" : `${n} procesos en la lista`,
     refrescar: "Refrescar",
+    /** El `title` del Refrescar en icono, cuando la lista ya se refresca sola (Tier 11, E). */
+    refrescarTitulo: (cada: string): string =>
+      `Refrescar ahora. La lista ya se refresca sola cada ${cada}.`,
+    borrarBusqueda: "Borrar la búsqueda",
     nukeAll: "Nuke All",
     /**
      * Nuke All con un filtro o una búsqueda puestos (Tier 11, D3). Decía «Nuke All» igual, y lo que
@@ -190,6 +194,8 @@ export const es = {
 
   vacio: {
     sinCoincidencias: "Ningún proceso coincide con el filtro.",
+    /** Quita la búsqueda y el filtro de runtime a la vez: la salida del vacío (Tier 11, E). */
+    quitarFiltro: "Quitar filtro",
     sinProcesos: "No hay procesos de desarrollo activos.",
     sugerencia:
       "Node, Python y .NET se vigilan siempre. Si trabajas con otros —`docker`, `go`, `php`—, añádelos en Ajustes." as Rico,
@@ -235,9 +241,8 @@ export const es = {
     titulo: "Servicios de desarrollo",
     cargando: "Leyendo los servicios…",
     /**
-     * Que la vista es de solo lectura se dice **en la propia vista**, no solo en el roadmap. Un
-     * panel que enseña servicios invita a pulsar algo; si no hay nada que pulsar, hay que explicar
-     * por qué antes de que el usuario lo busque.
+     * Una línea (Tier 11, D1). Lo que pide permisos de administrador y por qué va aparte, en el
+     * desplegable de `porQueAdmin`: se lee una vez, no en cada visita a la vista.
      */
     descripcion:
       "Los que arrancan con Windows sin que se note." as Rico,
@@ -251,7 +256,7 @@ export const es = {
       "Se buscan SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS. Si usas otro, añádelo en Ajustes." as Rico,
     irAAjustes: "Añadir servicios vigilados",
     caption:
-      "Servicios de desarrollo instalados, los que estan corriendo primero",
+      "Servicios de desarrollo instalados, los que están corriendo primero",
     columnas: {
       servicio: "Servicio",
       estado: "Estado",
@@ -293,7 +298,6 @@ export const es = {
     parado: "Parado: no ocupa RAM ni puertos.",
     sinPuertos:
       "No escucha en ningún puerto TCP. Es normal: SQL Express, por ejemplo, viene con TCP/IP desactivado.",
-    pidTitulo: (pid: number) => `PID ${pid}`,
     arrancaSolo: "Arranca con Windows",
     acciones: {
       arrancar: "Arrancar",
@@ -380,7 +384,15 @@ export const es = {
     recuento: (n: number): string =>
       n === 1 ? "1 cierre registrado" : `${n} cierres registrados`,
     vaciar: "Vaciar historial",
-    caption: "Procesos cerrados, del mas reciente al mas antiguo",
+    caption: "Procesos cerrados, del más reciente al más antiguo",
+    /** Para `Intl`: la hora relativa del historial («hace 5 minutos») sigue al idioma de la app. */
+    locale: "es",
+    /**
+     * Una tanda de varios procesos cerrados por la misma acción (Tier 11, E). Visible, el número;
+     * en el nombre accesible, también que fueron a la vez y de qué eran.
+     */
+    tanda: (n: number): string => `${n} procesos`,
+    tandaSr: "cerrados a la vez",
     cuando: "Cuándo",
     proceso: "Proceso",
     pid: "PID",
@@ -480,7 +492,7 @@ export const es = {
     servicios: {
       titulo: "Servicios vigilados",
       descripcion:
-        "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS se vigilan siempre. Aquí puedes añadir otros por su **nombre de servicio** —el corto, `MSSQL$SQLEXPRESS`, no el que enseña Windows—. Se compara exacto." as Rico,
+        "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS se vigilan siempre. Aquí puedes añadir otros por su **nombre de servicio**: el corto, como `MSSQL$SQLEXPRESS`, y no el que enseña Windows. Se compara exacto." as Rico,
       placeholder: "nombre del servicio",
       anadir: "Añadir",
       anadirLabel: "Añadir servicio vigilado",
@@ -658,6 +670,8 @@ export const en: Catalogo = {
     buscarLabel: "Search processes",
     enLaLista: (n) => (n === 1 ? "1 process listed" : `${n} processes listed`),
     refrescar: "Refresh",
+    refrescarTitulo: (cada) => `Refresh now. The list already refreshes itself every ${cada}.`,
+    borrarBusqueda: "Clear the search",
     nukeAll: "Nuke All",
     nukeFiltrados: "Nuke filtered",
     nukeFiltradosLabel: (n) =>
@@ -676,6 +690,7 @@ export const en: Catalogo = {
 
   vacio: {
     sinCoincidencias: "No process matches the filter.",
+    quitarFiltro: "Clear filter",
     sinProcesos: "No development processes running.",
     sugerencia:
       "Node, Python and .NET are always watched. If you work with others —`docker`, `go`, `php`—, add them in Settings.",
@@ -760,7 +775,6 @@ export const en: Catalogo = {
     parado: "Stopped: it uses no RAM or ports.",
     sinPuertos:
       "It is not listening on any TCP port. That is normal: SQL Express, for one, ships with TCP/IP disabled.",
-    pidTitulo: (pid) => `PID ${pid}`,
     arrancaSolo: "Starts with Windows",
     acciones: {
       arrancar: "Start",
@@ -813,6 +827,9 @@ export const en: Catalogo = {
     recuento: (n) => (n === 1 ? "1 close recorded" : `${n} closes recorded`),
     vaciar: "Clear history",
     caption: "Closed processes, newest first",
+    locale: "en",
+    tanda: (n) => `${n} processes`,
+    tandaSr: "closed at once",
     cuando: "When",
     proceso: "Process",
     pid: "PID",
@@ -896,7 +913,7 @@ export const en: Catalogo = {
     servicios: {
       titulo: "Watched services",
       descripcion:
-        "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker and IIS are always watched. Here you can add others by their **service name** —the short one, `MSSQL$SQLEXPRESS`, not the one Windows shows—. It is matched exactly.",
+        "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker and IIS are always watched. Here you can add others by their **service name**: the short one, like `MSSQL$SQLEXPRESS`, not the one Windows shows. It is matched exactly.",
       placeholder: "service name",
       anadir: "Add",
       anadirLabel: "Add watched service",

@@ -1015,3 +1015,72 @@ describe("la cabecera de las vistas", () => {
     }
   });
 });
+
+/**
+ * Tier 11, E. Había 12 paradas de tabulador antes de llegar al buscador, no se podía borrar de un
+ * golpe y el «ningún proceso coincide» no ofrecía salida.
+ */
+describe("el buscador", () => {
+  it("Ctrl+F lo enfoca, tambien desde otra vista", async () => {
+    const user = await montar();
+    await user.click(screen.getByRole("button", { name: /^Ajustes/ }));
+
+    await user.keyboard("{Control>}f{/Control}");
+
+    expect(await screen.findByRole("textbox", { name: "Buscar procesos" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: /^Procesos/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("la × borra la busqueda y deja el foco en el campo", async () => {
+    const user = await montar();
+    await user.type(buscador(), "python");
+    expect(filas()).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Borrar la búsqueda" }));
+
+    expect(buscador()).toHaveValue("");
+    expect(buscador()).toHaveFocus();
+    expect(filas()).toHaveLength(4);
+  });
+
+  it("Escape tambien la borra", async () => {
+    const user = await montar();
+    await user.type(buscador(), "python{Escape}");
+
+    expect(buscador()).toHaveValue("");
+    expect(filas()).toHaveLength(4);
+  });
+
+  it("sin coincidencias, «Quitar filtro» quita la busqueda y el filtro de runtime", async () => {
+    const user = await montar();
+    await user.click(screen.getByRole("button", { name: /^Python/ }));
+    await user.type(buscador(), "no-existe");
+
+    await user.click(await screen.findByRole("button", { name: "Quitar filtro" }));
+
+    expect(buscador()).toHaveValue("");
+    expect(filas()).toHaveLength(4);
+  });
+});
+
+describe("Refrescar", () => {
+  /** Con el auto-refresco puesto casi no hace falta: icono, con el motivo en el `title`. */
+  it("con auto-refresco es un icono que dice por que", async () => {
+    await montar();
+    const boton = screen.getByRole("button", { name: "Refrescar" });
+
+    expect(boton).not.toHaveTextContent("Refrescar");
+    expect(boton).toHaveAttribute("title", expect.stringContaining("cada 2s"));
+  });
+
+  it("con el auto-refresco en Off lleva su texto: es la unica forma de ver datos nuevos", async () => {
+    await montar(LISTA, { get_settings: { ...DEFAULT_TEST_SETTINGS, refreshMs: 0 } });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Refrescar" })).toHaveTextContent("Refrescar"),
+    );
+  });
+});

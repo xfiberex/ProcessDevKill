@@ -96,7 +96,10 @@ export function ProcessTable({
     processes.length > 0 && processes.every((p) => selected.has(p.pid));
 
   return (
-    <table className="w-full table-fixed text-sm">
+    // `min-w-155` (620 px): las columnas fijas suman 520, y con zoom (Tier 11, E; Ctrl y +) el hueco
+    // de la tabla baja de eso. Sin mínimo, `table-fixed` le quitaba el sitio al nombre —0 px al 125 %
+    // en la ventana mínima, medido—, que es lo que identifica la fila. Con él, scroll horizontal.
+    <table className="w-full min-w-155 table-fixed text-sm">
       {/* Sin esto la tabla se anuncia como "tabla, 8 columnas" y nada mas. `sr-only` porque el
           titulo ya esta a la vista en la cabecera: es informacion que le falta al lector de
           pantalla, no a la ventana. */}
@@ -181,7 +184,13 @@ export function ProcessTable({
               // puede envolver una fila sin romper el <tbody>; el trigger es la
               // <tr> de siempre, via `render`.
               <ContextMenu key={p.pid} onOpenChange={setMenuAbierto}>
+                {/* `select-text` (Tier 11, E): el nombre, el script, la carpeta, el PID y los puertos
+                    son lo que se copia. **Va en el disparador y no en el `<tbody>`**: el
+                    `ContextMenuTrigger` de shadcn pone `select-none` en la fila, y eso gana a lo que
+                    herede —medido en vivo: `none` en cada celda con el `select-text` en el tbody—.
+                    Su `cn` deja la última clase. */}
                 <ContextMenuTrigger
+                  className="select-text"
                   render={
                     <motion.tr
                       layout

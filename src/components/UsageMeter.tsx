@@ -56,9 +56,10 @@ export function UsageMeter({ usage, pausado }: UsageMeterProps) {
             devPct={usage.devCpu}
             equipoPct={usage.cpu}
             equipoLabel={t.medidor.equipo}
+            // «2.0%» y no «2.0 %»: igual que la cifra de encima y que la tabla (Tier 11, E).
             title={t.medidor.tituloCpu(
-              `${usage.devCpu.toFixed(1)} %`,
-              `${usage.cpu.toFixed(0)} %`,
+              `${usage.devCpu.toFixed(1)}%`,
+              `${usage.cpu.toFixed(0)}%`,
             )}
           />
           <Metrica
@@ -143,7 +144,9 @@ function Metrica({
           Antes iba pegada arriba como "1008 MB de 15.6 GB", y el primero que lo
           vio leyo ese 15,6 como su RAM instalada (tiene 32 GB): era lo que usaba
           la maquina. Ahorrar una linea salio caro. */}
-      <div className="mt-1 flex items-baseline justify-between gap-1 text-[11px] text-muted-foreground short:sr-only">
+      {/* 12 px y no 11 (Tier 11, E): eran los únicos textos de la app por debajo de `text-xs`. Cabe:
+          el sidebar completo pasa de 582 a 584 px de alto, y el compacto los tiene en `sr-only`. */}
+      <div className="mt-1 flex items-baseline justify-between gap-1 text-xs text-muted-foreground short:sr-only">
         <span>{equipoLabel}</span>
         <span className="tabular-nums">{equipo}</span>
       </div>
