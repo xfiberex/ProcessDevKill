@@ -19,6 +19,9 @@
   sobre otro código.
 - Con la F se cierra el **Tier 11 entero**: seis fases en tres días, publicadas de la v1.6.0 a la
   v1.8.0.
+- **El modo administrador de la v1.7.0, probado a mano por el usuario** con el UAC de verdad: los
+  tres caminos que no se podían probar desde la sesión —reiniciar elevada, arrancar siempre elevada
+  y cerrar el UAC sin aprobar— funcionan. Anotado en su entrada del ROADMAP.
 - **Publicada la v1.8.0** con la E y la F, tras la CI en verde y el dry run sobre el mismo commit.
   Descargado el instalador, su hash coincide con el `.sha256` publicado (`d3a4dbd7…`).
 

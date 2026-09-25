@@ -1458,6 +1458,11 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > tampoco se encendió el ajuste en vivo, para no escribir en el `settings.json` del usuario. Lo
   > cubren las pruebas: `debe_relanzarse` con su criterio negativo (la relanzada no se relanza) y
   > el interruptor en la vista.
+  >
+  > ✅ **Probado a mano por el usuario el 2026-09-25**, sobre la versión instalada y con el UAC de
+  > verdad: «Reiniciar como administrador» sin elevar, «Iniciar siempre como administrador» al
+  > volver a abrir la app, y el UAC cerrado sin aprobar, que deja la app arrancando sin permisos.
+  > Todo funcionó como se esperaba.
 - [x] **Un Kill fallido sin elevar dice el motivo probable** («Si se abrió como administrador…»).
   > ✅ Visto en vivo sobre el `node` de prueba; la pista no sale con la app elevada (probado).
 
