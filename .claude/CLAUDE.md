@@ -8,7 +8,8 @@ cada uno, en [ROADMAP.md](../ROADMAP.md). **Leer los dos antes de tocar nada**: 
 parece raro está explicado ahí con su fecha y su motivo. La historia sesión a sesión está en
 [docs/BITACORA.md](../docs/BITACORA.md), y la auditoría de 2026-08-18 con sus 37 tareas ya cerradas
 en [docs/REVISION-2026-08-18.md](../docs/REVISION-2026-08-18.md); ninguno de los dos hace falta salvo
-para reconstruir cómo se llegó a algo.
+para reconstruir cómo se llegó a algo. Lo que cambió en cada versión, contado para quien usa la app,
+está en [CHANGELOG.md](../CHANGELOG.md) desde el 2026-09-25.
 
 **Este archivo es la fuente única de las convenciones.** Hasta el 2026-07-27 también estaban en
 CONTEXT.md §7, con una nota que pedía cambiarlas en los dos sitios; la copia se había quedado corta,
@@ -122,6 +123,12 @@ cd src-tauri && cargo test    # backend: lee procesos reales del equipo
 - **Para inspeccionar la UI en marcha** hay que añadir `"additionalBrowserArgs":
   "--remote-debugging-port=9222"` a la ventana en `tauri.conf.json` y **quitarlo después**. La
   variable de entorno `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` no sirve: Tauri la sobrescribe.
+- **Antes de abrir ese puerto, mira `runAsAdmin` en el `settings.json` del usuario**
+  (`%APPDATA%\com.processdevkill.app\`). Si está encendido, la build con el puerto **arranca
+  elevada**: sale un UAC y queda un CDP sin autenticación en un proceso con privilegios, que
+  cualquier programa del equipo puede conducir. Además, una consola sin elevar no puede cerrarla,
+  porque UIPI se lo impide. Apágalo, respaldando antes el archivo, mientras dure la inspección.
+  Pasó el 2026-09-25 (T12-27).
 - **El binario de release se construye con `npx tauri build --no-bundle`, no con `cargo build
   --release`.** Los assets de `dist/` los embebe el CLI de Tauri; el que sale de `cargo` arranca
   apuntando al `devUrl` y la ventana enseña `ERR_CONNECTION_REFUSED`. Se lee como si la app

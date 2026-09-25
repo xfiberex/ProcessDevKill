@@ -4,9 +4,10 @@
 > poder retomarlo desde cualquier equipo sin perder información. Se actualiza al final de cada sesión
 > o cuando se toma una decisión relevante.
 >
-> Los otros tres: el plan por fases y lo que enseñó cada uno, en [ROADMAP.md](ROADMAP.md); las
-> convenciones de trabajo, en [.claude/CLAUDE.md](.claude/CLAUDE.md); y la historia sesión a sesión,
-> en [docs/BITACORA.md](docs/BITACORA.md). **Cada cosa vive en uno solo**, y los demás enlazan.
+> Los otros cuatro: el plan por fases y lo que enseñó cada uno, en [ROADMAP.md](ROADMAP.md); qué
+> cambió en cada versión, en [CHANGELOG.md](CHANGELOG.md); las convenciones de trabajo, en
+> [.claude/CLAUDE.md](.claude/CLAUDE.md); y la historia sesión a sesión, en
+> [docs/BITACORA.md](docs/BITACORA.md). **Cada cosa vive en uno solo**, y los demás enlazan.
 
 ---
 
@@ -30,6 +31,24 @@
 | CI | **GitHub Actions** (`.github/workflows/ci.yml`) | Solo comprueba, no publica; ver §4 (2026-09-23) |
 
 ## 3. Estado actual
+
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md), desde el 2026-09-25, con 4 de 39 tareas
+hechas** (T12-01, T12-21, T12-22 y T12-29; T12-06, escrita, espera su prueba en vivo). Es la tercera revisión amplia del repositorio y la primera que mira como código —no como
+UX— lo que entró desde la del 2026-08-18: unas 10.300 líneas en 43 commits, con los servicios, la
+elevación, el atajo, la traducción y la CI. **Ningún hallazgo crítico ni alto**: nueve medios y
+treinta bajos. Los medios son:
+
+- procesos críticos de Windows que se pueden añadir a los vigilados (T12-01);
+- el instalador, que no se vuelve a verificar al lanzarlo, lo que importa con la app elevada (T12-02);
+- el texto de Rust que llega a la ventana en español con la app en inglés (T12-05);
+- Arrancar y Detener, que congelan la ventana (T12-06);
+- `App.tsx`, que ha vuelto a las 918 líneas (T12-15);
+- dos agujeros de `release.ps1` (T12-21, T12-22);
+- la inspección en vivo con `runAsAdmin` encendido (T12-27);
+- la sección de privacidad del README, que dice que no se lee la línea de comandos (T12-29).
+
+Y **cuatro tareas dadas por cerradas que no lo estaban del todo** —T3-09, T2-02, T3-19 y la D4 del
+Tier 11—, contadas en el propio Tier.
 
 **Tiers 1 a 11 completos y verificados.** El 11 —la auditoría de UX/UI del 2026-09-23— se cerró
 el 2026-09-25 con sus seis fases. La A, la de riesgo, el 2026-09-23: el atajo global apagado y con dos
@@ -191,18 +210,25 @@ entorno. La primera versión pública fue la v1.1.1.
 > v1.3.1 a la v1.3.2 es el primer caso en que el instalador lo lanza una app que ya lleva los flags,
 > y salió sin una sola ventana. Ver la nota de más abajo.
 
-**Pruebas:** 175 de frontend (Vitest + Testing Library, en jsdom) y 65 de `cargo test`. La
-cobertura medida fue del **89,61 %** de sentencias sobre el código propio —sin contar los dobles de
-prueba ni los componentes que genera shadcn, que antes diluían la cifra al 86,14 %—; es de antes de
-las últimas tandas, así que hoy será otra. **Cinco pruebas de guardia se han comprobado con una
-mutación**: las dos del Tier 1, la del tope de la descarga y la de la rotación del log. Se quita la
+**Pruebas:** 301 de frontend (Vitest + Testing Library, en jsdom) y 120 de `cargo test`, más 3
+ignoradas que miden y no afirman: contadas el 2026-09-25, tras las primeras tareas del Tier 12. La
+cobertura se midió ese mismo día antes de ellas, y es del
+**81,41 %** de sentencias sobre el código propio —sin contar los dobles de prueba ni los componentes
+que genera shadcn—. Era del 89,61 % antes de los Tiers 10 y 11, y lo que baja son las acciones de
+Servicios de `App.tsx`, el catálogo inglés y Ajustes (T12-20). **Cinco pruebas de guardia se han comprobado con una
+mutación**: las dos del Tier 1, la del tope de la descarga y la de la rotación del log. Y desde el
+2026-09-25, las dos de los procesos críticos de Windows (T12-01). Se quita la
 guardia, se ve fallar el test y se restaura — una prueba negativa que nunca se ha visto fallar no
 prueba nada.
 
 **Comprobaciones del corte:** `cargo test`, `npm test`, clippy, **ESLint**, `cargo audit` y
 `npm audit --omit=dev`, todas dentro de `release.ps1`, que aborta si algo falla. Además avisa si
-`package.json` o `Cargo.lock` son más recientes que `THIRD-PARTY-NOTICES.txt`, y `-SkipTests` se
-niega si el `HEAD` no es el del último *dry run*.
+`package.json` o `Cargo.lock` son más recientes que `THIRD-PARTY-NOTICES.txt`. Si faltan clippy o
+`cargo-audit`, avisa y sigue. **Se para con cambios sin commitear**, rastreados o no, salvo
+`-AllowDirty`, y `-SkipTests` se niega si el `HEAD` o lo modificado encima no son lo que vio el
+último *dry run*. Las dos últimas cosas fallaban hasta el 2026-09-25: faltando `cargo-audit` el corte
+abortaba, y lo modificado sin commitear entraba en el release sin que nada lo parase (T12-21,
+T12-22).
 
 **Y en cada push y pull request, las mismas en GitHub Actions** (desde el 2026-09-23, con el
 repositorio público): `.github/workflows/ci.yml` corre ESLint, `npm test`, `npm run build`, clippy
@@ -434,6 +460,10 @@ al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 | 2026-09-24 | **La selección tiene su barra, y flota** | Tier 11, D7. «N seleccionados · Cerrar · Quitar selección» flota abajo, sobre la tabla. **Intercalada entre la cabecera y las filas las empujaría** al marcar la primera casilla, y la siguiente ya no estaría bajo el puntero: el problema que A5 resolvió para los refrescos. Medido, 0 px. Con una selección, Nuke All se aparta con `invisible`, que conserva su hueco, y solo queda a la vista una acción destructiva |
 | 2026-09-24 | **La app puede correr elevada entera, pero solo si se pide** | Pedido por el usuario. Sin elevar, Windows le niega tres cosas, **comprobadas en vivo**: la RAM de los servicios, el script y la carpeta de un proceso abierto como administrador (todos los `node` de una sesión elevada salían sin detalle) y cerrarlo (Kill da «No se pudo terminar»). Hasta ahora se decía solo en el `title` de la RAM. **Ahora lo dice un aviso en el hueco del sidebar**, que lleva a Ajustes. Desde ahí se puede reiniciar elevada o marcar **`run_as_admin`, apagado de fábrica**, porque supone un UAC en cada arranque. Un Kill fallido sin elevar sugiere el motivo. El relanzamiento vive en `elevation.rs` y va **antes de montar Tauri**: si fuera en `setup`, la instancia única ya estaría registrada y la nueva le pasaría el testigo a la vieja. La nueva lleva `--relanzada-elevada <pid>`, y con eso hace dos cosas: **espera a que la vieja termine**, porque si no, las dos se cierran, y **no vuelve a relanzarse** aunque siga sin elevar, que evita un bucle de UAC. Los ajustes se leen a mano de `%APPDATA%\<identificador>`, que es la carpeta de Tauri, con una prueba que lo fija. La decisión del Tier 10 de «nunca elevar» sigue valiendo **de fábrica**. Elevar una acción de Servicios sigue igual |
 | 2026-09-24 | **El diálogo de confirmación tiene partes y tono** | Tier 11, C4. `ConfirmRequest` pasa a tener `message` (`Rico`), `warning` (recuadro), `note` (letra pequeña), `name` (lo que no se parte en el título) y `tone`. **`danger` es el valor por defecto**, así que una confirmación nueva sale en rojo salvo que se diga lo contrario; `change` —neutro— es solo para lo que cambia algo sin destruirlo. Hoy son los arranques que no dejan el servicio deshabilitado: pintar «Manual → Automático» igual que cerrar procesos enseña a no mirar el color. Las tres partes van dentro de la descripción del diálogo, un `div` en vez del `p` de fábrica, para que el lector de pantalla las lea al abrirlo. Ancho 448 px en vez de 384 |
+| 2026-09-25 | **El backlog de la re-auditoría es el Tier 12, con IDs `T12-xx` y la severidad en cada tarea** | Decisión del usuario, entre las opciones que se le dieron. Los Tiers 0-4 por severidad ya están usados —son los `T1-01`…`T4-05` de la revisión del 2026-08-18— y el ROADMAP numera fases del 1 al 11. Un Tier temático más, con prefijo propio, no choca con ninguno de los dos. Como la severidad no la da el número del Tier, va escrita en cada tarea y resumida en el índice. Hecho el trabajo, el detalle saldrá a `docs/`, como el de la revisión anterior |
+| 2026-09-25 | **Hay `CHANGELOG.md`: qué cambió en cada versión, para quien usa la app** | Decisión del usuario. Hasta hoy eso vivía en dos sitios: en las notas de los releases de GitHub, que no están en el repositorio, y en la cadena de «Antes: la vX…» de §3, que es estado y no historia. Responde a una pregunta que no tenía documento propio, así que no rompe la regla de «cada documento responde a una pregunta». Se reconstruyó a partir de las 15 notas publicadas, y va marcado como aproximado. Desde la próxima versión se escribe al cortarla, y `release.ps1` sacará de él las notas (T12-23) |
+| 2026-09-25 | **No se autentica el canal entre la app y su proceso elevado** | Se valoró al descubrir que la guardia del hijo relee un `settings.json` que cualquier programa del usuario puede escribir. No compensa: UAC no es una frontera de seguridad para el mismo usuario, que ya puede pedir `runas` sobre `sc.exe`, firmado por Microsoft y con un aviso de UAC más creíble que el de esta app sin firmar. Lo que se corrige es la promesa de la documentación (T12-04), no el mecanismo |
+| 2026-09-25 | **Hay procesos que no se vigilan aunque se añadan, y la lista no es configurable** | T12-01. `CRITICOS` en `processes.rs`: los procesos cuyo cierre cuelga Windows o cierra la sesión (`csrss`, `smss`, `wininit`, `winlogon`, `lsass`, `svchost`, `explorer`…). Se aplica en `classify`, así que ni se listan. **No se puede desactivar desde Ajustes a propósito**: la app es para cerrar procesos de desarrollo, y ninguno de estos lo es. Si alguno bloquea un uso legítimo, se quita de la lista en el código, con su motivo. Ajustes avisa al intentar añadirlos, pero el aviso solo no bastaba: `settings.json` se puede editar a mano |
 
 ## 5. Decisiones pendientes
 

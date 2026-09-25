@@ -8,6 +8,74 @@
 
 ---
 
+### 2026-09-25 (noche, 2) — Tier 12: las primeras cinco tareas
+
+El usuario aprobó la tanda propuesta al cerrar la re-auditoría: T12-21 y T12-22 antes del próximo
+release, y luego T12-01, T12-06 y T12-29.
+
+- **`release.ps1` (T12-21, T12-22).** `Test-Nativo` para preguntar si algo está sin morir por su
+  stderr, y la marca del dry run con una segunda línea: la huella de `git diff HEAD`. Todo se probó
+  con `-DryRun -SkipTests`, que pasa por la comprobación pero no puede publicar. El caso de «falta
+  `cargo-audit`» no se pudo reproducir de verdad en este equipo, así que se probó el mecanismo aparte
+  con un subcomando inexistente. El clon desechable para probar «un rastreado modificado» falló la
+  primera vez en el scratchpad por la longitud de la ruta (`Filename too long`); en `%TEMP%\pdk-clon`
+  salió.
+- **Procesos críticos (T12-01).** Para la prueba negativa de `kill_many`, una copia de `PING.EXE`
+  renombrada a `svchost.exe`: tener un proceso con ese nombre sin acercarse a uno del sistema. Las
+  dos pruebas de Rust se vieron fallar con la guardia desactivada.
+- **Servicios fuera del hilo principal (T12-06).** Escrito y compilado, **sin marcar**: el criterio
+  pide arrancar o detener un servicio de verdad, con UAC, y eso no se hace sin el usuario delante.
+- **Privacidad del README (T12-29).** Al contrastar el texto nuevo con `script_of`, la primera
+  redacción también prometía de más: un `--token abc123` con el valor aparte **sí** sale como
+  script. El README lo dice, con el consejo de usar `=`, y una prueba nueva fija los dos casos.
+  T12-10 lleva anotado que no lo resuelve del todo.
+
+Resultado: 301 pruebas del frontend y 120 de Rust en verde, ESLint y clippy limpios, el dry run
+entero sin fallos. Nada commiteado.
+
+---
+
+### 2026-09-25 (noche) — Re-auditoría completa: el Tier 12 abierto
+
+- **El alcance se acordó antes de empezar**, con el usuario y por escrito:
+  - nueve áreas: código, seguridad, arquitectura, QA, refactorización, ortografía, documentación,
+    DevOps y legal (acotada);
+  - profundidad exhaustiva, y la app en marcha por CDP directo;
+  - fuera, rendimiento, accesibilidad y UI/UX, auditadas en el Tier 11 hace dos días, y SEO, que no
+    aplica.
+- **Lo estático, entero**:
+  - leídos los 17 módulos de Rust, el frontend, los scripts, la CI y los documentos;
+  - ESLint y clippy limpios, y 299 + 117 pruebas en verde;
+  - la cobertura, en el **81,41 %**, cuando era del 89,61 % antes de los Tiers 10 y 11;
+  - `npm audit` de producción y `cargo audit` a cero, y el árbol de desarrollo con 7 avisos.
+- **En vivo, sobre el binario de release**:
+  - CSP activo: el script inline inyectado se bloquea;
+  - consola sin errores en las cuatro vistas y en los dos idiomas;
+  - la guardia de `open_path`, de `open_url` y del instalador, rechazando;
+  - la interfaz en inglés, sin restos en español, pero con `<html lang="es">`;
+  - Rust contestando en español con la app en inglés;
+  - lo instalado es la v1.8.0, y su instalador coincide con el `.sha256` publicado.
+- **Lo que costó**:
+  - `settings.json` del usuario tiene `runAsAdmin` encendido. La build con el puerto de depuración
+    **arrancó elevada**, sacó un UAC y dejó un CDP sin autenticación en un proceso con privilegios.
+    Una consola sin elevar no puede cerrarla (UIPI), y la cerró el usuario. La trampa va a
+    CLAUDE.md, y el script de capturas se protegerá en T12-27.
+  - El primer barrido en inglés no valía: cambiar el idioma con un `invoke` directo guarda en Rust
+    pero no toca el estado de React, y la ventana siguió en español. Se repitió desde el selector de
+    Ajustes.
+- **Una hipótesis descartada comprobándola**: que `aws-lc-sys`, que llega por reqwest y rustls,
+  trajera la licencia OpenSSL, incompatible con la GPL. La 0.45 ya no la trae.
+- **Resultado**:
+  - 39 tareas en el Tier 12, ninguna crítica ni alta;
+  - **cuatro cierres en falso**, dichos en el ROADMAP: T3-09, T2-02, T3-19 y la D4 del Tier 11;
+  - nace `CHANGELOG.md`, reconstruido de las 15 notas de GitHub, y el informe completo va en un
+    artifact.
+- **Nada a medias**:
+  - ninguna tarea del Tier 12 está empezada; esperan a que el usuario apruebe cuáles entran;
+  - los ajustes, el historial, el registro de servicios y el log del usuario se restauraron byte a
+    byte;
+  - `tauri.conf.json` volvió a su estado, y el binario se recompiló sin el puerto.
+
 ### 2026-09-25 (tarde) — Tier 11, Fase F, y el Tier 11 cerrado (v1.8.0)
 
 - **La F corrige dos cosas que la documentación decía mal.** El menú de cada fila no era «solo de

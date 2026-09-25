@@ -176,7 +176,17 @@ Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz a
 - **Nada de lo que lee sale de tu máquina.** No hay telemetría ni analítica: ni la lista de
   procesos, ni los puertos, ni el historial se envían a ningún sitio.
 - Lee **nombre, PID, CPU, RAM, tiempo activo y puertos TCP en escucha** de los procesos vigilados.
-  No lee la línea de comandos, ni variables de entorno, ni el contenido de nada.
+- De esos mismos procesos —**solo de los vigilados**, no de los ~300 del equipo— lee también **la
+  línea de comandos y la carpeta de trabajo**, una vez por proceso. Es lo que permite decir qué
+  script corre cada `node` y en qué proyecto. De ahí la app **solo se queda con dos nombres cortos**:
+  el script (`vite`, `server.js`, `-m uvicorn`, sin la ruta) y el último tramo de la carpeta
+  (`mi-api`). **Nunca enseña la línea entera** ni el código en línea (`node -e …`, `python -c …`).
+  El script es el primer argumento que no empieza por `-`, así que una opción con su valor separado
+  por un espacio (`node --token abc123 server.js`) enseña ese valor en su lugar: si pasas secretos
+  por la línea de comandos, mejor con `=` (`--token=abc123`), que no se muestra. Esos dos nombres
+  viven en memoria mientras corre el proceso: no se guardan en el historial.
+- No lee variables de entorno, ni la memoria de los procesos más allá de eso, ni el contenido de
+  ningún archivo.
 - Para el panel de servicios pregunta al **Gestor de control de servicios de Windows** por el
   catálogo de servicios instalados, su estado, su tipo de arranque y qué depende de qué. Es lectura,
   no pide privilegios, y se hace **solo al abrir esa vista o al pulsar Refrescar** — no en cada
@@ -351,6 +361,7 @@ Cada push a `main` y cada pull request pasan por **GitHub Actions**, en
 | `.claude/skills/`, `.agents/skills/` | Packs de skills de agente (material de terceros; ni se compila ni se distribuye) |
 | `app-icon.svg` | Icono fuente del que salen todos los tamaños |
 | [ROADMAP.md](ROADMAP.md) | Plan de desarrollo por fases, con lo verificado en cada una |
+| [CHANGELOG.md](CHANGELOG.md) | Qué cambió en cada versión, contado para quien usa la app |
 | [CONTEXT.md](CONTEXT.md) | Estado actual y decisiones tomadas, cada una con su fecha y su motivo |
 | [docs/BITACORA.md](docs/BITACORA.md) | Historia sesión a sesión, la más reciente arriba |
 | [docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md) | La auditoría del repositorio y sus 37 tareas, cerradas |
