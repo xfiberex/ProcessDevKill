@@ -355,7 +355,7 @@ Cada push a `main` y cada pull request pasan por **GitHub Actions**, en
 
 ## Estado
 
-La versión actual es la **v1.6.2**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.7.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
 instalar algo que no podía actualizarse.
 

@@ -25,6 +25,9 @@
   puntero.
 - **Un tropiezo de la verificación**: Vite no recargó el catálogo de textos en caliente y la primera
   medida seguía con los textos viejos. Recargando la página, bien. 278 pruebas del frontend.
+- **Publicada como v1.7.0** el 2026-09-25, junto con el modo administrador. CI en verde y dry run
+  sobre el mismo commit; descargado el instalador, su hash coincide con el `.sha256` publicado
+  (`3e4232bc…`).
 
 ### 2026-09-24 (noche) — Modo administrador
 

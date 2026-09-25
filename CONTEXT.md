@@ -100,7 +100,13 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
 > usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
 
-**Publicado:** **v1.6.2** (2026-09-24), la **Fase C del Tier 11**: maquetación, sin cambiar
+**Publicado:** **v1.7.0** (2026-09-25), la **Fase D del Tier 11** y el **modo administrador**:
+sube a menor porque añade una función —arrancar elevada, apagado de fábrica— y cambia la forma de
+las cuatro vistas. CI en verde y dry run sobre el mismo commit antes del corte. El aviso de
+`THIRD-PARTY-NOTICES.txt` volvió a ser espurio: desde la v1.6.1 solo cambia la versión de la propia
+app. 4 assets, hash comprobado tras publicar: `3e4232bc…`.
+
+Antes: la **v1.6.2** (2026-09-24), la **Fase C del Tier 11**: maquetación, sin cambiar
 permisos, acciones ni datos. La tabla de procesos con anchos fijos y la barra bajo la cifra, el
 sidebar entero a 480 px de alto y el diálogo de confirmación con partes y tono. CI en verde y dry
 run sobre el mismo commit antes del corte; 4 assets, hash comprobado tras publicar: `2fa0564a…`.
