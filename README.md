@@ -46,7 +46,8 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
   sitio**, para que el Kill que tienes debajo siga siendo el del mismo proceso.
 - **Procesos protegidos**: los que marques —por ejecutable, script o carpeta— no los cierra nada de
   la app, ni Nuke All, ni la bandeja, ni el atajo, ni el Auto-Kill.
-- **Menú contextual** en cada fila: copiar el PID, el nombre, el puerto o `http://localhost:PUERTO`,
+- **Menú contextual** en cada fila —con clic derecho, o con <kbd>Shift</kbd>+<kbd>F10</kbd> o la tecla
+  Menú desde la casilla o el Kill de la fila—: copiar el PID, el nombre, el puerto o `http://localhost:PUERTO`,
   proteger el proceso y, al final, matarlo.
 - **Icono en la bandeja** con acciones rápidas, y un **atajo global** opcional (apagado de fábrica)
   que cierra todo lo vigilado sin abrir la ventana. La combinación se elige —<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd>

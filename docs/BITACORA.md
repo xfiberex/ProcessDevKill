@@ -8,6 +8,18 @@
 
 ---
 
+### 2026-09-25 (tarde) — Tier 11, Fase F, y el Tier 11 cerrado (v1.8.0)
+
+- **La F corrige dos cosas que la documentación decía mal.** El menú de cada fila no era «solo de
+  ratón», como afirmaban el 7.4b del ROADMAP y la decisión del 2026-07-27: Shift+F10 o la tecla
+  Menú lo abren desde la casilla o el Kill. Y la T3-10 de la revisión de agosto no llegó a hacer que
+  se anunciara el recuento, cosa que arregló la B6.
+- **Antes de escribirlo se volvió a probar**, con teclas reales y sobre la fila tal como quedó tras
+  las fases D y E: una afirmación nueva en los documentos no se apoya en una prueba de hace dos días
+  sobre otro código.
+- Con la F se cierra el **Tier 11 entero**: seis fases en tres días, publicadas de la v1.6.0 a la
+  v1.8.0.
+
 ### 2026-09-25 — Tier 11, Fase E: pulido
 
 - **Las ocho tareas, hechas y verificadas en vivo**:

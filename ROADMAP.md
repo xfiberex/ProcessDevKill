@@ -531,6 +531,12 @@ fija—. Lo que desentona:
   > la UI. "Matar proceso" no cuenta: ese sí lo tiene en el botón Kill de la fila. Es un compromiso
   > asumido a sabiendas, no un descuido — el mismo criterio con el que el README dice qué **no**
   > protege el `.sha256`.
+  >
+  > ✅ **Corregido el 2026-09-25 (Tier 11, F1): no era solo de ratón.** Con el foco en la casilla o
+  > en el Kill de una fila, **Shift+F10 o la tecla Menú abren su menú**, con todas las entradas, y
+  > Escape lo cierra. Lo descubrió la auditoría del 2026-09-23 y se volvió a probar con teclas
+  > reales tras las fases D y E. La decisión de no dar foco a la fila sigue en pie; lo que estaba
+  > mal era la conclusión.
 - [x] **`aria-current` en la navegación** Procesos/Historial/Ajustes, en vez de `aria-pressed`.
   > Son vistas excluyentes: esto es navegación, no un interruptor. Un lector de pantalla pasa a decir
   > "vista actual" en lugar de "presionado". Con prueba que fija que solo una lo lleva a la vez.
@@ -1219,7 +1225,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 ---
 
 
-## 🧭 Tier 11: Auditoría UX/UI — 🔄 **en curso: Fases A a E hechas y verificadas (v1.6.0 a v1.7.0; la E, sin publicar)**
+## 🧭 Tier 11: Auditoría UX/UI — ✅ **completo: las seis fases hechas y verificadas (v1.6.0 a v1.8.0)**
 *Objetivo: que la app no deje cerrar lo que no se quería, que se pueda usar entera con teclado y con poca vista, y que las cuatro vistas hablen el mismo idioma visual.*
 
 > **Sale de una auditoría de UX/UI hecha el 2026-09-23 sobre la v1.5.3**, con la app en marcha
@@ -1372,7 +1378,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > se anuncia «15» y no «15 procesos en la lista». T3-10 no consigue lo que pretendía.
   >
   > ✅ **Hecho**: la frase va en texto `sr-only` dentro de la región viva, y el número visible
-  > `aria-hidden` para no leerlo dos veces. axe ya no lo marca. La nota en T3-10 sigue siendo la F2.
+  > `aria-hidden` para no leerlo dos veces. axe ya no lo marca. La nota en T3-10 la puso la F2.
 
 ### Fase C — maquetación — ✅ **hecha y verificada el 2026-09-24** (v1.6.2)
 
@@ -1511,7 +1517,7 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
   > acento del sidebar. Con una selección, Nuke All se aparta (`invisible`, sin que salte el
   > buscador) y la acción está en la barra; el «Cerrar» de la barra va en rojo tenue.
 
-### Fase E — pulido — ✅ **hecha y verificada el 2026-09-25**
+### Fase E — pulido — ✅ **hecha y verificada el 2026-09-25** (v1.8.0)
 
 > **Verificado en la app en marcha**: axe-core 4.13 en **cero violaciones y cero incompletos** en
 > las cuatro vistas, los dos temas y el Historial con una tanda abierta. El zoom y Ctrl+F se
@@ -1564,11 +1570,18 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 
 ### Fase F — correcciones a la documentación
 
-- [ ] **F1. El menú contextual sí es accesible con teclado.** Shift+F10 o la tecla Menú, con el foco
+> ✅ **Hecha el 2026-09-25** (v1.8.0).
+
+- [x] **F1. El menú contextual sí es accesible con teclado.** Shift+F10 o la tecla Menú, con el foco
       en la casilla o el Kill de la fila, lo abren (probado). El 7.4b de este documento y la fila de
       CONTEXT del 2026-07-27 dicen que copiar PID, puerto y URL es solo de ratón; lo que falta es que
       se sepa.
-- [ ] **F2. Anotar en T3-10** que el `aria-label` del recuento no llega a anunciarse (ver B6).
+  > ✅ **Vuelto a probar antes de escribirlo**, con teclas reales (`keybd_event`) y después de las
+  > fases D y E, que cambiaron la fila: Shift+F10 sobre el Kill y la tecla Menú sobre la casilla
+  > abren el menú con sus seis entradas, y Escape lo cierra. Corregidos el 7.4b y la fila de CONTEXT
+  > del 2026-07-27, y el README lo dice donde describe el menú.
+- [x] **F2. Anotar en T3-10** que el `aria-label` del recuento no llega a anunciarse (ver B6).
+  > ✅ Anotado en `docs/REVISION-2026-08-18.md`, con lo que se hizo en B6.
 
 ---
 

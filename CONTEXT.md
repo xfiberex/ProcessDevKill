@@ -31,8 +31,8 @@
 
 ## 3. Estado actual
 
-**Tiers 1 a 10 completos y verificados. El 11 —la auditoría de UX/UI del 2026-09-23— lleva
-hechas las fases A a D.** La A, la de riesgo, el 2026-09-23: el atajo global apagado y con dos
+**Tiers 1 a 11 completos y verificados.** El 11 —la auditoría de UX/UI del 2026-09-23— se cerró
+el 2026-09-25 con sus seis fases. La A, la de riesgo, el 2026-09-23: el atajo global apagado y con dos
 pulsaciones, cada fila con su script y su carpeta, procesos protegidos, el tipo de arranque que ya
 no cambia con una flecha, el orden de la tabla congelado bajo el puntero y «Matar proceso» al final
 del menú. La B, la de accesibilidad, el 2026-09-24: **axe da cero violaciones en las cuatro vistas
@@ -42,10 +42,10 @@ como v1.6.2: la tabla de procesos con anchos fijos y la barra bajo la cifra, el 
 px de alto y el diálogo de confirmación con mensaje, aviso y nota, y en rojo solo lo peligroso. La D,
 la de consistencia, también el 2026-09-24: una cabecera común para las cuatro vistas, Ajustes en
 grupos, «cerrar» como único verbo en español, los servicios parados bien explicados, el Kill
-neutro, un suelo en la barra de CPU y una barra de la selección. La E, la de pulido, el 2026-09-25
-y aún sin publicar: texto seleccionable, Ctrl+F, el Historial por tandas y con hora relativa,
-Refrescar en icono, el zoom de la ventana y los menores. La fase F sigue pendiente (ver
-[ROADMAP.md](ROADMAP.md)).
+neutro, un suelo en la barra de CPU y una barra de la selección. La E, la de pulido, el 2026-09-25:
+texto seleccionable, Ctrl+F, el Historial por tandas y con hora relativa, Refrescar en icono, el
+zoom de la ventana y los menores. Y la F, el mismo día, corrigió la documentación: el menú de cada
+fila **sí** se abre con teclado. La E y la F salen juntas en la v1.8.0 (ver [ROADMAP.md](ROADMAP.md)).
 
 Fuera de las fases, el 2026-09-24, y publicado con la D en la v1.7.0: **la app dice lo que no ve sin ser
 administrador** —la RAM de los servicios, y el script, la carpeta y el cierre de los procesos
@@ -347,7 +347,7 @@ al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 | 2026-07-27 | Ante un candado envenenado, `CloseRequested` **cierra** | Dejar la app viva e invisible es peor que cerrarla de más: sin ventana ni forma de darse cuenta salvo el Administrador de tareas |
 | 2026-07-27 | **Instancia única con `tauri-plugin-single-instance`** | La segunda instancia trae al frente la ventana de la primera y se cierra. No avisa con un toast: es lo que hace cualquier app de Windows bien educada, y el usuario lo interpreta solo al ver aparecer la ventana. Un aviso de "ya estaba abierta" sería ruido para algo que se ve en pantalla. Se reaprovecha `tray::show_main_window`, cuyo `show` es imprescindible: si estaba escondida en la bandeja, enfocarla no la enseña |
 | 2026-07-27 | El botón "Kill" gana nombre accesible con proceso y PID | Veinte filas son veinte botones que se anunciaban "Kill" a secas. El checkbox de la misma fila ya se nombraba bien desde el Tier 6; el botón que **mata** un proceso es el que menos se puede fallar. El texto visible no cambia |
-| 2026-07-27 | **El menú contextual se queda solo con clic derecho** | Decisión del usuario tras ver las alternativas. Se descarta `tabIndex` en la fila **por las veinte paradas de tabulación** que añadiría: empeora la navegación por teclado de todo el mundo para arreglar un camino que casi nadie usa. Lo que deja fuera, asumido a sabiendas: copiar PID, puerto y URL siguen siendo solo de ratón. "Matar proceso" no, que ese está en el botón Kill |
+| 2026-07-27 | **El menú contextual se queda solo con clic derecho** | Decisión del usuario tras ver las alternativas. Se descarta `tabIndex` en la fila **por las veinte paradas de tabulación** que añadiría: empeora la navegación por teclado de todo el mundo para arreglar un camino que casi nadie usa. Lo que deja fuera, asumido a sabiendas: copiar PID, puerto y URL siguen siendo solo de ratón. "Matar proceso" no, que ese está en el botón Kill. ⚠️ **Corregido el 2026-09-25 (Tier 11, F1): esa conclusión era falsa.** Con el foco en la casilla o el Kill de la fila, Shift+F10 o la tecla Menú abren el menú entero; probado con teclas reales. Lo que se decidió —no dar foco a la fila— sigue en pie |
 | 2026-07-27 | `aria-current` en la navegación de vistas, no `aria-pressed` | Procesos/Historial/Ajustes son vistas excluyentes: es navegación, no un interruptor. Los otros tres `aria-pressed` (tema, intervalo, filtros) se quedan: son grupos de selección dentro de una vista, donde lo ideal sería un `radiogroup`, pero el cambio es mayor y la ganancia pequeña |
 | 2026-07-27 | **La guardia de `install_update` canonicaliza antes de comparar** | `Path::starts_with` compara componentes **literales y no normaliza**: `…\ProcessDevKill_update\..\..\Windows\System32\calc.exe` la pasaba tan campante, y el comando está expuesto al frontend. Era justo lo que la guardia decía impedir. Se ejecuta la ruta **canónica que devuelve la comprobación**, no la que llegó: validar una y lanzar otra sería reabrir el agujero por detrás |
 | 2026-07-27 | La comprobación vive en `update.rs`, no dentro del comando | Misma razón que `collect_processes` frente a `get_processes`: se prueba sin montar una `App`. El test de regresión afirma primero que la ruta de escape **sí** pasa el `starts_with` crudo, para que quede constancia de que cubre el fallo real y no una versión cómoda de él |
