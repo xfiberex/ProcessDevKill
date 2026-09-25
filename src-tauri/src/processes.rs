@@ -282,6 +282,38 @@ pub fn collect_system_usage(sys: &mut System, list: &[ProcessInfo]) -> SystemUsa
     }
 }
 
+/// Ejecutables de Windows que la app **no vigila aunque el usuario los añada** a mano (T12-01).
+///
+/// La lista de vigilados acepta cualquier nombre, y hasta 2026-09-25 eso incluía `svchost` o
+/// `csrss`: Nuke All, el atajo global y el Auto-Kill los habrían cerrado todos de golpe. Sin elevar,
+/// Windows rechaza casi todos; elevada (v1.7.0) cerrar `csrss`, `wininit` o `smss` es un pantallazo
+/// azul, y `winlogon` cierra la sesión. Se aplica en `classify` porque por ahí pasan todas las vías,
+/// la lista incluida: un nombre de estos ni se enseña.
+///
+/// Van normalizados como los compara `classify`: minúsculas y sin `.exe`. Los tres con espacio son
+/// los pseudoprocesos que sysinfo nombra así. `src/types.ts` tiene la copia con la que Ajustes avisa
+/// al añadirlos, y `types.test.ts` comprueba que sean la misma lista.
+pub const CRITICOS: &[&str] = &[
+    "system",
+    "system idle process",
+    "secure system",
+    "registry",
+    "memory compression",
+    "memcompression",
+    "smss",
+    "csrss",
+    "wininit",
+    "winlogon",
+    "services",
+    "lsass",
+    "lsaiso",
+    "svchost",
+    "fontdrvhost",
+    "dwm",
+    "sihost",
+    "explorer",
+];
+
 /// Clasifica un ejecutable por su nombre; `None` si no esta vigilado.
 ///
 /// Compara sin extension y en minusculas para que el mismo codigo sirva en
@@ -291,6 +323,7 @@ pub fn collect_system_usage(sys: &mut System, list: &[ProcessInfo]) -> SystemUsa
 ///
 /// `custom` son los nombres que añade el usuario, ya normalizados; ahi la
 /// comparacion es exacta porque el usuario escribe el nombre que quiere vigilar.
+/// Salvo los de [`CRITICOS`], que no se vigilan aunque esten en la lista.
 pub fn classify(file_name: &str, custom: &[String]) -> Option<Runtime> {
     let lower = file_name.to_lowercase();
     let stem = lower.strip_suffix(".exe").unwrap_or(&lower);
@@ -306,6 +339,9 @@ pub fn classify(file_name: &str, custom: &[String]) -> Option<Runtime> {
     };
     if built_in.is_some() {
         return built_in;
+    }
+    if CRITICOS.contains(&stem) {
+        return None;
     }
 
     custom
@@ -661,6 +697,80 @@ mod tests {
         // Exacto, no por prefijo: "golang" no es "go".
         assert_eq!(classify("golang.exe", &custom), None);
         assert_eq!(classify("dockerd.exe", &custom), None);
+    }
+
+    /// El criterio negativo de T12-01: lo que NO se vigila aunque lo pida el usuario.
+    #[test]
+    fn los_procesos_criticos_no_se_vigilan_aunque_se_añadan() {
+        let custom: Vec<String> = ["csrss", "svchost", "lsass", "winlogon", "system", "docker"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        for nombre in ["csrss.exe", "Svchost.EXE", "lsass", "winlogon.exe", "System"] {
+            assert_eq!(classify(nombre, &custom), None, "{nombre} no deberia vigilarse");
+        }
+        // El resto de la lista del usuario sigue valiendo.
+        assert_eq!(classify("docker.exe", &custom), Some(Runtime::Other));
+        // La lista se compara normalizada: un nombre en mayusculas o con `.exe` no la esquiva.
+        assert!(CRITICOS
+            .iter()
+            .all(|c| *c == c.to_lowercase() && !c.ends_with(".exe")));
+    }
+
+    /// La misma regla, por el camino que de verdad cierra: con `svchost` en la lista del usuario,
+    /// `kill_many` se niega a cerrar un proceso que se llama así.
+    ///
+    /// El proceso es una **copia de `PING.EXE` renombrada** en una carpeta temporal, lanzada por la
+    /// prueba: a `kill_many` solo le llega su PID. Pasarle el de un `svchost` de verdad habría sido
+    /// más directo, pero si la guardia fallara, la prueba cerraría un proceso del sistema.
+    #[test]
+    fn kill_many_no_cierra_un_proceso_critico_aunque_este_en_la_lista() {
+        let origen = std::path::Path::new(r"C:\Windows\System32\PING.EXE");
+        let carpeta = std::env::temp_dir().join(format!("pdk_critico_{}", std::process::id()));
+        let disfrazado = carpeta.join("svchost.exe");
+        if std::fs::create_dir_all(&carpeta).is_err() || std::fs::copy(origen, &disfrazado).is_err()
+        {
+            println!("no se pudo preparar la copia de PING.EXE: se omite");
+            return;
+        }
+        let Ok(mut hijo) = std::process::Command::new(&disfrazado)
+            .args(["-n", "60", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+        else {
+            let _ = std::fs::remove_dir_all(&carpeta);
+            println!("no se pudo lanzar la copia: se omite");
+            return;
+        };
+        let pid = hijo.id();
+        let target = Pid::from_u32(pid);
+
+        let mut sys = new_system();
+        sys.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&[target]),
+            true,
+            ProcessRefreshKind::nothing(),
+        );
+        let nombre = sys
+            .process(target)
+            .map(|p| p.name().to_string_lossy().into_owned());
+
+        let custom = vec!["svchost".to_string()];
+        let rechazo = kill_many(&mut sys, &custom, SIN_EXTRAS, vec![pid]);
+        let sigue_vivo = matches!(hijo.try_wait(), Ok(None));
+
+        let _ = hijo.kill();
+        let _ = hijo.wait();
+        let _ = std::fs::remove_dir_all(&carpeta);
+
+        assert_eq!(
+            nombre.as_deref().map(str::to_lowercase).as_deref(),
+            Some("svchost.exe"),
+            "la prueba no demuestra nada si el proceso no se llama svchost.exe"
+        );
+        assert!(!rechazo[0].killed, "un proceso llamado svchost no deberia cerrarse");
+        assert!(sigue_vivo, "la guardia devolvio error pero el proceso murio igual");
     }
 
     /// El menu de la bandeja ofrece "Cerrar todos los Node/Python/.NET". Si esa
@@ -1419,6 +1529,18 @@ mod tests_identidad {
             None,
         );
         assert_eq!(script.as_deref(), Some("-e"));
+    }
+
+    /// Lo que promete el README en Privacidad (T12-29): una opción con `=` no se enseña nunca. La
+    /// otra mitad, que con el valor aparte sí se enseña, se fija también para que el README no se
+    /// quede diciendo algo que ya no pase.
+    #[test]
+    fn una_opcion_con_igual_no_se_muestra_y_con_espacio_si() {
+        let (con_igual, _) = describe(&cmd(&["node", "--token=abc123", "server.js"]), None);
+        assert_eq!(con_igual.as_deref(), Some("server.js"));
+
+        let (con_espacio, _) = describe(&cmd(&["node", "--token", "abc123", "server.js"]), None);
+        assert_eq!(con_espacio.as_deref(), Some("abc123"));
     }
 
     #[test]

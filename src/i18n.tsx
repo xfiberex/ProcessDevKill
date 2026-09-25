@@ -487,6 +487,9 @@ export const es = {
        * pulsar, que es la misma duda que tendría una persona.
        */
       anadirLabel: "Añadir proceso vigilado",
+      /** Al intentar añadir uno de `PROCESOS_CRITICOS` (`types.ts`); Rust tampoco lo vigilaría. */
+      critico: (nombre: string) =>
+        `${nombre} es un proceso de Windows: cerrarlo puede colgar el equipo o cerrar la sesión, así que no se vigila.`,
       quitar: (nombre: string) => `Quitar ${nombre}`,
     },
     servicios: {
@@ -908,6 +911,8 @@ export const en: Catalogo = {
       placeholder: "executable name",
       anadir: "Add",
       anadirLabel: "Add watched process",
+      critico: (nombre) =>
+        `${nombre} is part of Windows: closing it can freeze the computer or end the session, so it is not watched.`,
       quitar: (nombre) => `Remove ${nombre}`,
     },
     servicios: {

@@ -115,7 +115,10 @@ pub fn save_settings(
 /// cada dos segundos le sumaria a cada ciclo un recorrido del catalogo entero del SCM -cientos de
 /// servicios, con una consulta de configuracion por cada uno- para no enterarse de nada nuevo. La
 /// vista lo pide al abrirse y cuando el usuario pulsa refrescar.
-#[tauri::command]
+///
+/// `async` para no leer ese catálogo en el hilo principal (T12-06): un comando síncrono de Tauri 2
+/// corre ahí, y además espera el candado de `sys` si el poller está a mitad de un refresco.
+#[tauri::command(async)]
 pub fn get_services(state: State<'_, AppState>) -> Result<Vec<services::ServiceInfo>, String> {
     let custom = state
         .settings

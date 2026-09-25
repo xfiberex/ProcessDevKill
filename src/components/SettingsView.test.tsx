@@ -323,6 +323,25 @@ describe("procesos vigilados", () => {
     );
   });
 
+  it("no deja añadir un proceso critico de Windows, y dice por que", async () => {
+    const { user, onChange } = pintar({ customNames: [] });
+    const campo = screen.getByPlaceholderText("nombre del ejecutable");
+
+    await user.type(campo, "Svchost.exe{Enter}");
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /Svchost\.exe es un proceso de Windows/,
+    );
+
+    // Al volver a escribir, el aviso se va y un nombre normal entra.
+    await user.type(campo, "docker{Enter}");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ customNames: ["docker"] }),
+    );
+  });
+
   it("ignora un duplicado aunque cambie de caja", async () => {
     const { user, onChange } = pintar({ customNames: ["docker"] });
 

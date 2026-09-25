@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   AUTO_KILL_MIN_MB,
   HOTKEYS,
+  PROCESOS_CRITICOS,
   PROCESSES_UPDATED,
   SETTABLE_START_TYPES,
   SYSTEM_USAGE,
@@ -236,6 +237,18 @@ describe("el contrato con Rust", () => {
       const variante = value.charAt(0).toUpperCase() + value.slice(1);
       expect(rust).toContain(`Hotkey::${variante} => "${label}"`);
     }
+  });
+
+  /**
+   * Si Rust ganara un nombre y aquí no, Ajustes lo aceptaría sin avisar y el nombre no haría nada;
+   * si aquí sobrara uno, se rechazaría algo que Rust sí vigila.
+   */
+  it("avisa de los mismos procesos criticos que excluye processes.rs", () => {
+    const rust = leerRust("processes.rs");
+    const bloque = rust.match(/pub const CRITICOS:\s*&\[&str\]\s*=\s*&\[([^\]]+)\]/);
+    expect(bloque, "no se encontro CRITICOS en processes.rs").not.toBeNull();
+    const nombres = [...bloque![1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    expect([...PROCESOS_CRITICOS].sort()).toEqual(nombres.sort());
   });
 
   it("cubre los cuatro origenes de KillSource", () => {

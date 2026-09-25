@@ -85,10 +85,13 @@
     haber probado ese cambio.
 
     Desde 2026-08-18 eso ya no depende de recordarlo: el dry run anota el HEAD sobre el que corrio
-    las comprobaciones y -SkipTests SE NIEGA a seguir si no hay marca o si HEAD es otro.
+    las comprobaciones y -SkipTests SE NIEGA a seguir si no hay marca o si HEAD es otro. Desde
+    2026-09-25 anota tambien la huella de lo modificado sin commitear (T12-22), porque eso entra en
+    el commit del release y el HEAD solo no lo ve.
 
 .PARAMETER AllowDirty
-    Permite continuar con archivos sin rastrear en el árbol de trabajo.
+    Permite continuar con cambios sin commitear: archivos sin rastrear (que NO entran en el
+    release) y archivos rastreados modificados (que SI entran, por el `git add -u` del commit).
 
 .PARAMETER DryRun
     Valida y muestra el plan, pero no modifica nada (ni build, ni git, ni GitHub).
@@ -129,6 +132,29 @@ function Die($m)   { Write-Host "[X] $m" -ForegroundColor Red; exit 1 }
 #>
 function Get-DryRunMarkerPath {
     Join-Path $env:TEMP "pdk_dryrun_head.txt"
+}
+
+<#
+.SYNOPSIS
+    Huella SHA-256 de todo lo rastreado que difiere de HEAD, en minúsculas.
+
+.DESCRIPTION
+    El HEAD solo no basta para saber qué se probó (T12-22): el commit del release hace `git add -u`,
+    así que lo modificado sin commitear también se publica. Con -AllowDirty eso puede ser código que
+    ni el dry run ni la CI vieron si se tocó después.
+
+    `--output` escribe el diff directamente a un archivo: pasarlo por la tubería de PowerShell lo
+    convertiría en líneas de texto y la huella dependería de la codificación de la consola.
+#>
+function Get-DiffHuella {
+    $tmp = [System.IO.Path]::GetTempFileName()
+    try {
+        if ((Invoke-Nativo git @('diff', 'HEAD', '--binary', "--output=$tmp")) -ne 0) {
+            Die "No se pudo calcular el diff contra HEAD."
+        }
+        (Get-FileHash $tmp -Algorithm SHA256).Hash.ToLower()
+    }
+    finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
 }
 
 <#
@@ -191,6 +217,34 @@ function Invoke-Nativo {
     $ErrorActionPreference = "Continue"
     try {
         & $exe @argumentos 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        return $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $eap }
+}
+
+<#
+.SYNOPSIS
+    Ejecuta un comando externo en silencio y devuelve su código de salida; -1 si el exe no existe.
+
+.DESCRIPTION
+    Para preguntar si algo está (`cargo audit --version`) o si algo es cierto (`git rev-parse`).
+    La forma obvia, `& cargo audit --version *> $null`, NO sirve en PowerShell 5.1: con
+    $ErrorActionPreference = "Stop", la línea de stderr de un exe nativo se convierte en un
+    NativeCommandError aunque vaya a $null, y el script ABORTA justo cuando la respuesta es «no
+    está». Así se rompió en silencio la regla de T2-02 —«las herramientas que faltan avisan, no
+    abortan»— hasta que la re-auditoría del 2026-09-25 lo reprodujo (T12-21).
+
+    Get-Command va primero porque, si el exe no existe, `&` no toca $LASTEXITCODE y se leería el
+    código del comando anterior.
+#>
+function Test-Nativo {
+    param([string]$exe, [string[]]$argumentos = @())
+
+    if (-not (Get-Command $exe -ErrorAction SilentlyContinue)) { return -1 }
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $exe @argumentos 2>&1 | Out-Null
         return $LASTEXITCODE
     }
     finally { $ErrorActionPreference = $eap }
@@ -268,20 +322,26 @@ $ghTokenExistia = Test-Path Env:\GH_TOKEN
 
 Push-Location $root
 try {
-    & git rev-parse --is-inside-work-tree *> $null
-    if ($LASTEXITCODE -ne 0) { Die "Este directorio no es un repositorio git." }
+    if ((Test-Nativo git @('rev-parse', '--is-inside-work-tree')) -ne 0) { Die "Este directorio no es un repositorio git." }
 
     $branch = (& git rev-parse --abbrev-ref HEAD).Trim()
     Info "Rama: $branch"
 
     $localTag = (& git tag --list $tag)
     if ($localTag) { Die "El tag $tag ya existe localmente. Usa otra versión o bórralo antes." }
-    $remoteTag = (& git ls-remote --tags origin $tag 2>$null)
+    # El mismo problema que resuelve Test-Nativo, pero aquí hace falta la salida. Sin bajar la
+    # preferencia, cualquier aviso de git por stderr abortaba el corte antes de empezar.
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { $remoteTag = (& git ls-remote --tags origin $tag 2>$null) }
+    finally { $ErrorActionPreference = $eap }
     if ($remoteTag) { Die "El tag $tag ya existe en origin. Usa otra versión." }
+
+    $estado = @(& git status --porcelain)
 
     # Archivos nuevos sin rastrear: NO entran en el commit del release. Se avisa y se para, porque
     # olvidarse de un `git add` aquí publica una versión a la que le falta código.
-    $untracked = (& git status --porcelain) | Where-Object { $_ -match '^\?\?' }
+    $untracked = $estado | Where-Object { $_ -match '^\?\?' }
     if ($untracked -and -not $AllowDirty) {
         Warn "Hay archivos nuevos sin rastrear (no se incluirán en el release):"
         $untracked | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
@@ -289,6 +349,19 @@ try {
     } elseif ($untracked) {
         Warn "Archivos sin rastrear ignorados (-AllowDirty):"
         $untracked | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+    }
+
+    # Archivos rastreados modificados: estos SÍ entran, por el `git add -u` del commit del release,
+    # y hasta 2026-09-25 pasaban sin decir nada (T12-22). Lo que se publica tiene que ser lo que
+    # está en un commit que la CI ya comprobó; si no, se para.
+    $modificados = $estado | Where-Object { $_ -and $_ -notmatch '^\?\?' }
+    if ($modificados -and -not $AllowDirty) {
+        Warn "Hay cambios sin commitear que entrarían en el commit del release:"
+        $modificados | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        Die "Commitéalos (y deja que pase la CI) o descártalos, y reintenta. -AllowDirty los deja entrar."
+    } elseif ($modificados) {
+        Warn "Cambios sin commitear que ENTRARÁN en el release (-AllowDirty):"
+        $modificados | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
     }
 
 
@@ -304,9 +377,16 @@ try {
             Die "-SkipTests sin un dry run previo en esta maquina. Lanza el mismo comando con -DryRun primero, o quita -SkipTests."
         }
 
-        $headProbado = (Get-Content $marca -TotalCount 1).Trim()
+        # Línea 1: el HEAD. Línea 2: la huella de lo modificado sin commitear (T12-22). Una marca
+        # de antes de 2026-09-25 no tiene la segunda y se trata como no válida.
+        $lineas = @(Get-Content $marca -TotalCount 2)
+        $headProbado = $lineas[0].Trim()
         if ($headProbado -ne $headActual) {
             Die "-SkipTests: el ultimo dry run corrio sobre $($headProbado.Substring(0,7)) y HEAD es $($headActual.Substring(0,7)). Ese codigo no se ha probado. Repite el dry run o quita -SkipTests."
+        }
+        $diffProbado = if ($lineas.Count -ge 2) { $lineas[1].Trim() } else { "" }
+        if ($diffProbado -ne (Get-DiffHuella)) {
+            Die "-SkipTests: los cambios sin commitear no son los que vio el ultimo dry run. Ese codigo no se ha probado. Repite el dry run o quita -SkipTests."
         }
 
         Warn "Pruebas omitidas (-SkipTests), ya pasadas en el dry run sobre $($headActual.Substring(0,7))."
@@ -328,18 +408,22 @@ try {
         # varios equipos y clippy o cargo-audit pueden no estar instalados en uno; que eso impida
         # cortar una version seria peor que el riesgo que cubren. Lo que si aborta es una
         # herramienta presente que encuentra algo.
-        Info "Pasando clippy..."
         Push-Location (Join-Path $root "src-tauri")
         try {
-            if ((Invoke-Nativo cargo @('clippy','--all-targets','--quiet','--','-D','warnings')) -ne 0) {
-                Die "Clippy encontro avisos. Release abortado."
+            # Sin esta comprobación, que falte clippy se leía como «Clippy encontró avisos».
+            if ((Test-Nativo cargo @('clippy', '--version')) -ne 0) {
+                Warn "clippy no esta instalado; no se pasa. Para tenerlo: rustup component add clippy"
+            } else {
+                Info "Pasando clippy..."
+                if ((Invoke-Nativo cargo @('clippy','--all-targets','--quiet','--','-D','warnings')) -ne 0) {
+                    Die "Clippy encontro avisos. Release abortado."
+                }
+                Ok "Clippy limpio."
             }
-            Ok "Clippy limpio."
 
             # `cargo audit` sale con 0 aunque haya avisos de crates sin mantener (18 hoy, casi
             # todos bindings de GTK que en Windows ni se compilan) y con 1 si hay vulnerabilidad.
-            & cargo audit --version *> $null
-            if ($LASTEXITCODE -ne 0) {
+            if ((Test-Nativo cargo @('audit', '--version')) -ne 0) {
                 Warn "cargo-audit no esta instalado; no se auditan los crates. Para tenerlo: cargo install cargo-audit --locked"
             } elseif ((Invoke-Nativo cargo @('audit')) -ne 0) {
                 Die "cargo audit encontro una vulnerabilidad. Release abortado."
@@ -442,11 +526,12 @@ try {
         if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + eslint + npm test + npm run build" -ForegroundColor DarkGray }
         if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
 
-        # Constancia de sobre qué HEAD se pasaron las comprobaciones, para que un `-SkipTests`
-        # posterior pueda comprobar que sigue siendo el mismo código. Solo si se ejecutaron.
+        # Constancia de sobre qué código se pasaron las comprobaciones —el HEAD y lo modificado
+        # encima—, para que un `-SkipTests` posterior pueda comprobar que sigue siendo el mismo.
+        # Solo si se ejecutaron.
         if (-not $SkipTests) {
             $head = (& git rev-parse HEAD).Trim()
-            Set-Content -Path (Get-DryRunMarkerPath) -Value $head -Encoding utf8
+            Set-Content -Path (Get-DryRunMarkerPath) -Value @($head, (Get-DiffHuella)) -Encoding utf8
             Write-Host "    Comprobaciones anotadas para -SkipTests sobre $($head.Substring(0,7))" -ForegroundColor DarkGray
         }
 

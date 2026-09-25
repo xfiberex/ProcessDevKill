@@ -281,7 +281,11 @@ pub fn get_service_dependents(
 }
 
 /// Arranca o detiene un servicio, elevando solo para eso.
-#[tauri::command]
+///
+/// `async` por el mismo motivo que `restart_as_admin` (T12-06): en Tauri 2 un comando síncrono
+/// corre en el hilo principal, y este espera al UAC, hasta 30 s al hijo elevado y hasta 10 s a que
+/// el SCM confirme. Todo ese rato la ventana estaba congelada, sin poder ni moverse.
+#[tauri::command(async)]
 pub fn control_service(
     state: State<'_, AppState>,
     name: String,
@@ -348,7 +352,9 @@ pub fn control_service(
 ///   confirma que el cambio cuajó: anotar un cambio que no ocurrió sería ofrecer deshacer nada.
 /// - **Nunca lo hace sola.** No hay, ni habrá, un «Auto-Kill de servicios»: este comando solo
 ///   existe colgando de un clic con su confirmación delante.
-#[tauri::command]
+///
+/// `async` por lo mismo que [`control_service`]: espera al UAC y al hijo elevado.
+#[tauri::command(async)]
 pub fn set_service_startup(
     state: State<'_, AppState>,
     name: String,

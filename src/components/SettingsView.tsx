@@ -21,7 +21,13 @@ import {
   XIcon,
 } from "lucide-react";
 import type { useUpdater } from "../hooks/useUpdater";
-import { AUTO_KILL_MIN_MB, HOTKEYS, THEMES, ZOMBIE_MIN_MINUTES } from "../types";
+import {
+  AUTO_KILL_MIN_MB,
+  HOTKEYS,
+  THEMES,
+  ZOMBIE_MIN_MINUTES,
+  esProcesoCritico,
+} from "../types";
 import type { Language, Settings, Theme } from "../types";
 import { Marcado, useT } from "../i18n";
 import { formatMemory } from "../lib/format";
@@ -79,6 +85,8 @@ export function SettingsView({
     onIdoAAdmin?.();
   }, [irAAdmin, onIdoAAdmin]);
   const [draft, setDraft] = useState("");
+  /** El último nombre crítico que se intentó añadir, para el aviso bajo el campo. */
+  const [critico, setCritico] = useState<string | null>(null);
   const [servicioDraft, setServicioDraft] = useState("");
   const [protegidoDraft, setProtegidoDraft] = useState("");
   const [mbDraft, setMbDraft] = useState(String(settings.autoKillMb));
@@ -232,6 +240,13 @@ export function SettingsView({
   function addName() {
     const name = draft.trim();
     if (!name) return;
+    // Rust no lo vigilaría aunque se guardara (`CRITICOS`, T12-01); aceptarlo en silencio dejaría
+    // en la lista un nombre que no hace nada.
+    if (esProcesoCritico(name)) {
+      setCritico(name);
+      setDraft("");
+      return;
+    }
     // La normalizacion real (minusculas, sin .exe, sin duplicados) la hace Rust,
     // que es quien compara contra los procesos; aqui solo se evita el duplicado
     // evidente para no dar la sensacion de que el boton no hizo nada.
@@ -522,7 +537,10 @@ export function SettingsView({
               <div className="mt-3 flex gap-2">
                 <Input
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    setCritico(null);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") addName();
                   }}
@@ -536,6 +554,11 @@ export function SettingsView({
                   {t.ajustes.vigilados.anadir}
                 </Button>
               </div>
+              {critico && (
+                <p role="alert" className="mt-2 text-sm text-destructive">
+                  {t.ajustes.vigilados.critico(critico)}
+                </p>
+              )}
 
               {settings.customNames.length > 0 && (
                 <ul className="mt-3 flex flex-wrap gap-2">

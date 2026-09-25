@@ -228,6 +228,39 @@ export const AUTO_KILL_MIN_MB = 256;
 /** Espejo de `MIN_ZOMBIE_MINUTES` en src-tauri/src/storage.rs. */
 export const ZOMBIE_MIN_MINUTES = 1;
 
+/**
+ * Espejo de `CRITICOS` en src-tauri/src/processes.rs: los ejecutables de Windows que no se vigilan
+ * aunque se añadan. Rust es quien los deja fuera; esta copia solo sirve para que Ajustes lo diga al
+ * intentar añadirlos, en vez de aceptar un nombre que luego no hace nada.
+ */
+export const PROCESOS_CRITICOS: readonly string[] = [
+  "system",
+  "system idle process",
+  "secure system",
+  "registry",
+  "memory compression",
+  "memcompression",
+  "smss",
+  "csrss",
+  "wininit",
+  "winlogon",
+  "services",
+  "lsass",
+  "lsaiso",
+  "svchost",
+  "fontdrvhost",
+  "dwm",
+  "sihost",
+  "explorer",
+];
+
+/** Si un nombre escrito por el usuario es de `PROCESOS_CRITICOS`, normalizado como en Rust. */
+export function esProcesoCritico(nombre: string): boolean {
+  const lower = nombre.trim().toLowerCase();
+  const stem = lower.endsWith(".exe") ? lower.slice(0, -4) : lower;
+  return PROCESOS_CRITICOS.includes(stem);
+}
+
 /** Evento que emite Rust con cada lista nueva de procesos. */
 export const PROCESSES_UPDATED = "processes-updated";
 
