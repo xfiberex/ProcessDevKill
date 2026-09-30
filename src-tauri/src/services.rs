@@ -6,8 +6,8 @@
 //! vive en `service_control.rs`, aparte y con su elevación puntual.
 //!
 //! **La separación no es estética.** Mientras las dos únicas cosas que este archivo sabe hacer con
-//! el SCM sean `SC_MANAGER_CONNECT` y `SC_MANAGER_ENUMERATE_SERVICE`, un fallo aquí —el poller lo
-//! llama, la ventana lo llama, el catálogo tiene cientos de entradas— no puede detener nada.
+//! el SCM sean `SC_MANAGER_CONNECT` y `SC_MANAGER_ENUMERATE_SERVICE`, un fallo aquí —la ventana lo llama al
+//! abrir la vista y al refrescar, y el catálogo tiene cientos de entradas— no puede detener nada.
 //! Mezclar las acciones en el mismo módulo que la lista sería perder esa garantía a cambio de nada.
 //!
 //! Se habla con el SCM por la API (`windows`) y no lanzando `sc.exe` ni PowerShell: un proceso por
@@ -233,7 +233,7 @@ pub fn classify_service(name: &str, custom: &[String]) -> Option<ServiceFamily> 
 ///
 /// Con un guard y no cerrando a mano porque entre medias hay varios `?` y `continue`: un camino de
 /// salida que se olvidara del `CloseServiceHandle` filtraría un handle **por servicio y por
-/// refresco**, y esto lo llama el poller cada dos segundos.
+/// lectura**, y el catálogo tiene cientos.
 pub(crate) struct Handle(pub(crate) windows::Win32::System::Services::SC_HANDLE);
 
 impl Drop for Handle {

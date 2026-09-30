@@ -45,8 +45,8 @@ import { Toaster } from "@/components/ui/sonner";
  * Rojo solido para la accion principal destructiva.
  *
  * El `variant="destructive"` de este estilo de shadcn es un rojo tenue sobre
- * fondo claro, pensado para acciones secundarias (el "Kill" de cada fila). Para
- * el boton que cierra TODA la lista de golpe hace falta que se vea que quema.
+ * fondo claro, pensado para acciones secundarias. Para el boton que cierra TODA
+ * la lista de golpe hace falta que se vea que quema.
  */
 const SOLID_DESTRUCTIVE =
   "shrink-0 bg-destructive text-destructive-foreground hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90";
@@ -198,7 +198,7 @@ export default function App() {
    *
    * No los empuja el poller como a los procesos: un servicio cambia de estado dos veces al día, y
    * releer el catálogo entero del SCM cada dos segundos le sumaría al ciclo un recorrido de
-   * cientos de servicios para no enterarse de nada. Ver `get_services` en lib.rs.
+   * cientos de servicios para no enterarse de nada. Ver `get_services` en commands.rs.
    */
   const loadServices = useCallback(async () => {
     try {

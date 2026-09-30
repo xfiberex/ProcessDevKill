@@ -1,19 +1,26 @@
 # 📋 CONTEXT.md — ProcessDevKill
 
 > **Documento vivo.** Responde a **en qué estado está el proyecto y por qué se decidió así**, para
-> poder retomarlo desde cualquier equipo sin perder información. Se actualiza al final de cada sesión
-> o cuando se toma una decisión relevante.
+> poder retomarlo desde cualquier equipo. Se actualiza al final de cada sesión o al tomar una
+> decisión.
 >
-> Los otros cuatro: el plan por fases y lo que enseñó cada uno, en [ROADMAP.md](ROADMAP.md); qué
-> cambió en cada versión, en [CHANGELOG.md](CHANGELOG.md); las convenciones de trabajo, en
-> [.claude/CLAUDE.md](.claude/CLAUDE.md); y la historia sesión a sesión, en
-> [docs/BITACORA.md](docs/BITACORA.md). **Cada cosa vive en uno solo**, y los demás enlazan.
+> **Cada cosa vive en un solo documento**, y los demás enlazan:
+>
+> | Documento | Responde a |
+> |---|---|
+> | [README.md](README.md) | ¿Qué es y cómo la uso? (quien llega de fuera) |
+> | [CHANGELOG.md](CHANGELOG.md) | ¿Qué cambió en cada versión? (quien usa la app) |
+> | **CONTEXT.md** | ¿En qué estado está, y por qué se decidió así? |
+> | [ROADMAP.md](ROADMAP.md) | ¿Qué falta por hacer? |
+> | [.claude/CLAUDE.md](.claude/CLAUDE.md) | ¿Cómo se trabaja aquí? (lo que lee el agente) |
+> | [docs/TIERS-1-11.md](docs/TIERS-1-11.md), [docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md) | ¿Qué se hizo, y qué enseñó? (lo cerrado, íntegro) |
+> | [docs/BITACORA.md](docs/BITACORA.md) | ¿Cómo se llegó hasta aquí? (sesión a sesión) |
 
 ---
 
 ## 1. Qué es este proyecto
 
-**ProcessDevKill** es una aplicación de escritorio (Windows primero, macOS después) para desarrolladores que lista los procesos de desarrollo activos (`node`, `python`, `dotnet`, …), muestra su consumo de CPU/RAM y **qué puerto local ocupa cada uno**, y permite matarlos individualmente o en lote. Resuelve el clásico "el puerto 3000 está ocupado y no sé por quién".
+**ProcessDevKill** es una aplicación de escritorio **solo para Windows** que lista los procesos de desarrollo activos (`node`, `python`, `dotnet` y los que añada el usuario), muestra su CPU y su RAM y **qué puerto local ocupa cada uno**, y permite cerrarlos de uno en uno o en lote. Desde el Tier 10 hace lo mismo con los servicios de desarrollo de Windows. Resuelve el clásico «el puerto 3000 está ocupado y no sé por quién».
 
 ## 2. Stack tecnológico
 
@@ -25,225 +32,52 @@
 | Animaciones | **Motion** (`motion/react`) | Ex Framer Motion |
 | Componentes UI | **shadcn/ui** (estilo `base-nova`) | Sobre **Base UI**, no Radix; Toast = **Sonner** |
 | Info de procesos | crate **`sysinfo`** | Lista, CPU, RAM, kill |
-| Puertos por PID | crate **`listeners`** (o `netstat2`) | `sysinfo` no cubre puertos |
-| Plugins Tauri | `notification`, `global-shortcut`, `clipboard-manager` | + feature `tray-icon` |
+| Puertos por PID | crate **`listeners`** | `sysinfo` no cubre puertos |
+| Plugins Tauri | `notification`, `global-shortcut`, `clipboard-manager`, `opener` | + feature `tray-icon`. Los dos primeros los usa solo Rust (T12-03) |
 | Publicación | `release.ps1` local + `gh` | El corte es local; ver §4 (2026-07-24) |
 | CI | **GitHub Actions** (`.github/workflows/ci.yml`) | Solo comprueba, no publica; ver §4 (2026-09-23) |
 
 ## 3. Estado actual
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md), desde el 2026-09-25, con 12 de 39 tareas
-hechas** a 2026-09-30: T12-01, 03, 04, 06, 07, 21, 22, 27, 29, 34, 37 y 38. Es la tercera revisión amplia del repositorio y la primera que mira como código —no como
-UX— lo que entró desde la del 2026-08-18: unas 10.300 líneas en 43 commits, con los servicios, la
-elevación, el atajo, la traducción y la CI. **Ningún hallazgo crítico ni alto**: nueve medios y
-treinta bajos. Los medios son:
+**Publicada: la v1.8.0** (2026-09-25). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
+lo que está en `main` sin publicar, en su sección «Sin publicar». Cada release se comprueba igual
+tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `tag_name` correcto y
+**el instalador descargado coincide con su `.sha256`**, que es la cadena entera que recorre la
+auto-actualización. Para la v1.8.0, `d3a4dbd7…`.
 
-- procesos críticos de Windows que se pueden añadir a los vigilados (T12-01);
-- el instalador, que no se vuelve a verificar al lanzarlo, lo que importa con la app elevada (T12-02);
-- el texto de Rust que llega a la ventana en español con la app en inglés (T12-05);
-- Arrancar y Detener, que congelan la ventana (T12-06);
-- `App.tsx`, que ha vuelto a las 918 líneas (T12-15);
-- dos agujeros de `release.ps1` (T12-21, T12-22);
-- la inspección en vivo con `runAsAdmin` encendido (T12-27);
-- la sección de privacidad del README, que dice que no se lee la línea de comandos (T12-29).
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **15 de 39
+tareas hechas** a 2026-09-30: T12-01 a 07, 21, 22, 27, 29, 32, 34, 37 y 38. Ningún hallazgo era crítico
+ni alto. De los nueve medios **queda uno**: `App.tsx`, que ha vuelto a las 918 líneas (T12-15). Y
+las cuatro tareas de antes que se dieron por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la
+D4 del Tier 11— ya están corregidas, en T12-37, T12-21, T12-22 y T12-07.
 
-Y **cuatro tareas dadas por cerradas que no lo estaban del todo** —T3-09, T2-02, T3-19 y la D4 del
-Tier 11—, contadas en el propio Tier.
+**Cerrado: los Tiers 1 a 11** —del MVP a la auditoría de UX/UI que terminó en la v1.8.0— y **la
+revisión del 2026-08-18**, 37 de 37. Su detalle vive en [docs/TIERS-1-11.md](docs/TIERS-1-11.md) y
+[docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md).
 
-**Tiers 1 a 11 completos y verificados.** El 11 —la auditoría de UX/UI del 2026-09-23— se cerró
-el 2026-09-25 con sus seis fases. La A, la de riesgo, el 2026-09-23: el atajo global apagado y con dos
-pulsaciones, cada fila con su script y su carpeta, procesos protegidos, el tipo de arranque que ya
-no cambia con una flecha, el orden de la tabla congelado bajo el puntero y «Matar proceso» al final
-del menú. La B, la de accesibilidad, el 2026-09-24: **axe da cero violaciones en las cuatro vistas
-y los dos temas**, bordes y anillos de foco a 3:1, el rojo de Kill a 4,5:1 y lo elegido distinto
-de lo demás por algo más que el color. La C, la de maquetación, también el 2026-09-24 y publicada
-como v1.6.2: la tabla de procesos con anchos fijos y la barra bajo la cifra, el sidebar entero a 480
-px de alto y el diálogo de confirmación con mensaje, aviso y nota, y en rojo solo lo peligroso. La D,
-la de consistencia, también el 2026-09-24: una cabecera común para las cuatro vistas, Ajustes en
-grupos, «cerrar» como único verbo en español, los servicios parados bien explicados, el Kill
-neutro, un suelo en la barra de CPU y una barra de la selección. La E, la de pulido, el 2026-09-25:
-texto seleccionable, Ctrl+F, el Historial por tandas y con hora relativa, Refrescar en icono, el
-zoom de la ventana y los menores. Y la F, el mismo día, corrigió la documentación: el menú de cada
-fila **sí** se abre con teclado. La E y la F salen juntas en la v1.8.0 (ver [ROADMAP.md](ROADMAP.md)).
-
-Fuera de las fases, el 2026-09-24, y publicado con la D en la v1.7.0: **la app dice lo que no ve sin ser
-administrador** —la RAM de los servicios, y el script, la carpeta y el cierre de los procesos
-abiertos como administrador— y deja reiniciarla elevada o arrancarla siempre así, apagado de
-fábrica.
-
-El 7 se abrió el 2026-07-27 con una revisión completa del
-repositorio sobre la v1.1.1 ya publicada —código, seguridad, rendimiento, estructura, accesibilidad,
-responsividad, ortografía y documentación— y se cerró entero el mismo día: seguridad, arreglos
-rápidos, ortografía, comportamiento de la ventana y accesibilidad, rendimiento, refactor,
-compactación de los documentos y los tres puntos de producto.
-
-Nada de lo que recogía esa revisión era un fallo de funcionamiento —la app hace lo que promete—
-**salvo la guardia de rutas de `install_update`**, que se saltaba con un `..`; arreglada en el 7.1.
-
-**El backlog de la revisión está cerrado entero: 37 de 37**, desde el 2026-08-21 con T4-01, la
-internacionalización; su detalle vive desde el 2026-08-23 en
-[docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md). **Cuatro de esas 37 se cerraron por decisión o por medición, no escribiendo
-código**: no había CI (T4-04, **revocada el 2026-09-23**: ver §4), no habrá firma Authenticode (T4-02), el bundle no se divide porque se
-midió que no compensa (T4-05) y el rendimiento se midió en vez de suponerse (T4-03).
-
-**Cerrado: [Tier 10 — Servicios de desarrollo](ROADMAP.md), las tres fases hechas y verificadas**
-—la A el 2026-08-22; la B y la C el 2026-08-23—. Un panel para los servicios de Windows que son de desarrollo —SQL Server, PostgreSQL,
-MySQL, Docker— con su estado, su tipo de arranque y **el puerto que ocupan**. Encaja porque el 1433
-y el 5432 son puertos igual que el 3000, y la app hoy solo ve los procesos que lanza el usuario, no
-los que lanza Windows por él. La app sigue instalando en `currentUser` y **sin elevar nunca** —de fábrica: desde el 2026-09-24 se puede pedir, ver §4—, y con la fase B ya escrita eso no
-ha cambiado: `services.rs` abre el SCM con `SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE` y no
-puede tocar nada aunque quisiera. Lo que actúa vive aparte, en `service_control.rs`, y **eleva solo
-la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamada al SCM y muere.
-
-> ⚠️ **Decidido el 2026-08-23, construyendo la fase B: la guardia va dentro del proceso elevado.**
-> El hijo revalida el nombre que recibe contra el catálogo más los `customServices` que **relee del
-> disco**, en vez de aceptar una lista de permitidos por parámetro —que sería validarse contra su
-> propia entrada—. Sin eso, bastaría lanzar al hijo con cualquier nombre para que el UAC de esta
-> app, con su nombre y su icono, detuviera un servicio del sistema. Es el mismo criterio que la
-> guardia de PIDs de `kill_process`.
->
-> **Precisado el 2026-09-25 (T12-04):** la guardia limita el hijo a lo que el usuario vigila y corta
-> los errores propios. **No frena a un programa que ya corre como el usuario**, que puede escribir
-> `settings.json` igual que la app, y que tampoco la necesita: puede pedir `runas` sobre `sc.exe`.
-> Hasta esa fecha, este párrafo decía que frenaba a «cualquier programa sin privilegios».
->
-> **Y no hay cascada:** Windows no detiene un servicio con dependientes vivos, y la app **no los
-> detiene por su cuenta** aunque `services.msc` lo ofrezca. Serían servicios que nunca pasaron por
-> la guardia ni por el diálogo. Se enseñan los nombres y el usuario decide.
-
-> ⚠️ **Decidido el 2026-08-23, con la fase C: el registro de deshacer guarda el original, no el
-> historial.** `service-changes.json` tiene **una entrada por servicio**, con el valor que tenía
-> antes de que la app lo tocara la primera vez, y **la entrada se borra al volver a él**. Un
-> registro que guardara cada paso obligaría a deshacer tres veces para desandar tres cambios, y a
-> que el usuario llevara la cuenta. Así, deshacer y volver a ponerlo son el mismo camino.
->
-> El cambio de arranque es **lo único que hace esta app que sobrevive a un reinicio y vive fuera de
-> su propio `settings.json`**, y por eso es lo único con registro de deshacer. Los tipos que se
-> ofrecen son cuatro: `boot` y `system` no están, y el proceso elevado también valida eso.
-
-> ⚠️ **La RAM de un servicio no se puede leer sin ser administrador**, y se descubrió construyendo
-> la Fase A. `OpenProcess` devuelve acceso denegado incluso con `PROCESS_QUERY_LIMITED_INFORMATION`.
-> Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el
-> usuario se creería. Es el mismo criterio que el «En pausa» del medidor: decir lo que no se sabe.
-
-**Publicado:** **v1.8.0** (2026-09-25), las **fases E y F del Tier 11**, con las que se cierra: sube a
-menor porque añade funciones —Ctrl+F, el zoom de la ventana, el Historial agrupado—. CI en verde y
-dry run sobre el mismo commit antes del corte; el aviso de `THIRD-PARTY-NOTICES.txt` volvió a ser
-espurio —ningún manifiesto cambió desde la v1.7.0—. 4 assets, hash comprobado tras publicar:
-`d3a4dbd7…`.
-
-Antes: la **v1.7.0** (2026-09-25), la **Fase D del Tier 11** y el **modo administrador**:
-sube a menor porque añade una función —arrancar elevada, apagado de fábrica— y cambia la forma de
-las cuatro vistas. CI en verde y dry run sobre el mismo commit antes del corte. El aviso de
-`THIRD-PARTY-NOTICES.txt` volvió a ser espurio: desde la v1.6.1 solo cambia la versión de la propia
-app. 4 assets, hash comprobado tras publicar: `3e4232bc…`.
-
-Antes: la **v1.6.2** (2026-09-24), la **Fase C del Tier 11**: maquetación, sin cambiar
-permisos, acciones ni datos. La tabla de procesos con anchos fijos y la barra bajo la cifra, el
-sidebar entero a 480 px de alto y el diálogo de confirmación con partes y tono. CI en verde y dry
-run sobre el mismo commit antes del corte; 4 assets, hash comprobado tras publicar: `2fa0564a…`.
-
-Antes: la **v1.6.1** (2026-09-24), la **Fase B del Tier 11**: accesibilidad, sin cambiar
-permisos, acciones ni datos, y por eso sube a parche. axe pasa a cero violaciones en las cuatro
-vistas y los dos temas. El corte avisó de que `package.json` y `Cargo.lock` eran más recientes que
-`THIRD-PARTY-NOTICES.txt`; comprobado antes de seguir: siguen siendo 566 crates y 14 dependencias
-npm con las mismas versiones directas —la subida de `rustls` del 2026-09-23 solo movió
-transitivas, con las mismas licencias—. 4 assets, hash comprobado tras publicar: `4afe55fc…`.
-
-Antes: la **v1.6.0** (2026-09-23), la **Fase A del Tier 11** entera: que no se cierre lo que
-no se quería. Sube a minor porque trae funcionalidad nueva —procesos protegidos, la segunda línea de
-cada fila, la combinación del atajo— y cambia comportamiento: **el atajo global viene apagado** y,
-encendido, **pide dos pulsaciones**, lo que sí alcanza a quien ya lo tenía activo. Antes de cortar,
-la CI en verde sobre el mismo commit y el dry run anotado para `-SkipTests`. 4 assets, hash
-comprobado tras publicar: `b7bd48c3…`.
-
-Antes: la **v1.5.3** (2026-08-23), un añadido pequeño: el botón **Apoyar el proyecto** en
-Ajustes → Acerca de. El repositorio tenía `.github/FUNDING.yml` desde el 2026-07-25, pero eso solo
-pinta el botón de patrocinio **en la página de GitHub**, por donde no pasa quien instala la app. El
-enlace queda ahora en dos sitios sin nada que los ate, y por eso la prueba comprueba **la URL
-exacta** y no solo que se llame a `openUrl`: un enlace de dinero equivocado abre el navegador igual
-y no falla por ningún lado. Debajo del botón, una línea que dice que la app es gratis y que apoyarla
-no desbloquea nada. 4 assets, hash comprobado tras publicar: `504bed6a…`.
-
-Antes: la **v1.5.2** (2026-08-23), segundo arreglo de interfaz de la misma tanda y con el mismo
-alcance: **no cambia permisos, acciones ni datos**. Va al desplegable de arranque, que en el tema
-oscuro pintaba la lista blanca con el texto casi blanco encima. Las dos causas desmienten lo que
-parecía obvio y están en §4: **lo que colorea la lista es el fondo del control**, no las variables
-del tema, y **Chromium ignora `padding-right` para la flecha nativa**, que ahora es la nuestra. De
-paso se fue un texto que sobrevivía desde antes de la Fase C —«el tipo de arranque todavía no se
-puede cambiar desde aquí», con la columna que lo cambia debajo—, en los dos idiomas. 4 assets, hash
-comprobado tras publicar: `7e4be6a5…`.
-
-Antes: la **v1.5.1** (2026-08-23), un arreglo de interfaz sobre la 1.5.0 que **no cambia el
-comportamiento de nada**: mismos permisos, mismas acciones, mismos datos. Con las seis columnas que
-trajo el panel de servicios, la tabla no cabía en la ventana y la barra horizontal se llevaba fuera
-de pantalla **la columna del nombre**, que es lo que identifica cada fila; ahora las columnas llevan
-anchos medidos (§4, 2026-08-23). Van con ella tres detalles de la misma vista —la RAM ya no parte en
-dos líneas, el desplegable enseña «Automático (retrasado)» entero y usa el foco de la app— y dos de
-accesibilidad: los tipos de arranque ya no parecen desactivados, y el motivo de los «—» lo anuncian
-también los lectores de pantalla. 4 assets, con el hash comprobado tras publicar: `b764f7ef…`.
-
-Antes: la **v1.5.0** (2026-08-23), la versión más grande desde la 1.0: trajo el **Tier 10
-entero** —el panel de servicios de desarrollo, con arrancar, detener, cambiar el tipo de arranque y
-deshacerlo— y la app **en español e inglés**, bandeja y notificaciones incluidas. Subió a minor:
-funcionalidad nueva, sin romper nada de lo anterior. Fue también la primera versión que **actúa
-fuera de sus propios procesos**: eleva de forma puntual para hablar con el SCM, y por eso lleva la
-guardia dentro del proceso elevado y un registro de lo que cambió. Antes: la **v1.4.0** (2026-08-18), la que recogió la revisión hasta ese punto: **33 de
-las 37 tareas**, con los Tiers 1, 2 y 3 cerrados enteros. Sube a minor y no a parche porque trae
-funcionalidad nueva de cara al usuario —el **registro de avisos** en Ajustes → Acerca de y la
-pantalla de error en vez de la ventana en blanco— y cambia comportamiento: **un solo aviso** por
-acción desde la bandeja y el atajo, donde antes salían dos. 4 assets: NSIS y MSI con sus `.sha256`.
-Sin firma de código, así que SmartScreen sigue avisando. Antes: la v1.3.2 (Tier 1 de la revisión),
-la v1.3.1 con la **actualización silenciosa** (`/S /UPDATE /R`) y la v1.3.0 con el medidor del
-entorno. La primera versión pública fue la v1.1.1.
-
-> Verificado tras publicar, en las diez versiones con el mismo criterio: los 4 assets están en el
-> release, la API que consulta la app devuelve el `tag_name` correcto, y **el instalador descargado
-> del release coincide con el `.sha256` publicado** — la cadena entera que recorre la
-> auto-actualización, sobre los archivos reales. Para la v1.6.1, `4afe55fc…`; para la v1.6.0,
-> `b7bd48c3…`; para la v1.5.3,
-> `504bed6a…`; para la v1.5.2,
-> `7e4be6a5…`; para la v1.5.1,
-> `b764f7ef…`; para la v1.5.0,
-> `21fad0ad…`; para la v1.4.0, `a8738197…`; para la v1.3.2,
-> `d4030bb7…`; para la v1.3.1,
-> `121b228e…`; para la v1.3.0, `0050ae80…`. En la v1.3.2 se comprobó además que **las URLs reales que
-> devuelve la API pasan la guardia nueva**: era lo único que podía romper la actualización entera sin
-> notarse hasta el siguiente release.
->
-> ✅ **Y la actualización silenciosa quedó verificada con esta misma versión**: actualizar de la
-> v1.3.1 a la v1.3.2 es el primer caso en que el instalador lo lanza una app que ya lleva los flags,
-> y salió sin una sola ventana. Ver la nota de más abajo.
-
-**Pruebas:** 307 de frontend (Vitest + Testing Library, en jsdom) y 121 de `cargo test`, más 3
-ignoradas que miden y no afirman: contadas el 2026-09-30, con 12 tareas del Tier 12 hechas. La
-cobertura se midió el 2026-09-25, antes de ellas, y es del
-**81,41 %** de sentencias sobre el código propio —sin contar los dobles de prueba ni los componentes
-que genera shadcn—. Era del 89,61 % antes de los Tiers 10 y 11, y lo que baja son las acciones de
-Servicios de `App.tsx`, el catálogo inglés y Ajustes (T12-20). **Cinco pruebas de guardia se han comprobado con una
-mutación**: las dos del Tier 1, la del tope de la descarga y la de la rotación del log. Y desde el
-2026-09-25, las dos de los procesos críticos de Windows (T12-01). Se quita la
-guardia, se ve fallar el test y se restaura — una prueba negativa que nunca se ha visto fallar no
-prueba nada.
+**Pruebas:** 307 de frontend (Vitest + Testing Library, en jsdom) y 126 de `cargo test`, más 3
+ignoradas que miden y no afirman: contadas el 2026-09-30. La cobertura, medida el 2026-09-25, es del
+**81,41 %** de sentencias sobre el código propio —sin los dobles de prueba ni los componentes de
+shadcn—. Era del 89,61 % antes de los Tiers 10 y 11; lo que baja son las acciones de Servicios de
+`App.tsx`, el catálogo inglés y Ajustes (T12-20). **Las pruebas de guardia se ven fallar antes de
+darlas por buenas**: se quita la guardia, se comprueba que la prueba cae y se restaura. Así están
+las dos del Tier 1, la del tope de la descarga, la de la rotación del log y, desde el Tier 12, las de
+los procesos críticos, la de las barras en los servicios, las del instalador verificado y la de la
+RAM de un servicio con la app elevada. Una prueba negativa que nunca se ha visto fallar no prueba
+nada.
 
 **Comprobaciones del corte:** `cargo test`, `npm test`, clippy, **ESLint**, `cargo audit` y
-`npm audit --omit=dev`, todas dentro de `release.ps1`, que aborta si algo falla. Además avisa si
-`package.json` o `Cargo.lock` son más recientes que `THIRD-PARTY-NOTICES.txt`. Si faltan clippy o
+`npm audit --omit=dev`, todas dentro de `release.ps1`, que aborta si algo falla. Si faltan clippy o
 `cargo-audit`, avisa y sigue. **Se para con cambios sin commitear**, rastreados o no, salvo
 `-AllowDirty`, y `-SkipTests` se niega si el `HEAD` o lo modificado encima no son lo que vio el
-último *dry run*. Las dos últimas cosas fallaban hasta el 2026-09-25: faltando `cargo-audit` el corte
-abortaba, y lo modificado sin commitear entraba en el release sin que nada lo parase (T12-21,
-T12-22).
+último *dry run*. Avisa además si `package.json` o `Cargo.lock` son más recientes que
+`THIRD-PARTY-NOTICES.txt`, un aviso que hoy salta siempre (T12-25).
 
-**Y en cada push y pull request, las mismas en GitHub Actions** (desde el 2026-09-23, con el
-repositorio público): `.github/workflows/ci.yml` corre ESLint, `npm test`, `npm run build`, clippy
-y `cargo test` en `windows-latest`, y las dos auditorías en Ubuntu —estas también cada lunes,
-porque un aviso nuevo sale sin que nadie haga push—. Cubre el hueco que antes quedaba dicho aquí:
-**que el proyecto compile y pase en un equipo limpio**. No publica nada ni tiene secretos; el corte
-sigue siendo `release.ps1`. ✅ **Verificado en el runner el 2026-09-23**: las pruebas de los dos
-lados pasan en una máquina sin los servicios ni los procesos de este equipo. La primera ejecución
-paró en `cargo audit` por RUSTSEC-2026-0285 (`rustls`), que se arregló en el mismo día: justo lo
-que se esperaba de ella.
+**Y en cada push y pull request, las mismas en GitHub Actions** (desde el 2026-09-23):
+`.github/workflows/ci.yml` corre ESLint, `npm test`, `npm run build`, clippy y `cargo test` en
+`windows-latest`, y las dos auditorías en Ubuntu, estas también cada lunes. Cubre lo que el corte
+local no puede: **que el proyecto compile y pase en un equipo limpio**. No publica ni tiene secretos;
+el corte sigue siendo `release.ps1`.
 
 ### Rendimiento medido (2026-08-18)
 
@@ -273,42 +107,33 @@ en el equipo y 26 vigilados por la app.
 
 ### Lo que está verificado sobre la app en ejecución
 
-Todo lo del producto se ha comprobado con la app corriendo, no solo con pruebas: la lista de
-procesos reales con su puerto, buscar por puerto y liberarlo al matar, el refresco por eventos desde
-Rust, los ajustes y el historial sobreviviendo al reinicio, el tema siguiendo a Windows, el menú
-contextual copiando al portapapeles real, Escape cancelando el diálogo destructivo, el Auto-Kill
-cerrando un proceso de 651 MB sin tocar los 7 `node` reales de la máquina, `Ctrl+Alt+K` pulsado de
-verdad (con `keybd_event`, no `SendKeys`), los toast apareciendo en pantalla, y —desde el Tier 7— el
-CSP activo, la X cerrando la app, la instancia única, el poller despertando al instante y la tabla
-ordenándose por columna sin que las filas bailen entre refrescos, y el sidebar plegándose
-sin sacar al usuario de la vista; y —desde el Tier 8— el medidor del entorno moviéndose entre ciclos,
-subiendo con un `node` de 380 MB levantado a propósito y poniéndose en pausa con el refresco en
-"Off"; y —desde la revisión— **la app respetando «Efectos de animación» de Windows**: con el ajuste
-apagado, las barras saltan a su valor sin deslizarse y las filas filtradas desaparecen sin
-desvanecerse; al encenderlo, las dos vuelven a animar.
+Todo lo del producto se ha comprobado con la app corriendo, no solo con pruebas. El detalle de cada
+verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/TIERS-1-11.md), en el
+Tier 12 del [ROADMAP](ROADMAP.md) y en la [bitácora](docs/BITACORA.md).
 
-> ✅ **El log en archivo, verificado sobre el binario de release (2026-08-18).** Con la v1.4.0 ya
-> instalada: el archivo está en `%APPDATA%\com.processdevkill.app\`, Ajustes → Acerca de enseña su
-> ruta real, y dentro está la línea del arranque — escrita por el mismo camino que usan los avisos
-> de fallo. **El propio log documenta la actualización en sitio**: `v1.3.2 arrancando` y luego
-> `v1.4.0 arrancando`. Y confirmó que la `Z` del UTC sirve: `02:32:19Z` es un `22:32` local, cuatro
-> horas de diferencia que sin la marca despistarían a quien lea el archivo.
-
-El detalle de cada verificación, con su fecha y lo que costó, está en [ROADMAP.md](ROADMAP.md) junto
-al tier correspondiente y en la [bitácora](docs/BITACORA.md).
-
-> ✅ **La auto-actualización ya ha corrido de principio a fin, el 2026-08-18.** Era la última
-> salvedad abierta del proyecto y llevaba así desde julio: lanzar el instalador para que reemplace
-> la app es el único paso que no se puede simular, porque hace falta un release posterior al
-> instalado. El usuario actualizó de la **v1.3.1 a la v1.3.2** desde *Ajustes → Actualizaciones* y
-> **la instalación fue silenciosa**: sin asistente, sin ventana de desinstalación y con la app
-> volviendo a abrirse sola.
->
-> Eso cierra de golpe las dos cosas: la cadena entera del actualizador —consulta, elección de
-> assets, descarga, verificación del hash, ejecución y reapertura— y los flags `/S /UPDATE /R` del
-> Tier 9, que hasta ahora solo estaban respaldados por la plantilla NSIS generada y no por la app en
-> marcha.
-
+- **La lista y el cierre:** procesos reales con su puerto, buscar por puerto y liberarlo al cerrar,
+  el refresco por eventos desde Rust, Escape cancelando el diálogo destructivo, la tabla que no
+  reordena las filas bajo el puntero y el Auto-Kill cerrando un proceso de 651 MB sin tocar los
+  `node` reales del equipo.
+- **Fuera de la ventana:** el atajo global pulsado de verdad (con `keybd_event`, no `SendKeys`), los
+  toast en pantalla, la X que cierra la app y la instancia única.
+- **Persistencia y entorno:** ajustes e historial sobreviviendo al reinicio, el tema siguiendo a
+  Windows, el portapapeles real, el medidor del entorno moviéndose y en pausa con el refresco en
+  «Off», y la app respetando «Efectos de animación» de Windows.
+- **Seguridad de la ventana:** el CSP activo, y los permisos quitados en el Tier 12 contestando «not
+  allowed by ACL».
+- **El log**, sobre el binario de release: la ruta que enseña Ajustes es la real, y el propio log
+  registra la actualización en sitio (`v1.3.2 arrancando`, luego `v1.4.0 arrancando`).
+- **La auto-actualización de punta a punta**, el 2026-08-18: de la v1.3.1 a la v1.3.2 desde Ajustes,
+  en silencio, sin asistente ni desinstalador y con la app volviendo a abrirse sola. Cierra la cadena
+  entera —consulta, assets, descarga, hash, ejecución y reapertura— y los flags `/S /UPDATE /R` del
+  Tier 9. **El bloqueo del instalador del Tier 12 (T12-02) todavía no ha pasado por una
+  actualización real**: llegará con el próximo release.
+- **Servicios y administrador:** arrancar y detener con el UAC de verdad; la ventana respondiendo
+  mientras tanto (T12-06, 1-2 ms frente a 45 s sin la corrección); y el modo administrador de la
+  v1.7.0, probado a mano por el usuario, incluido cerrar el UAC sin aprobarlo.
+- **Los dos idiomas:** la interfaz entera en inglés sin restos en español, el `lang` del documento
+  siguiéndola y, desde T12-05, los errores de Rust también.
 
 ## 4. Decisiones tomadas
 
@@ -442,6 +267,10 @@ al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 | 2026-08-23 | **La tabla de servicios lleva anchos declarados y medidos, no automáticos** | Con seis columnas la tabla automática pedía ~980 px y en la ventana mínima hay 692: desbordaba, y como el contenedor solo controla el eje Y el sobrante se escapaba al documento, dejando fuera de pantalla la cabecera y **la columna del nombre**. Con `table-fixed` lo que sobra se trunca y el nombre corto —la clave— se ve siempre. **Los anchos se miden en la ventana en marcha, no se estiman**: al estimarlos, «123 MB» partía en dos líneas y el desplegable cortaba «Automático (retrasa». Un `select` nativo **no** pone puntos suspensivos, corta la palabra a media letra, así que ahí no hay margen |
 | 2026-08-23 | **La lista de un `select` toma el fondo del control, no las variables del tema** | ⚠️ **Sin efecto desde el 2026-09-23**: el arranque ya no es un `select` nativo (ver la fila de esa fecha). Se conserva porque vale para cualquier `select` nativo que vuelva. En el tema oscuro salía blanca, con el texto heredado de `--foreground` —casi blanco ahí— encima: ilegible. **Se arregló dos veces mal antes de acertar, y las dos por verificar el CSS y no el efecto.** Declarar `color-scheme: dark` es correcto y se queda (vale para las barras de scroll y el resto de controles nativos), pero **no basta**: lo que el navegador usa para pintar la lista es el `background-color` del propio `select`, y el nuestro era `bg-transparent` → blanco. Con `bg-card` queda resuelto en los dos temas. No se había visto nunca porque **solo pasa con la lista desplegada**, que es una ventana del sistema: no sale en una captura de la app, igual que los toast de Windows |
 | 2026-08-23 | **La flecha del `select` es nuestra, no la nativa** | ⚠️ **Sin efecto desde el 2026-09-23**, por lo mismo que la fila de arriba. Chromium dibuja la flecha nativa contra el borde de la caja e **ignora `padding-right`**: subirlo de 8 a 12 px para despegarla del borde no la movió ni un pixel, aunque el relleno sí quedara aplicado en el DOM. La única forma de colocarla es `appearance-none` y poner la nuestra —el `ChevronDownIcon` de lucide, el mismo juego que el resto de la app— con `pointer-events-none` para que el clic siga llegando al control. Con la flecha propia, el hueco reservado es nuestro: `pr-7`, y la columna se queda en **200** con el texto en 133,3 de 138 disponibles |
+| 2026-08-22 | **La RAM de un servicio no se lee sin ser administrador, y se dice** | Tier 10, fase A. `OpenProcess` devuelve acceso denegado incluso con `PROCESS_QUERY_LIMITED_INFORMATION`. Por eso `memory_mb` es `Option` y la columna pinta «—» con su explicación, nunca un «0 MB» que el usuario se creería. El mismo criterio que el «En pausa» del medidor: decir lo que no se sabe. Con la app elevada, el «—» dice que no se pudo leer, no que falta el permiso (T12-07) |
+| 2026-08-23 | **Leer sin privilegios, y elevar solo la acción, con la guardia dentro del proceso elevado** | Tier 10, fase B. `services.rs` abre el SCM con `SC_MANAGER_CONNECT \| SC_MANAGER_ENUMERATE_SERVICE` y no puede tocar nada aunque quisiera. Lo que actúa vive en `service_control.rs`: relanza el propio ejecutable con `runas`, y ese hijo hace una llamada al SCM y muere. **El hijo revalida el nombre** contra el catálogo más los `customServices` que relee del disco, en vez de aceptar una lista por parámetro, que sería validarse contra su propia entrada. Sin eso, bastaría lanzarlo con cualquier nombre para que el UAC de esta app detuviera un servicio del sistema. **Precisado el 2026-09-25 (T12-04):** la guardia limita el hijo a lo que el usuario vigila y corta los errores propios; no frena a un programa que ya corre como el usuario, que puede escribir `settings.json` y pedir `runas` sobre `sc.exe` |
+| 2026-08-23 | **Sin cascada: la app no detiene los dependientes de un servicio** | Tier 10, fase B. Windows no detiene un servicio con dependientes vivos, y la app no los detiene por su cuenta aunque `services.msc` lo ofrezca: serían servicios que nunca pasaron por la guardia ni por el diálogo. Se enseñan sus nombres y el usuario decide |
+| 2026-08-23 | **El registro de deshacer guarda el original, no el historial** | Tier 10, fase C. `service-changes.json` tiene una entrada por servicio, con el valor de antes de que la app lo tocara la primera vez, y **la entrada se borra al volver a él**. Un registro paso a paso obligaría a deshacer tres veces para desandar tres cambios. El cambio de arranque es lo único de la app que sobrevive a un reinicio fuera de su `settings.json`, y por eso es lo único con deshacer. Se ofrecen cuatro tipos: `boot` y `system` no están, y el proceso elevado también lo valida |
 | 2026-07-25 | El build se lanza con `ProcessStartInfo`, no con `& npm` | **En PowerShell `$env:VAR = ""` borra la variable en vez de dejarla vacía.** Con la clave sin contraseña hay que pasar un `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` vacío; al desaparecer, Tauri decide preguntar por consola y el build **se cuelga indefinidamente sin dar error**. `ProcessStartInfo.Environment` sí admite el valor vacío, y de paso la clave no toca la sesión de quien ejecuta el script |
 | 2026-09-23 | **Hay CI en GitHub Actions: comprueba, pero no publica** | **Revoca T4-04 (fila del 2026-08-18)**, decisión del usuario con el repositorio ya público. Aquella se sostenía en que el corte local ya aborta si algo falla, y eso sigue siendo verdad; lo que no cubría —lo decía la propia fila— es que el proyecto compile en un equipo limpio, y con un repositorio público eso deja de ser teórico: un PR de alguien de fuera no pasa por `release.ps1`. Un repositorio público además tiene los runners gratis, que era parte del coste. `ci.yml` repite las comprobaciones de `release.ps1` —ESLint, `npm test`, `npm run build`, clippy y `cargo test` en **`windows-latest`**, porque `windows`, el SCM y `listeners` solo se prueban de verdad ahí— y las auditorías en Ubuntu, también **cada lunes**. **Lo que no cambia:** el corte de versión sigue siendo local (fila del 2026-07-24), el workflow no tiene secretos y corre con `contents: read`. `release.ps1` mantiene sus propias comprobaciones: la CI no sustituye al dry run, lo adelanta |
 | 2026-09-23 | **El atajo global viene apagado, con la combinación elegible y dos pulsaciones** | Tier 11, A1; **precisa la fila del 2026-07-23**, que añadió el interruptor pero lo dejó encendido. Cierra todo lo vigilado sin confirmar y, al ser `RegisterHotKey`, se lo quita a todas las apps: en los IDE de JetBrains Ctrl+Alt+K es *Commit and Push* (comprobado en su documentación), así que quien lo pulsaba ahí cerraba sus servidores y el IDE ni recibía la tecla. El Auto-Kill nace apagado por matar sin preguntar, y esto por lo mismo. **Tres cambios:** `hotkeyEnabled` a `false` de fábrica —solo alcanza a quien no tenga el campo guardado—; la combinación se elige entre **una lista cerrada** (Ctrl+Alt+K, Ctrl+Alt+Shift+K, Ctrl+Alt+F12), no una tecla libre, que pediría un capturador para algo que se elige una vez; y **dos pulsaciones en 3 s**, encendido de fábrica. Esto último sí llega a quien ya tenía el atajo activo, porque su `settings.json` no trae el campo: es la mitad del arreglo que alcanza a los usuarios ya expuestos. La primera pulsación avisa por notificación de **cuántos** caerían. El atajo sale de `lib.rs` a `hotkey.rs` |
@@ -469,22 +298,19 @@ al tier correspondiente y en la [bitácora](docs/BITACORA.md).
 | 2026-09-25 | **Hay `CHANGELOG.md`: qué cambió en cada versión, para quien usa la app** | Decisión del usuario. Hasta hoy eso vivía en dos sitios: en las notas de los releases de GitHub, que no están en el repositorio, y en la cadena de «Antes: la vX…» de §3, que es estado y no historia. Responde a una pregunta que no tenía documento propio, así que no rompe la regla de «cada documento responde a una pregunta». Se reconstruyó a partir de las 15 notas publicadas, y va marcado como aproximado. Desde la próxima versión se escribe al cortarla, y `release.ps1` sacará de él las notas (T12-23) |
 | 2026-09-25 | **No se autentica el canal entre la app y su proceso elevado** | Se valoró al descubrir que la guardia del hijo relee un `settings.json` que cualquier programa del usuario puede escribir. No compensa: UAC no es una frontera de seguridad para el mismo usuario, que ya puede pedir `runas` sobre `sc.exe`, firmado por Microsoft y con un aviso de UAC más creíble que el de esta app sin firmar. Lo que se corrige es la promesa de la documentación (T12-04), no el mecanismo |
 | 2026-09-25 | **Hay procesos que no se vigilan aunque se añadan, y la lista no es configurable** | T12-01. `CRITICOS` en `processes.rs`: los procesos cuyo cierre cuelga Windows o cierra la sesión (`csrss`, `smss`, `wininit`, `winlogon`, `lsass`, `svchost`, `explorer`…). Se aplica en `classify`, así que ni se listan. **No se puede desactivar desde Ajustes a propósito**: la app es para cerrar procesos de desarrollo, y ninguno de estos lo es. Si alguno bloquea un uso legítimo, se quita de la lista en el código, con su motivo. Ajustes avisa al intentar añadirlos, pero el aviso solo no bastaba: `settings.json` se puede editar a mano |
+| 2026-09-30 | **Los errores de Rust que llegan a la ventana son enums, y la frase la pone `textos.rs`** | T12-05. Se valoró pasar el idioma a cada función, y se descartó: habría tocado decenas de firmas puras y sus pruebas, y una función nueva podía seguir devolviendo un `String` en español sin que nada lo notara. Con un enum, la frase vive en un `match` exhaustivo por idioma, y una variante sin traducir no compila. El detalle técnico que da el sistema va dentro de la variante y no se traduce. Consecuencia: las pruebas comparan la variante, no un trozo de frase |
+| 2026-09-30 | **El instalador se bloquea desde que se comprueba hasta que se lanza** | T12-02. Lo lanzado tiene que ser exactamente lo verificado, y con la app elevada el instalador hereda la elevación. `share_mode(FILE_SHARE_READ)` sobre un handle que vive hasta después de `CreateProcess`, comprobado contra el NSIS real antes de escribirlo |
+| 2026-09-30 | **Lo cerrado sale del ROADMAP a `docs/`, y CONTEXT §3 dice el estado, no la historia** | Decisión del usuario, al pedir que se reorganizara y compactara la documentación. El ROADMAP pasó de 2.246 líneas a unas 640: los Tiers 1 a 11, **íntegros**, en `docs/TIERS-1-11.md`, y una línea por Tier en «Lo hecho». CONTEXT §3 perdió la cadena «Antes: la v1.x…», que ya cuenta el CHANGELOG, y sus decisiones de servicios pasaron aquí, a §4. **Se movió, no se borró**, con el criterio del Tier 7.7: borrar repetición, no información. §4 no se podó: son las razones, que es lo que da valor al repositorio |
 
 ## 5. Decisiones pendientes
 
-**Solo lo que sigue abierto.** Las que se cerraron —el nombre, el repositorio, su renombrado, el
-índice de `codegraph`— estaban aquí tachadas y se han quitado el 2026-08-23: una lista de pendientes
-donde la mayoría son cosas hechas obliga a leerla entera para encontrar las dos que quedan. Están en
-§4 si se cerraron con un motivo, y en la [bitácora](docs/BITACORA.md) si solo se hicieron.
+Solo lo abierto. Lo cerrado está en §4 si se decidió con un motivo, y en la
+[bitácora](docs/BITACORA.md) si solo se hizo. La firma Authenticode no está aquí porque está
+decidida: no la habrá (§4, 2026-08-18).
 
 - [ ] Lista inicial de procesos vigilados por defecto (¿incluir `java`, `deno`, `bun` desde el inicio?).
 - [ ] Ampliar el catálogo de servicios de fábrica según lo que aparezca en equipos reales. Hoy son
       siete familias; lo que falte se puede añadir a mano en Ajustes, así que no bloquea a nadie.
-
-> **La firma de código Authenticode ya no está aquí, y es a propósito.** Figuraba como pendiente
-> hasta el 2026-08-23 aunque estuviera **decidida** desde el 2026-08-18: no la va a haber. Tenerla
-> en las dos listas era el peor de los dos sitios —quien leyera esta la creería en el plan, y
-> `release.ps1` y el README dicen lo contrario—. El motivo y sus consecuencias, en §4.
 
 ## 6. Cómo retomar el proyecto en otro equipo
 
@@ -524,17 +350,10 @@ Comprobación rápida de que está sano: debe existir `…\VC\Tools\MSVC\<versi�
 
 ## 7. Convenciones
 
-**Están en [.claude/CLAUDE.md](.claude/CLAUDE.md), y solo ahí.**
-
-Desde el 2026-07-25 esta sección las repetía, con una nota que pedía «cambiarlas en los dos sitios».
-Eso es una promesa que nadie cumple: la lista de aquí ya se había quedado corta. `CLAUDE.md` es la
-fuente única porque es lo que se carga solo al abrir una sesión de agente — el sitio donde una
-convención sirve de algo es aquel donde se lee sin buscarla.
+**Están en [.claude/CLAUDE.md](.claude/CLAUDE.md), y solo ahí**: es lo que se carga solo al abrir una
+sesión de agente. Hasta el 2026-07-25 se repetían aquí, y la copia se quedó corta.
 
 ## 8. Registro de sesiones
 
-Vive en [docs/BITACORA.md](docs/BITACORA.md), una entrada por sesión y la más reciente arriba.
-
-Se separó de aquí el 2026-07-27: eran 180 líneas —más que el resto de este archivo— creciendo por
-sesión dentro del documento que uno abre para saber en qué punto está el proyecto. **Es historia, no
-estado.** Lo que sigue vigente está en las secciones de arriba; lo que narra cómo se llegó ahí, allí.
+En [docs/BITACORA.md](docs/BITACORA.md), una entrada por sesión y la más reciente arriba. Es historia,
+no estado: salió de aquí el 2026-07-27.

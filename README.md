@@ -13,7 +13,7 @@ con su CPU, su RAM y **el puerto local que ocupa cada uno**, y los cierra de uno
 [![Windows 10 y 11](https://img.shields.io/badge/Windows-10%20%C2%B7%2011-0078D4)](#descarga-e-instalación)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB)](https://tauri.app)
 
-![Lista de procesos de desarrollo con su CPU, su RAM y su puerto](docs/screenshots/procesos-oscuro.png)
+![Lista de procesos de desarrollo con su puerto, su CPU y su RAM, y el script y el proyecto de cada uno](docs/screenshots/procesos-oscuro.png)
 
 </div>
 
@@ -33,72 +33,80 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 
 ## Qué hace
 
+**Ver qué corre**
+
 - Lista **Node, Python y .NET** —más los ejecutables que añadas— con CPU, RAM, tiempo activo y los
   puertos TCP en escucha de cada proceso.
 - **Cada fila dice qué es**: debajo de `node.exe`, el script y la carpeta del proyecto
-  —`vite · mi-web`—, para no tener que adivinar cuál de los trece `node.exe` es el tuyo. Nunca la
-  línea de comandos entera, que puede llevar tokens.
+  —`vite · mi-web`—, para saber cuál de los trece `node.exe` es el tuyo.
 - Busca por nombre, script, carpeta, PID **o número de puerto**: escribe `3000` y te queda la fila
   que lo ocupa. <kbd>Ctrl</kbd>+<kbd>F</kbd> lleva al buscador desde cualquier vista.
-- Cierra procesos de uno en uno con **Kill**, o por selección múltiple o de golpe con **Nuke All**,
-  que piden confirmación. Al marcar filas aparece una barra con **Cerrar** y **Quitar selección**, y
-  con un filtro puesto el botón dice que cierra **la lista filtrada**. Mientras el puntero está sobre la tabla **las filas no cambian de
-  sitio**, para que el Kill que tienes debajo siga siendo el del mismo proceso.
-- **Procesos protegidos**: los que marques —por ejecutable, script o carpeta— no los cierra nada de
-  la app, ni Nuke All, ni la bandeja, ni el atajo, ni el Auto-Kill.
-- **Menú contextual** en cada fila —con clic derecho, o con <kbd>Shift</kbd>+<kbd>F10</kbd> o la tecla
-  Menú desde la casilla o el Kill de la fila—: copiar el PID, el nombre, el puerto o `http://localhost:PUERTO`,
-  proteger el proceso y, al final, matarlo.
-- **Icono en la bandeja** con acciones rápidas, y un **atajo global** opcional (apagado de fábrica)
-  que cierra todo lo vigilado sin abrir la ventana. La combinación se elige —<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd>
-  por defecto— y pide **dos pulsaciones**: la primera solo avisa de cuántos caerían.
-- **Auto-Kill** (opcional, apagado de fábrica): cierra solo los procesos que pasen de un umbral de
-  RAM, avisa por notificación y lo registra. Para fugas de memoria y watchers desbocados.
-- **Zombie Finder** (opcional, apagado de fábrica): resalta los procesos que llevan minutos sin
-  consumir CPU **y siguen ocupando un puerto** — el servidor de la semana pasada. No cierra nada,
-  solo lo señala.
-- **Medidor del entorno** en el sidebar: cuánta CPU y cuánta RAM de tu equipo se está llevando el
-  entorno de desarrollo, sobre el total de la máquina. Las barras de la tabla comparan procesos
-  entre sí; ésta te dice si el problema es tuyo o del equipo.
-- **Historial** de cierres con el origen de cada uno —ventana, bandeja, atajo o Auto-Kill—,
-  agrupado por acción: un Nuke All de quince procesos es una fila que se despliega.
-- **Panel de servicios de desarrollo**: SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS,
-  con su estado, su tipo de arranque y el puerto que ocupan. Es donde se ve que tienes dos
-  PostgreSQL arrancando con Windows sin saberlo. Se pueden **arrancar, detener y cambiarles el
-  tipo de arranque** desde ahí: Windows pide permisos de administrador **solo en ese momento**,
-  porque de fábrica la app no se eleva entera. Y como el tipo de arranque sobrevive al reinicio, la app
-  **anota lo que cambió** y deja deshacerlo.
-- **Dice lo que no puede ver sin ser administrador**: la RAM de los servicios y el script y la
-  carpeta de los procesos abiertos desde una terminal elevada, que tampoco puede cerrar. El aviso
-  sale en el sidebar, y desde Ajustes se puede reiniciar elevada o pedir que **arranque siempre como
-  administrador** (apagado de fábrica: supone un aviso de UAC en cada arranque).
-- Tema claro/oscuro que sigue al de Windows, o fijo si lo prefieres.
-- **Español e inglés**, y no solo la ventana: el menú de la bandeja y las notificaciones de Windows
-  cambian con ella, que es lo único que se ve con la app escondida. Se elige en Ajustes y no hay que
-  reiniciar.
-- **Avisa de versiones nuevas** al arrancar y las instala desde Ajustes, comprobando el hash del
-  instalador antes de ejecutarlo.
+- **Medidor del entorno** en el sidebar: cuánta CPU y RAM del equipo se lleva lo que estás
+  desarrollando, sobre el total de la máquina.
+
+**Cerrar sin equivocarte**
+
+- **Kill** en cada fila, o por selección múltiple o de golpe con **Nuke All**, que piden
+  confirmación. Mientras el puntero está sobre la tabla **las filas no cambian de sitio**, para que
+  el Kill que tienes debajo siga siendo el del mismo proceso.
+- **Procesos protegidos** —por ejecutable, script o carpeta—: no los cierra nada de la app. Y los
+  procesos críticos de Windows (`svchost`, `csrss`, `explorer`…) no se pueden vigilar aunque se
+  añadan *(desde la próxima versión)*.
+- **Menú contextual** en cada fila, con clic derecho o con teclado: copiar el PID, el nombre, el
+  puerto o `http://localhost:PUERTO`, proteger el proceso y, al final, cerrarlo.
+- **Historial** de cierres con su origen —ventana, bandeja, atajo o Auto-Kill—, agrupado por acción.
+
+**Sin abrir la ventana**
+
+- **Icono en la bandeja** con acciones rápidas.
+- **Atajo global** (apagado de fábrica) que cierra todo lo vigilado. La combinación se elige, y pide
+  **dos pulsaciones**: la primera solo avisa de cuántos caerían.
+- **Auto-Kill** (apagado de fábrica): cierra los procesos que pasen de un umbral de RAM, lo avisa y
+  lo registra. Para fugas de memoria y watchers desbocados.
+- **Zombie Finder** (apagado de fábrica): resalta los procesos que llevan minutos sin consumir CPU
+  **y siguen ocupando un puerto** —el servidor de la semana pasada—. No cierra nada.
+
+**Servicios de desarrollo**
+
+- SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS, con su estado, su tipo de arranque y
+  su puerto. Es donde se ve que tienes dos PostgreSQL arrancando con Windows sin saberlo.
+- Se pueden **arrancar, detener y cambiarles el tipo de arranque**. Windows pide permisos de
+  administrador **solo en ese momento**, y la app **anota lo que cambió** para poder deshacerlo.
+- **Dice lo que no puede ver sin ser administrador** —la RAM de los servicios, y el script de los
+  procesos abiertos desde una terminal elevada—, y desde Ajustes se puede reiniciar elevada o
+  **arrancar siempre así** (apagado de fábrica).
+
+**Y además**
+
+- Tema claro u oscuro, siguiendo al de Windows o fijo.
+- **Español e inglés**, también en el menú de la bandeja y las notificaciones, y desde la
+  próxima versión en los mensajes de error. Se cambia en Ajustes, sin reiniciar.
+- **Avisa de versiones nuevas** y las instala desde Ajustes, comprobando el hash del instalador antes de
+  ejecutarlo.
 
 ## Capturas
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/procesos-claro.png" alt="La misma lista en tema claro"></td>
-    <td width="50%"><img src="docs/screenshots/menu-contextual.png" alt="Menú contextual de una fila, con las opciones de copiar"></td>
+    <td width="50%"><img src="docs/screenshots/procesos-claro.png" alt="La lista de procesos en tema claro"></td>
+    <td width="50%"><img src="docs/screenshots/menu-contextual.png" alt="Menú contextual de una fila, con las opciones de copiar, proteger y cerrar"></td>
   </tr>
   <tr>
     <td align="center"><em>Tema claro, siguiendo al de Windows</em></td>
-    <td align="center"><em>Clic derecho: matar o copiar PID, nombre, puerto o la URL</em></td>
+    <td align="center"><em>Clic derecho: copiar, proteger o cerrar</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/servicios.png" alt="Servicios de desarrollo con su estado, su tipo de arranque y su puerto"></td>
+    <td width="50%"><img src="docs/screenshots/ajustes.png" alt="Ajustes: procesos vigilados y protegidos, Auto-Kill y Zombie Finder"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Servicios: arrancar, detener y cambiar el arranque</em></td>
+    <td align="center"><em>Ajustes: vigilados, protegidos, Auto-Kill y Zombie Finder</em></td>
   </tr>
 </table>
 
-<div align="center">
-  <img src="docs/screenshots/ajustes.png" width="72%" alt="Vista de Ajustes con Auto-Kill, Zombie Finder y el atajo global">
-  <p><em>Ajustes: procesos vigilados, Auto-Kill, Zombie Finder y el atajo global</em></p>
-</div>
-
-> Las capturas se regeneran con [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1),
-> que conduce la app de verdad; no están retocadas.
+> Las capturas las genera [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1)
+> conduciendo la app de verdad, con los procesos y servicios reales del equipo; no están retocadas.
 
 ## Descarga e instalación
 
@@ -111,117 +119,93 @@ Desde la **[página de releases](https://github.com/xfiberex/ProcessDevKill/rele
 | `*.sha256` | El hash de cada instalador, por si quieres verificar la descarga. | — |
 
 Requiere **Windows 10 o 11 (x64)** con **WebView2**, que viene de serie en Windows 11 y en Windows
-10 actualizado. No hay versión de macOS ni de Linux: la app usa `sysinfo` y `listeners`, que sí son
-multiplataforma, pero no está probada fuera de Windows y el `.dmg` no se puede generar desde aquí.
+10 actualizado. No hay versión de macOS ni de Linux: no está probada fuera de Windows, y el panel de
+servicios habla con el gestor de servicios de Windows.
 
-Para desinstalar: *Configuración → Aplicaciones → ProcessDevKill*, o el `uninstall.exe` que queda
-en la carpeta de instalación.
+Para desinstalar: *Configuración → Aplicaciones → ProcessDevKill*.
 
-### El aviso de SmartScreen
+**El aviso de SmartScreen.** Los instaladores **no están firmados**, así que la primera vez Windows
+enseñará *«Windows protegió su PC»*: **Más información → Ejecutar de todas formas**. No es un fallo
+ni una detección: es lo que le pasa a cualquier ejecutable sin certificado de firma de código, que
+es de pago y que **el proyecto ha decidido no comprar**.
 
-Los instaladores **no están firmados**, así que la primera vez Windows enseñará *"Windows protegió
-su PC"*: **Más información → Ejecutar de todas formas**. No es un fallo del instalador ni una
-detección de nada; es lo que le pasa a cualquier ejecutable sin certificado de firma de código,
-que cuesta dinero y todavía no lo tiene este proyecto.
-
-### Verificar la descarga (opcional)
+**Verificar la descarga (opcional).** El resultado tiene que coincidir con el `.sha256` que acompaña
+al archivo, que está en formato `sha256sum`:
 
 ```powershell
 Get-FileHash .\ProcessDevKill_X.Y.Z_x64-setup.exe -Algorithm SHA256
 ```
 
-El resultado tiene que coincidir con el contenido del `.sha256` que acompaña al archivo (formato de
-`sha256sum`: el hash y el nombre del archivo).
-
-> Es el mismo `.sha256` que usa la auto-actualización, y protege exactamente lo mismo:
-> [qué cubre y qué no](#el-modelo-de-confianza-y-qué-no-cubre).
-
 ## Actualizaciones
 
 La app comprueba al arrancar si hay una versión nueva y avisa con un toast. La descarga y la
 instalación **no ocurren solas**: se lanzan desde *Ajustes → Actualizaciones*, con el número de
-versión y las notas delante.
-
-Desde la v1.3.1, cuando lo confirmas **la instalación es silenciosa**: no aparece ningún asistente
-ni ninguna ventana de desinstalación, la app se cierra, se actualiza y vuelve a abrirse sola. No hay
-nada que responder. (Quien venga de la v1.3.0 verá las ventanas una última vez: el instalador lo
-lanza la versión que ya está instalada, no la nueva.)
+versión y las notas delante. Al confirmar, **la instalación es silenciosa**: la app se cierra, se
+actualiza y vuelve a abrirse sola, sin ningún asistente.
 
 ### El modelo de confianza, y qué no cubre
 
-Antes de ejecutar nada, el instalador descargado se compara con el **`.sha256` publicado como asset
-del mismo release**. Si no coincide, se borra y no se instala. Es el mismo esquema que usa
-[FormatDiskPro](https://github.com/xfiberex/FormatDiskPro), y la implementación está en
-[`src-tauri/src/update.rs`](src-tauri/src/update.rs).
+El instalador descargado se compara con el **`.sha256` publicado como asset del mismo release**. Si
+no coincide, se borra y no se instala. Desde la próxima versión se vuelve a comprobar **justo antes
+de ejecutarlo**, y hasta entonces queda bloqueado para que ningún otro programa pueda cambiarlo. La
+implementación está en [`src-tauri/src/update.rs`](src-tauri/src/update.rs).
 
-Dicho claramente, esto **detecta una descarga corrupta o manipulada en tránsito**, y nada más:
+Dicho claramente, esto **detecta una descarga corrupta o manipulada en tránsito** —y, con lo de la
+próxima versión, también mientras espera en el disco—, y nada más:
 
 - **No demuestra quién publicó el archivo.** El instalador y su hash salen del mismo release, así
   que quien pudiera sustituir el `.exe` podría sustituir también el `.sha256`. No protege frente a
   un compromiso de la cuenta de GitHub.
-- **No sustituye a la firma de código.** SmartScreen seguirá avisando la primera vez: eso requiere
-  un certificado Authenticode de pago, y **el proyecto ha decidido no comprarlo** (2026-08-18). Así
-  que esto no es un paso intermedio hacia otra cosa: el `.sha256` **es** el mecanismo de integridad
-  del proyecto, no un respaldo provisional.
-- **Si un release no publicara su `.sha256`, la app se negaría a actualizarse a él.** Es
-  deliberado: sin nada con que verificar, no se ejecuta un binario descargado.
-
-Es el compromiso habitual de un proyecto sin certificado, y se prefiere decirlo a insinuar una
-garantía que no existe.
+- **No sustituye a la firma de código**, y no es un paso intermedio hacia ella: la firma se descartó
+  el 2026-08-18. El `.sha256` **es** el mecanismo de integridad del proyecto.
+- **Si un release no publicara su `.sha256`, la app se negaría a actualizarse a él.** Sin nada con
+  que verificar, no se ejecuta un binario descargado.
 
 ## Privacidad
 
-Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz alta qué hace con ella:
+Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz alta qué hace con ella.
 
-- **Nada de lo que lee sale de tu máquina.** No hay telemetría ni analítica: ni la lista de
-  procesos, ni los puertos, ni el historial se envían a ningún sitio.
-- Lee **nombre, PID, CPU, RAM, tiempo activo y puertos TCP en escucha** de los procesos vigilados.
+**Nada de lo que lee sale de tu máquina.** No hay telemetría ni analítica.
+
+- De los procesos vigilados lee **nombre, PID, CPU, RAM, tiempo activo y puertos TCP en escucha**.
 - De esos mismos procesos —**solo de los vigilados**, no de los ~300 del equipo— lee también **la
-  línea de comandos y la carpeta de trabajo**, una vez por proceso. Es lo que permite decir qué
-  script corre cada `node` y en qué proyecto. De ahí la app **solo se queda con dos nombres cortos**:
-  el script (`vite`, `server.js`, `-m uvicorn`, sin la ruta) y el último tramo de la carpeta
-  (`mi-api`). **Nunca enseña la línea entera** ni el código en línea (`node -e …`, `python -c …`).
-  El script es el primer argumento que no empieza por `-`, así que una opción con su valor separado
-  por un espacio (`node --token abc123 server.js`) enseña ese valor en su lugar: si pasas secretos
-  por la línea de comandos, mejor con `=` (`--token=abc123`), que no se muestra. Esos dos nombres
-  viven en memoria mientras corre el proceso: no se guardan en el historial.
-- No lee variables de entorno, ni la memoria de los procesos más allá de eso, ni el contenido de
-  ningún archivo.
-- Para el panel de servicios pregunta al **Gestor de control de servicios de Windows** por el
-  catálogo de servicios instalados, su estado, su tipo de arranque y qué depende de qué. Es lectura,
-  no pide privilegios, y se hace **solo al abrir esa vista o al pulsar Refrescar** — no en cada
-  ciclo de refresco.
-- **De fábrica, la app no se ejecuta como administrador.** Arrancar o detener un servicio, y
-  cambiarle el tipo de arranque, sí lo requieren: para eso relanza **su propio ejecutable** con el
-  aviso de UAC, ese proceso hace **una** llamada al sistema y termina. Vive elevado unos
-  milisegundos, sin ventana y sin red. Si cierras el aviso, no se hace nada.
-- **Correr elevada entera es opcional**, desde Ajustes: una vez («Reiniciar como administrador») o
-  siempre («Iniciar siempre como administrador», apagado de fábrica). Windows lo confirma con su
-  aviso de UAC cada vez, y si se cierra sin aprobar la app arranca igual, sin elevar.
-- Los ajustes, el historial y los cambios de arranque se guardan **en tu equipo**, en
-  `%APPDATA%\com.processdevkill.app\` (`settings.json`, `history.json` y `service-changes.json`).
-  Se pueden abrir, copiar entre equipos o borrar; el historial se puede vaciar desde la propia app y
-  tiene un tope de 200 entradas. `service-changes.json` guarda **solo** los tipos de arranque que ha
-  cambiado la app, para poder deshacerlos: cada entrada desaparece sola al volver el servicio a como
-  estaba.
-- En esa misma carpeta la app deja un **registro de avisos** (`processdevkill.log`) cuando algo le
-  falla por dentro: no se pudo guardar el historial, no se pudieron leer los puertos. Anota el
-  fallo, no lo que corre en tu equipo, y **tampoco sale de tu máquina**: está ahí para que puedas
-  adjuntarlo si abres un issue, y puedes borrarlo cuando quieras. Ocupa **como mucho 1 MB**: se
-  rota cada 512 KB y solo se conserva una generación anterior (`.log.1`). La ruta, con botones para
-  abrir la carpeta y copiarla, está en **Ajustes → Acerca de**.
-- **La única petición de red que hace la app** es la comprobación de actualizaciones: al arrancar
-  consulta la API de `github.com` para comparar versiones. Es una descarga normal, sin
-  identificador ni cuenta; GitHub verá tu IP como la vería si abrieras la página. No se descarga
-  nada más sin que lo confirmes tú.
-- Lo demás que sale al exterior lo abres tú: el navegador al pulsar **Repositorio** en Ajustes.
+  línea de comandos y la carpeta de trabajo**, una vez por proceso, y se queda **solo con dos
+  nombres cortos**: el script (`vite`, `server.js`, `-m uvicorn`) y el último tramo de la carpeta
+  (`mi-api`). **Nunca enseña la línea entera** ni el código en línea (`node -e …`). El script es el
+  primer argumento que no empieza por `-`, así que una opción con su valor separado por un espacio
+  (`node --token abc123 server.js`) enseña ese valor en su lugar: si pasas secretos por la línea de
+  comandos, mejor con `=` (`--token=abc123`), que no se muestra. Esos nombres viven en memoria y no
+  se guardan en el historial.
+- No lee variables de entorno, ni la memoria de los procesos más allá de eso, ni ningún archivo.
+- Para el panel de servicios pregunta al **Gestor de control de servicios de Windows** por los
+  servicios instalados, su estado, su arranque y sus dependencias. Es lectura, no pide privilegios y
+  se hace **solo al abrir esa vista o al refrescarla**.
 
-Los permisos concedidos a la ventana son comprobables, y son los mínimos para lo anterior:
-[`capabilities/default.json`](src-tauri/capabilities/default.json). El del portapapeles es de
-**escritura únicamente**, y el de abrir archivos está acotado a los dos avisos legales, no a una
-carpeta — por eso el botón que abre la carpeta del registro se lo pide a Rust en vez de usar ese
-permiso: así la ventana no gana la capacidad de abrir nada más. La red la usa **solo Rust**, para las actualizaciones; el frontend no tiene ningún permiso
-que le permita salir a internet por su cuenta.
+**Permisos de administrador.** De fábrica, la app no los tiene. Arrancar o detener un servicio, o
+cambiarle el arranque, sí los necesita: la app relanza **su propio ejecutable** con el aviso de UAC,
+ese proceso hace **una** llamada al sistema y termina, sin ventana y sin red. Si cierras el aviso, no
+se hace nada. Correr elevada entera es opcional, desde Ajustes, y Windows lo confirma cada vez.
+
+**Lo que guarda**, todo en `%APPDATA%\com.processdevkill.app\` y todo en tu equipo:
+
+- `settings.json`, `history.json` (tope de 200 entradas, y se vacía desde la app) y
+  `service-changes.json`, que guarda **solo** los tipos de arranque que cambió la app, para poder
+  deshacerlos.
+- `processdevkill.log`, un **registro de avisos** cuando algo falla por dentro —no se pudo guardar
+  el historial, no se pudieron leer los puertos—. Anota el fallo, no lo que corre en tu equipo; está
+  para adjuntarlo si abres un issue. Ocupa **como mucho 1 MB**: rota cada 512 KB y guarda una
+  generación anterior. La ruta está en **Ajustes → Acerca de**.
+
+**La red.** La única petición que hace la app por su cuenta es la comprobación de actualizaciones al
+arrancar, a la API de `github.com`, sin identificador ni cuenta: GitHub verá tu IP como si abrieras
+la página. No se descarga nada sin que lo confirmes. Lo demás lo abres tú, como el navegador al
+pulsar **Repositorio**.
+
+Los permisos de la ventana son los mínimos para lo anterior, y se pueden comprobar en
+[`capabilities/default.json`](src-tauri/capabilities/default.json): el portapapeles es de **solo
+escritura**, abrir archivos está acotado a los dos avisos legales, y la ventana no tiene ningún
+permiso para salir a internet; desde la próxima versión, tampoco para mandar notificaciones. Las
+dos cosas las hace Rust.
 
 ## Cómo funciona
 
@@ -235,7 +219,7 @@ flowchart LR
         J["settings.json<br/>history.json"]
     end
     subgraph Web["Ventana (React + TS)"]
-        U["Tabla, Historial, Ajustes"]
+        U["Procesos, Servicios, Historial, Ajustes"]
     end
     B["Bandeja"]
     A["Atajo global"]
@@ -255,16 +239,14 @@ Cuatro decisiones explican casi todo el diseño; el resto están en
 [CONTEXT.md §4](CONTEXT.md#4-decisiones-tomadas), con su fecha y su motivo:
 
 - **El frontend no hace polling.** Un hilo de Rust enumera procesos y sockets y empuja el evento
-  `processes-updated`; React solo escucha. El intervalo se configura desde la UI.
-- **Todo cierre pasa por `kill_and_record`.** La ventana, la bandeja, el atajo global y el Auto-Kill
-  comparten camino, así que los cuatro notifican, registran en el historial y refrescan igual. Tres
-  rutas separadas se habrían desincronizado a la primera. Es también donde se rechaza a los
-  procesos protegidos, venga la orden de donde venga.
-- **Los puertos se filtran por TCP + `Listen`.** `listeners::get_all()` devuelve también las
-  conexiones salientes: sin ese filtro la columna enseñaría puertos efímeros al azar en vez del
-  puerto donde sirve tu servidor.
+  `processes-updated`; React solo escucha.
+- **Todo cierre pasa por `kill_and_record`.** La ventana, la bandeja, el atajo y el Auto-Kill
+  comparten camino: los cuatro notifican, registran y refrescan igual, y rechazan igual a los
+  protegidos.
+- **Los puertos se filtran por TCP + `Listen`.** Sin ese filtro, la columna enseñaría los puertos
+  efímeros de las conexiones salientes en vez del puerto donde sirve tu servidor.
 - **La persistencia son archivos JSON propios**, no un store de frontend: la bandeja y el atajo
-  escriben historial con la ventana cerrada, cuando no hay JavaScript vivo que pueda hacerlo.
+  escriben historial con la ventana cerrada, cuando no hay JavaScript vivo.
 
 ## Stack
 
@@ -284,101 +266,77 @@ Cuatro decisiones explican casi todo el diseño; el resto están en
 
 ## Desarrollo
 
-Prerequisitos: **Node.js LTS**, **Rust estable** ([rustup](https://rustup.rs)) y, en Windows, el
-componente **MSVC C++ build tools x64/x86** con el **Windows SDK** desde el Visual Studio Installer
-(`Microsoft.VisualStudio.Component.VC.Tools.x86.x64`). Sin los headers y las librerías de MSVC,
-`cargo` falla al enlazar.
+Prerequisitos: **Node.js LTS**, **Rust estable** ([rustup](https://rustup.rs)) y los **MSVC C++
+build tools x64/x86** con el **Windows SDK**, desde el Visual Studio Installer
+(`Microsoft.VisualStudio.Component.VC.Tools.x86.x64`). Sin ellos, `cargo` falla al enlazar.
 
 ```bash
 npm install
-npm run tauri dev      # app de escritorio con hot reload
-npm run build          # comprueba tipos y compila el frontend
-npm run tauri build    # genera los instaladores NSIS y MSI
+npm run tauri dev             # app de escritorio con hot reload
+npm run build                 # comprueba tipos y compila el frontend
+npm test                      # pruebas del frontend (Vitest + Testing Library)
+cd src-tauri && cargo test    # pruebas del backend
 ```
 
-```bash
-npm test                      # 299 pruebas del frontend (Vitest + Testing Library)
-npm run test:watch            # las mismas, en modo vigilancia
-cd src-tauri && cargo test    # 117 pruebas del backend
-```
-
-Las pruebas de Rust leen los procesos reales del equipo y **solo matan procesos que lanzan ellas
+Las pruebas de Rust leen los procesos reales del equipo y **solo cierran procesos que lanzan ellas
 mismas**; ninguna toca los tuyos. Las del frontend corren en jsdom con los módulos de Tauri
-doblados, así que no abren ninguna ventana ni tocan procesos.
-
-Cubren lo que más caro sale romper: que <kbd>Escape</kbd> cancela el diálogo destructivo sin matar
-nada, la búsqueda por puerto, el suelo de 256 MB del Auto-Kill y que el portapapeles va por el
-plugin de Tauri. [`src/types.test.ts`](src/types.test.ts) además lee el fuente de Rust y compara las
+doblados. [`src/types.test.ts`](src/types.test.ts) lee además el fuente de Rust y compara las
 constantes espejo, para que el contrato entre los dos lados no se desincronice en silencio.
 
-### Integración continua
-
-Cada push a `main` y cada pull request pasan por **GitHub Actions**, en
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml). Son las mismas comprobaciones que hace
-`release.ps1` antes de cortar una versión, así que un fallo se ve en el PR y no el día del release.
-
-| Trabajo | Dónde | Qué comprueba | Cuándo |
-|---|---|---|---|
-| **Pruebas, lint y build** | `windows-latest` | `npm run lint` (ESLint), `npm test`, `npm run build` (tipos + Vite), `cargo clippy -D warnings` y `cargo test` | Push, pull request y a mano |
-| **Auditoría de dependencias** | `ubuntu-latest` | `npm audit --omit=dev --audit-level=high` y `cargo audit` | Lo mismo, y **cada lunes** |
-
-- **En Windows** porque la app es solo de Windows: el Gestor de control de servicios, los sockets
-  de `listeners` y la crate `windows` solo se prueban de verdad ahí. Las pruebas de Rust leen
-  procesos reales y lanzan sus propios `node`; en el runner no hay procesos de nadie más.
-- **La auditoría corre también cada semana** porque un aviso de seguridad nuevo sale sin que nadie
-  haga push. Ya se ha ganado el sitio: su primera ejecución paró en una vulnerabilidad de `rustls`
-  que el siguiente release habría encontrado igual.
-- **Solo comprueba.** Corre con permiso de lectura, sin secretos, y no publica nada: las versiones se
-  siguen cortando en local con `release.ps1`, en el mismo equipo donde se prueba la app. Por eso no
-  hay ningún workflow de release.
+**Integración continua.** Cada push a `main` y cada pull request pasan por
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml): ESLint, las dos suites, `npm run build` y
+clippy en `windows-latest`, porque la app solo es de Windows; y `npm audit` y `cargo audit` en
+Ubuntu, también **cada lunes**, porque un aviso de seguridad nuevo sale sin que nadie haga push. Son
+las mismas comprobaciones que hace `release.ps1` antes de cortar una versión. La CI **solo
+comprueba**: corre sin secretos y no publica nada.
 
 | Herramienta | Para qué |
 |---|---|
-| [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1) | Regenera las capturas del README conduciendo la app por CDP. |
-| [`release.ps1`](release.ps1) | Corta una versión entera: pruebas, bump en los tres sitios, build, `.sha256`, tag y GitHub Release. Admite `-DryRun`. |
+| [`release.ps1`](release.ps1) | Corta una versión entera: pruebas, versión en los tres sitios, build, `.sha256`, tag y GitHub Release. Admite `-DryRun`. |
+| [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1) | Regenera las capturas de este README conduciendo la app por CDP. |
 | `npm run tauri icon app-icon.svg` | Regenera todos los tamaños de icono tras editar `app-icon.svg`. |
 
 ## Estructura
 
 | Ruta | Contenido |
 |---|---|
-| `src/` | Frontend React: vistas, tipos compartidos con Rust y tema |
+| `src/` | Frontend React: vistas, tipos compartidos con Rust, textos en los dos idiomas y tema |
 | `src/components/`, `src/hooks/`, `src/lib/` | Componentes de la app, hooks de React y utilidades |
 | `src/components/ui/` | Componentes de shadcn/ui (generados; se editan a mano si hace falta) |
 | `src-tauri/src/lib.rs` | Arranque de la app y estado compartido |
 | `src-tauri/src/commands.rs` | Los comandos que llama la ventana (los que tienen lógica propia viven con ella) |
-| `src-tauri/src/{processes,ports,storage,tray}.rs` | Procesos, puertos, persistencia y bandeja |
-| `src-tauri/src/{poller,auto_kill,notify}.rs` | Hilo de refresco, cierre automático por RAM y avisos nativos |
+| `src-tauri/src/{processes,ports,storage}.rs` | Procesos, puertos y persistencia |
+| `src-tauri/src/{poller,auto_kill,tray,hotkey,notify}.rs` | Hilo de refresco, Auto-Kill, bandeja, atajo global y avisos nativos |
 | `src-tauri/src/services.rs` | Servicios de desarrollo, **solo lectura**: no puede arrancar ni detener nada |
-| `src-tauri/src/service_control.rs` | Eleva una acción: arrancar, detener y cambiar el arranque, con su guardia |
+| `src-tauri/src/service_control.rs` | Eleva una acción —arrancar, detener, cambiar el arranque— con su guardia |
 | `src-tauri/src/elevation.rs` | Si la app corre como administrador, y relanzarla elevada cuando se pide |
-| `src-tauri/src/textos.rs` | Todo el texto que escribe Rust (bandeja y notificaciones), en los dos idiomas |
+| `src-tauri/src/textos.rs` | Todo el texto que escribe Rust —bandeja, notificaciones y errores—, en los dos idiomas |
 | `src-tauri/src/update.rs` | Actualizaciones: consulta a GitHub, descarga y verificación SHA-256 |
 | `src-tauri/src/logging.rs` | Registro de avisos en archivo, con rotación (en release no hay consola) |
 | `src-tauri/capabilities/` | Permisos concedidos a la ventana |
-| `tools/`, `docs/screenshots/` | Utilidades del repositorio y capturas del README |
-| `.github/workflows/` | La CI de GitHub Actions: pruebas, lint, build y auditorías |
+| `tools/`, `docs/screenshots/` | Utilidades del repositorio y capturas de este README |
+| `.github/workflows/` | La CI: pruebas, lint, build y auditorías |
 | `.claude/skills/`, `.agents/skills/` | Packs de skills de agente (material de terceros; ni se compila ni se distribuye) |
-| `app-icon.svg` | Icono fuente del que salen todos los tamaños |
-| [ROADMAP.md](ROADMAP.md) | Plan de desarrollo por fases, con lo verificado en cada una |
-| [CHANGELOG.md](CHANGELOG.md) | Qué cambió en cada versión, contado para quien usa la app |
-| [CONTEXT.md](CONTEXT.md) | Estado actual y decisiones tomadas, cada una con su fecha y su motivo |
-| [docs/BITACORA.md](docs/BITACORA.md) | Historia sesión a sesión, la más reciente arriba |
-| [docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md) | La auditoría del repositorio y sus 37 tareas, cerradas |
+
+Y la documentación, donde cada cosa vive en un solo sitio:
+
+| Documento | Responde a |
+|---|---|
+| [CHANGELOG.md](CHANGELOG.md) | ¿Qué cambió en cada versión? |
+| [ROADMAP.md](ROADMAP.md) | ¿Qué falta por hacer? |
+| [CONTEXT.md](CONTEXT.md) | ¿En qué estado está, y por qué se decidió así? |
+| [.claude/CLAUDE.md](.claude/CLAUDE.md) | ¿Cómo se trabaja en este repositorio? |
+| [docs/TIERS-1-11.md](docs/TIERS-1-11.md) y [docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md) | ¿Qué se hizo ya, y qué enseñó? |
+| [docs/BITACORA.md](docs/BITACORA.md) | ¿Cómo se llegó hasta aquí, sesión a sesión? |
 
 ## Estado
 
 La versión actual es la **v1.8.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
-porque su mecanismo de actualización ya no existía, y dejarlas descargables solo habría servido para
-instalar algo que no podía actualizarse.
+porque su mecanismo de actualización ya no existía. Lo que viene está en el [ROADMAP](ROADMAP.md).
 
 Lo que **no** hay, por si importa antes de instalarla: **firma de código** —de ahí el aviso de
-SmartScreen— y compilaciones para **macOS o Linux**.
-
-Lo de la firma **no está en el plan**: se descartó el 2026-08-18 porque exige un certificado
-Authenticode de pago. Dicho claro para no dejar la impresión de que llegará en la siguiente versión:
-**SmartScreen va a seguir avisando**, y la comprobación de integridad seguirá siendo el `.sha256`
-que se publica con cada instalador. Lo demás del plan está en el [ROADMAP](ROADMAP.md).
+SmartScreen, que **va a seguir saliendo**: la firma no está en el plan— y versiones para **macOS o
+Linux**.
 
 ## Licencia
 
@@ -387,12 +345,12 @@ estudiarlo, modificarlo y redistribuirlo, **siempre que los derivados conserven 
 publiquen su código fuente**. Se ofrece **sin ninguna garantía**.
 
 Las licencias de los componentes de terceros que el instalador empaqueta —incluida la tipografía
-Geist, con su licencia OFL-1.1— están en [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Todas
-son permisivas y compatibles con la GPLv3.
+Geist, con su licencia OFL-1.1— están en [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), y todas
+son compatibles con la GPLv3.
 
 El repositorio incluye además **18 packs de skills de agente** en `.claude/skills/` y
-`.agents/skills/` —272 de los 376 archivos versionados—. **No forman parte de la app**: no se
-compilan, no se distribuyen en el instalador y no intervienen en las pruebas ni en el corte de
-versión; son material de trabajo para quien desarrolle con un agente. Su procedencia y sus licencias
-están en la sección 5 de [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), incluido lo que **no**
-se ha podido verificar: ocho no declaran licencia por ninguna parte.
+`.agents/skills/`, unos 270 de los 400 archivos versionados. **No forman parte de la app**: no se
+compilan, no viajan en el instalador y no intervienen en las pruebas ni en el corte de versión. Su
+procedencia y sus licencias están en la sección 5 de
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), incluido lo que **no** se ha podido verificar:
+ocho no declaran licencia.

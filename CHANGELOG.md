@@ -32,7 +32,14 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 - Los lectores de pantalla leen la interfaz en inglés con voz inglesa, y encuentran por su nombre
   los campos para añadir procesos y servicios vigilados. (T12-37, T12-38)
 
+- Con la app en inglés, los errores que llegan de dentro —un Kill que falla, la actualización,
+  guardar los ajustes— también salen en inglés. Antes salían siempre en español. (T12-05)
+
 ### Seguridad
+- El instalador de una actualización se vuelve a comprobar justo antes de ejecutarlo, y queda
+  bloqueado hasta entonces para que nada pueda cambiarlo. Importa con la app como administrador,
+  porque el instalador hereda esos permisos. Y solo se instala exactamente lo que se descargó y
+  verificó. (T12-02)
 - La ventana pierde dos permisos que no usaba, los de notificaciones y atajos globales: los usa
   Rust, no la ventana. (T12-03)
 - Un servicio con `\` o `/` en el nombre ya no se puede arrancar ni detener desde la app. Windows
@@ -40,6 +47,8 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
   elevado. (T12-04)
 
 ### Documentación
+- README reescrito y ordenado por lo que hace la app, con capturas nuevas —las anteriores eran de
+  la v1.2.0— y una de la vista de Servicios. Lo que aún no está publicado lo dice. (T12-32)
 - La sección de privacidad del README decía que la app no lee la línea de comandos, y la lee desde
   la v1.6.0 para mostrar el script y el proyecto. Ahora cuenta qué lee y qué enseña. (T12-29)
 

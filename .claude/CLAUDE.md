@@ -3,13 +3,18 @@
 App de escritorio (Tauri 2 + React + TypeScript) que lista los procesos de desarrollo activos con
 su CPU, su RAM y **el puerto local que ocupa cada uno**, y permite cerrarlos. Solo Windows.
 
-El estado y las decisiones viven en [CONTEXT.md](../CONTEXT.md); el plan por fases y lo que enseñó
-cada uno, en [ROADMAP.md](../ROADMAP.md). **Leer los dos antes de tocar nada**: casi todo lo que
-parece raro está explicado ahí con su fecha y su motivo. La historia sesión a sesión está en
-[docs/BITACORA.md](../docs/BITACORA.md), y la auditoría de 2026-08-18 con sus 37 tareas ya cerradas
-en [docs/REVISION-2026-08-18.md](../docs/REVISION-2026-08-18.md); ninguno de los dos hace falta salvo
-para reconstruir cómo se llegó a algo. Lo que cambió en cada versión, contado para quien usa la app,
-está en [CHANGELOG.md](../CHANGELOG.md) desde el 2026-09-25.
+El estado y las decisiones viven en [CONTEXT.md](../CONTEXT.md), y lo que falta por hacer en
+[ROADMAP.md](../ROADMAP.md). **Leer los dos antes de tocar nada**: casi todo lo que parece raro está
+explicado en CONTEXT §4 con su fecha y su motivo. Lo que cambió en cada versión, contado para quien
+usa la app, en [CHANGELOG.md](../CHANGELOG.md). Lo cerrado vive entero en `docs/`: los Tiers 1 a 11
+en [docs/TIERS-1-11.md](../docs/TIERS-1-11.md), la auditoría del 2026-08-18 en
+[docs/REVISION-2026-08-18.md](../docs/REVISION-2026-08-18.md) y la historia sesión a sesión en
+[docs/BITACORA.md](../docs/BITACORA.md). Ninguno de los tres hace falta salvo para reconstruir cómo
+se llegó a algo.
+
+**Al cerrar un Tier, su detalle sale del ROADMAP a `docs/`** y en el ROADMAP queda una línea en «Lo
+hecho». Mientras algo es accionable su sitio es el ROADMAP; cerrado, es historia. Así se hizo con la
+bitácora (2026-07-27), la revisión (2026-08-23) y los Tiers 1 a 11 (2026-09-30).
 
 **Este archivo es la fuente única de las convenciones.** Hasta el 2026-07-27 también estaban en
 CONTEXT.md §7, con una nota que pedía cambiarlas en los dos sitios; la copia se había quedado corta,
@@ -25,6 +30,8 @@ que es lo que pasa siempre. Al añadir una regla aquí, no se replica en ningún
 - **Commits en imperativo:** «Añade comando get_processes», no «Añadido» ni «Adding».
 - Los checkboxes de ROADMAP.md se marcan `[x]` **solo cuando la funcionalidad está probada**, no
   cuando está escrita. Si se probó a medias, se dice qué quedó fuera.
+- **Lo que cambia para quien usa la app se anota en la sección «Sin publicar» del CHANGELOG** al
+  hacerlo, no al cortar la versión. Y si el README describe algo que aún no está publicado, lo dice.
 - Toda decisión técnica que contradiga o precise el roadmap se anota en CONTEXT.md §4 con su fecha.
 
 ## Comentarios
@@ -47,15 +54,18 @@ Ejemplo del estilo que se busca, de `processes.rs`:
   lógica en `processes`, `ports`, `storage`, `tray`, `poller`, `auto_kill`, `hotkey`, `notify`,
   `textos`, `services`, `service_control`, `elevation` y `update`. **Cuando `lib.rs` vuelva a pasar de ~450
   líneas de código, se parte otra vez**: ya ha pasado cuatro veces (Tier 4, Tier 7.6, Tier 10 y
-  Tier 11, que sacó el atajo global a `hotkey.rs`). **Ahora mismo van 417** — medidas sin el
-  `mod tests`, que es como cuenta esta regla.
+  Tier 11, que sacó el atajo global a `hotkey.rs`). **Ahora mismo van 419** (2026-09-30), medidas
+  sin el `mod tests`, que es como cuenta esta regla.
 - Los comandos que tienen lógica propia detrás **no** están en `commands.rs`: los de servicios van
   en `service_control.rs` junto a su guardia, los del actualizador en `update.rs` y los del log en
   `logging.rs`. Se registran con su ruta (`service_control::control_service`) y el nombre por IPC
   lo da el último segmento, así que mover un comando de archivo no cambia cómo se le llama.
 - **Todo el texto de cara al usuario que escribe Rust vive en `textos.rs`**, en los dos idiomas y
   con el catálogo comprobado por el compilador. `notify.rs` solo envía; las palabras no son suyas.
-  El espejo de esto en el frontend es `src/i18n.tsx`.
+  El espejo de esto en el frontend es `src/i18n.tsx`. **Un error que acaba en la ventana se
+  devuelve como enum sin frase** (`update::Fallo`, `processes::FalloCierre`,
+  `storage::FalloGuardado`), y el comando lo convierte con su función de `textos.rs` en el idioma
+  de la app. Un `Err(format!("…"))` en español es el fallo que arregló T12-05.
 - Los comandos del actualizador se registran como `update::check_update` en `generate_handler!`. El
   nombre por IPC lo da el **último segmento**, así que `invoke("check_update")` no cambia.
 - **Toda muerte de proceso pasa por `kill_and_record`.** La ventana, la bandeja, el atajo global y

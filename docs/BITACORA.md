@@ -8,6 +8,51 @@
 
 ---
 
+### 2026-09-30 (3) — La documentación, reorganizada, y las capturas, regeneradas
+
+Pedido por el usuario: actualizar, reorganizar y compactar la documentación, README incluido, y
+regenerar con el script las capturas, que eran del 28 de julio (v1.2.0).
+
+- **Capturas.** El script seguía funcionando casi entero. Se le añadió la de Servicios, y la de
+  Ajustes se rehízo: la vista mide unos 2.500 px, el script la cortaba a 1.400 y se quedaba en el
+  grupo General, dejando fuera el Auto-Kill y el Zombie Finder del pie de foto. Ahora se desplaza al
+  grupo «Vigilancia». `runAsAdmin` se apagó mientras duró, con `settings.json` respaldado y
+  restaurado byte a byte. **Las capturas llevan los procesos reales del equipo**, con nombres de
+  otros proyectos del usuario, y queda en su mano publicarlas así.
+- **ROADMAP**: de 2.246 líneas a unas 640. Los Tiers 1 a 11 pasaron íntegros a `docs/TIERS-1-11.md`,
+  con sus enlaces relativos corregidos para la carpeta nueva.
+- **CONTEXT**: de 542 líneas a unas 360. §3 dice el estado, sin la cadena de versiones que ya cuenta
+  el CHANGELOG, y sus cuatro decisiones de servicios pasaron a §4. §4 no se podó.
+- **README** reescrito, agrupado por lo que hace la app. Al repasarlo salieron cuatro frases que
+  describían funciones de `main` sin publicar, y ahora lo dicen.
+- **T12-32** cerrada de paso, con cinco comentarios de código desfasados.
+- **Comprobado con un script**: 71 enlaces locales en los ocho documentos, cero rotos y cero
+  caracteres de reemplazo. Antes se le vio cazar un enlace y un ancla falsos.
+
+---
+
+### 2026-09-30 (2) — Tier 12: el instalador bloqueado y los errores de Rust traducidos
+
+T12-02 y T12-05, dos de los hallazgos medios.
+
+- **T12-02 se probó antes de escribirse.** Un programa aparte comprobó que el bloqueo por
+  `share_mode` hace lo que se esperaba: escribir o borrar da error 32, renombrar la carpeta da
+  error 5, y el `.exe` se lanza igual. La duda seria era otra: si el **NSIS real** podría leerse a
+  sí mismo con el handle abierto. Se probó lanzando el instalador de la v1.8.0 sin argumentos:
+  abrió su asistente, y se cerró en la primera página sin instalar nada. En `%TEMP%` quedó un
+  `ProcessDevKill_1.8.0_x64-setup.exe` de una actualización real del usuario, y no se tocó.
+- **T12-05 cambió de diseño a mitad**: pasar el idioma a cada función habría tocado decenas de
+  firmas, así que los errores son enums y la frase la pone `textos.rs`. En `kill_and_record`, el
+  primer intento leía el idioma **dentro** del candado de `sys`, lo que anidaba los dos candados.
+  Se vio al escribirlo y se movió antes.
+- **La sonda en vivo falló una vez por un error mío de sintaxis**: al copiar la cabecera de la
+  sonda anterior arrastré una línea de más. No llegó a ejecutarse nada.
+
+Resultado: 126 pruebas de Rust y 307 del frontend en verde, y clippy limpio. Los datos del usuario
+se restauraron con los mismos hashes.
+
+---
+
 ### 2026-09-30 — Tier 12: la tanda de mejoras rápidas
 
 Siete tareas: T12-03, T12-04, T12-07, T12-27, T12-34, T12-37 y T12-38. Las que tocan una guardia o
