@@ -168,15 +168,17 @@ pub fn log_path() -> String {
 /// rotación, que es la otra mitad del historial cuando hace falta.
 #[tauri::command]
 pub fn open_log_dir(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
     use tauri_plugin_opener::OpenerExt;
 
+    let lang = app.state::<crate::AppState>().language();
     let carpeta = ruta()
         .and_then(|p| p.parent())
-        .ok_or("Todavía no hay ninguna carpeta de log.")?;
+        .ok_or_else(|| crate::textos::de(lang).sin_carpeta_de_log.to_string())?;
 
     app.opener()
         .open_path(carpeta.to_string_lossy(), None::<&str>)
-        .map_err(|e| format!("No se pudo abrir la carpeta: {e}"))
+        .map_err(|e| crate::textos::carpeta_no_abierta(lang, &e.to_string()))
 }
 
 #[cfg(test)]

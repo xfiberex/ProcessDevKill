@@ -225,13 +225,15 @@ pub(crate) fn kill_and_record(
     // Los protegidos se vuelven a mirar aqui aunque cada via ya los deje fuera: es la unica puerta
     // por la que pasan las cuatro, y la ventana manda los PIDs que quiera.
     let protected = state.protected_names();
+    // Antes de bloquear `sys`: `language()` toma el candado de los ajustes, y nunca se anidan.
+    let lang = state.language();
 
     let outcomes: Vec<KillOutcome> = {
         let Ok(mut sys) = state.sys.lock() else {
             return Vec::new();
         };
         // `kill_many` lee la tabla de sockets una sola vez para todo el lote.
-        kill_many(&mut sys, &custom, &protected, pids)
+        kill_many(&mut sys, &custom, &protected, pids, lang)
     };
 
     let killed_at = now_millis();

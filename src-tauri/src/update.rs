@@ -47,6 +47,49 @@ pub struct ReleaseInfo {
     pub checksum_url: String,
 }
 
+/// Todo lo que puede salir mal al actualizar, **sin frase**.
+///
+/// Las palabras las pone `textos::fallo_actualizacion`, en el idioma de la app (T12-05). Hasta el
+/// 2026-09-30 cada función devolvía su `String` en español, y con la app en inglés el error del
+/// actualizador salía en español en la ventana. Un enum y no el idioma pasado a cada función: así
+/// una variante nueva sin traducir no compila, que es la regla del catálogo.
+///
+/// Lo que va entre paréntesis es el detalle técnico que da el sistema o `reqwest`, y no se
+/// traduce: llega en el idioma de Windows o en inglés, y es lo que sirve para un issue.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Fallo {
+    ClienteHttp(String),
+    ConsultaGithub(String),
+    GithubRespondio(String),
+    RespuestaIlegible(String),
+    UrlInvalida,
+    SinHttps,
+    NoEsGithub,
+    NoEsDeEsteProyecto,
+    SinDescarga,
+    InstaladorMovido,
+    RutaNoPermitida,
+    NoEsArchivo,
+    CarpetaNoCreada(String),
+    NoSeAbre(String),
+    NoSeLee(String),
+    NoEsLaVerificada,
+    CambioTrasDescarga,
+    DescargaRespondio(String),
+    NoSeEscribe(String),
+    Interrumpida(String),
+    DemasiadoGrande,
+    SinInstalador,
+    SinSha256,
+    ChecksumNoDescargado(String),
+    ChecksumIlegible(String),
+    ChecksumInvalido,
+    InstaladorNoDescargado(String),
+    HashNoCoincide { esperado: String, real: String },
+    NoSeEjecuta(String),
+    SinVerificada,
+}
+
 // ── Lógica pura (sin red, sin disco): es lo que cubren los tests ──────────────
 
 /// Convierte una etiqueta ("v1.2.3", "1.2.3", "1.2") en `(mayor, menor, parche)`.
@@ -163,16 +206,16 @@ pub fn parse_release(root: &serde_json::Value) -> ReleaseInfo {
 
 // ── Entrada/salida ───────────────────────────────────────────────────────────
 
-fn cliente() -> Result<reqwest::Client, String> {
+fn cliente() -> Result<reqwest::Client, Fallo> {
     reqwest::Client::builder()
         .user_agent(USER_AGENT)
         .timeout(std::time::Duration::from_secs(30))
         .build()
-        .map_err(|e| format!("No se pudo preparar el cliente HTTP: {e}"))
+        .map_err(|e| Fallo::ClienteHttp(e.to_string()))
 }
 
 /// Consulta el último release publicado. `None` si no hay ninguno más nuevo.
-pub async fn check_for_update(version_actual: &str) -> Result<Option<ReleaseInfo>, String> {
+pub async fn check_for_update(version_actual: &str) -> Result<Option<ReleaseInfo>, Fallo> {
     let url = format!("https://api.github.com/repos/{REPO}/releases/latest");
 
     let resp = cliente()?
@@ -181,16 +224,16 @@ pub async fn check_for_update(version_actual: &str) -> Result<Option<ReleaseInfo
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await
-        .map_err(|e| format!("No se pudo consultar GitHub: {e}"))?;
+        .map_err(|e| Fallo::ConsultaGithub(e.to_string()))?;
 
     if !resp.status().is_success() {
-        return Err(format!("GitHub respondió {}", resp.status()));
+        return Err(Fallo::GithubRespondio(resp.status().to_string()));
     }
 
     let json: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| format!("Respuesta de GitHub ilegible: {e}"))?;
+        .map_err(|e| Fallo::RespuestaIlegible(e.to_string()))?;
 
     let info = parse_release(&json);
     Ok(is_newer(&info.tag, version_actual).then_some(info))
@@ -224,19 +267,19 @@ pub fn carpeta_descargas() -> PathBuf {
 /// Se valida **la URL que se pide**, no a dónde acabe llevando: GitHub redirige las descargas a
 /// `objects.githubusercontent.com`, y exigir que el destino final sea github.com rompería la
 /// actualización entera. La cadena de redirecciones ya la decide GitHub.
-pub fn url_de_release_valida(url: &str) -> Result<(), String> {
+pub fn url_de_release_valida(url: &str) -> Result<(), Fallo> {
     const HOST: &str = "github.com";
 
-    let parsed = reqwest::Url::parse(url).map_err(|_| "La URL de la descarga no es válida.")?;
+    let parsed = reqwest::Url::parse(url).map_err(|_| Fallo::UrlInvalida)?;
 
     if parsed.scheme() != "https" {
-        return Err("La descarga tiene que ir por HTTPS.".into());
+        return Err(Fallo::SinHttps);
     }
     if parsed.host_str() != Some(HOST) {
-        return Err("La descarga no viene de github.com.".into());
+        return Err(Fallo::NoEsGithub);
     }
     if !parsed.path().starts_with(&format!("/{REPO}/releases/download/")) {
-        return Err("La descarga no es un asset de un release de este proyecto.".into());
+        return Err(Fallo::NoEsDeEsteProyecto);
     }
 
     Ok(())
@@ -255,22 +298,22 @@ pub fn url_de_release_valida(url: &str) -> Result<(), String> {
 ///
 /// Canonicalizar exige además que la ruta exista, así que de paso cubre el "ya no está donde
 /// debería" sin una comprobación aparte.
-pub fn ruta_de_instalador_valida(candidata: &Path) -> Result<PathBuf, String> {
+pub fn ruta_de_instalador_valida(candidata: &Path) -> Result<PathBuf, Fallo> {
     let permitida = carpeta_descargas()
         .canonicalize()
-        .map_err(|_| "No hay ninguna descarga que instalar.".to_string())?;
+        .map_err(|_| Fallo::SinDescarga)?;
 
     let ruta = candidata
         .canonicalize()
-        .map_err(|_| "El instalador descargado ya no está donde debería.".to_string())?;
+        .map_err(|_| Fallo::InstaladorMovido)?;
 
     if !ruta.starts_with(&permitida) {
-        return Err("Ruta de instalador no permitida.".into());
+        return Err(Fallo::RutaNoPermitida);
     }
     // `canonicalize` acepta directorios: sin esto, pasar la propia carpeta llegaría a
     // intentar ejecutarla.
     if !ruta.is_file() {
-        return Err("La ruta indicada no es un archivo.".into());
+        return Err(Fallo::NoEsArchivo);
     }
 
     Ok(ruta)
@@ -295,9 +338,10 @@ fn nombre_seguro(asset_name: &str) -> &str {
 }
 
 /// Carpeta de descargas creada y vaciada de intentos anteriores.
-fn preparar_carpeta() -> Result<PathBuf, String> {
+fn preparar_carpeta() -> Result<PathBuf, Fallo> {
     let dir = carpeta_descargas();
-    std::fs::create_dir_all(&dir).map_err(|e| format!("No se pudo crear {dir:?}: {e}"))?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| Fallo::CarpetaNoCreada(format!("{}: {e}", dir.display())))?;
 
     // Limpia descargas previas para no acumular instaladores viejos en %TEMP%.
     if let Ok(entradas) = std::fs::read_dir(&dir) {
@@ -309,13 +353,78 @@ fn preparar_carpeta() -> Result<PathBuf, String> {
 }
 
 /// SHA-256 de un archivo, en hexadecimal y minúsculas.
-pub fn sha256_de_archivo(ruta: &Path) -> Result<String, String> {
-    let mut archivo =
-        std::fs::File::open(ruta).map_err(|e| format!("No se pudo abrir el instalador: {e}"))?;
+pub fn sha256_de_archivo(ruta: &Path) -> Result<String, Fallo> {
+    let mut archivo = std::fs::File::open(ruta).map_err(|e| Fallo::NoSeAbre(e.to_string()))?;
+    sha256_de(&mut archivo)
+}
+
+/// SHA-256 de lo que quede por leer en `lector`.
+fn sha256_de(lector: &mut impl std::io::Read) -> Result<String, Fallo> {
     let mut hasher = Sha256::new();
-    std::io::copy(&mut archivo, &mut hasher)
-        .map_err(|e| format!("No se pudo leer el instalador: {e}"))?;
+    std::io::copy(lector, &mut hasher).map_err(|e| Fallo::NoSeLee(e.to_string()))?;
     Ok(format!("{:x}", hasher.finalize()))
+}
+
+/// Lo que devolvió la última descarga verificada: dónde quedó y qué hash se comprobó.
+///
+/// Lo guarda Rust, no la ventana (T12-02). `install_update` recibe la ruta del frontend, y con solo
+/// la guardia de carpeta aceptaba **cualquier** archivo de `%TEMP%\ProcessDevKill_update`, que es
+/// escribible por cualquier programa del usuario.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DescargaVerificada {
+    /// Canónica, como la devuelve `ruta_de_instalador_valida`, para compararlas sin sorpresas.
+    pub ruta: PathBuf,
+    pub sha256: String,
+}
+
+/// La descarga verificada vigente. Una sola: `preparar_carpeta` borra las anteriores del disco.
+static DESCARGA_VERIFICADA: std::sync::Mutex<Option<DescargaVerificada>> =
+    std::sync::Mutex::new(None);
+
+/// `FILE_SHARE_READ`: otros pueden leer el archivo, pero no escribirlo, borrarlo ni renombrarlo.
+const SOLO_LECTURA_COMPARTIDA: u32 = 0x0000_0001;
+
+/// Comprueba el instalador **justo antes de lanzarlo** y lo deja bloqueado hasta entonces.
+///
+/// El hash se comprobaba solo al descargar. Entre eso y pulsar «Instalar» —minutos, o días si la
+/// app se queda abierta— el `.exe` esperaba en `%TEMP%`, y con la app **elevada** (v1.7.0) el
+/// instalador hereda la elevación: un programa sin privilegios podía cambiarlo y ejecutarse con
+/// integridad alta sin ver un UAC. Aquí:
+///
+/// 1. La ruta tiene que ser **la que devolvió la descarga**, no solo una de la carpeta.
+/// 2. Se abre compartiendo **solo lectura**. Mientras el handle vive, nadie puede escribir,
+///    borrar ni renombrar el archivo (error 32), ni renombrar su carpeta (error 5). Comprobado el
+///    2026-09-30 con una copia de `PING.EXE`, que además se lanzó con el handle abierto.
+/// 3. El hash se recalcula **sobre ese mismo handle**. Si no cuadra, se borra y no se lanza.
+///
+/// Se devuelve el handle para que quien llama lo tenga abierto **hasta después de lanzar**:
+/// soltarlo antes de `launch_installer` reabriría la ventana entre comprobar y ejecutar.
+pub fn preparar_instalacion(
+    candidata: &Path,
+    verificada: &DescargaVerificada,
+) -> Result<(PathBuf, std::fs::File), Fallo> {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    let ruta = ruta_de_instalador_valida(candidata)?;
+    if ruta != verificada.ruta {
+        return Err(Fallo::NoEsLaVerificada);
+    }
+
+    // Si algo lo tiene abierto para escribir, esto falla por uso compartido, y es correcto negarse.
+    let mut archivo = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(SOLO_LECTURA_COMPARTIDA)
+        .open(&ruta)
+        .map_err(|e| Fallo::NoSeAbre(e.to_string()))?;
+
+    let real = sha256_de(&mut archivo)?;
+    if real != verificada.sha256 {
+        drop(archivo);
+        let _ = std::fs::remove_file(&ruta);
+        return Err(Fallo::CambioTrasDescarga);
+    }
+
+    Ok((ruta, archivo))
 }
 
 /// Techo de lo que se acepta escribir en una descarga.
@@ -340,7 +449,7 @@ async fn volcar_con_tope<F>(
     tamano_esperado: u64,
     tope: u64,
     progreso: &mut F,
-) -> Result<(), String>
+) -> Result<(), Fallo>
 where
     F: FnMut(u64, u64),
 {
@@ -348,50 +457,50 @@ where
     use std::io::Write;
 
     if !resp.status().is_success() {
-        return Err(format!("La descarga respondió {}", resp.status()));
+        return Err(Fallo::DescargaRespondio(resp.status().to_string()));
     }
 
     let total = resp.content_length().unwrap_or(tamano_esperado);
     let mut archivo = std::fs::File::create(destino)
-        .map_err(|e| format!("No se pudo escribir en {destino:?}: {e}"))?;
+        .map_err(|e| Fallo::NoSeEscribe(format!("{}: {e}", destino.display())))?;
 
     let mut bajado: u64 = 0;
     let mut stream = resp.bytes_stream();
     while let Some(trozo) = stream.next().await {
-        let trozo = trozo.map_err(|e| format!("Descarga interrumpida: {e}"))?;
+        let trozo = trozo.map_err(|e| Fallo::Interrumpida(e.to_string()))?;
         bajado += trozo.len() as u64;
         if bajado > tope {
             // El archivo a medias no se deja en el disco: nadie debe poder ejecutarlo a mano.
             drop(archivo);
             let _ = std::fs::remove_file(destino);
-            return Err("La descarga se pasa del tamaño razonable y se ha cancelado.".into());
+            return Err(Fallo::DemasiadoGrande);
         }
         archivo
             .write_all(&trozo)
-            .map_err(|e| format!("No se pudo escribir el instalador: {e}"))?;
+            .map_err(|e| Fallo::NoSeEscribe(e.to_string()))?;
         progreso(bajado, total);
     }
-    archivo
-        .flush()
-        .map_err(|e| format!("No se pudo cerrar el instalador: {e}"))
+    archivo.flush().map_err(|e| Fallo::NoSeEscribe(e.to_string()))
 }
 
 /// Descarga el instalador, informa del progreso y **lo verifica antes de devolverlo**.
-pub async fn download_and_verify<F>(info: &ReleaseInfo, mut progreso: F) -> Result<PathBuf, String>
+///
+/// Devuelve la ruta canónica **y el hash comprobado**: es lo que `install_update` vuelve a mirar
+/// antes de lanzar (T12-02).
+pub async fn download_and_verify<F>(
+    info: &ReleaseInfo,
+    mut progreso: F,
+) -> Result<DescargaVerificada, Fallo>
 where
     F: FnMut(u64, u64),
 {
     if info.asset_url.is_empty() {
-        return Err("Esa versión no publica un instalador descargable.".into());
+        return Err(Fallo::SinInstalador);
     }
     // Sin nada con que verificar no se descarga: es preferible mandar al usuario a la
     // página del release que ejecutar un binario que no se ha podido comprobar.
     if info.checksum_url.is_empty() {
-        return Err(
-            "Esa versión no publica el .sha256 del instalador, así que no se puede verificar. \
-             Descárgala a mano desde la página del release."
-                .into(),
-        );
+        return Err(Fallo::SinSha256);
     }
 
     // Las dos URLs vienen del frontend: se comprueban **antes de pedir nada**. Verificar el
@@ -406,13 +515,12 @@ where
         .get(&info.checksum_url)
         .send()
         .await
-        .map_err(|e| format!("No se pudo descargar el checksum: {e}"))?
+        .map_err(|e| Fallo::ChecksumNoDescargado(e.to_string()))?
         .text()
         .await
-        .map_err(|e| format!("Checksum ilegible: {e}"))?;
+        .map_err(|e| Fallo::ChecksumIlegible(e.to_string()))?;
 
-    let esperado = hash_from_checksum_file(&publicado)
-        .ok_or("El archivo .sha256 publicado no contiene un hash válido.")?;
+    let esperado = hash_from_checksum_file(&publicado).ok_or(Fallo::ChecksumInvalido)?;
 
     let destino = preparar_carpeta()?.join(nombre_seguro(&info.asset_name));
 
@@ -420,7 +528,7 @@ where
         .get(&info.asset_url)
         .send()
         .await
-        .map_err(|e| format!("No se pudo descargar el instalador: {e}"))?;
+        .map_err(|e| Fallo::InstaladorNoDescargado(e.to_string()))?;
 
     // El archivo se cierra dentro de `volcar_con_tope`, antes de que aquí se verifique: con el
     // descriptor todavía abierto, leerlo para el hash podría chocar con nuestra propia escritura.
@@ -437,13 +545,13 @@ where
     if real != esperado {
         // Si no cuadra, no se deja el archivo por ahí para que nadie lo ejecute a mano.
         let _ = std::fs::remove_file(&destino);
-        return Err(format!(
-            "El instalador descargado no coincide con el hash publicado y se ha borrado. \
-             Esperado {esperado}, obtenido {real}."
-        ));
+        return Err(Fallo::HashNoCoincide { esperado, real });
     }
 
-    Ok(destino)
+    Ok(DescargaVerificada {
+        ruta: ruta_de_instalador_valida(&destino)?,
+        sha256: esperado,
+    })
 }
 
 /// Argumentos con los que se lanza el instalador NSIS para que la actualización no
@@ -464,20 +572,20 @@ const ARGS_SILENCIOSOS: [&str; 3] = ["/S", "/UPDATE", "/R"];
 
 /// Lanza el instalador descargado, en silencio. El NSIS en modo `currentUser` no pide UAC.
 ///
-/// No se comprueba nada aquí: para cuando se llama, `download_and_verify` ya ha validado
-/// el hash y `ruta_de_instalador_valida` la carpeta. Llamarla con una ruta que no venga de
-/// ahí sería saltarse las dos comprobaciones.
+/// No se comprueba nada aquí: para cuando se llama, `preparar_instalacion` ya ha comprobado la
+/// ruta y el hash, y quien llama mantiene abierto el handle que impide cambiar el archivo.
+/// Llamarla con una ruta que no venga de ahí sería saltarse las comprobaciones.
 ///
 /// La ruta llega **canonicalizada**, o sea con el prefijo verbatim de Windows
 /// (`\\?\C:\…`). Comprobado que `CreateProcess` la acepta y el instalador arranca igual:
 /// era lo único que podía romper la actualización al añadir la canonicalización, y no se
 /// habría notado hasta el siguiente release.
-pub fn launch_installer(ruta: &Path) -> Result<(), String> {
+pub fn launch_installer(ruta: &Path) -> Result<(), Fallo> {
     std::process::Command::new(ruta)
         .args(ARGS_SILENCIOSOS)
         .spawn()
         .map(|_| ())
-        .map_err(|e| format!("No se pudo ejecutar el instalador: {e}"))
+        .map_err(|e| Fallo::NoSeEjecuta(e.to_string()))
 }
 
 // ---------------------------------------------------------------- comandos ---
@@ -488,18 +596,25 @@ pub fn launch_installer(ruta: &Path) -> Result<(), String> {
 // camino de una actualizacion, y era donde peor se veia que `install_update`
 // tiene una guardia de seguridad detras.
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 /// Evento con el avance de la descarga. Espejo de `UPDATE_PROGRESS` en `src/types.ts`.
 const UPDATE_PROGRESS: &str = "update-progress";
+
+/// El fallo, dicho en el idioma de la app. Es el único sitio de este módulo que produce frases.
+fn en_palabras(app: &AppHandle, fallo: Fallo) -> String {
+    crate::textos::fallo_actualizacion(app.state::<crate::AppState>().language(), &fallo)
+}
 
 /// Busca si hay una version mas nueva publicada. `None` si ya esta al dia.
 ///
 /// La version instalada la da el propio paquete, no el frontend: asi no hay una segunda
 /// copia del numero que se quede vieja al cortar un release.
 #[tauri::command]
-pub async fn check_update() -> Result<Option<ReleaseInfo>, String> {
-    check_for_update(env!("CARGO_PKG_VERSION")).await
+pub async fn check_update(app: AppHandle) -> Result<Option<ReleaseInfo>, String> {
+    check_for_update(env!("CARGO_PKG_VERSION"))
+        .await
+        .map_err(|f| en_palabras(&app, f))
 }
 
 /// Descarga el instalador y lo verifica contra el `.sha256` publicado.
@@ -508,14 +623,21 @@ pub async fn check_update() -> Result<Option<ReleaseInfo>, String> {
 /// devuelve error: nunca deja un instalador sin verificar en el disco.
 #[tauri::command]
 pub async fn download_update(app: AppHandle, release: ReleaseInfo) -> Result<String, String> {
-    let ruta = download_and_verify(&release, |bajado, total| {
+    // Una descarga nueva invalida la anterior antes de empezar: si esta falla a medias, no queda
+    // registrada una ruta que `preparar_carpeta` acaba de vaciar.
+    *DESCARGA_VERIFICADA.lock().unwrap_or_else(|e| e.into_inner()) = None;
+
+    let descarga = download_and_verify(&release, |bajado, total| {
         // Un evento por trozo es demasiado ruido para la ventana; el frontend calcula el
         // porcentaje y React descarta los renders que no cambian nada.
         let _ = app.emit(UPDATE_PROGRESS, (bajado, total));
     })
-    .await?;
+    .await
+    .map_err(|f| en_palabras(&app, f))?;
 
-    Ok(ruta.to_string_lossy().into_owned())
+    let ruta = descarga.ruta.to_string_lossy().into_owned();
+    *DESCARGA_VERIFICADA.lock().unwrap_or_else(|e| e.into_inner()) = Some(descarga);
+    Ok(ruta)
 }
 
 /// Ejecuta el instalador descargado y cierra la app para que pueda reemplazar los archivos.
@@ -527,11 +649,24 @@ pub async fn download_update(app: AppHandle, release: ReleaseInfo) -> Result<Str
 /// La comprobacion es una funcion pura, probable sin montar una `App`, igual que
 /// `collect_processes` frente a `get_processes`. Se ejecuta **la ruta que devuelve**, ya
 /// canonicalizada: validar una y lanzar otra seria dejar el agujero abierto por detras.
+///
+/// Desde T12-02 la guardia es `preparar_instalacion`: la ruta tiene que ser la de la ultima
+/// descarga verificada, y el hash se vuelve a comprobar sobre un handle que bloquea el archivo
+/// hasta despues de lanzarlo.
 #[tauri::command]
 pub fn install_update(app: AppHandle, path: String) -> Result<(), String> {
-    let ruta = ruta_de_instalador_valida(Path::new(&path))?;
+    let verificada = DESCARGA_VERIFICADA
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .ok_or_else(|| en_palabras(&app, Fallo::SinVerificada))?;
 
-    launch_installer(&ruta)?;
+    // `_bloqueo` vive hasta el final de la función: es lo que impide cambiar el archivo entre la
+    // comprobación y el `CreateProcess`. El nombre con `_` delante no lo suelta; `_` a secas sí.
+    let (ruta, _bloqueo) = preparar_instalacion(Path::new(&path), &verificada)
+        .map_err(|f| en_palabras(&app, f))?;
+
+    launch_installer(&ruta).map_err(|f| en_palabras(&app, f))?;
 
     // El instalador necesita que la app no tenga los archivos abiertos. Se sale del todo,
     // no se esconde en la bandeja: `exit` salta el manejador de CloseRequested. Volver a
@@ -725,6 +860,71 @@ mod tests {
         let _ = std::fs::remove_file(&fuera);
     }
 
+    /// Un archivo en la carpeta de descargas, con nombre propio de cada prueba para que corran en
+    /// paralelo, y la descarga verificada que le corresponde.
+    fn instalador_de_prueba(nombre: &str, contenido: &[u8]) -> DescargaVerificada {
+        let dir = carpeta_descargas();
+        std::fs::create_dir_all(&dir).unwrap();
+        let ruta = dir.join(nombre);
+        std::fs::write(&ruta, contenido).unwrap();
+        DescargaVerificada {
+            sha256: sha256_de_archivo(&ruta).unwrap(),
+            ruta: ruta_de_instalador_valida(&ruta).unwrap(),
+        }
+    }
+
+    /// T12-02, el criterio: un instalador que cambia **después** de verificarse no se lanza, y se
+    /// borra para que nadie lo ejecute a mano.
+    #[test]
+    fn un_instalador_cambiado_tras_la_descarga_no_se_instala_y_se_borra() {
+        let verificada = instalador_de_prueba("pdk_t1202_cambiado-setup.exe", b"el bueno");
+        std::fs::write(&verificada.ruta, b"el cambiado").unwrap();
+
+        let error = preparar_instalacion(&verificada.ruta, &verificada)
+            .expect_err("un instalador cambiado no puede pasar");
+
+        assert_eq!(error, Fallo::CambioTrasDescarga);
+        assert!(!verificada.ruta.exists(), "el archivo cambiado tiene que borrarse");
+    }
+
+    /// T12-02, la otra mitad: solo vale la ruta que devolvió la descarga, aunque otra esté en la
+    /// misma carpeta y pase la guardia de carpeta.
+    #[test]
+    fn solo_se_instala_la_ruta_que_devolvio_la_descarga() {
+        let verificada = instalador_de_prueba("pdk_t1202_bueno-setup.exe", b"el bueno");
+        let intrusa = instalador_de_prueba("pdk_t1202_intruso-setup.exe", b"el bueno");
+        assert!(
+            ruta_de_instalador_valida(&intrusa.ruta).is_ok(),
+            "la intrusa tiene que pasar la guardia de carpeta; si no, esta prueba no cubre nada"
+        );
+
+        let error = preparar_instalacion(&intrusa.ruta, &verificada)
+            .expect_err("otra ruta de la carpeta no puede instalarse");
+        assert_eq!(error, Fallo::NoEsLaVerificada);
+
+        let _ = std::fs::remove_file(&verificada.ruta);
+        let _ = std::fs::remove_file(&intrusa.ruta);
+    }
+
+    /// Y el caso bueno: pasa, y **mientras se tiene el handle** nadie puede escribir el archivo.
+    /// Sin esto, el hash comprobado aquí no diría nada de lo que lance `CreateProcess` después.
+    #[test]
+    fn el_instalador_verificado_queda_bloqueado_hasta_lanzarlo() {
+        let verificada = instalador_de_prueba("pdk_t1202_bloqueado-setup.exe", b"el bueno");
+
+        let (ruta, bloqueo) =
+            preparar_instalacion(&verificada.ruta, &verificada).expect("el bueno tiene que pasar");
+        assert_eq!(ruta, verificada.ruta);
+
+        let escribir = std::fs::OpenOptions::new().write(true).open(&ruta);
+        let borrar = std::fs::remove_file(&ruta);
+        drop(bloqueo);
+
+        assert_eq!(escribir.err().and_then(|e| e.raw_os_error()), Some(32), "escribir tiene que chocar");
+        assert_eq!(borrar.err().and_then(|e| e.raw_os_error()), Some(32), "borrar tiene que chocar");
+        let _ = std::fs::remove_file(&ruta);
+    }
+
     /// **La guardia que faltaba, encontrada en la revision del 2026-08-18.**
     ///
     /// `download_update` recibe el `ReleaseInfo` entero desde la ventana, asi que la URL del
@@ -805,7 +1005,7 @@ mod tests {
             .await
             .expect_err("una URL ajena no puede descargarse");
 
-        assert!(error.contains("github.com"), "{error}");
+        assert_eq!(error, Fallo::NoEsGithub);
         assert!(!hubo_progreso, "no deberia haber empezado ninguna descarga");
         assert!(
             !carpeta_descargas().join("evil-setup.exe").exists(),
@@ -870,7 +1070,7 @@ mod tests {
 
     // ── El tope de la descarga ─────────────────────────────────────────────────────────────
     //
-    // Todo el testing de este proyecto es local: nada de CI. Aqui el "servidor de mentira" es un
+    // Sin servicios externos, ni en local ni en la CI: aqui el "servidor de mentira" es un
     // `TcpListener` en un hilo, no un contenedor: son treinta lineas, arranca en microsegundos y
     // corre en cualquier equipo con `cargo test` y nada mas. Docker haria falta el dia que se
     // necesite un servicio de verdad (una API, una base de datos), no para escupir bytes.
@@ -945,7 +1145,7 @@ mod tests {
         .await
         .expect_err("512 KB con un tope de 64 KB tienen que cortarse");
 
-        assert!(error.contains("tamaño razonable"), "{error}");
+        assert_eq!(error, Fallo::DemasiadoGrande);
         assert!(
             !destino.exists(),
             "el archivo a medias no puede quedarse en el disco: se ejecuta desde esa carpeta"

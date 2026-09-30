@@ -276,6 +276,22 @@ pub fn now_millis() -> u64 {
         .unwrap_or(0)
 }
 
+/// No se pudo guardar un archivo de datos: cuál, y lo que dijo el sistema.
+///
+/// Sin frase para la ventana: la pone `textos::no_se_guardo`, en el idioma de la app (T12-05). El
+/// `Display` en español es para el log, que se lee para abrir un issue y no se traduce.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FalloGuardado {
+    pub ruta: PathBuf,
+    pub detalle: String,
+}
+
+impl std::fmt::Display for FalloGuardado {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "no se pudo guardar {}: {}", self.ruta.display(), self.detalle)
+    }
+}
+
 pub struct Storage {
     dir: PathBuf,
 }
@@ -331,17 +347,20 @@ impl Storage {
     /// que el borrado no defendía de nada y **abría justo el hueco que esto venía a cerrar**: un
     /// instante en el que ya no está el archivo viejo y todavía no está el nuevo. Comprobado
     /// midiéndolo, no leyéndolo.
-    fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
-        let json = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
+    fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), FalloGuardado> {
+        let fallo = |detalle: String| FalloGuardado {
+            ruta: path.to_path_buf(),
+            detalle,
+        };
+        let json = serde_json::to_string_pretty(value).map_err(|e| fallo(e.to_string()))?;
 
         let temporal = path.with_extension("json.tmp");
-        fs::write(&temporal, json)
-            .map_err(|e| format!("No se pudo escribir {}: {e}", temporal.display()))?;
+        fs::write(&temporal, json).map_err(|e| fallo(e.to_string()))?;
 
         fs::rename(&temporal, path).map_err(|e| {
             // Si el renombrado falla, el temporal se queda por ahí y confunde: se limpia.
             let _ = fs::remove_file(&temporal);
-            format!("No se pudo guardar {}: {e}", path.display())
+            fallo(e.to_string())
         })
     }
 
@@ -349,7 +368,7 @@ impl Storage {
         Self::read_json(&self.settings_file())
     }
 
-    pub fn save_settings(&self, settings: &Settings) -> Result<(), String> {
+    pub fn save_settings(&self, settings: &Settings) -> Result<(), FalloGuardado> {
         Self::write_json(&self.settings_file(), settings)
     }
 
@@ -358,7 +377,7 @@ impl Storage {
     }
 
     /// Añade entradas al principio (lo mas reciente primero) y recorta al tope.
-    pub fn append_history(&self, entries: Vec<HistoryEntry>) -> Result<(), String> {
+    pub fn append_history(&self, entries: Vec<HistoryEntry>) -> Result<(), FalloGuardado> {
         if entries.is_empty() {
             return Ok(());
         }
@@ -370,7 +389,7 @@ impl Storage {
         Self::write_json(&self.history_file(), &history)
     }
 
-    pub fn clear_history(&self) -> Result<(), String> {
+    pub fn clear_history(&self) -> Result<(), FalloGuardado> {
         Self::write_json(&self.history_file(), &Vec::<HistoryEntry>::new())
     }
 
@@ -395,7 +414,7 @@ impl Storage {
         display_name: &str,
         antes: crate::services::StartType,
         ahora: crate::services::StartType,
-    ) -> Result<(), String> {
+    ) -> Result<(), FalloGuardado> {
         let mut cambios = self.load_service_changes();
         let existente = cambios.iter().position(|c| c.name == name);
 

@@ -85,7 +85,10 @@ pub fn save_settings(
         ..settings
     };
 
-    state.storage.save_settings(&settings)?;
+    state
+        .storage
+        .save_settings(&settings)
+        .map_err(|f| textos::no_se_guardo(state.language(), &f))?;
     hotkey::apply(&app, settings.hotkey_enabled, settings.hotkey);
     // El menu de la bandeja se arma una vez y Windows no lo retraduce solo: si cambio el idioma,
     // hay que rehacerlo. Se hace **antes** de escribir el ajuste nuevo para poder comparar con el
@@ -142,6 +145,9 @@ pub fn get_history(state: State<'_, AppState>) -> Vec<HistoryEntry> {
 
 #[tauri::command]
 pub fn clear_history(state: State<'_, AppState>) -> Result<(), String> {
-    state.storage.clear_history()
+    state
+        .storage
+        .clear_history()
+        .map_err(|f| textos::no_se_guardo(state.language(), &f))
 }
 

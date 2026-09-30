@@ -582,16 +582,21 @@ pub fn unprotected_pids(sys: &mut System, custom: &[String], protected: &[String
 ///
 /// `protected` es la segunda guardia, detras de la de `classify`. Quien llama ya deja fuera a los
 /// protegidos, pero aqui se vuelven a mirar: un comando de Tauri acepta los PIDs que le manden.
+///
+/// `lang` es solo para el texto del error, que acaba en el toast de la ventana (T12-05).
 pub fn kill_many(
     sys: &mut System,
     custom: &[String],
     protected: &[String],
     pids: Vec<u32>,
+    lang: crate::storage::Language,
 ) -> Vec<KillOutcome> {
     let mut ports = listening_ports();
 
     pids.into_iter()
-        .map(|pid| match kill_one(sys, custom, protected, pid, &mut ports) {
+        .map(|pid| match kill_one(sys, custom, protected, pid, &mut ports)
+            .map_err(|f| crate::textos::fallo_cierre(lang, &f))
+        {
             Ok((name, freed_ports)) => KillOutcome {
                 pid,
                 killed: true,
@@ -610,6 +615,15 @@ pub fn kill_many(
         .collect()
 }
 
+/// Por qué no se cerró un proceso, sin frase: la pone `textos::fallo_cierre` (T12-05).
+#[derive(Debug, Clone, PartialEq)]
+pub enum FalloCierre {
+    NoExiste { pid: u32 },
+    NoVigilado { name: String },
+    Protegido { name: String, pid: u32 },
+    NoSeCerro { name: String, pid: u32 },
+}
+
 /// Termina un unico proceso vigilado. Devuelve su nombre y los puertos liberados.
 ///
 /// `ports` es el mapa PID -> puertos ya leido por [`kill_many`]; se saca de el la
@@ -621,7 +635,7 @@ fn kill_one(
     protected: &[String],
     pid: u32,
     ports: &mut HashMap<u32, Vec<u16>>,
-) -> Result<(String, Vec<u16>), String> {
+) -> Result<(String, Vec<u16>), FalloCierre> {
     let target = Pid::from_u32(pid);
 
     // Releer solo este PID antes de matarlo: si el sistema lo reciclo desde el
@@ -637,18 +651,18 @@ fn kill_one(
 
     let process = sys
         .process(target)
-        .ok_or_else(|| format!("El proceso {pid} ya no existe"))?;
+        .ok_or(FalloCierre::NoExiste { pid })?;
     let name = process.name().to_string_lossy().into_owned();
 
     // El frontend solo deberia enviar PIDs de la lista, pero un comando de Tauri
     // acepta cualquier entrada: sin esta guardia seria un "mata lo que quieras".
     if classify(&name, custom).is_none() {
-        return Err(format!("{name} no es un proceso de desarrollo vigilado"));
+        return Err(FalloCierre::NoVigilado { name });
     }
 
     let (script, project) = describe(process.cmd(), process.cwd());
     if is_protected(&name, script.as_deref(), project.as_deref(), protected) {
-        return Err(format!("{name} (PID {pid}) está protegido"));
+        return Err(FalloCierre::Protegido { name, pid });
     }
 
     // Los puertos ya venian leidos de antes de empezar el lote, que es cuando
@@ -658,7 +672,7 @@ fn kill_one(
     if process.kill() {
         Ok((name, freed))
     } else {
-        Err(format!("No se pudo cerrar {name} (PID {pid})"))
+        Err(FalloCierre::NoSeCerro { name, pid })
     }
 }
 
@@ -757,7 +771,7 @@ mod tests {
             .map(|p| p.name().to_string_lossy().into_owned());
 
         let custom = vec!["svchost".to_string()];
-        let rechazo = kill_many(&mut sys, &custom, SIN_EXTRAS, vec![pid]);
+        let rechazo = kill_many(&mut sys, &custom, SIN_EXTRAS, vec![pid], crate::storage::Language::Es);
         let sigue_vivo = matches!(hijo.try_wait(), Ok(None));
 
         let _ = hijo.kill();
@@ -1010,7 +1024,7 @@ mod tests {
         }
 
         let mut sys = new_system();
-        let outcomes = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid_uno, pid_dos]);
+        let outcomes = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid_uno, pid_dos], crate::storage::Language::Es);
 
         // Recoger a los hijos pase lo que pase, antes de cualquier asercion.
         let _ = uno.wait();
@@ -1102,7 +1116,7 @@ mod tests {
         }
 
         // 1. Sin vigilar: la guardia tiene que cortar.
-        let rechazo = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid]);
+        let rechazo = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid], crate::storage::Language::Es);
 
         // ¿Sigue vivo? Se mira ANTES de limpiar, que es la comprobacion que de verdad importa:
         // que la guardia no solo devolviera un error, sino que ademas no matara nada.
@@ -1115,7 +1129,7 @@ mod tests {
 
         // 2. Declarandolo vigilado, el mismo PID si muere.
         let permitido = vec!["cmd".to_string()];
-        let aceptado = kill_many(&mut sys, &permitido, SIN_EXTRAS, vec![pid]);
+        let aceptado = kill_many(&mut sys, &permitido, SIN_EXTRAS, vec![pid], crate::storage::Language::Es);
 
         // Recoger al hijo pase lo que pase, antes de cualquier asercion.
         let _ = ajeno.kill();
@@ -1665,7 +1679,7 @@ mod tests_protegidos {
 
         let bandeja = pids_of_runtime(&mut sys, NADA, &protegidos, Runtime::Node);
         let atajo = unprotected_pids(&mut sys, NADA, &protegidos);
-        let ventana = kill_many(&mut sys, NADA, &protegidos, vec![pid]);
+        let ventana = kill_many(&mut sys, NADA, &protegidos, vec![pid], crate::storage::Language::Es);
 
         sys.refresh_processes_specifics(
             ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
@@ -1674,7 +1688,7 @@ mod tests_protegidos {
         );
         let sigue_vivo = sys.process(Pid::from_u32(pid)).is_some();
 
-        let sin_proteger = kill_many(&mut sys, NADA, NADA, vec![pid]);
+        let sin_proteger = kill_many(&mut sys, NADA, NADA, vec![pid], crate::storage::Language::Es);
 
         let _ = hijo.kill();
         let _ = hijo.wait();
