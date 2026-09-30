@@ -4,8 +4,12 @@
 
 .DESCRIPTION
     Lanza ProcessDevKill en modo desarrollo con el puerto de depuración de WebView2
-    abierto, se conecta por CDP, mueve la interfaz (tema, menú contextual, vista de
+    abierto, se conecta por CDP, mueve la interfaz (tema, menú contextual, Servicios y
     Ajustes) y guarda un PNG de cada estado en docs/screenshots/.
+
+    Antes de abrir el puerto se niega si «Iniciar siempre como administrador» está encendido
+    (T12-27). Quien lo lance tiene que apagarlo mientras dura, y respaldar `settings.json`: el
+    script devuelve el tema por la interfaz, pero no restaura el archivo byte a byte (T12-28).
 
     Las imágenes salen del propio webview (`Page.captureScreenshot`), no de la pantalla:
     no llevan barra de título ni fondo de escritorio, y miden siempre lo mismo gracias a
@@ -26,7 +30,7 @@
     Todo lo que dibuje Windows por encima del webview: el menú de la bandeja y las
     notificaciones nativas. Los toast de la app sí salen, porque son HTML (Sonner). Para lo
     nativo no hay atajo — `Graphics.CopyFromScreen` tampoco los recoge, se probó y salen
-    capturas vacías (CONTEXT.md §3): o lo fotografía una persona, o no sale.
+    capturas vacías (.claude/CLAUDE.md): o lo fotografía una persona, o no sale.
 
     LOS SERVIDORES DE DEMOSTRACIÓN
     La columna de puertos es la razón de ser de la app, así que una captura sin ningún
@@ -461,6 +465,19 @@ try {
     Save-Captura $ws (Join-Path $OutDir "menu-contextual.png")
     Close-Popup $ws
 
+    # Servicios lee el catálogo del SCM al abrirse (no lo empuja el poller), así que se espera a
+    # que la tabla tenga filas en vez de dar un tiempo fijo. Sale con los servicios reales del
+    # equipo que genere la captura: no hay forma de simularlos sin mentir.
+    Info "Capturando la vista de Servicios."
+    Invoke-Boton $ws "Servicios"
+    $limite = (Get-Date).AddSeconds(20)
+    while ((Get-Date) -lt $limite) {
+        if (Invoke-Js $ws "document.querySelectorAll('main tbody tr').length > 0") { break }
+        Start-Sleep -Milliseconds 500
+    }
+    Save-Captura $ws (Join-Path $OutDir "servicios.png")
+    Invoke-Boton $ws "Procesos"
+
     Info "Capturando la lista en tema claro."
     Invoke-Boton $ws "Ajustes"
     Invoke-Boton $ws "Claro"
@@ -473,12 +490,30 @@ try {
     Info "Capturando la vista de Ajustes."
     Invoke-Boton $ws "Ajustes"
     Invoke-Boton $ws "Oscuro"
-    # Ajustes no cabe en 640 px y las dos funciones estrella (Auto-Kill y Zombie Finder)
-    # quedarían fuera: se mide el contenido y se captura una ventana tan alta como haga
-    # falta. La app es redimensionable, así que sigue siendo una ventana posible.
-    $alto = Invoke-Js $ws "Math.ceil(document.querySelector('main > div').scrollHeight)"
-    $alto = [Math]::Min(1400, [Math]::Max($ALTO, [int]$alto))
+    # Ajustes no cabe en ninguna ventana razonable: desde el Tier 11 mide unos 2500 px, en tres
+    # grupos. Lo que enseña la captura son las funciones que la app añade —los vigilados, los
+    # protegidos, el Auto-Kill y el Zombie Finder—, así que se desplaza el cuerpo hasta el grupo
+    # «Vigilancia» y se captura una ventana tan alta como lo que queda. Idioma y tema, arriba, no
+    # le dicen nada a quien lee el README. La app es redimensionable: sigue siendo una ventana
+    # posible.
+    #
+    # El scroll lo lleva el cuerpo de la vista (`ViewBody`), no `main > div` ni la página.
+    $js = @'
+(() => {
+  const cuerpo = document.querySelector('main .overflow-y-auto');
+  const grupo = Array.from(cuerpo.querySelectorAll('h3')).find(h => h.textContent.trim() === 'Vigilancia');
+  if (!grupo) return null;
+  cuerpo.scrollTop += grupo.getBoundingClientRect().top - cuerpo.getBoundingClientRect().top - 16;
+  return Math.ceil(cuerpo.getBoundingClientRect().top + cuerpo.scrollHeight - cuerpo.scrollTop);
+})()
+'@
+    $alto = Invoke-Js $ws $js
+    if (-not $alto) { throw "No se encontró el grupo «Vigilancia» en Ajustes." }
+    $alto = [Math]::Min(1600, [Math]::Max($ALTO, [int]$alto))
     Set-Viewport $ws $alto | Out-Null
+    # Cambiar el viewport puede recolocar el scroll: se vuelve a llevar el grupo arriba.
+    Invoke-Js $ws $js | Out-Null
+    Start-Sleep -Milliseconds 300
     Save-Captura $ws (Join-Path $OutDir "ajustes.png")
 
     Ok "Capturas en $OutDir"
