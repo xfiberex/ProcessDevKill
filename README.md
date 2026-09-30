@@ -51,7 +51,7 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
   el Kill que tienes debajo siga siendo el del mismo proceso.
 - **Procesos protegidos** —por ejecutable, script o carpeta—: no los cierra nada de la app. Y los
   procesos críticos de Windows (`svchost`, `csrss`, `explorer`…) no se pueden vigilar aunque se
-  añadan *(desde la próxima versión)*.
+  añadan *(desde la v1.8.1)*.
 - **Menú contextual** en cada fila, con clic derecho o con teclado: copiar el PID, el nombre, el
   puerto o `http://localhost:PUERTO`, proteger el proceso y, al final, cerrarlo.
 - **Historial** de cierres con su origen —ventana, bandeja, atajo o Auto-Kill—, agrupado por acción.
@@ -80,7 +80,7 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 
 - Tema claro u oscuro, siguiendo al de Windows o fijo.
 - **Español e inglés**, también en el menú de la bandeja y las notificaciones, y desde la
-  próxima versión en los mensajes de error. Se cambia en Ajustes, sin reiniciar.
+  v1.8.1 en los mensajes de error. Se cambia en Ajustes, sin reiniciar.
 - **Avisa de versiones nuevas** y las instala desde Ajustes, comprobando el hash del instalador antes de
   ejecutarlo.
 
@@ -146,12 +146,12 @@ actualiza y vuelve a abrirse sola, sin ningún asistente.
 ### El modelo de confianza, y qué no cubre
 
 El instalador descargado se compara con el **`.sha256` publicado como asset del mismo release**. Si
-no coincide, se borra y no se instala. Desde la próxima versión se vuelve a comprobar **justo antes
+no coincide, se borra y no se instala. Desde la v1.8.1 se vuelve a comprobar **justo antes
 de ejecutarlo**, y hasta entonces queda bloqueado para que ningún otro programa pueda cambiarlo. La
 implementación está en [`src-tauri/src/update.rs`](src-tauri/src/update.rs).
 
-Dicho claramente, esto **detecta una descarga corrupta o manipulada en tránsito** —y, con lo de la
-próxima versión, también mientras espera en el disco—, y nada más:
+Dicho claramente, esto **detecta una descarga corrupta o manipulada en tránsito** —y, desde la
+v1.8.1, también mientras espera en el disco—, y nada más:
 
 - **No demuestra quién publicó el archivo.** El instalador y su hash salen del mismo release, así
   que quien pudiera sustituir el `.exe` podría sustituir también el `.sha256`. No protege frente a
@@ -204,7 +204,7 @@ pulsar **Repositorio**.
 Los permisos de la ventana son los mínimos para lo anterior, y se pueden comprobar en
 [`capabilities/default.json`](src-tauri/capabilities/default.json): el portapapeles es de **solo
 escritura**, abrir archivos está acotado a los dos avisos legales, y la ventana no tiene ningún
-permiso para salir a internet; desde la próxima versión, tampoco para mandar notificaciones. Las
+permiso para salir a internet; desde la v1.8.1, tampoco para mandar notificaciones. Las
 dos cosas las hace Rust.
 
 ## Cómo funciona
@@ -331,7 +331,7 @@ Y la documentación, donde cada cosa vive en un solo sitio:
 
 ## Estado
 
-La versión actual es la **v1.8.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.8.1**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía. Lo que viene está en el [ROADMAP](ROADMAP.md).
 
 Lo que **no** hay, por si importa antes de instalarla: **firma de código** —de ahí el aviso de

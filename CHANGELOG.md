@@ -16,6 +16,11 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.8.1] — 2026-09-30
+
+Arreglos y seguridad, salidos de la re-auditoría del Tier 12. No añade nada nuevo; lo que cambia es
+lo que la app se niega a hacer y lo que dice cuando algo falla.
+
 ### Cambiado
 - Los procesos críticos de Windows —`svchost`, `csrss`, `lsass`, `winlogon`, `explorer` y
   compañía— ya no se pueden vigilar aunque se añadan en Ajustes, que ahora explica por qué al
@@ -31,7 +36,6 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
   varios: «siguen corriendo A y B». (T12-34)
 - Los lectores de pantalla leen la interfaz en inglés con voz inglesa, y encuentran por su nombre
   los campos para añadir procesos y servicios vigilados. (T12-37, T12-38)
-
 - Con la app en inglés, los errores que llegan de dentro —un Kill que falla, la actualización,
   guardar los ajustes— también salen en inglés. Antes salían siempre en español. (T12-05)
 
@@ -293,7 +297,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.8.0...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.1
 [1.8.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.0
 [1.7.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.7.0
 [1.6.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.6.2
