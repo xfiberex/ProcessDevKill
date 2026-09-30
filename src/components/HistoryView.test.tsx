@@ -91,7 +91,7 @@ describe("filas del historial", () => {
 
     expect(screen.getByText("Ventana")).toBeInTheDocument();
     expect(screen.getByText("Bandeja")).toBeInTheDocument();
-    expect(screen.getByText("Ctrl+Alt+K")).toBeInTheDocument();
+    expect(screen.getByText("Atajo")).toBeInTheDocument();
     expect(screen.getByText("Auto-Kill")).toBeInTheDocument();
   });
 });

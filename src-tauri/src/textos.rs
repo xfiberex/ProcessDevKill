@@ -46,7 +46,7 @@ pub const ES: Textos = Textos {
     ajustes_corruptos: "Ajustes corruptos",
     sin_acceso_al_sistema: "No se pudo acceder al estado del sistema",
     servicio_no_vigilado: "Ese servicio no es de desarrollo",
-    sin_ejecutable: "No se encontro el ejecutable de la app",
+    sin_ejecutable: "No se encontró el ejecutable de la app",
     sin_elevacion: "No se pudieron pedir permisos de administrador",
 };
 

@@ -371,6 +371,21 @@ try {
                    "Ciérrala (incluido el icono de la bandeja) y vuelve a ejecutar el script.")
         }
 
+        # Con «Iniciar siempre como administrador» encendido, la build con el puerto arranca
+        # ELEVADA: sale un UAC y queda un CDP sin autenticación en 127.0.0.1 que cualquier programa
+        # del equipo puede conducir con privilegios. Y esta consola, sin elevar, no puede cerrarla
+        # (UIPI). Pasó el 2026-09-25 en la re-auditoría (T12-27). Se para aquí, antes de tocar nada.
+        $ajustesPath = Join-Path $env:APPDATA "com.processdevkill.app\settings.json"
+        if (Test-Path $ajustesPath) {
+            $ajustes = $null
+            try { $ajustes = [IO.File]::ReadAllText($ajustesPath) | ConvertFrom-Json } catch { }
+            if ($ajustes -and $ajustes.runAsAdmin) {
+                throw ("«Iniciar siempre como administrador» está encendido en $ajustesPath, y con " +
+                       "él la app arrancaría elevada con el puerto de depuración abierto. Apágalo " +
+                       "en Ajustes mientras haces las capturas, y vuelve a encenderlo después.")
+            }
+        }
+
         Info "Abriendo el puerto de depuración en tauri.conf.json (temporal)."
         $configBytes = [IO.File]::ReadAllBytes($configPath)
         $cfg = [Text.Encoding]::UTF8.GetString($configBytes) | ConvertFrom-Json

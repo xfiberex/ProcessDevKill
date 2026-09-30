@@ -945,6 +945,27 @@ describe("el aviso de administrador", () => {
     expect(aviso()).not.toBeInTheDocument();
   });
 
+  /**
+   * T12-07, cierre en falso de Tier 11 · D4: la prueba del componente pasaba `elevated` a mano y
+   * `App` nunca se lo daba, así que en la app real la RAM que falta pedía administrador también
+   * con la app elevada. Esta prueba monta la app entera para que no vuelva a pasar.
+   */
+  it.each([
+    [true, "No se pudo leer la RAM de este servicio."],
+    [false, /permisos de administrador/],
+  ])("con elevada=%s, la RAM que falta de un servicio lo explica bien", async (elevada, texto) => {
+    const user = await montar(LISTA, {
+      get_elevation: elevada,
+      get_services: [servicio({ name: "MSSQL$SQLEXPRESS" })],
+      get_service_changes: [],
+    });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("get_elevation"));
+
+    await user.click(screen.getByRole("button", { name: /^Servicios/ }));
+
+    expect(await screen.findByTitle(texto)).toBeInTheDocument();
+  });
+
   it("lleva a su seccion de Ajustes, con el foco en el titulo", async () => {
     const user = await montar(LISTA, { get_elevation: false });
 

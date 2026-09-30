@@ -545,6 +545,7 @@ export function SettingsView({
                     if (e.key === "Enter") addName();
                   }}
                   placeholder={t.ajustes.vigilados.placeholder}
+                  aria-label={t.ajustes.vigilados.titulo}
                 />
                 <Button
                   variant="outline"
@@ -598,6 +599,7 @@ export function SettingsView({
                     if (e.key === "Enter") addServicio();
                   }}
                   placeholder={t.ajustes.servicios.placeholder}
+                  aria-label={t.ajustes.servicios.titulo}
                 />
                 <Button
                   variant="outline"

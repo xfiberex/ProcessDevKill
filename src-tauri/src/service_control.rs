@@ -6,9 +6,10 @@
 //!
 //! # Cómo se eleva
 //!
-//! La app **no se eleva nunca**. Ni al arrancar ni después: sigue instalada en `currentUser`, y su
-//! mejor propiedad es que lo peor que puede hacer un fallo suyo es cerrar procesos del usuario.
-//! Lo que se hace es relanzar el **mismo ejecutable** con `ShellExecuteExW` y el verbo `runas`,
+//! **De fábrica, la app no se eleva**: sigue instalada en `currentUser`, y su mejor propiedad es que
+//! lo peor que puede hacer un fallo suyo es cerrar procesos del usuario. (Desde la v1.7.0 el usuario
+//! puede pedir que corra elevada entera, en `elevation.rs`; entonces esto sigue igual, solo que sin
+//! UAC delante.) Lo que se hace es relanzar el **mismo ejecutable** con `ShellExecuteExW` y el verbo `runas`,
 //! pasándole el verbo y el nombre del servicio. Sale el UAC, ese proceso hijo hace una sola llamada
 //! al SCM y muere. Vive elevado unos milisegundos y no tiene ventana, ni IPC, ni estado.
 //!
@@ -19,15 +20,26 @@
 //! # La guardia, que es lo que de verdad importa aquí
 //!
 //! El proceso hijo está elevado y recibe un nombre por línea de comandos. **Vuelve a validar ese
-//! nombre él mismo**, y no se fía de que se lo mande su padre: si no lo hiciera, cualquier programa
-//! del equipo —sin privilegios, que es lo que suele tener— podría lanzar
-//! `processdevkill.exe --service-action stop <lo que sea>` y conseguir que el UAC enseñe el nombre
-//! y el icono de **esta** app para detener un servicio del sistema. Un usuario que aprueba un UAC
-//! de una app que conoce no está aprobando eso.
+//! nombre él mismo**, y no se fía de que se lo mande su padre: sin eso, bastaría lanzar
+//! `processdevkill.exe --service-action stop <lo que sea>` para que el UAC enseñe el nombre y el
+//! icono de **esta** app al detener un servicio del sistema. Un usuario que aprueba un UAC de una app
+//! que conoce no está aprobando eso.
 //!
 //! Por eso el hijo relee `settings.json` de su propia carpeta en vez de aceptar la lista de
 //! servicios del usuario por parámetro: un parámetro sería la guardia validándose contra su propia
 //! entrada, que no valida nada. Es el mismo criterio que la guardia de PIDs de `kill_process`.
+//!
+//! **Lo que la guardia hace, y lo que no** (precisado el 2026-09-25, T12-04; antes decía que frenaba
+//! a «cualquier programa sin privilegios», y no es así):
+//!
+//! - **Sí** limita el hijo a las familias integradas y a los servicios que el usuario añadió, y
+//!   rechaza lo que ningún nombre del SCM tiene. Un error propio —un nombre mal pasado desde la
+//!   ventana— no acaba elevado sobre otro servicio.
+//! - **No** frena a un programa que ya corre como el usuario: ese puede escribir `settings.json`
+//!   igual que la app, añadir el servicio que quiera y lanzar al hijo. Tampoco le haría falta: puede
+//!   pedir `runas` sobre `sc.exe`, firmado por Microsoft y con un UAC más creíble que el de esta app
+//!   sin firmar. UAC no es una frontera de seguridad entre programas del mismo usuario, y por eso no
+//!   se autentica el canal con el hijo (CONTEXT §4, 2026-09-25).
 //!
 //! # El resultado se lee, no se supone
 //!
@@ -250,10 +262,11 @@ pub struct ServiceStartupResult {
 /// en «no», y dentro del proceso elevado, que es donde de verdad cuenta.
 fn vigilado(nombre: &str, custom: &[String]) -> bool {
     // Antes de clasificar, lo que ningún nombre del SCM tiene. Un servicio no puede llamarse con
-    // comillas ni con caracteres de control, y el nombre viaja por una línea de comandos.
+    // comillas, barras ni caracteres de control, y el nombre viaja por una línea de comandos: ahí
+    // una `\` al final escapa la comilla de cierre y el hijo recibiría otro argumento (T12-04).
     if nombre.is_empty()
         || nombre.len() > 255
-        || nombre.contains('"')
+        || nombre.contains(['"', '\\', '/'])
         || nombre.chars().any(char::is_control)
     {
         return false;
@@ -762,6 +775,17 @@ mod tests {
         assert!(!vigilado("MiMotor\" & shutdown", &custom));
         assert!(!vigilado("MiMotor\nWinDefend", &custom));
         assert!(!vigilado(&"a".repeat(300), &custom));
+    }
+
+    /// T12-04: barras, que el SCM no admite en un nombre. Va con los nombres **en la lista del
+    /// usuario**, que es el caso que importa: `MiMotor\` escaparía la comilla de cierre en la línea
+    /// de comandos del hijo, y la clasificación sola lo dejaría pasar porque coincide exacto.
+    #[test]
+    fn la_guardia_rechaza_barras_aunque_esten_en_la_lista() {
+        let custom = vec!["MiMotor\\".to_string(), "Mi/Motor".to_string()];
+
+        assert!(!vigilado("MiMotor\\", &custom));
+        assert!(!vigilado("Mi/Motor", &custom));
     }
 
     /// `intercept` solo se activa con su argumento. Cualquier otra invocación es la app normal.

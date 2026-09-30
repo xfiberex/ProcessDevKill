@@ -829,6 +829,7 @@ export default function App() {
                 changes={serviceChanges}
                 onUndo={deshacerCambio}
                 busy={servicioOcupado}
+                elevated={elevated}
               />
             )}
 

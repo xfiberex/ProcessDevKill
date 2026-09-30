@@ -89,7 +89,7 @@ describe("el catálogo de idiomas", () => {
    * es justo lo que un usuario inglés ve como texto sin traducir.
    *
    * Se buscan las letras que el inglés no usa en vez de comparar cadena a cadena, porque muchas
-   * coinciden con razón: «PID», «CPU», «Nuke All», «Auto-Kill», «Ctrl+Alt+K», «Node.js».
+   * coinciden con razón: «PID», «CPU», «Nuke All», «Auto-Kill», «Node.js».
    */
   it("no deja letras del español en la versión inglesa", () => {
     const soloEspanol = /[áéíóúüñ¿¡]/i;
@@ -154,7 +154,6 @@ describe("el catálogo de idiomas", () => {
       "runtimes.dotnet": "nombre de producto",
       "ajustes.zombie.titulo": "nombre de la funcion, como Auto-Kill",
       "origenes.auto": "nombre de la funcion",
-      "origenes.hotkey": "las teclas se llaman igual en los dos idiomas",
       // Siglas y palabras que ya eran inglesas en la version española.
       "columnas.pid": "sigla",
       "columnas.cpu": "sigla",
@@ -224,6 +223,33 @@ describe("Marcado", () => {
   });
 });
 
+/**
+ * T12-34. La clase de fallo que el proyecto ya arregló tres veces: una frase que concuerda con un
+ * elemento y se rompe con dos. Se prueba con uno y con varios, en los dos idiomas.
+ */
+describe("las frases con una lista de nombres", () => {
+  it("concuerdan con uno y con varios servicios que bloquean la parada", () => {
+    expect(es.servicios.acciones.bloqueado("MSSQL", ["SQLAgent"])).toBe(
+      "No se pudo detener MSSQL: sigue corriendo SQLAgent.",
+    );
+    expect(es.servicios.acciones.bloqueado("MSSQL", ["SQLAgent", "SSIS"])).toBe(
+      "No se pudo detener MSSQL: siguen corriendo SQLAgent y SSIS.",
+    );
+    expect(en.servicios.acciones.bloqueado("MSSQL", ["SQLAgent"])).toBe(
+      "MSSQL could not be stopped: SQLAgent is still running.",
+    );
+    expect(en.servicios.acciones.bloqueado("MSSQL", ["SQLAgent", "SSIS"])).toBe(
+      "MSSQL could not be stopped: SQLAgent and SSIS are still running.",
+    );
+  });
+
+  /** La combinación se elige en Ajustes: el origen del Historial no puede nombrar una fija. */
+  it("rotulan el origen del atajo sin nombrar una combinación", () => {
+    expect(es.origenes.hotkey).toBe("Atajo");
+    expect(en.origenes.hotkey).toBe("Shortcut");
+  });
+});
+
 describe("el idioma que se pinta", () => {
   /**
    * Sin proveedor delante se habla español, y **de eso dependen las otras pruebas del frontend**:
@@ -253,6 +279,23 @@ describe("el idioma que se pinta", () => {
   it("expone los dos catálogos por su código de idioma", () => {
     expect(CATALOGOS.es).toBe(es);
     expect(CATALOGOS.en).toBe(en);
+  });
+
+  /** T12-38: sin esto, un lector de pantalla lee la interfaz inglesa con voz española. */
+  it("pone el idioma del documento y lo cambia con el de la app", () => {
+    const { rerender } = render(
+      <I18nProvider language="en">
+        <p>x</p>
+      </I18nProvider>,
+    );
+    expect(document.documentElement.lang).toBe("en");
+
+    rerender(
+      <I18nProvider language="es">
+        <p>x</p>
+      </I18nProvider>,
+    );
+    expect(document.documentElement.lang).toBe("es");
   });
 
   it("da a useT el catálogo del proveedor que lo envuelve", () => {

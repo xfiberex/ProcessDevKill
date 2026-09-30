@@ -1,13 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Permisos de la ventana principal. Sin notification ni global-shortcut a propósito (T12-03): las notificaciones y el atajo los maneja Rust, que no pasa por estos permisos; concederlos a la ventana solo daba superficie a un script inyectado.",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "opener:default",
-    "notification:default",
-    "global-shortcut:default",
     "clipboard-manager:allow-write-text",
     {
       "identifier": "opener:allow-open-path",

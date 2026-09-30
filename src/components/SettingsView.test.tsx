@@ -293,12 +293,35 @@ describe("al cerrar la ventana", () => {
   });
 });
 
+/**
+ * T12-37, cierre en falso de T3-09: los dos campos de añadir no tenían nombre accesible, solo el
+ * placeholder, que un lector de pantalla no siempre anuncia y que desaparece al escribir. Por eso
+ * las pruebas los buscan por su nombre y no por el placeholder.
+ */
+describe("servicios vigilados", () => {
+  it("añade un servicio desde su campo, encontrado por su nombre", async () => {
+    const { user, onChange } = pintar({ customServices: [] });
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Servicios vigilados" }),
+      "MSSQL$DEV",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Añadir servicio vigilado" }),
+    );
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ customServices: ["MSSQL$DEV"] }),
+    );
+  });
+});
+
 describe("procesos vigilados", () => {
   it("añade un nombre y limpia el campo", async () => {
     const { user, onChange } = pintar({ customNames: [] });
 
     await user.type(
-      screen.getByPlaceholderText("nombre del ejecutable"),
+      screen.getByRole("textbox", { name: "Procesos vigilados" }),
       "docker",
     );
     await user.click(
@@ -314,7 +337,7 @@ describe("procesos vigilados", () => {
     const { user, onChange } = pintar({ customNames: [] });
 
     await user.type(
-      screen.getByPlaceholderText("nombre del ejecutable"),
+      screen.getByRole("textbox", { name: "Procesos vigilados" }),
       "go{Enter}",
     );
 
@@ -325,7 +348,7 @@ describe("procesos vigilados", () => {
 
   it("no deja añadir un proceso critico de Windows, y dice por que", async () => {
     const { user, onChange } = pintar({ customNames: [] });
-    const campo = screen.getByPlaceholderText("nombre del ejecutable");
+    const campo = screen.getByRole("textbox", { name: "Procesos vigilados" });
 
     await user.type(campo, "Svchost.exe{Enter}");
 
@@ -346,7 +369,7 @@ describe("procesos vigilados", () => {
     const { user, onChange } = pintar({ customNames: ["docker"] });
 
     await user.type(
-      screen.getByPlaceholderText("nombre del ejecutable"),
+      screen.getByRole("textbox", { name: "Procesos vigilados" }),
       "DOCKER{Enter}",
     );
 
@@ -357,7 +380,7 @@ describe("procesos vigilados", () => {
     const { user, onChange } = pintar({ customNames: [] });
 
     await user.type(
-      screen.getByPlaceholderText("nombre del ejecutable"),
+      screen.getByRole("textbox", { name: "Procesos vigilados" }),
       "   {Enter}",
     );
 

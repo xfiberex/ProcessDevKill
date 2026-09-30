@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    // ES2021.Intl por Intl.ListFormat («A y B», T12-34). La ventana es WebView2, un Chromium que
+    // se actualiza solo, así que el API está; esto solo se lo cuenta a TypeScript.
+    "lib": ["ES2020", "ES2021.Intl", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 

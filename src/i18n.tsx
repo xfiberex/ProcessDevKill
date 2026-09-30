@@ -73,6 +73,13 @@ export function Marcado({ texto }: { texto: Rico }): ReactNode {
 /** Lista de puertos tal como se lee: «3000» o «3000, 5173». */
 const puertos = (lista: number[]) => lista.join(", ");
 
+/**
+ * Nombres unidos como se dicen: «A», «A y B», «A, B y C» (y en inglés, «A, B, and C»). Con comas
+ * a secas, «sigue corriendo A, B» se leía como dos frases cortadas (T12-34).
+ */
+const unir = (lista: string[], idioma: Language) =>
+  new Intl.ListFormat(idioma, { type: "conjunction" }).format(lista);
+
 export const es = {
   /**
    * Rótulo del selector de idioma. Va en los dos idiomas a la vez **en las dos entradas**, y no es
@@ -100,7 +107,9 @@ export const es = {
   origenes: {
     window: "Ventana",
     tray: "Bandeja",
-    hotkey: "Ctrl+Alt+K",
+    // No la combinación: desde el Tier 11 se elige en Ajustes, y el Historial seguiría diciendo
+    // «Ctrl+Alt+K» con otra puesta (T12-34).
+    hotkey: "Atajo",
     auto: "Auto-Kill",
   } satisfies Record<KillSource, string>,
 
@@ -334,7 +343,7 @@ export const es = {
       enTransicion: (n: string) =>
         `${n} sigue cambiando de estado. Refresca dentro de unos segundos para ver en qué queda.`,
       bloqueado: (n: string, nombres: string[]): string =>
-        `No se pudo detener ${n}: sigue corriendo ${nombres.join(", ")}.`,
+        `No se pudo detener ${n}: ${nombres.length === 1 ? "sigue" : "siguen"} corriendo ${unir(nombres, "es")}.`,
       rechazado: (n: string) =>
         `Windows no dejó completar la acción sobre ${n}.`,
     },
@@ -623,7 +632,7 @@ export const en: Catalogo = {
   origenes: {
     window: "Window",
     tray: "Tray",
-    hotkey: "Ctrl+Alt+K",
+    hotkey: "Shortcut",
     auto: "Auto-Kill",
   },
 
@@ -800,7 +809,7 @@ export const en: Catalogo = {
       enTransicion: (n) =>
         `${n} is still changing state. Refresh in a few seconds to see where it lands.`,
       bloqueado: (n, nombres) =>
-        `${n} could not be stopped: ${nombres.join(", ")} is still running.`,
+        `${n} could not be stopped: ${unir(nombres, "en")} ${nombres.length === 1 ? "is" : "are"} still running.`,
       rechazado: (n) => `Windows did not let the action on ${n} go through.`,
     },
     arranque: {
@@ -1065,6 +1074,13 @@ export function I18nProvider({
   useEffect(() => {
     vigente = catalogo;
   }, [catalogo]);
+
+  // El `lang` del documento sigue al idioma de la app (T12-38). `index.html` lo trae fijo en `es`,
+  // y con la interfaz en inglés un lector de pantalla leía el inglés con voz española.
+  const idioma: Language = CATALOGOS[language] ? language : "es";
+  useEffect(() => {
+    document.documentElement.lang = idioma;
+  }, [idioma]);
 
   return (
     <I18nContext.Provider value={catalogo}>{children}</I18nContext.Provider>
