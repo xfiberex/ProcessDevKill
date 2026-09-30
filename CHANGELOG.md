@@ -23,6 +23,21 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
   administrador, eso podía colgar el equipo o cerrar la sesión. (T12-01)
 - Arrancar o detener un servicio y cambiar su tipo de arranque ya no congelan la ventana mientras
   se espera al aviso de Windows. (T12-06)
+- Con la app como administrador, la RAM que falta de un servicio ya no dice que hacen falta
+  permisos de administrador: dice que no se pudo leer. (T12-07)
+- El Historial rotula los cierres del atajo global como «Atajo» y no como «Ctrl+Alt+K», que ya no
+  tiene por qué ser la combinación elegida. (T12-34)
+- Si Detener un servicio falla porque otros dependen de él, la frase ya concuerda con uno o con
+  varios: «siguen corriendo A y B». (T12-34)
+- Los lectores de pantalla leen la interfaz en inglés con voz inglesa, y encuentran por su nombre
+  los campos para añadir procesos y servicios vigilados. (T12-37, T12-38)
+
+### Seguridad
+- La ventana pierde dos permisos que no usaba, los de notificaciones y atajos globales: los usa
+  Rust, no la ventana. (T12-03)
+- Un servicio con `\` o `/` en el nombre ya no se puede arrancar ni detener desde la app. Windows
+  no admite esos caracteres, y una barra al final podía alterar la orden que recibe el proceso
+  elevado. (T12-04)
 
 ### Documentación
 - La sección de privacidad del README decía que la app no lee la línea de comandos, y la lee desde

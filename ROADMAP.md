@@ -1112,6 +1112,11 @@ Se publica sola y ya es útil. Sin privilegios, sin riesgo.
 > el icono de *esta* app para detener un servicio del sistema. Pasarle la lista de permitidos por
 > parámetro sería la guardia validándose contra su propia entrada, que no valida nada.
 >
+> **Precisado el 2026-09-25 (T12-04):** «sin privilegios» prometía de más. Un programa que corre
+> como el usuario puede escribir el `settings.json` que relee el hijo, y también pedir `runas` sobre
+> `sc.exe`. La guardia limita el hijo a lo que el usuario vigila y corta los errores propios; frente
+> a otro programa del mismo usuario no hay frontera que defender, porque UAC no lo es.
+>
 > **Y no hay cascada.** Windows se niega a detener un servicio con dependientes vivos; la tentación
 > es que el hijo los detenga también, como hace `services.msc`. No se hace: serían servicios que
 > nunca pasaron por la guardia ni por el diálogo. Se enseñan los nombres y se dice que hay que
@@ -1676,7 +1681,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     niega y lo borra. `install_update` no acepta una ruta que no sea la que devolvió la descarga.
   - **Esfuerzo:** medio · **Depende de:** ninguna
 
-- [ ] **[T12-03] Quitarle a la ventana los permisos que no usa**
+- [x] **[T12-03] Quitarle a la ventana los permisos que no usa**
   - **Severidad:** baja · **Área:** Seguridad
   - **Ubicación:** `src-tauri/capabilities/default.json:9-10`
   - **Qué hacer:** fuera `notification:default` —verificado en vivo: la ventana puede usar las
@@ -1686,8 +1691,19 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     by ACL», y las notificaciones de la bandeja, el atajo y el Auto-Kill siguen saliendo, probado en
     vivo.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-09-30.** El motivo va en la `description` del propio `default.json`, porque el
+    JSON no admite comentarios. Probado en vivo sobre el binario de release:
+    - `notification|notify`, `notification|is_permission_granted` y `global-shortcut|is_registered`
+      contestan «not allowed by ACL»;
+    - `app|version`, que sigue concedido, contesta `1.8.0`: lo que falla es el permiso quitado, no
+      el IPC entero.
 
-- [ ] **[T12-04] Que la guardia del proceso elevado no prometa más de lo que hace**
+    **La otra mitad del criterio quedó fuera, y se dice:** ver salir una notificación de Rust exige
+    cerrar procesos por la bandeja, el atajo o el Auto-Kill, y las tres vías cerrarían también los
+    del usuario. Se apoya en que los permisos de una capability solo filtran el IPC que llega de la
+    ventana, y Rust llama al plugin directamente. Queda para la próxima prueba a mano con un release.
+
+- [x] **[T12-04] Que la guardia del proceso elevado no prometa más de lo que hace**
   - **Severidad:** baja · **Área:** Seguridad / Documentación
   - **Ubicación:** `src-tauri/src/service_control.rs:19-30`, `:251-263`, `:617-646`; `CONTEXT.md:79-84`; `ROADMAP.md:1107-1113`
   - **Qué hacer:** el hijo elevado relee `customServices` de `settings.json`, que cualquier programa
@@ -1699,6 +1715,11 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** los tres textos dicen lo mismo y nada más; prueba de `vigilado` con
     `MiMotor\`.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-09-30.** La cabecera de `service_control.rs` cuenta lo que la guardia hace y lo
+    que no. CONTEXT y el Tier 10 conservan su texto y llevan debajo la precisión fechada, porque son
+    historia. De paso, la cabecera ya no dice que «la app no se eleva nunca», que dejó de ser cierto
+    en la v1.7.0. `vigilado` rechaza `\` y `/`. La prueba lo hace con esos nombres **dentro de la
+    lista del usuario**, y falla con la guardia vieja.
 
 ### Fase B — Código
 
@@ -1738,7 +1759,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     ventana se podía mover; lo que se congelaba era el IPC. La interfaz no podía hacer nada, ni
     cambiar de vista con datos nuevos. La prueba que cuenta es la del IPC.
 
-- [ ] **[T12-07] Pasarle a Servicios si la app está elevada** — *cierre en falso parcial de Tier 11 · D4*
+- [x] **[T12-07] Pasarle a Servicios si la app está elevada** — *cierre en falso parcial de Tier 11 · D4*
   - **Severidad:** baja · **Área:** Código
   - **Ubicación:** `src/App.tsx:822-832`, `src/components/ServicesView.tsx:376-389`
   - **Qué hacer:** `ServicesView` elige entre «no se pudo leer» y «necesita administrador» según la
@@ -1747,6 +1768,9 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** prueba de `App` con `get_elevation: true` y un servicio corriendo sin
     RAM: su «—» dice «No se pudo leer la RAM de este servicio.».
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-09-30**, con una prueba de `App` entera en los dos sentidos (elevada y sin
+    elevar). Quitando la prop, el caso elevado falla. No se probó en vivo, porque exige la app
+    elevada.
 
 - [ ] **[T12-08] «Protegido» solo cuando de verdad se ha guardado**
   - **Severidad:** baja · **Área:** Código
@@ -1958,7 +1982,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     visible.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
 
-- [ ] **[T12-27] La inspección en vivo, sin arrancar elevada con el puerto abierto**
+- [x] **[T12-27] La inspección en vivo, sin arrancar elevada con el puerto abierto**
   - **Severidad:** media · **Área:** DevOps / Seguridad del proceso de trabajo
   - **Ubicación:** `tools/capture-screenshots.ps1:365-387`; `.claude/CLAUDE.md:122`
   - **Qué hacer:** con `runAsAdmin` encendido, la build con `--remote-debugging-port` **arranca
@@ -1968,6 +1992,9 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     ya está anotada en CLAUDE.md.
   - **Criterio de aceptación:** con `runAsAdmin: true` el script aborta con un mensaje claro.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-09-30.** Probado con el `settings.json` real del usuario, que lo tiene encendido:
+    el script se para antes de tocar `tauri.conf.json` (mismo hash antes y después) y sin lanzar
+    nada. El mensaje dice qué ajuste apagar y dónde.
 
 - [ ] **[T12-28] El script de capturas: respaldar los ajustes y no depender del idioma**
   - **Severidad:** baja · **Área:** DevOps
@@ -2035,7 +2062,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
 
 ### Fase G — Redacción
 
-- [ ] **[T12-34] Ortografía y concordancia en los dos catálogos**
+- [x] **[T12-34] Ortografía y concordancia en los dos catálogos**
   - **Severidad:** baja · **Área:** Ortografía
   - **Ubicación:** `src-tauri/src/textos.rs:49` («encontro»); `src/i18n.tsx:336-337` y `:799-800` (servicio bloqueado); `src/i18n.tsx:103`, `:623` (origen «Ctrl+Alt+K»)
   - **Qué hacer:** «No se encontró». Con varios dependientes, «siguen corriendo A y B» y «A and B are
@@ -2045,6 +2072,9 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** pruebas de la frase con uno y con dos nombres en los dos idiomas, y
     del rótulo del origen.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-09-30.** Los nombres se unen con `Intl.ListFormat` («A y B», «A and B»), y para
+    eso `tsconfig` gana `ES2021.Intl` en `lib`, sin cambiar el `target`. El origen `hotkey` sale de
+    la lista de «coinciden con motivo» de `i18n.test.tsx`, porque ya no coincide.
 
 - [ ] **[T12-35] Repaso del inglés**
   - **Severidad:** baja · **Área:** Redacción
@@ -2067,7 +2097,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
 > Accesibilidad e i18n de la interfaz no entraban en esta re-auditoría. Estos tres se encontraron
 > leyendo el código de otras áreas, y se anotan para no perderlos.
 
-- [ ] **[T12-37] Nombre accesible en los campos de vigilados y servicios** — *cierre en falso de T3-09*
+- [x] **[T12-37] Nombre accesible en los campos de vigilados y servicios** — *cierre en falso de T3-09*
   - **Severidad:** baja · **Área:** Accesibilidad
   - **Ubicación:** `src/components/SettingsView.tsx:523-530`, `:571-578`
   - **Qué hacer:** `aria-label` en los dos, como ya lleva el de protegidos (`:626`). T3-09 los pedía y
@@ -2075,14 +2105,19 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** los dos campos se encuentran por su nombre accesible en las pruebas,
     no por el placeholder.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-09-30.** El nombre es el título de cada sección, como ya hacía el de protegidos.
+    Las cinco pruebas que buscaban el campo de procesos por placeholder lo buscan ahora por nombre, y
+    el de servicios, que ninguna prueba tocaba, tiene la suya.
 
-- [ ] **[T12-38] `<html lang>` que siga al idioma de la app**
+- [x] **[T12-38] `<html lang>` que siga al idioma de la app**
   - **Severidad:** baja · **Área:** Accesibilidad / i18n
   - **Ubicación:** `index.html:2`; `src/i18n.tsx:1046-1067`
   - **Qué hacer:** se queda en `es` con la interfaz en inglés (visto en vivo): un lector de pantalla
     lee el inglés con voz española. Una línea en `I18nProvider`.
   - **Criterio de aceptación:** prueba: con `language: en`, `document.documentElement.lang === "en"`.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-09-30**, con la prueba del criterio, y **también en vivo**: cambiando el idioma
+    desde Ajustes en el binario de release, `lang` pasa de `es` a `en` y vuelve.
 
 - [ ] **[T12-39] La hora exacta del Historial, en el idioma de la app**
   - **Severidad:** baja · **Área:** i18n
@@ -2122,6 +2157,9 @@ Y dos que salen de esta re-auditoría:
 - **2026-09-25 (segunda sesión)** — **4 de 39**: T12-21, T12-22, T12-01 y T12-29. Y luego
   **5 de 39**, con T12-06 probada en vivo con el usuario. 301 pruebas del frontend y 120 de Rust
   (+3 ignoradas) en verde; ESLint, clippy y el dry run entero, limpios.
+- **2026-09-30** — **12 de 39**: la tanda de mejoras rápidas, T12-03, T12-04, T12-07, T12-27,
+  T12-34, T12-37 y T12-38. 307 pruebas del frontend y 121 de Rust (+3 ignoradas) en verde, y
+  ESLint y clippy limpios.
 
 ---
 

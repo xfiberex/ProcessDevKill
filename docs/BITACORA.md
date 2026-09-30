@@ -8,6 +8,28 @@
 
 ---
 
+### 2026-09-30 — Tier 12: la tanda de mejoras rápidas
+
+Siete tareas: T12-03, T12-04, T12-07, T12-27, T12-34, T12-37 y T12-38. Las que tocan una guardia o
+un cierre en falso (T12-04, T12-07) se vieron fallar con el cambio quitado.
+
+- **La prueba en vivo de T12-03 y T12-38**, sobre el binario de release, con `runAsAdmin` apagado
+  mientras duró y el puerto de depuración abierto y cerrado después. Salió como se esperaba: los
+  permisos quitados responden «not allowed by ACL», y `lang` sigue al idioma. La primera versión de
+  la sonda comprobaba un permiso que sigue concedido **escribiendo en el portapapeles**, lo que
+  habría pisado el del usuario. Se cambió por `app|version`, que solo lee, antes de ejecutarla.
+- **T12-03 quedó probada a medias:** ver salir una notificación de Rust exige cerrar procesos por
+  una vía que también cerraría los del usuario. Anotado en la tarea.
+- **T12-27** se probó con el `settings.json` real, que tiene `runAsAdmin` encendido: el script se
+  para sin tocar nada.
+- **T12-34** necesitó `ES2021.Intl` en el `lib` de `tsconfig` para `Intl.ListFormat`: las pruebas
+  pasaban en jsdom, pero `tsc` no lo conocía.
+
+Resultado: 307 pruebas del frontend y 121 de Rust en verde, y ESLint y clippy limpios. Los datos
+del usuario se restauraron desde el respaldo, con los mismos hashes.
+
+---
+
 ### 2026-09-25 (noche, 2) — Tier 12: las primeras cinco tareas
 
 El usuario aprobó la tanda propuesta al cerrar la re-auditoría: T12-21 y T12-22 antes del próximo

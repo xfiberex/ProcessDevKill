@@ -32,8 +32,8 @@
 
 ## 3. Estado actual
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md), desde el 2026-09-25, con 5 de 39 tareas
-hechas** (T12-01, T12-06, T12-21, T12-22 y T12-29). Es la tercera revisión amplia del repositorio y la primera que mira como código —no como
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md), desde el 2026-09-25, con 12 de 39 tareas
+hechas** a 2026-09-30: T12-01, 03, 04, 06, 07, 21, 22, 27, 29, 34, 37 y 38. Es la tercera revisión amplia del repositorio y la primera que mira como código —no como
 UX— lo que entró desde la del 2026-08-18: unas 10.300 líneas en 43 commits, con los servicios, la
 elevación, el atajo, la traducción y la CI. **Ningún hallazgo crítico ni alto**: nueve medios y
 treinta bajos. Los medios son:
@@ -98,9 +98,14 @@ la acción**: relanza el propio ejecutable con `runas`, ese hijo hace una llamad
 > ⚠️ **Decidido el 2026-08-23, construyendo la fase B: la guardia va dentro del proceso elevado.**
 > El hijo revalida el nombre que recibe contra el catálogo más los `customServices` que **relee del
 > disco**, en vez de aceptar una lista de permitidos por parámetro —que sería validarse contra su
-> propia entrada—. Sin eso, cualquier programa sin privilegios podría usar el UAC de esta app, con
-> su nombre y su icono, para detener un servicio del sistema. Es el mismo criterio que la guardia de
-> PIDs de `kill_process`.
+> propia entrada—. Sin eso, bastaría lanzar al hijo con cualquier nombre para que el UAC de esta
+> app, con su nombre y su icono, detuviera un servicio del sistema. Es el mismo criterio que la
+> guardia de PIDs de `kill_process`.
+>
+> **Precisado el 2026-09-25 (T12-04):** la guardia limita el hijo a lo que el usuario vigila y corta
+> los errores propios. **No frena a un programa que ya corre como el usuario**, que puede escribir
+> `settings.json` igual que la app, y que tampoco la necesita: puede pedir `runas` sobre `sc.exe`.
+> Hasta esa fecha, este párrafo decía que frenaba a «cualquier programa sin privilegios».
 >
 > **Y no hay cascada:** Windows no detiene un servicio con dependientes vivos, y la app **no los
 > detiene por su cuenta** aunque `services.msc` lo ofrezca. Serían servicios que nunca pasaron por
@@ -210,9 +215,9 @@ entorno. La primera versión pública fue la v1.1.1.
 > v1.3.1 a la v1.3.2 es el primer caso en que el instalador lo lanza una app que ya lleva los flags,
 > y salió sin una sola ventana. Ver la nota de más abajo.
 
-**Pruebas:** 301 de frontend (Vitest + Testing Library, en jsdom) y 120 de `cargo test`, más 3
-ignoradas que miden y no afirman: contadas el 2026-09-25, tras las primeras tareas del Tier 12. La
-cobertura se midió ese mismo día antes de ellas, y es del
+**Pruebas:** 307 de frontend (Vitest + Testing Library, en jsdom) y 121 de `cargo test`, más 3
+ignoradas que miden y no afirman: contadas el 2026-09-30, con 12 tareas del Tier 12 hechas. La
+cobertura se midió el 2026-09-25, antes de ellas, y es del
 **81,41 %** de sentencias sobre el código propio —sin contar los dobles de prueba ni los componentes
 que genera shadcn—. Era del 89,61 % antes de los Tiers 10 y 11, y lo que baja son las acciones de
 Servicios de `App.tsx`, el catálogo inglés y Ajustes (T12-20). **Cinco pruebas de guardia se han comprobado con una
