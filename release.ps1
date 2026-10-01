@@ -14,6 +14,8 @@
       6. Commit del bump de versión + tag anotado vX.Y.Z.
       7. Push de la rama y el tag a origin.
       8. Crea el GitHub Release adjuntando los instaladores y sus .sha256.
+      9. Comprueba lo publicado: los 4 assets, la versión que devuelve la API que consulta la app
+         y el instalador descargado contra su .sha256. Si algo no cuadra, el corte FALLA.
 
     Para 'gh' reutiliza la credencial de GitHub ya cacheada (la del push) si no
     estuviera autenticado; nunca se imprime el token.
@@ -99,9 +101,15 @@
 .PARAMETER DryRun
     Valida y muestra el plan, pero no modifica nada (ni build, ni git, ni GitHub).
 
+.PARAMETER VerifyOnly
+    Solo el paso 9, sobre un release que ya existe: no compila, no toca git y no publica nada. Para
+    repetir la comprobación si el corte se interrumpió después de publicar, o para mirar una
+    versión anterior (que fallará en «la última versión», porque ya no lo es).
+
 .EXAMPLE
     .\release.ps1 -Version 1.0.0 -DryRun
     .\release.ps1 -Version 1.0.0
+    .\release.ps1 -Version 1.0.0 -VerifyOnly
 #>
 [CmdletBinding()]
 param(
@@ -109,7 +117,8 @@ param(
     [string]$NotesFile,
     [switch]$SkipTests,
     [switch]$AllowDirty,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$VerifyOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -341,6 +350,136 @@ function Get-NotasDelChangelog($ruta, $version) {
     if ($texto) { $texto } else { $null }
 }
 
+<#
+.SYNOPSIS
+    La ruta de gh, con sesión. Si gh no está autenticado, toma prestada la credencial de git.
+
+.DESCRIPTION
+    Puede escribir $env:GH_TOKEN. Quien llama lo devuelve a como estaba en su `finally`.
+#>
+function Get-GhAutenticado {
+    $gh = @(
+        "C:\Program Files\GitHub CLI\gh.exe",
+        "C:\Program Files (x86)\GitHub CLI\gh.exe"
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $gh) {
+        $cmd = Get-Command gh -ErrorAction SilentlyContinue
+        if ($cmd) { $gh = $cmd.Source }
+    }
+    if (-not $gh) { return $null }
+
+    # Si gh no está logueado, reutilizar la credencial cacheada de git (la misma del push).
+    # PS 5.1: 2>$null en exes nativos con ErrorActionPreference=Stop genera NativeCommandError;
+    # se baja a SilentlyContinue solo durante las llamadas que necesitan suprimir stderr.
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    & $gh auth status 2>$null | Out-Null
+    $authOk = $LASTEXITCODE -eq 0
+    $ErrorActionPreference = $eap
+
+    if (-not $authOk) {
+        Warn "gh no autenticado; reutilizando la credencial de git cacheada (local, no se muestra)."
+        $eap = $ErrorActionPreference
+        $ErrorActionPreference = "SilentlyContinue"
+        $cred = "protocol=https`nhost=github.com`n`n" | & git credential fill 2>$null
+        $ErrorActionPreference = $eap
+        $pwdLine = $cred | Where-Object { $_ -like 'password=*' } | Select-Object -First 1
+        if ($pwdLine) { $env:GH_TOKEN = $pwdLine.Substring(9) }
+        if (-not $env:GH_TOKEN) { return $null }
+    }
+    $gh
+}
+
+<#
+.SYNOPSIS
+    Comprueba un release ya publicado. Devuelve la lista de lo que no cuadra; vacía si todo está bien.
+
+.DESCRIPTION
+    Lo que hasta la v1.8.1 se hacía a mano después de cada corte y se apuntaba en CONTEXT §3
+    (T12-24). Son las tres cosas de las que depende que la auto-actualización funcione, miradas
+    DESDE FUERA, como las verá una app instalada:
+
+      1. Los 4 assets están. Sin el `.sha256` del instalador NSIS, la app se niega a actualizarse.
+      2. `/releases/latest` devuelve este tag. Es la llamada exacta que hace la app; si devuelve
+         otro, nadie recibe la oferta. Se reintenta unos segundos porque GitHub puede tardar en
+         reflejar un release recién creado.
+      3. El instalador DESCARGADO coincide con su `.sha256` DESCARGADO —la misma comparación que
+         hace `update.rs`— y, si se pasa -HashLocal, también con el que se compiló aquí: una subida
+         corrupta daría un instalador que no es el que se probó.
+
+    No aborta: devuelve los problemas para que quien llama decida qué decir. Un corte los trata
+    como fallo; -VerifyOnly sobre una versión antigua espera el segundo.
+#>
+function Test-ReleasePublicado {
+    param([string]$gh, [string]$repo, [string]$tag, [string]$version, [string]$HashLocal)
+
+    $problemas = New-Object System.Collections.Generic.List[string]
+    $setupNombre = "ProcessDevKill_${version}_x64-setup.exe"
+    $msiNombre   = "ProcessDevKill_${version}_x64_en-US.msi"
+    $esperados   = @($setupNombre, "$setupNombre.sha256", $msiNombre, "$msiNombre.sha256")
+
+    $tmp = Join-Path $env:TEMP "pdk_verificar_$version"
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    try {
+        # 1. Los assets
+        $assets = @(& $gh release view $tag --repo $repo --json assets --jq '.assets[].name' 2>$null)
+        if ($LASTEXITCODE -ne 0) {
+            $problemas.Add("No se pudo leer el release $tag de $repo.")
+            return ,$problemas
+        }
+        foreach ($nombre in $esperados) {
+            if ($assets -notcontains $nombre) { $problemas.Add("Falta el asset $nombre.") }
+        }
+        Info "Assets publicados: $($assets.Count)"
+
+        # 2. Lo que ve la app
+        $ultimo = $null
+        for ($i = 0; $i -lt 5; $i++) {
+            $ultimo = "$(& $gh api "repos/$repo/releases/latest" --jq .tag_name 2>$null)".Trim()
+            if ($ultimo -eq $tag) { break }
+            Start-Sleep -Seconds 3
+        }
+        if ($ultimo -ne $tag) {
+            $problemas.Add("La API devuelve '$ultimo' como última versión, no ${tag}: las apps instaladas no verán esta.")
+        }
+        Info "Última versión según la API: $ultimo"
+
+        # 3. El instalador, tal como lo descargará la app
+        if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
+        & $gh release download $tag --repo $repo --pattern $setupNombre --pattern "$setupNombre.sha256" --dir $tmp 2>$null | Out-Null
+        $descargado = Join-Path $tmp $setupNombre
+        $suHash     = Join-Path $tmp "$setupNombre.sha256"
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $descargado) -or -not (Test-Path $suHash)) {
+            $problemas.Add("No se pudieron descargar el instalador y su .sha256.")
+            return ,$problemas
+        }
+        $real      = (Get-FileHash $descargado -Algorithm SHA256).Hash.ToLower()
+        $publicado = ((Read-Texto $suHash).Trim() -split '\s+')[0].ToLower()
+        if ($real -ne $publicado) {
+            $problemas.Add("El instalador descargado ($real) NO coincide con su .sha256 publicado ($publicado): la app se negará a instalarlo.")
+        }
+        if ($HashLocal -and $real -ne $HashLocal.ToLower()) {
+            $problemas.Add("El instalador descargado ($real) no es el que se compiló aquí ($($HashLocal.ToLower())).")
+        }
+        Info "SHA-256 del instalador descargado: $real"
+    }
+    finally {
+        $ErrorActionPreference = $eap
+        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    return ,$problemas
+}
+
+<#
+.SYNOPSIS
+    `usuario/repositorio` a partir de la URL de origin, que es como lo piden `gh --repo` y la API.
+#>
+function Get-RepoDeOrigin {
+    $url = "$(& git remote get-url origin)".Trim()
+    if ($url -match 'github\.com[:/](.+?)(\.git)?$') { $Matches[1] } else { $null }
+}
+
 # ── Rutas ──────────────────────────────────────────────────────────────────
 $root       = $PSScriptRoot
 $tauriConf  = Join-Path $root "src-tauri\tauri.conf.json"
@@ -366,9 +505,11 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     Die "Versión inválida '$Version'. Usa el formato X.Y.Z (p. ej. 1.0.0)."
 }
 $tag = "v$Version"
-Info "Versión a publicar: $Version  (tag $tag)"
-if ($currentVersion -and $currentVersion -ne $Version) {
-    Info "Bump de versión: $currentVersion -> $Version"
+if (-not $VerifyOnly) {
+    Info "Versión a publicar: $Version  (tag $tag)"
+    if ($currentVersion -and $currentVersion -ne $Version) {
+        Info "Bump de versión: $currentVersion -> $Version"
+    }
 }
 
 $setup = Join-Path $bundleDir "nsis\ProcessDevKill_${Version}_x64-setup.exe"
@@ -390,6 +531,24 @@ try {
 
     $branch = (& git rev-parse --abbrev-ref HEAD).Trim()
     Info "Rama: $branch"
+
+    # ── Solo comprobar un release que ya existe ──────────────────────────────
+    # Antes de las validaciones del corte: aquí el tag TIENE que existir, y el árbol da igual.
+    if ($VerifyOnly) {
+        $gh = Get-GhAutenticado
+        if (-not $gh) { Die "gh (GitHub CLI) no está instalado o no tiene sesión. Instálalo con 'winget install GitHub.cli' y ejecuta 'gh auth login'." }
+        $repoNombre = Get-RepoDeOrigin
+        if (-not $repoNombre) { Die "origin no apunta a GitHub: no se sabe qué release comprobar." }
+
+        Info "Comprobando el release $tag de $repoNombre..."
+        $problemas = Test-ReleasePublicado -gh $gh -repo $repoNombre -tag $tag -version $Version
+        if ($problemas.Count -gt 0) {
+            $problemas | ForEach-Object { Warn $_ }
+            Die "El release $tag no cuadra."
+        }
+        Ok "Release $tag comprobado: los 4 assets, la versión de la API y el hash del instalador."
+        return
+    }
 
     $localTag = (& git tag --list $tag)
     if ($localTag) { Die "El tag $tag ya existe localmente. Usa otra versión o bórralo antes." }
@@ -601,6 +760,8 @@ try {
         Write-Host "    6. gh release create $tag con 4 assets:" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256)" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
+        Write-Host "    7. Comprobar lo publicado: los 4 assets, la versión de la API y el hash" -ForegroundColor DarkGray
+        Write-Host "       del instalador descargado" -ForegroundColor DarkGray
         if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + eslint + npm test + npm run build" -ForegroundColor DarkGray }
 
         # Las notas son lo único del plan que se puede leer antes de publicarlo, y lo que no se
@@ -699,35 +860,8 @@ try {
     Ok "Rama y tag publicados."
 
     # ── 6. GitHub Release ────────────────────────────────────────────────────
-    $gh = @(
-        "C:\Program Files\GitHub CLI\gh.exe",
-        "C:\Program Files (x86)\GitHub CLI\gh.exe"
-    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if (-not $gh) {
-        $cmd = Get-Command gh -ErrorAction SilentlyContinue
-        if ($cmd) { $gh = $cmd.Source }
-    }
-    if (-not $gh) { Die "gh (GitHub CLI) no está instalado. Instálalo: winget install GitHub.cli  — el tag YA está publicado; crea el release manualmente o reintenta." }
-
-    # Si gh no está logueado, reutilizar la credencial cacheada de git (la misma del push).
-    # PS 5.1: 2>$null en exes nativos con ErrorActionPreference=Stop genera NativeCommandError;
-    # se baja a SilentlyContinue solo durante las llamadas que necesitan suprimir stderr.
-    $eap = $ErrorActionPreference
-    $ErrorActionPreference = "SilentlyContinue"
-    & $gh auth status 2>$null
-    $authOk = $LASTEXITCODE -eq 0
-    $ErrorActionPreference = $eap
-
-    if (-not $authOk) {
-        Warn "gh no autenticado; reutilizando la credencial de git cacheada (local, no se muestra)."
-        $eap = $ErrorActionPreference
-        $ErrorActionPreference = "SilentlyContinue"
-        $cred = "protocol=https`nhost=github.com`n`n" | & git credential fill 2>$null
-        $ErrorActionPreference = $eap
-        $pwdLine = $cred | Where-Object { $_ -like 'password=*' } | Select-Object -First 1
-        if ($pwdLine) { $env:GH_TOKEN = $pwdLine.Substring(9) }
-        if (-not $env:GH_TOKEN) { Die "No se pudo obtener credencial para gh. Ejecuta 'gh auth login' y reintenta (el tag ya está publicado)." }
-    }
+    $gh = Get-GhAutenticado
+    if (-not $gh) { Die "gh (GitHub CLI) no está instalado o no tiene sesión. Instálalo con 'winget install GitHub.cli' y ejecuta 'gh auth login' — el tag YA está publicado; crea el release manualmente o reintenta." }
 
     Info "Creando el GitHub Release..."
     & $gh release create $tag --title "ProcessDevKill $tag" --notes-file $notesPath $setup $msi @hashes
@@ -737,6 +871,19 @@ try {
     $repo = (& git remote get-url origin) -replace '\.git$', ''
     Write-Host ""
     Ok "Release $tag publicado: $repo/releases/tag/$tag"
+
+    # ── 7. Comprobar lo publicado ────────────────────────────────────────────
+    # A partir de aquí el release ESTÁ FUERA. Si esto falla no hay nada que deshacer desde el
+    # script: lo que toca es decidir, y por eso el mensaje dice qué mirar.
+    Info "Comprobando lo publicado..."
+    $repoNombre = Get-RepoDeOrigin
+    $hashSetup = (Get-FileHash $setup -Algorithm SHA256).Hash
+    $problemas = Test-ReleasePublicado -gh $gh -repo $repoNombre -tag $tag -version $Version -HashLocal $hashSetup
+    if ($problemas.Count -gt 0) {
+        $problemas | ForEach-Object { Warn $_ }
+        Die "El release $tag ESTÁ PUBLICADO pero no cuadra. Las apps instaladas pueden estar viéndolo ya: corrígelo en GitHub o despublícalo ('gh release delete $tag --yes'; ver «SI HAY QUE REVERTIR» en la cabecera). Para repetir solo esta comprobación: .\release.ps1 -Version $Version -VerifyOnly"
+    }
+    Ok "Comprobado: los 4 assets, la API devuelve $tag y el instalador descargado coincide con su .sha256 y con el compilado."
 }
 finally {
     Pop-Location
