@@ -16,6 +16,11 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.8.3] — 2026-10-01
+
+Robustez al cerrar: Kill no puede cerrar un proceso distinto del que se veía, la actualización
+funciona en conexiones lentas y un fallo interno deja rastro.
+
 ### Cambiado
 - La vista de Servicios se lee más rápido: la app ya no pregunta el tipo de arranque de los ~300
   servicios de Windows para quedarse con los de desarrollo. (T12-11)
@@ -357,7 +362,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.8.2...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.8.3...HEAD
+[1.8.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.3
 [1.8.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.2
 [1.8.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.1
 [1.8.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.0

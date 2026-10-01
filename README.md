@@ -172,7 +172,7 @@ Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz a
   línea de comandos y la carpeta de trabajo**, una vez por proceso, y se queda **solo con dos
   nombres cortos**: el script (`vite`, `server.js`, `-m uvicorn`) y el último tramo de la carpeta
   (`mi-api`). **Nunca enseña la línea entera** ni el código en línea (`node -e …`). El script es el
-  primer argumento que no empieza por `-` —saltando, desde la próxima versión, el valor de las
+  primer argumento que no empieza por `-` —saltando, desde la v1.8.3, el valor de las
   opciones que la app conoce, como `-r` o `-X`—, así que una opción **que no conozca** con su valor
   separado por un espacio (`node --token abc123 server.js`) enseña ese valor en su lugar: si pasas secretos por la línea de
   comandos, mejor con `=` (`--token=abc123`), que no se muestra. Esos nombres viven en memoria y no
@@ -332,7 +332,7 @@ Y la documentación, donde cada cosa vive en un solo sitio:
 
 ## Estado
 
-La versión actual es la **v1.8.2**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.8.3**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía. Lo que viene está en el [ROADMAP](ROADMAP.md).
 
 Lo que **no** hay, por si importa antes de instalarla: **firma de código** —de ahí el aviso de

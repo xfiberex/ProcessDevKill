@@ -51,8 +51,8 @@ existe.
 tareas hechas** a 2026-10-01: todas menos T12-25, 26, 28, 30, 31, 33, 35 y 39. Ningún
 hallazgo era crítico ni alto, y **los nueve medios están cerrados**: el último fue `App.tsx`, de
 927 líneas a 367 (T12-15). Quedan 8, todas de severidad baja, repartidas en dos cortes: la v1.9.0
-y la v1.9.1 (ver «Cómo se reparte lo que queda» en el ROADMAP). **En `main` y sin publicar** está la
-tanda de la v1.8.3: T12-09, 10, 11, 14, 16, 17, 18 y 19. La cobertura del frontend está en el
+y la v1.9.1 (ver «Cómo se reparte lo que queda» en el ROADMAP). La primera de las tres tandas, la de
+la v1.8.3, ya está publicada: T12-09, 10, 11, 14, 16, 17, 18 y 19. La cobertura del frontend está en el
 95,90 % (T12-20). Y
 las cuatro tareas de antes que se dieron por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la
 D4 del Tier 11— ya están corregidas, en T12-37, T12-21, T12-22 y T12-07.
