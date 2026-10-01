@@ -206,10 +206,45 @@ pub fn parse_release(root: &serde_json::Value) -> ReleaseInfo {
 
 // ── Entrada/salida ───────────────────────────────────────────────────────────
 
+/// Lo que puede tardar **entera** una consulta pequeña: la de la API y la del `.sha256`.
+const PLAZO_TOTAL: std::time::Duration = std::time::Duration::from_secs(30);
+/// Lo que puede tardar en abrirse la conexión de la descarga.
+const PLAZO_DE_CONEXION: std::time::Duration = std::time::Duration::from_secs(15);
+/// Lo que puede pasar **sin que llegue nada** durante la descarga.
+const PLAZO_SIN_DATOS: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// El cliente de las consultas pequeñas, con un plazo para toda la respuesta.
 fn cliente() -> Result<reqwest::Client, Fallo> {
     reqwest::Client::builder()
         .user_agent(USER_AGENT)
-        .timeout(std::time::Duration::from_secs(30))
+        .timeout(PLAZO_TOTAL)
+        .build()
+        .map_err(|e| Fallo::ClienteHttp(e.to_string()))
+}
+
+/// El cliente de la descarga del instalador, **sin plazo total** (T12-17).
+///
+/// El `timeout` de reqwest no es un plazo de inactividad: cuenta desde que se manda la petición
+/// hasta que termina **el cuerpo entero**. Con los 30 s de `cliente`, el instalador —unos 4 MB—
+/// no llegaba a bajarse por debajo de 1,2 Mbit/s más o menos: la descarga se cortaba siempre en
+/// el mismo sitio y la app no se podía actualizar desde esa conexión, por mucho que se
+/// reintentara.
+///
+/// Aquí el plazo es **entre lecturas**: una conexión lenta que sigue mandando datos termina, y
+/// una que se queda muda se corta. El tamaño lo sigue acotando `MAX_DESCARGA`.
+fn cliente_de_descarga() -> Result<reqwest::Client, Fallo> {
+    cliente_de_descarga_con(PLAZO_DE_CONEXION, PLAZO_SIN_DATOS)
+}
+
+/// Con los plazos por parámetro, para probar el mecanismo sin esperar medio minuto.
+fn cliente_de_descarga_con(
+    conexion: std::time::Duration,
+    sin_datos: std::time::Duration,
+) -> Result<reqwest::Client, Fallo> {
+    reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .connect_timeout(conexion)
+        .read_timeout(sin_datos)
         .build()
         .map_err(|e| Fallo::ClienteHttp(e.to_string()))
 }
@@ -524,7 +559,8 @@ where
 
     let destino = preparar_carpeta()?.join(nombre_seguro(&info.asset_name));
 
-    let resp = http
+    // Con su propio cliente: el del `.sha256` corta a los 30 s de empezar, pase lo que pase.
+    let resp = cliente_de_descarga()?
         .get(&info.asset_url)
         .send()
         .await
@@ -1180,6 +1216,134 @@ mod tests {
 
         let _ = std::fs::remove_file(&destino);
         let _ = hilo.join();
+    }
+
+    // ── Los plazos de la descarga (T12-17) ────────────────────────────────────────────────
+
+    /// Servidor de un solo uso que manda `trozos` de 1 KB con una `pausa` entre cada uno. Si
+    /// `mudo_tras` es `Some(n)`, tras el trozo `n` deja de mandar y se queda con la conexion abierta.
+    fn servidor_lento(
+        trozos: usize,
+        pausa: std::time::Duration,
+        mudo_tras: Option<usize>,
+    ) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read, Write};
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("no se pudo abrir puerto");
+        let puerto = listener.local_addr().unwrap().port();
+
+        let hilo = std::thread::spawn(move || {
+            let Ok((mut sock, _)) = listener.accept() else {
+                return;
+            };
+            let _ = sock.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+            let mut buf = [0u8; 1024];
+            let _ = sock.read(&mut buf);
+            if sock.write_all(b"HTTP/1.1 200 OK\r\n\r\n").is_err() {
+                return;
+            }
+
+            let trozo = [7u8; 1024];
+            for i in 0..trozos {
+                if mudo_tras == Some(i) {
+                    // Mas de lo que espera cualquier cliente de estas pruebas, y sin cerrar.
+                    std::thread::sleep(std::time::Duration::from_secs(4));
+                    return;
+                }
+                if sock.write_all(&trozo).is_err() || sock.flush().is_err() {
+                    return;
+                }
+                std::thread::sleep(pausa);
+            }
+        });
+
+        (format!("http://127.0.0.1:{puerto}/"), hilo)
+    }
+
+    /// El criterio de T12-17, a escala: ocho trozos con 250 ms entre cada uno son dos segundos de
+    /// descarga, **el doble** de lo que el cliente aguanta sin recibir nada. Termina, porque el
+    /// plazo es entre lecturas y no para la descarga entera.
+    #[tokio::test]
+    async fn una_descarga_lenta_que_sigue_mandando_datos_termina() {
+        use std::time::Duration;
+
+        let (url, hilo) = servidor_lento(8, Duration::from_millis(250), None);
+        let destino = std::env::temp_dir().join("pdk-prueba-descarga-lenta.bin");
+        let _ = std::fs::remove_file(&destino);
+
+        let http = cliente_de_descarga_con(Duration::from_secs(5), Duration::from_secs(1)).unwrap();
+        let resp = http.get(&url).send().await.expect("el servidor local responde");
+
+        volcar_con_tope(resp, &destino, 0, MAX_DESCARGA, &mut |_, _| {})
+            .await
+            .expect("una descarga lenta pero viva tiene que terminar");
+
+        assert_eq!(std::fs::metadata(&destino).unwrap().len(), 8 * 1024);
+        let _ = std::fs::remove_file(&destino);
+        let _ = hilo.join();
+    }
+
+    /// Lo que pasaba antes, con el mismo servidor: un plazo **total** de un segundo corta una
+    /// descarga de dos, aunque los datos no dejen de llegar. Es la prueba de que la de arriba
+    /// mide el cambio y no la velocidad del equipo.
+    #[tokio::test]
+    async fn con_un_plazo_total_la_misma_descarga_lenta_se_cortaba() {
+        use std::time::Duration;
+
+        let (url, hilo) = servidor_lento(8, Duration::from_millis(250), None);
+        let destino = std::env::temp_dir().join("pdk-prueba-descarga-plazo-total.bin");
+        let _ = std::fs::remove_file(&destino);
+
+        let de_antes = reqwest::Client::builder()
+            .timeout(Duration::from_secs(1))
+            .build()
+            .unwrap();
+        let resp = de_antes.get(&url).send().await.expect("el servidor local responde");
+
+        let error = volcar_con_tope(resp, &destino, 0, MAX_DESCARGA, &mut |_, _| {})
+            .await
+            .expect_err("con plazo total, dos segundos de descarga no caben en uno");
+
+        assert!(matches!(error, Fallo::Interrumpida(_)), "{error:?}");
+        let _ = std::fs::remove_file(&destino);
+        let _ = hilo.join();
+    }
+
+    /// El criterio negativo: quitar el plazo total no es quitar el plazo. Un servidor que se queda
+    /// mudo con la conexion abierta no puede dejar la app «descargando» para siempre.
+    #[tokio::test]
+    async fn una_descarga_que_se_queda_muda_se_corta() {
+        use std::time::Duration;
+
+        let (url, hilo) = servidor_lento(8, Duration::from_millis(50), Some(2));
+        let destino = std::env::temp_dir().join("pdk-prueba-descarga-muda.bin");
+        let _ = std::fs::remove_file(&destino);
+
+        let http = cliente_de_descarga_con(Duration::from_secs(5), Duration::from_secs(1)).unwrap();
+        let resp = http.get(&url).send().await.expect("el servidor local responde");
+
+        let empezo = std::time::Instant::now();
+        let error = volcar_con_tope(resp, &destino, 0, MAX_DESCARGA, &mut |_, _| {})
+            .await
+            .expect_err("sin datos durante mas de un segundo, tiene que cortarse");
+
+        assert!(matches!(error, Fallo::Interrumpida(_)), "{error:?}");
+        assert!(
+            empezo.elapsed() < Duration::from_secs(3),
+            "se corto, pero no por el plazo sin datos: tardo {:?}",
+            empezo.elapsed()
+        );
+        let _ = std::fs::remove_file(&destino);
+        let _ = hilo.join();
+    }
+
+    /// Los plazos de produccion, que las tres de arriba no tocan: usan los suyos para no tardar
+    /// medio minuto. Como el tope, se fija al compilar.
+    #[test]
+    fn los_plazos_de_produccion_dejan_bajar_el_instalador_por_una_conexion_lenta() {
+        const _: () = assert!(PLAZO_SIN_DATOS.as_secs() >= 20);
+        const _: () = assert!(PLAZO_SIN_DATOS.as_secs() <= 120);
+        const _: () = assert!(PLAZO_DE_CONEXION.as_secs() <= PLAZO_TOTAL.as_secs());
     }
 
     /// El tope de produccion, en su propia prueba porque es lo unico que las dos de arriba no

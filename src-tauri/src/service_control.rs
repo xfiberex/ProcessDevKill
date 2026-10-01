@@ -533,48 +533,77 @@ fn esperar_estado(nombre: &str, objetivo: ServiceState) -> Option<ServiceState> 
 /// registra el atajo global, no toca la bandeja y no es la «segunda instancia» de nadie. Entra,
 /// hace una llamada al SCM y sale.
 pub fn intercept() -> Option<u32> {
-    let mut args = std::env::args();
-    let _exe = args.next();
+    match leer_encargo(std::env::args().skip(1), custom_desde_disco) {
+        Encargo::Ninguno => None,
+        Encargo::Salir(codigo) => Some(codigo),
+        Encargo::Accion(accion, nombre) => Some(ejecutar(accion, &nombre)),
+        Encargo::Arranque(nombre, tipo) => Some(ejecutar_arranque(&nombre, tipo)),
+    }
+}
 
+/// Lo que la línea de comandos le pide a este proceso, ya decidido.
+#[derive(Debug, PartialEq)]
+enum Encargo {
+    /// Esta ejecución no es la del proceso elevado: es la app de siempre.
+    Ninguno,
+    /// Lo es, pero no va a tocar nada: sale con este código.
+    Salir(u32),
+    Accion(ServiceAction, String),
+    Arranque(String, SettableStartType),
+}
+
+/// Decide qué hacer a partir de los argumentos, **sin tocar el SCM**.
+///
+/// Es lo primero que ejecuta un proceso con privilegios, y todo lo que lee viene de fuera. Vive
+/// aparte de `intercept` para poder probar cada rama (T12-19): `intercept` lee `std::env::args`
+/// y llama al SCM, y así no había forma de probar nada sin elevar un proceso de verdad. Mismo
+/// arreglo que `elevation::pid_del_padre`.
+///
+/// `custom` es una función y no una lista para que la app normal —la que arranca sin
+/// `--service-action`— no lea `settings.json` aquí: solo lo lee quien ha llegado a la guardia.
+fn leer_encargo(
+    mut args: impl Iterator<Item = String>,
+    custom: impl FnOnce() -> Vec<String>,
+) -> Encargo {
     if args.next().as_deref() != Some(ARG_ACCION) {
-        return None;
+        return Encargo::Ninguno;
     }
 
     let Some(verbo) = args.next() else {
-        return Some(SALIDA_USO);
+        return Encargo::Salir(SALIDA_USO);
     };
     let Some(nombre) = args.next() else {
-        return Some(SALIDA_USO);
+        return Encargo::Salir(SALIDA_USO);
     };
     // El tercer argumento solo lo lleva `startup`. Se lee antes de mirar el verbo para poder exigir
     // que **no** sobre nada detrás, sea cual sea la forma.
     let tercero = args.next();
     if args.next().is_some() {
-        return Some(SALIDA_USO);
+        return Encargo::Salir(SALIDA_USO);
     }
 
     // **La guardia que cuenta.** Este proceso está elevado; el nombre viene de fuera.
-    if !vigilado(&nombre, &custom_desde_disco()) {
-        return Some(SALIDA_NO_VIGILADO);
+    if !vigilado(&nombre, &custom()) {
+        return Encargo::Salir(SALIDA_NO_VIGILADO);
     }
 
     if verbo == "startup" {
         // Y el tipo también viene de fuera, así que también se valida aquí: `de_verbo` solo conoce
         // los cuatro que esta app pone, de modo que `boot` y `system` no tienen por dónde entrar.
         let Some(tipo) = tercero.as_deref().and_then(SettableStartType::de_verbo) else {
-            return Some(SALIDA_TIPO_NO_PERMITIDO);
+            return Encargo::Salir(SALIDA_TIPO_NO_PERMITIDO);
         };
-        return Some(ejecutar_arranque(&nombre, tipo));
+        return Encargo::Arranque(nombre, tipo);
     }
 
     if tercero.is_some() {
-        return Some(SALIDA_USO);
+        return Encargo::Salir(SALIDA_USO);
     }
-    let Some(action) = ServiceAction::de_verbo(&verbo) else {
-        return Some(SALIDA_USO);
+    let Some(accion) = ServiceAction::de_verbo(&verbo) else {
+        return Encargo::Salir(SALIDA_USO);
     };
 
-    Some(ejecutar(action, &nombre))
+    Encargo::Accion(accion, nombre)
 }
 
 /// Cambiar el tipo de arranque, ya elevado. La otra cosa que esta app hace con privilegios.
@@ -891,5 +920,130 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&conf).expect("tauri.conf.json valido");
 
         assert_eq!(json["identifier"].as_str(), Some(IDENTIFICADOR));
+    }
+
+    // ------------------------------- la entrada del proceso elevado (T12-19) ----------------
+
+    /// Los argumentos como llegan, ya sin el nombre del ejecutable, y sin servicios del usuario.
+    fn encargo(args: &[&str]) -> Encargo {
+        leer_encargo(args.iter().map(|a| a.to_string()), Vec::new)
+    }
+
+    /// La app de siempre: sin el argumento, o con otro, **no se toca nada ni se lee el disco**.
+    /// Si esto fallara, cada arranque normal intentaría hacer de proceso elevado.
+    #[test]
+    fn sin_el_argumento_no_es_el_proceso_elevado_y_no_lee_los_ajustes() {
+        let nunca = || -> Vec<String> { panic!("la app normal no tiene por que leer settings.json") };
+
+        assert_eq!(leer_encargo(std::iter::empty(), nunca), Encargo::Ninguno);
+        assert_eq!(
+            leer_encargo(["--relanzada-elevada", "1234"].map(String::from).into_iter(), nunca),
+            Encargo::Ninguno
+        );
+        // El argumento tiene que ir el primero: detras de otro, no cuenta.
+        assert_eq!(
+            leer_encargo(["otro", ARG_ACCION, "stop", "MySQL80"].map(String::from).into_iter(), nunca),
+            Encargo::Ninguno
+        );
+    }
+
+    #[test]
+    fn con_argumentos_de_menos_sale_por_uso() {
+        assert_eq!(encargo(&[ARG_ACCION]), Encargo::Salir(SALIDA_USO));
+        assert_eq!(encargo(&[ARG_ACCION, "stop"]), Encargo::Salir(SALIDA_USO));
+    }
+
+    #[test]
+    fn con_argumentos_de_mas_sale_por_uso() {
+        // A `start` y `stop` les sobra el tercero.
+        assert_eq!(
+            encargo(&[ARG_ACCION, "stop", "MySQL80", "de-mas"]),
+            Encargo::Salir(SALIDA_USO)
+        );
+        // Y a `startup`, que si lo lleva, le sobra el cuarto.
+        assert_eq!(
+            encargo(&[ARG_ACCION, "startup", "MySQL80", "manual", "de-mas"]),
+            Encargo::Salir(SALIDA_USO)
+        );
+    }
+
+    #[test]
+    fn un_verbo_que_no_conoce_sale_por_uso() {
+        for verbo in ["delete", "restart", "START", ""] {
+            assert_eq!(
+                encargo(&[ARG_ACCION, verbo, "MySQL80"]),
+                Encargo::Salir(SALIDA_USO),
+                "verbo {verbo:?}"
+            );
+        }
+    }
+
+    /// La guardia va **antes** que el verbo: un nombre que no se vigila sale por su codigo aunque
+    /// lo demas tambien este mal. Es el que distingue «no te dejo» de «no te entiendo».
+    #[test]
+    fn un_servicio_que_no_se_vigila_no_pasa_con_ningun_verbo() {
+        for args in [
+            vec![ARG_ACCION, "stop", "Spooler"],
+            vec![ARG_ACCION, "start", "wuauserv"],
+            vec![ARG_ACCION, "startup", "Spooler", "disabled"],
+            vec![ARG_ACCION, "delete", "Spooler"],
+            vec![ARG_ACCION, "stop", r"MySQL80\"],
+            vec![ARG_ACCION, "stop", ""],
+        ] {
+            assert_eq!(encargo(&args), Encargo::Salir(SALIDA_NO_VIGILADO), "{args:?}");
+        }
+    }
+
+    /// Los servicios que añadio el usuario salen de `settings.json`, y solo entonces se lee.
+    #[test]
+    fn un_servicio_del_usuario_pasa_solo_si_esta_en_sus_ajustes() {
+        let args = || [ARG_ACCION, "stop", "MiMotor"].map(String::from).into_iter();
+
+        assert_eq!(leer_encargo(args(), Vec::new), Encargo::Salir(SALIDA_NO_VIGILADO));
+        assert_eq!(
+            leer_encargo(args(), || vec!["mimotor".to_string()]),
+            Encargo::Accion(ServiceAction::Stop, "MiMotor".to_string())
+        );
+    }
+
+    #[test]
+    fn arrancar_y_detener_un_servicio_vigilado_se_aceptan() {
+        assert_eq!(
+            encargo(&[ARG_ACCION, "start", "MySQL80"]),
+            Encargo::Accion(ServiceAction::Start, "MySQL80".to_string())
+        );
+        assert_eq!(
+            encargo(&[ARG_ACCION, "stop", "MySQL80"]),
+            Encargo::Accion(ServiceAction::Stop, "MySQL80".to_string())
+        );
+    }
+
+    #[test]
+    fn el_arranque_solo_acepta_los_cuatro_tipos_que_la_app_pone() {
+        for (verbo, tipo) in [
+            ("automatic", SettableStartType::Automatic),
+            ("automatic-delayed", SettableStartType::AutomaticDelayed),
+            ("manual", SettableStartType::Manual),
+            ("disabled", SettableStartType::Disabled),
+        ] {
+            assert_eq!(
+                encargo(&[ARG_ACCION, "startup", "MySQL80", verbo]),
+                Encargo::Arranque("MySQL80".to_string(), tipo)
+            );
+        }
+
+        // `boot` y `system` son de controladores del nucleo: no tienen por donde entrar. Y sin tipo,
+        // tampoco hay nada que poner.
+        for malo in ["boot", "system", "unknown", "Manual", ""] {
+            assert_eq!(
+                encargo(&[ARG_ACCION, "startup", "MySQL80", malo]),
+                Encargo::Salir(SALIDA_TIPO_NO_PERMITIDO),
+                "tipo {malo:?}"
+            );
+        }
+        assert_eq!(
+            encargo(&[ARG_ACCION, "startup", "MySQL80"]),
+            Encargo::Salir(SALIDA_TIPO_NO_PERMITIDO)
+        );
     }
 }

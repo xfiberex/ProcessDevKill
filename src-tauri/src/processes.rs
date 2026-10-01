@@ -48,6 +48,11 @@ pub struct ProcessInfo {
     pub cpu: f32,
     pub memory_mb: f64,
     pub run_time_secs: u64,
+    /// Cuando arranco, en segundos desde 1970. **Junto con el PID es la identidad del proceso**:
+    /// Windows reutiliza los PID, y dos procesos con el mismo numero solo se distinguen por esto
+    /// (T12-09). No viaja a la ventana: lo guarda Rust para comprobarlo al cerrar.
+    #[serde(skip)]
+    pub start_time: u64,
     /// Puertos TCP en los que el proceso esta escuchando, ordenados.
     pub ports: Vec<u16>,
     /// Segundos que lleva seguidos sin actividad de CPU. 0 si acaba de moverse o
@@ -118,21 +123,54 @@ pub fn describe(cmd: &[OsString], cwd: Option<&Path>) -> (Option<String>, Option
     (script_of(cmd), cwd.and_then(project_of))
 }
 
-fn script_of(cmd: &[OsString]) -> Option<String> {
-    let args: Vec<String> = cmd
-        .iter()
-        .skip(1)
-        .map(|a| a.to_string_lossy().into_owned())
-        .collect();
+/// Opciones de `node`, `python` y `dotnet` que llevan **su valor en el argumento siguiente**.
+///
+/// Sin esta lista, ese valor se tomaba por el script (T12-10). Solo estan las que de verdad toman
+/// un valor aparte: meter aqui una opcion que no lo lleva haria lo contrario, saltarse el script.
+/// Por eso no esta `-c`, que en Python lleva codigo —y se trata mas abajo— y en Node no lleva nada.
+///
+/// **No resuelve el caso general, y no puede:** una opcion que la app no conoce, con su valor
+/// aparte (`node --token abc123 server.js`), sigue enseñando el valor. Lo dice el README en
+/// Privacidad y lo fija `una_opcion_con_igual_no_se_muestra_y_con_espacio_si`.
+const OPCIONES_CON_VALOR: &[&str] = &[
+    // node
+    "-r",
+    "--require",
+    "--import",
+    "--loader",
+    "--experimental-loader",
+    "-C",
+    "--conditions",
+    "--env-file",
+    "--title",
+    "--watch-path",
+    // python
+    "-X",
+    "-W",
+    // dotnet
+    "--fx-version",
+    "--roll-forward",
+    "--runtimeconfig",
+    "--depsfile",
+    "--additionalprobingpath",
+    "--additional-deps",
+];
 
-    for (i, a) in args.iter().enumerate() {
+fn script_of(cmd: &[OsString]) -> Option<String> {
+    let mut args = cmd.iter().skip(1).map(|a| a.to_string_lossy().into_owned());
+
+    while let Some(a) = args.next() {
         match a.as_str() {
-            "-m" => return args.get(i + 1).map(|m| format!("-m {m}")),
-            "-e" | "-p" | "-c" | "--eval" | "--print" => return Some(a.clone()),
+            "-m" => return args.next().map(|m| format!("-m {m}")),
+            "-e" | "-p" | "-c" | "--eval" | "--print" => return Some(a),
             // `dotnet exec app.dll`: el verbo no identifica nada, el ensamblado si.
             "exec" => {}
+            // Su valor va en el argumento siguiente: se consume para que no pase por el script.
+            _ if OPCIONES_CON_VALOR.contains(&a.as_str()) => {
+                args.next();
+            }
             _ if a.starts_with('-') => {}
-            _ => return Some(script_name(a)),
+            _ => return Some(script_name(&a)),
         }
     }
     None
@@ -391,6 +429,7 @@ pub fn collect_processes(sys: &mut System, custom: &[String]) -> Vec<ProcessInfo
                 cpu: p.cpu_usage() / cores,
                 memory_mb: p.memory() as f64 / 1_048_576.0,
                 run_time_secs: p.run_time(),
+                start_time: p.start_time(),
                 ports: ports.remove(&pid).unwrap_or_default(),
                 // Los rellena `ZombieWatch`, que es quien tiene memoria de los
                 // refrescos anteriores; aqui cada lectura es una foto sin pasado.
@@ -584,17 +623,21 @@ pub fn unprotected_pids(sys: &mut System, custom: &[String], protected: &[String
 /// protegidos, pero aqui se vuelven a mirar: un comando de Tauri acepta los PIDs que le manden.
 ///
 /// `lang` es solo para el texto del error, que acaba en el toast de la ventana (T12-05).
+///
+/// `vistos` es la hora de arranque con la que la ventana vio cada PID, o vacio si quien pide el
+/// cierre acaba de leer la lista el mismo. Ver [`kill_one`].
 pub fn kill_many(
     sys: &mut System,
     custom: &[String],
     protected: &[String],
     pids: Vec<u32>,
+    vistos: &HashMap<u32, u64>,
     lang: crate::storage::Language,
 ) -> Vec<KillOutcome> {
     let mut ports = listening_ports();
 
     pids.into_iter()
-        .map(|pid| match kill_one(sys, custom, protected, pid, &mut ports)
+        .map(|pid| match kill_one(sys, custom, protected, pid, vistos.get(&pid).copied(), &mut ports)
             .map_err(|f| crate::textos::fallo_cierre(lang, &f))
         {
             Ok((name, freed_ports)) => KillOutcome {
@@ -629,17 +672,30 @@ pub enum FalloCierre {
 /// `ports` es el mapa PID -> puertos ya leido por [`kill_many`]; se saca de el la
 /// entrada de este PID. Recibirlo en vez de leerlo aqui es lo que evita enumerar
 /// los sockets una vez por proceso.
+///
+/// `visto` es la hora de arranque que tenia este PID **en la lista que la ventana tiene
+/// delante**. Si el proceso de ahora arranco en otro momento, no es el que el usuario pidio cerrar:
+/// aquel murio y Windows le dio su numero a otro (T12-09).
+///
+/// Hasta entonces la guardia era solo el nombre, y el comentario decia que «el nombre ya no
+/// coincidira». Es cierto si el PID lo hereda otro programa, y falso en el caso que mas se da en
+/// un equipo de desarrollo: que lo herede **otro `node.exe`**. Con el refresco en «Off» la lista
+/// puede tener minutos, y el Kill de una fila vieja cerraba un proceso que nadie habia visto.
+///
+/// Se contesta `NoExiste` y no un error propio porque es lo que ha pasado: el proceso que se pidio
+/// cerrar ya no existe.
 fn kill_one(
     sys: &mut System,
     custom: &[String],
     protected: &[String],
     pid: u32,
+    visto: Option<u64>,
     ports: &mut HashMap<u32, Vec<u16>>,
 ) -> Result<(String, Vec<u16>), FalloCierre> {
     let target = Pid::from_u32(pid);
 
-    // Releer solo este PID antes de matarlo: si el sistema lo reciclo desde el
-    // ultimo refresco, el nombre ya no coincidira y la guardia de abajo corta.
+    // Releer solo este PID antes de matarlo: si murio desde el ultimo refresco, deja de estar, y
+    // si el sistema le dio su numero a otro, lo que se lee aqui es el de ahora.
     // Con la linea de comandos y la carpeta, que es con lo que se decide si esta protegido.
     sys.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[target]),
@@ -652,6 +708,9 @@ fn kill_one(
     let process = sys
         .process(target)
         .ok_or(FalloCierre::NoExiste { pid })?;
+    if visto.is_some_and(|arranque| arranque != process.start_time()) {
+        return Err(FalloCierre::NoExiste { pid });
+    }
     let name = process.name().to_string_lossy().into_owned();
 
     // El frontend solo deberia enviar PIDs de la lista, pero un comando de Tauri
@@ -674,6 +733,26 @@ fn kill_one(
     } else {
         Err(FalloCierre::NoSeCerro { name, pid })
     }
+}
+
+/// Lo que hace una prueba cuando no puede montar lo que necesita: decirlo y, si se le exige, fallar.
+///
+/// Varias pruebas de este archivo lanzan un `node` de verdad —o una copia de `PING.EXE`— y, si no
+/// pueden, salen con `return`. Eso las da por **superadas**: la guardia de PID, los protegidos, los
+/// puertos de un lote y la CPU podían estar sin probar en un equipo sin Node sin que nada lo
+/// dijera (T12-18). En el equipo de quien desarrolla es lo razonable; en la CI y en el corte de
+/// una versión, no.
+///
+/// Con `PDK_EXIGIR_NODE=1` en el entorno, saltarse una prueba es un fallo. La ponen `ci.yml` y
+/// `release.ps1`.
+#[cfg(test)]
+pub(crate) fn omitir(motivo: &str) {
+    let exigir = std::env::var("PDK_EXIGIR_NODE").is_ok_and(|v| !v.is_empty() && v != "0");
+    assert!(
+        !exigir,
+        "{motivo}: la prueba no se ha podido hacer, y PDK_EXIGIR_NODE pide que eso sea un fallo"
+    );
+    println!("{motivo}: se omite");
 }
 
 #[cfg(test)]
@@ -745,7 +824,7 @@ mod tests {
         let disfrazado = carpeta.join("svchost.exe");
         if std::fs::create_dir_all(&carpeta).is_err() || std::fs::copy(origen, &disfrazado).is_err()
         {
-            println!("no se pudo preparar la copia de PING.EXE: se omite");
+            omitir("no se pudo preparar la copia de PING.EXE");
             return;
         }
         let Ok(mut hijo) = std::process::Command::new(&disfrazado)
@@ -754,7 +833,7 @@ mod tests {
             .spawn()
         else {
             let _ = std::fs::remove_dir_all(&carpeta);
-            println!("no se pudo lanzar la copia: se omite");
+            omitir("no se pudo lanzar la copia");
             return;
         };
         let pid = hijo.id();
@@ -771,7 +850,7 @@ mod tests {
             .map(|p| p.name().to_string_lossy().into_owned());
 
         let custom = vec!["svchost".to_string()];
-        let rechazo = kill_many(&mut sys, &custom, SIN_EXTRAS, vec![pid], crate::storage::Language::Es);
+        let rechazo = kill_many(&mut sys, &custom, SIN_EXTRAS, vec![pid], &HashMap::new(), crate::storage::Language::Es);
         let sigue_vivo = matches!(hijo.try_wait(), Ok(None));
 
         let _ = hijo.kill();
@@ -785,6 +864,89 @@ mod tests {
         );
         assert!(!rechazo[0].killed, "un proceso llamado svchost no deberia cerrarse");
         assert!(sigue_vivo, "la guardia devolvio error pero el proceso murio igual");
+    }
+
+    /// Lanza una copia de `PING.EXE` con otro nombre, que dura un minuto si nadie la cierra.
+    ///
+    /// Para las pruebas que necesitan un proceso propio con un nombre concreto y no pueden
+    /// depender de que `node` este instalado. `None` si no se pudo preparar.
+    fn lanzar_disfrazado(carpeta: &std::path::Path, nombre: &str) -> Option<std::process::Child> {
+        let origen = std::path::Path::new(r"C:\Windows\System32\PING.EXE");
+        let copia = carpeta.join(nombre);
+        std::fs::create_dir_all(carpeta).ok()?;
+        if !copia.exists() {
+            std::fs::copy(origen, &copia).ok()?;
+        }
+        std::process::Command::new(&copia)
+            .args(["-n", "60", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .ok()
+    }
+
+    /// T12-09. Dos procesos con el mismo nombre, lanzados con mas de un segundo de diferencia.
+    ///
+    /// No se puede obligar a Windows a reutilizar un PID, asi que se prueba lo que la guardia
+    /// compara: se pide cerrar el segundo diciendo que la ventana lo vio arrancar **cuando arranco
+    /// el primero**. Es exactamente lo que ve `kill_one` cuando el primero muere y el segundo
+    /// hereda su numero: mismo PID, mismo nombre, otra hora de arranque.
+    #[test]
+    fn no_cierra_un_proceso_que_arranco_en_otro_momento_que_el_que_vio_la_ventana() {
+        let carpeta = std::env::temp_dir().join(format!("pdk_gemelos_{}", std::process::id()));
+        let custom = vec!["pdk-gemelo".to_string()];
+
+        let Some(mut primero) = lanzar_disfrazado(&carpeta, "pdk-gemelo.exe") else {
+            omitir("no se pudo lanzar la copia de PING.EXE");
+            return;
+        };
+        // La hora de arranque que da sysinfo va en segundos: con menos separacion, los dos
+        // procesos podrian compartirla y la prueba no distinguiria nada.
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        let Some(mut segundo) = lanzar_disfrazado(&carpeta, "pdk-gemelo.exe") else {
+            let _ = primero.kill();
+            let _ = primero.wait();
+            omitir("no se pudo lanzar la segunda copia");
+            return;
+        };
+
+        let mut sys = new_system();
+        let lista = collect_processes(&mut sys, &custom);
+        let arranque = |pid: u32| lista.iter().find(|p| p.pid == pid).map(|p| p.start_time);
+        let (Some(del_primero), Some(del_segundo)) = (arranque(primero.id()), arranque(segundo.id()))
+        else {
+            panic!("los dos procesos lanzados tienen que salir en la lista");
+        };
+
+        // La ventana cree que el PID del segundo es un proceso que arranco cuando el primero.
+        let viejo: HashMap<u32, u64> = [(segundo.id(), del_primero)].into();
+        let rechazo = kill_many(&mut sys, &custom, SIN_EXTRAS, vec![segundo.id()], &viejo, crate::storage::Language::Es);
+        let sigue_vivo = matches!(segundo.try_wait(), Ok(None));
+
+        // Y con la hora de arranque que de verdad tiene, se cierra.
+        let bueno: HashMap<u32, u64> = [(segundo.id(), del_segundo)].into();
+        let aceptado = kill_many(&mut sys, &custom, SIN_EXTRAS, vec![segundo.id()], &bueno, crate::storage::Language::Es);
+
+        let _ = primero.kill();
+        let _ = primero.wait();
+        let _ = segundo.kill();
+        let _ = segundo.wait();
+        let _ = std::fs::remove_dir_all(&carpeta);
+
+        assert_ne!(
+            del_primero, del_segundo,
+            "la prueba no demuestra nada si los dos arrancaron en el mismo segundo"
+        );
+        assert!(!rechazo[0].killed, "se cerro un proceso que no es el que vio la ventana");
+        assert_eq!(
+            rechazo[0].error.as_deref(),
+            Some(crate::textos::fallo_cierre(
+                crate::storage::Language::Es,
+                &FalloCierre::NoExiste { pid: segundo.id() }
+            ).as_str()),
+            "lo que ha pasado es que el proceso pedido ya no existe"
+        );
+        assert!(sigue_vivo, "la guardia devolvio error pero el proceso murio igual");
+        assert!(aceptado[0].killed, "con su propia hora de arranque, se tiene que poder cerrar");
     }
 
     /// El menu de la bandeja ofrece "Cerrar todos los Node/Python/.NET". Si esa
@@ -839,6 +1001,7 @@ mod tests {
                 cpu: 0.0,
                 memory_mb,
                 run_time_secs: 0,
+                start_time: 0,
                 ports: Vec::new(),
                 idle_secs: 0,
                 zombie: false,
@@ -874,6 +1037,7 @@ mod tests {
             cpu,
             memory_mb: 300.0,
             run_time_secs: 3600,
+            start_time: 0,
             ports,
             idle_secs: 0,
             zombie: false,
@@ -994,7 +1158,7 @@ mod tests {
         }
 
         let (Some(mut uno), Some(mut dos)) = (servidor(A), servidor(B)) else {
-            println!("sin node instalado: no hay nada que comprobar");
+            omitir("sin node instalado");
             return;
         };
         let (pid_uno, pid_dos) = (uno.id(), dos.id());
@@ -1019,12 +1183,12 @@ mod tests {
             let _ = dos.kill();
             let _ = uno.wait();
             let _ = dos.wait();
-            println!("los servidores de prueba no llegaron a escuchar; se omite");
+            omitir("los servidores de prueba no llegaron a escuchar");
             return;
         }
 
         let mut sys = new_system();
-        let outcomes = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid_uno, pid_dos], crate::storage::Language::Es);
+        let outcomes = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid_uno, pid_dos], &HashMap::new(), crate::storage::Language::Es);
 
         // Recoger a los hijos pase lo que pase, antes de cualquier asercion.
         let _ = uno.wait();
@@ -1088,7 +1252,7 @@ mod tests {
             .stdout(std::process::Stdio::null())
             .spawn()
         else {
-            println!("no se pudo lanzar cmd.exe: se omite");
+            omitir("no se pudo lanzar cmd.exe");
             return;
         };
         let pid = ajeno.id();
@@ -1111,12 +1275,12 @@ mod tests {
         if !visible {
             let _ = ajeno.kill();
             let _ = ajeno.wait();
-            println!("el proceso de prueba no llego a verse; se omite");
+            omitir("el proceso de prueba no llego a verse");
             return;
         }
 
         // 1. Sin vigilar: la guardia tiene que cortar.
-        let rechazo = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid], crate::storage::Language::Es);
+        let rechazo = kill_many(&mut sys, SIN_EXTRAS, SIN_EXTRAS, vec![pid], &HashMap::new(), crate::storage::Language::Es);
 
         // ¿Sigue vivo? Se mira ANTES de limpiar, que es la comprobacion que de verdad importa:
         // que la guardia no solo devolviera un error, sino que ademas no matara nada.
@@ -1129,7 +1293,7 @@ mod tests {
 
         // 2. Declarandolo vigilado, el mismo PID si muere.
         let permitido = vec!["cmd".to_string()];
-        let aceptado = kill_many(&mut sys, &permitido, SIN_EXTRAS, vec![pid], crate::storage::Language::Es);
+        let aceptado = kill_many(&mut sys, &permitido, SIN_EXTRAS, vec![pid], &HashMap::new(), crate::storage::Language::Es);
 
         // Recoger al hijo pase lo que pase, antes de cualquier asercion.
         let _ = ajeno.kill();
@@ -1206,6 +1370,7 @@ mod tests {
             cpu,
             memory_mb,
             run_time_secs: 0,
+            start_time: 0,
             ports: Vec::new(),
             idle_secs: 0,
             zombie: false,
@@ -1313,7 +1478,10 @@ mod tests {
             .spawn()
         {
             Ok(child) => child,
-            Err(_) => return, // Sin node instalado no hay nada que comprobar.
+            Err(_) => {
+                omitir("sin node instalado");
+                return;
+            }
         };
 
         let mut sys = new_system();
@@ -1557,6 +1725,65 @@ mod tests_identidad {
         assert_eq!(con_espacio.as_deref(), Some("abc123"));
     }
 
+    /// T12-10. El primer argumento sin guion se tomaba por el script, y con una opcion que lleva
+    /// su valor aparte ese argumento es **el valor**: `node -r ts-node/register app.ts` salia como
+    /// «register» y `python -X utf8 app.py` como «utf8». La etiqueta equivocada en la columna que
+    /// existe para no cerrar a ciegas.
+    #[test]
+    fn el_valor_de_una_opcion_conocida_no_se_toma_por_el_script() {
+        let script = |args: &[&str]| describe(&cmd(args), None).0;
+
+        assert_eq!(
+            script(&["node", "-r", "ts-node/register", "app.ts"]).as_deref(),
+            Some("app.ts")
+        );
+        assert_eq!(script(&["python", "-X", "utf8", "app.py"]).as_deref(), Some("app.py"));
+
+        // Las demas de la lista, una por runtime y forma.
+        assert_eq!(
+            script(&["node", "--require", "dotenv/config", "--import", "tsx", "server.mjs"])
+                .as_deref(),
+            Some("server.mjs")
+        );
+        assert_eq!(
+            script(&["node", "--loader", "ts-node/esm", "--conditions", "development", "main.ts"])
+                .as_deref(),
+            Some("main.ts")
+        );
+        assert_eq!(
+            script(&["python", "-W", "ignore", "-X", "dev", "manage.py", "runserver"]).as_deref(),
+            Some("manage.py")
+        );
+        assert_eq!(
+            script(&["dotnet", "exec", "--runtimeconfig", "app.runtimeconfig.json", "app.dll"])
+                .as_deref(),
+            Some("app.dll")
+        );
+    }
+
+    /// El criterio negativo: saltar el valor no puede comerse el script cuando la opcion va pegada
+    /// a su valor, ni inventar uno cuando la opcion es lo ultimo de la linea.
+    #[test]
+    fn saltar_el_valor_de_una_opcion_no_se_come_el_script() {
+        let script = |args: &[&str]| describe(&cmd(args), None).0;
+
+        // Con `=` o pegada, la opcion y su valor son un solo argumento: no hay nada que saltar.
+        assert_eq!(
+            script(&["node", "--require=dotenv/config", "app.js"]).as_deref(),
+            Some("app.js")
+        );
+        assert_eq!(script(&["python", "-Xutf8", "app.py"]).as_deref(), Some("app.py"));
+        // Una opcion sin valor, de las que no estan en la lista, tampoco salta nada.
+        assert_eq!(script(&["node", "--inspect", "app.js"]).as_deref(), Some("app.js"));
+        // La opcion al final, sin su valor: no hay script, y no revienta.
+        assert_eq!(script(&["node", "-r"]), None);
+        // `-m` sigue ganando aunque venga detras de una opcion con valor.
+        assert_eq!(
+            script(&["python", "-X", "dev", "-m", "uvicorn", "app:app"]).as_deref(),
+            Some("-m uvicorn")
+        );
+    }
+
     #[test]
     fn sin_argumentos_no_hay_script() {
         assert_eq!(describe(&cmd(&["node.exe"]), None).0, None);
@@ -1590,6 +1817,7 @@ mod tests_protegidos {
             cpu: 0.0,
             memory_mb: 9000.0,
             run_time_secs: 0,
+            start_time: 0,
             ports: Vec::new(),
             idle_secs: 0,
             zombie: false,
@@ -1651,7 +1879,7 @@ mod tests_protegidos {
             .current_dir(&carpeta)
             .spawn()
         else {
-            println!("sin node instalado: no hay nada que comprobar");
+            omitir("sin node instalado");
             return;
         };
         let pid = hijo.id();
@@ -1673,13 +1901,13 @@ mod tests_protegidos {
         let Some(visto) = visto else {
             let _ = hijo.kill();
             let _ = hijo.wait();
-            println!("no se llego a leer la carpeta del proceso de prueba; se omite");
+            omitir("no se llego a leer la carpeta del proceso de prueba");
             return;
         };
 
         let bandeja = pids_of_runtime(&mut sys, NADA, &protegidos, Runtime::Node);
         let atajo = unprotected_pids(&mut sys, NADA, &protegidos);
-        let ventana = kill_many(&mut sys, NADA, &protegidos, vec![pid], crate::storage::Language::Es);
+        let ventana = kill_many(&mut sys, NADA, &protegidos, vec![pid], &HashMap::new(), crate::storage::Language::Es);
 
         sys.refresh_processes_specifics(
             ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
@@ -1688,7 +1916,7 @@ mod tests_protegidos {
         );
         let sigue_vivo = sys.process(Pid::from_u32(pid)).is_some();
 
-        let sin_proteger = kill_many(&mut sys, NADA, NADA, vec![pid], crate::storage::Language::Es);
+        let sin_proteger = kill_many(&mut sys, NADA, NADA, vec![pid], &HashMap::new(), crate::storage::Language::Es);
 
         let _ = hijo.kill();
         let _ = hijo.wait();

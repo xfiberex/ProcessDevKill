@@ -9,7 +9,8 @@ use std::time::Instant;
 
 use tauri::{AppHandle, Manager};
 
-use crate::{auto_kill, measure_usage, processes, publish, publish_usage, read_list, AppState};
+use crate::lista::{measure_usage, publish, publish_usage, read_list};
+use crate::{auto_kill, processes, AppState};
 
 /// Limites del refresco automatico. Por debajo de 500 ms el enumerado de procesos
 /// se solaparia consigo mismo sin aportar nada util.

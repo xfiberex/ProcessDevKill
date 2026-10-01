@@ -20,13 +20,16 @@ use crate::processes::{KillOutcome, ProcessInfo};
 use crate::storage::{
     HistoryEntry, KillSource, Settings, MIN_AUTO_KILL_MB, MIN_ZOMBIE_MINUTES,
 };
-use crate::{
-    emit_processes, hotkey, kill_and_record, read_list, services, textos, tray, AppState,
-};
+use crate::lista::{emit_processes, kill_and_record, read_list, recordar_vistos};
+use crate::{hotkey, services, textos, tray, AppState};
 
 #[tauri::command]
 pub fn get_processes(state: State<'_, AppState>) -> Result<Vec<ProcessInfo>, String> {
-    read_list(&state)
+    let list = read_list(&state)?;
+    // La ventana va a pintar esta lista: es la que hay que recordar para comprobar, al cerrar, que
+    // cada PID sigue siendo el proceso que se vio (T12-09).
+    recordar_vistos(&state, &list);
+    Ok(list)
 }
 
 #[tauri::command]

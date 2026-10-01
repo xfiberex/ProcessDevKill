@@ -13,7 +13,8 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut}
 
 use crate::processes::{self, unprotected_pids};
 use crate::storage::{Hotkey, KillSource};
-use crate::{kill_and_record, notify, textos, AppState};
+use crate::lista::kill_and_record;
+use crate::{notify, textos, AppState};
 
 /// Plazo para la segunda pulsacion. Tres segundos dan para leer el aviso y decidir; mas, y una
 /// pulsacion suelta de hace un rato armaria un disparo que nadie recuerda haber pedido.

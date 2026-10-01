@@ -6,7 +6,8 @@ use tauri::{AppHandle, Manager, Wry};
 
 use crate::processes::{pids_of_runtime, Runtime};
 use crate::storage::{KillSource, Language};
-use crate::{kill_and_record, notify, textos, AppState};
+use crate::lista::kill_and_record;
+use crate::{notify, textos, AppState};
 
 /// Id del icono en la bandeja. Hace falta para poder recuperarlo y cambiarle el menu al cambiar
 /// de idioma: sin id, `tray_by_id` no tiene por donde encontrarlo.

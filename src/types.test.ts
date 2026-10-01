@@ -53,17 +53,17 @@ describe("el contrato con Rust", () => {
     expect(ZOMBIE_MIN_MINUTES).toBe(Number(m![1]));
   });
 
-  it("escucha el mismo evento que emite lib.rs", () => {
-    const rust = leerRust("lib.rs");
+  it("escucha el mismo evento que emite lista.rs", () => {
+    const rust = leerRust("lista.rs");
     const m = rust.match(/const PROCESSES_UPDATED:\s*&str\s*=\s*"([^"]+)"/);
-    expect(m, "no se encontro PROCESSES_UPDATED en lib.rs").not.toBeNull();
+    expect(m, "no se encontro PROCESSES_UPDATED en lista.rs").not.toBeNull();
     expect(PROCESSES_UPDATED).toBe(m![1]);
   });
 
-  it("escucha el mismo evento del medidor que emite lib.rs", () => {
-    const rust = leerRust("lib.rs");
+  it("escucha el mismo evento del medidor que emite lista.rs", () => {
+    const rust = leerRust("lista.rs");
     const m = rust.match(/const SYSTEM_USAGE:\s*&str\s*=\s*"([^"]+)"/);
-    expect(m, "no se encontro SYSTEM_USAGE en lib.rs").not.toBeNull();
+    expect(m, "no se encontro SYSTEM_USAGE en lista.rs").not.toBeNull();
     expect(SYSTEM_USAGE).toBe(m![1]);
   });
 

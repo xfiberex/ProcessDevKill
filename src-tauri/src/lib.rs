@@ -2,6 +2,7 @@ mod auto_kill;
 mod commands;
 mod elevation;
 mod hotkey;
+mod lista;
 // `pub` porque el macro `avisar!` que exporta se resuelve como `$crate::logging::escribir`.
 pub mod logging;
 mod notify;
@@ -15,28 +16,16 @@ mod textos;
 mod tray;
 mod update;
 
+use std::collections::HashMap;
 use std::sync::{Condvar, Mutex};
 use std::time::Duration;
 
 use sysinfo::System;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::Manager;
 use tauri_plugin_global_shortcut::ShortcutState;
 
-use processes::{
-    collect_processes, collect_system_usage, kill_many, mark_protected, new_system, warm_up_cpu,
-    KillOutcome, ProcessInfo, SystemUsage,
-};
-use storage::{now_millis, HistoryEntry, KillSource, Language, Settings, Storage};
-
-/// Evento que recibe el frontend cada vez que hay una lista nueva de procesos.
-const PROCESSES_UPDATED: &str = "processes-updated";
-
-/// Evento con el consumo del equipo y la parte que se lleva el entorno.
-///
-/// Va en un evento propio y no dentro de `PROCESSES_UPDATED` para no cambiar el
-/// contrato de la lista, que es lo que escuchan la ventana y sus pruebas. Ademas
-/// se emite desde menos sitios: ver `poller::cycle`.
-const SYSTEM_USAGE: &str = "system-usage";
+use processes::{new_system, warm_up_cpu};
+use storage::{Language, Settings, Storage};
 
 pub struct AppState {
     sys: Mutex<System>,
@@ -45,6 +34,10 @@ pub struct AppState {
     /// Memoria de refrescos anteriores para el Zombie Finder. Se bloquea siempre
     /// **despues** de soltar `sys`, nunca dentro.
     zombies: Mutex<processes::ZombieWatch>,
+    /// La hora de arranque de cada PID **en la ultima lista que se le dio a la ventana**. Es con lo
+    /// que se comprueba, al cerrar, que el proceso sigue siendo el que el usuario tenia delante y
+    /// no otro que heredo su numero (T12-09). Se copia y se suelta antes de bloquear `sys`.
+    vistos: Mutex<HashMap<u32, u64>>,
     /// Testigo con el que despertar al hilo del poller cuando cambian los ajustes.
     ///
     /// El bool no significa nada: es lo que exige la API del `Condvar`. Lo que
@@ -151,125 +144,14 @@ impl AppState {
     }
 }
 
-/// Lee la lista de procesos y le pega la marca del Zombie Finder.
-///
-/// Unico sitio donde se combinan las dos cosas: si el refresco manual, el hilo y
-/// el evento de cierre no pasaran todos por aqui, la marca aparecerian y
-/// desaparecerian segun de donde viniera la lista.
-pub(crate) fn read_list(state: &AppState) -> Result<Vec<ProcessInfo>, String> {
-    let custom = state.custom_names();
-    let protected = state.protected_names();
-    let zombie_after = state.zombie_after();
-
-    let mut list = {
-        let mut sys = state
-            .sys
-            .lock()
-            .map_err(|_| textos::de(state.language()).estado_corrupto.to_string())?;
-        collect_processes(&mut sys, &custom)
-    };
-    mark_protected(&mut list, &protected);
-
-    if let Ok(mut watch) = state.zombies.lock() {
-        watch.track(&mut list, now_millis(), zombie_after);
-    }
-
-    Ok(list)
-}
-
-pub(crate) fn publish(app: &AppHandle, list: Vec<ProcessInfo>) {
-    if let Err(e) = app.emit(PROCESSES_UPDATED, list) {
-        crate::avisar!("No se pudo emitir {PROCESSES_UPDATED}: {e}");
-    }
-}
-
-/// Mide el equipo y la parte que se llevan los vigilados de `list`.
-///
-/// Bloquea `sys` por segunda vez en el ciclo, despues de que `read_list` lo haya
-/// soltado —seguidos, nunca anidados—. Lo unico que puede cambiar entre los dos
-/// bloqueos es que muera un proceso, y entonces la parte del entorno sale de una
-/// lista de hace microsegundos: irrelevante para un medidor.
-pub(crate) fn measure_usage(state: &AppState, list: &[ProcessInfo]) -> Option<SystemUsage> {
-    let mut sys = state.sys.lock().ok()?;
-    Some(collect_system_usage(&mut sys, list))
-}
-
-pub(crate) fn publish_usage(app: &AppHandle, usage: SystemUsage) {
-    if let Err(e) = app.emit(SYSTEM_USAGE, usage) {
-        crate::avisar!("No se pudo emitir {SYSTEM_USAGE}: {e}");
-    }
-}
-
-/// Lee la lista actual y se la manda al frontend.
-///
-/// No aplica el Auto-Kill a proposito: `kill_and_record` llama aqui al terminar, y
-/// vigilar tambien desde este camino encadenaria cierre → refresco → cierre.
-pub(crate) fn emit_processes(app: &AppHandle) {
-    if let Ok(list) = read_list(&app.state::<AppState>()) {
-        publish(app, list);
-    }
-}
-
-/// Unico camino por el que se cierra un proceso, venga de la ventana, de la
-/// bandeja, del atajo global o del Auto-Kill.
-///
-/// Centralizarlo garantiza que las cuatro vias registren historial, notifiquen los
-/// puertos liberados y refresquen la UI de la misma forma.
-pub(crate) fn kill_and_record(
-    app: &AppHandle,
-    pids: Vec<u32>,
-    source: KillSource,
-) -> Vec<KillOutcome> {
-    let state = app.state::<AppState>();
-    let custom = state.custom_names();
-    // Los protegidos se vuelven a mirar aqui aunque cada via ya los deje fuera: es la unica puerta
-    // por la que pasan las cuatro, y la ventana manda los PIDs que quiera.
-    let protected = state.protected_names();
-    // Antes de bloquear `sys`: `language()` toma el candado de los ajustes, y nunca se anidan.
-    let lang = state.language();
-
-    let outcomes: Vec<KillOutcome> = {
-        let Ok(mut sys) = state.sys.lock() else {
-            return Vec::new();
-        };
-        // `kill_many` lee la tabla de sockets una sola vez para todo el lote.
-        kill_many(&mut sys, &custom, &protected, pids, lang)
-    };
-
-    let killed_at = now_millis();
-    let entries: Vec<HistoryEntry> = outcomes
-        .iter()
-        .filter(|o| o.killed)
-        .map(|o| HistoryEntry {
-            pid: o.pid,
-            name: o.name.clone(),
-            freed_ports: o.freed_ports.clone(),
-            killed_at,
-            source,
-        })
-        .collect();
-    if let Err(e) = state.storage.append_history(entries) {
-        crate::avisar!("No se pudo guardar el historial: {e}");
-    }
-
-    // **Solo la ventana recibe aqui el aviso de los puertos.** Los otros tres caminos componen su
-    // mensaje entero -recuento mas puertos- y lo mandan ellos: el Auto-Kill ya lo hacia, y desde
-    // T3-12 tambien la bandeja y el atajo global, que antes sacaban dos notificaciones de Windows
-    // por un solo clic. Con la ventana delante no aplica: ahi el recuento se ve en la propia
-    // pantalla y la notificacion solo aporta los puertos.
-    if source == KillSource::Window {
-        notify::freed_ports(app, state.language(), &processes::freed_ports(&outcomes));
-    }
-
-    // La lista cambio: que la ventana lo refleje sin esperar al siguiente ciclo.
-    emit_processes(app);
-    outcomes
-}
-
 // ------------------------------------------------------------------ arranque ---
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Antes que nada: desde aqui, un panico deja su linea en el log en cuanto el log exista. El
+    // proceso elevado de los servicios, que sale unas lineas mas abajo, no llega a iniciarlo.
+    logging::instalar_gancho_de_panico();
+
     // Lo primero de todo, antes de que exista una app de Tauri.
     //
     // Esta misma ejecucion puede ser el proceso elevado que la ventana relanzo para arrancar o
@@ -339,6 +221,7 @@ pub fn run() {
                 settings: Mutex::new(settings.clone()),
                 storage,
                 zombies: Mutex::new(processes::ZombieWatch::default()),
+                vistos: Mutex::new(HashMap::new()),
                 senal: (Mutex::new(false), Condvar::new()),
             });
 
@@ -355,7 +238,7 @@ pub fn run() {
                 if let Ok(mut sys) = warm.state::<AppState>().sys.lock() {
                     warm_up_cpu(&mut sys, &custom);
                 }
-                emit_processes(&warm);
+                lista::emit_processes(&warm);
             });
 
             poller::spawn(handle);
@@ -420,8 +303,9 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // Solo lo usan los tests: en el resto de lib.rs los runtimes no se nombran.
-    use processes::Runtime;
+    // Solo los usan los tests: en el resto de lib.rs no se nombran.
+    use processes::{KillOutcome, ProcessInfo, Runtime};
+    use storage::{HistoryEntry, KillSource};
 
     /// El frontend lee estas claves literalmente. Si alguien renombra un campo en
     /// Rust sin tocar `src/types.ts`, la UI se llena de `undefined` sin que falle
@@ -435,6 +319,7 @@ mod tests {
             cpu: 6.25,
             memory_mb: 128.0,
             run_time_secs: 900,
+            start_time: 0,
             ports: vec![5173],
             idle_secs: 0,
             zombie: false,
@@ -548,6 +433,7 @@ mod tests {
             settings: Mutex::new(Settings::default()),
             storage: Storage::new(std::env::temp_dir().join("pdk-test-senal")),
             zombies: Mutex::new(processes::ZombieWatch::default()),
+            vistos: Mutex::new(HashMap::new()),
             senal: (Mutex::new(false), Condvar::new()),
         });
 
@@ -591,6 +477,7 @@ mod tests {
             settings: Mutex::new(Settings::default()),
             storage: Storage::new(std::env::temp_dir().join("pdk-test-senal-previa")),
             zombies: Mutex::new(processes::ZombieWatch::default()),
+            vistos: Mutex::new(HashMap::new()),
             senal: (Mutex::new(false), Condvar::new()),
         };
 

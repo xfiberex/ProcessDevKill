@@ -36,7 +36,7 @@ pub fn enforce(app: &AppHandle, lang: Language, list: &[ProcessInfo], limit_mb: 
     }
 
     let pids: Vec<u32> = excedidos.iter().map(|(pid, _, _)| *pid).collect();
-    let outcomes = crate::kill_and_record(app, pids, KillSource::Auto);
+    let outcomes = crate::lista::kill_and_record(app, pids, KillSource::Auto);
 
     let cerrados: Vec<&KillOutcome> = outcomes.iter().filter(|o| o.killed).collect();
     if cerrados.is_empty() {

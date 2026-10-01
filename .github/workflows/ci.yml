@@ -73,8 +73,12 @@ jobs:
 
       # Las pruebas de Rust leen procesos reales y lanzan sus propios `node`: en el runner no hay
       # procesos de nadie, que es justo el sitio donde se puede probar sin riesgo.
+      # `PDK_EXIGIR_NODE`: varias pruebas lanzan un `node` y, si no pueden, se saltan dándose por
+      # superadas. Aquí eso es un fallo (T12-18): lo que se comprueba en la CI se comprueba.
       - name: Pruebas de Rust
         working-directory: src-tauri
+        env:
+          PDK_EXIGIR_NODE: "1"
         run: cargo test
 
   auditoria:

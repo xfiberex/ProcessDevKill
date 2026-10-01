@@ -2,6 +2,12 @@
 
 use std::collections::HashMap;
 
+use crate::logging::CadaTanto;
+
+/// El aviso de que no se pudieron leer los puertos, como mucho una vez por minuto. Esta función
+/// corre en cada ciclo del poller: si falla una vez, lo normal es que falle en todas.
+static AVISO_DE_PUERTOS: CadaTanto = CadaTanto::new(60_000);
+
 /// Mapea PID -> puertos TCP en escucha.
 ///
 /// Solo interesan los sockets en estado `Listen`: `get_all()` tambien devuelve
@@ -15,7 +21,11 @@ pub fn listening_ports() -> HashMap<u32, Vec<u16>> {
     let all = match listeners::get_all() {
         Ok(all) => all,
         Err(e) => {
-            crate::avisar!("No se pudieron leer los puertos en escucha: {e}");
+            if AVISO_DE_PUERTOS.toca(crate::storage::now_millis()) {
+                crate::avisar!(
+                    "No se pudieron leer los puertos en escucha: {e} (este aviso sale como mucho una vez por minuto)"
+                );
+            }
             return HashMap::new();
         }
     };

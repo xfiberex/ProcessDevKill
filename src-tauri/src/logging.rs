@@ -21,7 +21,9 @@
 use std::fmt;
 use std::fs;
 use std::io::Write;
+use std::panic::PanicHookInfo;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 
 /// Tamaño a partir del cual se rota. Cada línea ronda los 80 bytes, así que medio mega son unas
@@ -117,6 +119,95 @@ fn civil_desde_dias(dias: i64) -> (i64, u64, u64) {
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let a = yoe as i64 + era * 400 + i64::from(m <= 2);
     (a, m, d)
+}
+
+// ── Pánicos ──────────────────────────────────────────────────────────────────
+
+/// La línea que deja un pánico: qué hilo, dónde y con qué mensaje.
+///
+/// El mensaje de un `panic!` llega como `&str` o como `String` según lleve o no argumentos de
+/// formato; cualquier otra cosa —un `panic_any` con un tipo propio— no se puede enseñar, y se
+/// dice que la hubo en vez de callarla.
+fn linea_de_panico(info: &PanicHookInfo) -> String {
+    let hilo = std::thread::current();
+    let hilo = hilo.name().unwrap_or("sin nombre");
+    let donde = info
+        .location()
+        .map(|l| format!("{}:{}", l.file(), l.line()))
+        .unwrap_or_else(|| "sitio desconocido".to_string());
+    let carga = info.payload();
+    let mensaje = carga
+        .downcast_ref::<&str>()
+        .map(|m| (*m).to_string())
+        .or_else(|| carga.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "(sin mensaje legible)".to_string());
+
+    format!("PANICO en el hilo «{hilo}», {donde}: {mensaje}")
+}
+
+/// Anota un pánico en `destino`. Aparte de `instalar_gancho_de_panico` para poder probarlo con
+/// un archivo propio: el gancho de verdad escribe en el log de la app, que es global.
+fn anotar_panico(destino: &Path, info: &PanicHookInfo) {
+    let _ = escribir_en(destino, &linea_de_panico(info), MAX_BYTES);
+}
+
+/// Hace que un pánico deje su línea en el log antes de seguir su curso (T12-14).
+///
+/// Sin esto un pánico solo va a stderr, que en release no existe. Dos casos que se quedaban sin
+/// rastro: si falla algo al arrancar —la bandeja, por ejemplo—, la app no abre y no hay ni una
+/// línea que diga por qué; y si muere el hilo del poller, la lista y el Auto-Kill se quedan
+/// congelados sin que nada lo anuncie.
+///
+/// **Se llama al principio de `run`, antes de que exista el log.** El destino se mira cuando el
+/// pánico ocurre, no al instalar el gancho: lo que pase antes de `iniciar` no se puede anotar, y
+/// lo de después, sí.
+///
+/// El gancho anterior se sigue llamando: es el que escribe a stderr, que en `tauri dev` es donde
+/// se mira. Por eso aquí se escribe solo en el archivo, y no con `escribir`, que también va a
+/// stderr y lo sacaría dos veces.
+pub fn instalar_gancho_de_panico() {
+    let anterior = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        if let Some(destino) = DESTINO.get() {
+            anotar_panico(destino, info);
+        }
+        anterior(info);
+    }));
+}
+
+// ── Avisos que se repiten ────────────────────────────────────────────────────
+
+/// Deja pasar un aviso como mucho una vez cada cierto tiempo.
+///
+/// Para lo que se comprueba en cada ciclo del poller: si leer los puertos falla una vez, falla en
+/// todas, y a un aviso cada dos segundos el log rota en una tarde y se lleva por delante lo de
+/// antes, que es lo que explica cómo se llegó ahí (T12-14).
+///
+/// Un `AtomicU64` y no un `Mutex`: se consulta desde el hilo del poller y desde los comandos, y
+/// aquí da igual que dos lleguen a la vez y pasen los dos —sería un aviso de más, no un fallo—.
+pub struct CadaTanto {
+    intervalo_ms: u64,
+    /// Epoch en milisegundos del último aviso que pasó. 0 es «todavía ninguno».
+    ultimo: AtomicU64,
+}
+
+impl CadaTanto {
+    pub const fn new(intervalo_ms: u64) -> Self {
+        Self {
+            intervalo_ms,
+            ultimo: AtomicU64::new(0),
+        }
+    }
+
+    /// Si toca avisar ahora. La primera vez, siempre.
+    pub fn toca(&self, ahora_ms: u64) -> bool {
+        let ultimo = self.ultimo.load(Ordering::Relaxed);
+        if ultimo != 0 && ahora_ms.saturating_sub(ultimo) < self.intervalo_ms {
+            return false;
+        }
+        self.ultimo.store(ahora_ms, Ordering::Relaxed);
+        true
+    }
 }
 
 /// Deja un aviso en el log y en stderr.
@@ -278,5 +369,74 @@ mod tests {
 
         assert!(destino.exists());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ------------------------------- pánicos y avisos repetidos (T12-14) --------------------
+
+    /// Un pánico de verdad, en un hilo propio, con el gancho puesto.
+    ///
+    /// El gancho es global al proceso y las pruebas corren en paralelo, así que el de la prueba
+    /// solo anota los pánicos **de su hilo** —lo reconoce por el nombre— y pasa todos al gancho
+    /// que había, que es el del arnés de pruebas. Al terminar se deja como estaba.
+    #[test]
+    fn un_panico_deja_su_linea_en_el_log() {
+        use std::sync::Arc;
+
+        const HILO: &str = "pdk-prueba-de-panico";
+        let destino = carpeta("panico").join(ARCHIVO);
+
+        let anterior: Arc<dyn Fn(&PanicHookInfo) + Send + Sync> = Arc::from(std::panic::take_hook());
+        let (para_el_gancho, para_restaurar) = (anterior.clone(), anterior);
+        let donde = destino.clone();
+        std::panic::set_hook(Box::new(move |info| {
+            if std::thread::current().name() == Some(HILO) {
+                anotar_panico(&donde, info);
+            } else {
+                para_el_gancho(info);
+            }
+        }));
+
+        let resultado = std::thread::Builder::new()
+            .name(HILO.to_string())
+            .spawn(|| panic!("el poller se ha caido con {} procesos", 3))
+            .unwrap()
+            .join();
+
+        let _ = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| para_restaurar(info)));
+
+        assert!(resultado.is_err(), "el hilo tenia que acabar en panico");
+        let log = fs::read_to_string(&destino).expect("el panico tenia que dejar el archivo");
+        assert!(log.contains("PANICO"), "{log}");
+        assert!(log.contains(HILO), "falta el hilo: {log}");
+        assert!(log.contains("el poller se ha caido con 3 procesos"), "falta el mensaje: {log}");
+        assert!(log.contains("logging.rs:"), "falta el sitio: {log}");
+        assert!(log.starts_with('['), "la linea tiene que ir fechada como las demas: {log}");
+    }
+
+    #[test]
+    fn un_aviso_repetido_sale_como_mucho_una_vez_por_minuto() {
+        let aviso = CadaTanto::new(60_000);
+        let t0 = 1_787_000_000_000;
+
+        assert!(aviso.toca(t0), "la primera vez tiene que salir");
+        assert!(!aviso.toca(t0 + 2_000), "a los dos segundos, no");
+        assert!(!aviso.toca(t0 + 59_999), "justo antes del minuto, tampoco");
+        assert!(aviso.toca(t0 + 60_000), "al minuto, otra vez");
+        // El minuto se cuenta desde el ultimo que salio, no desde el primero.
+        assert!(!aviso.toca(t0 + 61_000));
+        assert!(aviso.toca(t0 + 120_000));
+    }
+
+    /// Un fallo persistente a un aviso cada dos segundos son 1.800 lineas por hora; con el limite,
+    /// 60. Es la cuenta que hace que el log deje de rotar por un solo problema.
+    #[test]
+    fn una_hora_de_fallo_continuo_deja_sesenta_avisos_y_no_mil_ochocientos() {
+        let aviso = CadaTanto::new(60_000);
+        let salieron = (0..1_800u64)
+            .filter(|ciclo| aviso.toca(1_787_000_000_000 + ciclo * 2_000))
+            .count();
+
+        assert_eq!(salieron, 60);
     }
 }
