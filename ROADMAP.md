@@ -247,7 +247,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     al proteger y al desproteger. Dos pruebas de `App` desde el menú de la fila, con el guardado
     rechazado y aceptado; la primera falla con el código de antes.
 
-- [ ] **[T12-09] La guardia de PID reciclado, con la hora de arranque**
+- [x] **[T12-09] La guardia de PID reciclado, con la hora de arranque**
   - **Severidad:** baja · **Área:** Código
   - **Ubicación:** `src-tauri/src/processes.rs:582-627`, `src-tauri/src/lib.rs:218-265`
   - **Qué hacer:** `kill_one` relee el PID y compara solo el **nombre**: un PID reutilizado por otro
@@ -256,8 +256,18 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** prueba con dos procesos del mismo nombre: un PID con otra hora de
     arranque que la de la lista se rechaza.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** `ProcessInfo` lleva la hora de arranque (sin serializar), y Rust
+    recuerda la de cada PID **en la última lista que le entregó a la ventana**: al publicarla y en
+    `get_processes`, no cada vez que lee, porque con el refresco en «Off» el Auto-Kill sigue
+    leyendo sin publicar. `kill_one` la compara y contesta «ya no existe», que es lo que ha pasado.
+    Solo para la ventana: la bandeja, el atajo y el Auto-Kill eligen sus PIDs leyendo en el momento.
+    **Antes de escribirlo se miró si el hueco era mayor de lo que decía la tarea**, leyendo sysinfo
+    0.39.6: no lo es. Mantiene un handle abierto por proceso, y Windows no reutiliza un PID mientras
+    quede uno; el caso real es el de la tarea, una fila vieja en pantalla. La prueba lanza dos
+    copias de `PING.EXE` con el mismo nombre y más de un segundo entre ellas, y pide cerrar la
+    segunda con la hora de la primera: se rechaza y sigue viva. Sin la guardia, la cierra.
 
-- [ ] **[T12-10] El script de cada fila, sin tomar el valor de una opción por el script**
+- [x] **[T12-10] El script de cada fila, sin tomar el valor de una opción por el script**
   - **Severidad:** baja · **Área:** Código
   - **Ubicación:** `src-tauri/src/processes.rs:121-139`
   - **Qué hacer:** el primer argumento que no empieza por `-` se toma como script, así que
@@ -266,12 +276,17 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     valor de las opciones que lo llevan (`-r`, `--require`, `--import`, `--loader`, `-X`, `-W`…).
   - **Criterio de aceptación:** pruebas de `describe` con esos dos casos devuelven `app.ts` y `app.py`.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** Una lista cerrada de 18 opciones de `node`, `python` y `dotnet` que
+    llevan su valor en el argumento siguiente. Las dos pruebas —los casos de la tarea y el criterio
+    negativo: pegada o con `=` no se salta nada, y al final de la línea no revienta— fallaban antes
+    («register», «dev»). **El caso general sigue sin resolverse, como avisaba la nota de abajo**:
+    una opción desconocida con su valor aparte lo sigue enseñando, y el README lo sigue diciendo.
   - **Ojo al cerrarla** (anotado el 2026-09-25, al hacer T12-29): saltar las opciones conocidas no
     cubre una desconocida con su valor aparte (`node --token abc123 server.js` seguiría enseñando
     `abc123`). El README lo avisa en Privacidad; esa frase solo se quita si se resuelve también ese
     caso.
 
-- [ ] **[T12-11] Servicios: filtrar antes de consultar, y sin memoria sin inicializar**
+- [x] **[T12-11] Servicios: filtrar antes de consultar, y sin memoria sin inicializar**
   - **Severidad:** baja · **Área:** Código
   - **Ubicación:** `src-tauri/src/services.rs:429-501`, `:463-464`
   - **Qué hacer:** `enumerar` consulta el tipo de arranque de **cada** servicio de Windows (unos 300,
@@ -281,6 +296,10 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** `tipo_de_arranque` solo se llama para los que pasan `classify_service`
     (prueba o recuento); ningún `from_raw_parts_mut` sobre memoria sin inicializar.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** `enumerar` ya no devuelve el tipo de arranque: lo pone `con_arranque`,
+    después de filtrar, y la prueba cuenta por quién se pregunta. **Medido en este equipo, con 326
+    servicios y 10 vigilados: de unos 200 ms por lectura a unos 78.** Los tres buffers del SCM se
+    rellenan con ceros en vez de solo reservarse, y desaparecen los dos `set_len`.
 
 - [x] **[T12-12] Conservar un `settings.json` ilegible antes de pisarlo**
   - **Severidad:** baja · **Área:** Código
@@ -317,7 +336,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     al renombrar el temporal de nombre fijo, que el otro ya se había llevado. Con él, cinco pasadas
     seguidas en verde.
 
-- [ ] **[T12-14] Que un pánico deje rastro en el log**
+- [x] **[T12-14] Que un pánico deje rastro en el log**
   - **Severidad:** baja · **Área:** Código / Observabilidad
   - **Ubicación:** `src-tauri/src/lib.rs:318-328`, `:414-415`; `src-tauri/src/ports.rs:15-21`
   - **Qué hacer:** no hay `std::panic::set_hook`, y en release no hay consola: si falla la bandeja
@@ -327,6 +346,11 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** un pánico provocado en una prueba deja su línea; el aviso repetido
     sale como mucho una vez por minuto.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** Un gancho instalado al principio de `run` anota hilo, sitio y mensaje,
+    y deja seguir al gancho anterior. La prueba provoca un pánico de verdad en un hilo propio y lee
+    su línea. El aviso de los puertos pasa por `CadaTanto`: una hora de fallo continuo deja 60
+    líneas en vez de 1.800. **Lo que no se probó:** el gancho dentro de la app en marcha, que
+    exigiría provocar un pánico en ella.
 
 ### Fase C — Arquitectura
 
@@ -353,7 +377,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     primer render, y con la app en inglés su aviso de fallo salía en español. Ahora depende del
     idioma, con su prueba, que falla sin el cambio. No se probó en vivo.
 
-- [ ] **[T12-16] `lib.rs`: o arranque y nada más, o la regla dice lo que hay**
+- [x] **[T12-16] `lib.rs`: o arranque y nada más, o la regla dice lo que hay**
   - **Severidad:** baja · **Área:** Arquitectura
   - **Ubicación:** `src-tauri/src/lib.rs:154-265`; `.claude/CLAUDE.md` (sección Backend)
   - **Qué hacer:** CLAUDE.md dice que `lib.rs` es «arranque y `AppState`, y nada más», pero ahí
@@ -361,8 +385,12 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     a su módulo o precisar la regla.
   - **Criterio de aceptación:** regla y código coinciden.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01**, por la primera vía: `read_list`, `publish`, `measure_usage`,
+    `emit_processes` y `kill_and_record` pasan a `lista.rs`, con los dos nombres de evento.
+    `lib.rs` queda en 302 líneas sin las pruebas. Las dos pruebas del frontend que leen esos
+    nombres de Rust miran ahora `lista.rs`.
 
-- [ ] **[T12-17] La descarga del instalador, con plazo por lectura y no total**
+- [x] **[T12-17] La descarga del instalador, con plazo por lectura y no total**
   - **Severidad:** baja · **Área:** Arquitectura / Resiliencia
   - **Ubicación:** `src-tauri/src/update.rs:166-172`, `:402-434`
   - **Qué hacer:** el cliente lleva `timeout(30 s)`, que en reqwest es un plazo **total** hasta el
@@ -372,10 +400,16 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** prueba con el `TcpListener` de la casa mandando en trozos lentos más
     de 30 s en total: la descarga termina.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** La descarga tiene su propio cliente, con 15 s para conectar y 30 s
+    sin recibir nada; la API y el `.sha256` siguen con su plazo total. **El criterio se probó a
+    escala, y se dice:** esperar 30 s en la suite no compensa, así que los plazos van por parámetro
+    y las pruebas usan 1 s contra un servidor que tarda 2. Son tres: la descarga lenta termina; la
+    misma, con un plazo total, se corta, que es lo que pasaba; y una que se queda muda se corta
+    igual. Los valores de producción se fijan al compilar. No se probó con una conexión lenta real.
 
 ### Fase D — Pruebas
 
-- [ ] **[T12-18] Que las pruebas que se saltan en silencio fallen en la CI**
+- [x] **[T12-18] Que las pruebas que se saltan en silencio fallen en la CI**
   - **Severidad:** baja · **Área:** QA
   - **Ubicación:** `src-tauri/src/processes.rs:872-875`, `:891-900`, `:966-969`, `:987-992`, `:1190-1193`, `:1517-1520`, `:1537-1542`; `.github/workflows/ci.yml:76-78`; `release.ps1:314-319`
   - **Qué hacer:** la guardia de PID, los protegidos, los puertos del lote y la CPU salen con
@@ -383,8 +417,14 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     `PDK_EXIGIR_NODE=1` en la CI y en el corte, esas salidas pasan a ser un fallo.
   - **Criterio de aceptación:** con la variable puesta y sin `node` en el PATH, `cargo test` falla.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** Las once salidas silenciosas pasan por `omitir`, que con
+    `PDK_EXIGIR_NODE=1` falla. La ponen `ci.yml` y `release.ps1`. Probado con un PATH sin Node: sin
+    la variable, 143 «superadas», tres de ellas sin haber hecho nada; con ella, esas tres fallan; y
+    con Node y la variable, pasan todas. **Al probarlo salió un fallo propio:** el reemplazo
+    automático tocó también la línea de dentro de `omitir` y la dejó llamándose a sí misma. Con
+    Node instalado no se notaba; sin él, desbordaba la pila.
 
-- [ ] **[T12-19] Probar la entrada del proceso elevado**
+- [x] **[T12-19] Probar la entrada del proceso elevado**
   - **Severidad:** baja · **Área:** QA
   - **Ubicación:** `src-tauri/src/service_control.rs:516-559`, `:761-766`
   - **Qué hacer:** `intercept`, lo primero que ejecuta el proceso con privilegios, lee
@@ -392,6 +432,10 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     `elevation::pid_del_padre`, y probar los argumentos de más y de menos y los verbos desconocidos.
   - **Criterio de aceptación:** una prueba por rama de `intercept`.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** `leer_encargo` decide a partir de un iterador y devuelve qué hacer sin
+    tocar el SCM; `intercept` solo lo ejecuta. Ocho pruebas, una por rama. Dos se vieron fallar
+    quitando la exigencia de que no sobren argumentos y la guardia del nombre. La app normal sigue
+    sin leer `settings.json` en este paso, y una prueba lo fija.
 
 - [x] **[T12-20] Recuperar la cobertura donde se cierra y se eleva**
   - **Severidad:** baja · **Área:** QA
@@ -714,7 +758,47 @@ Y dos que salen de esta re-auditoría:
   `App.tsx` pasa de 927 líneas a 367. 323 pruebas del frontend y 132 de Rust (+3 ignoradas). Y
   **23 de 39** con T12-20: la cobertura sube del 84,97 % al 95,90 %, con 367 pruebas del frontend.
   Ese día se publicó la **v1.8.2**, la primera con las notas sacadas del CHANGELOG y con el corte
-  comprobándose solo.
+  comprobándose solo. Y **31 de 39** con la tanda de Rust de la v1.8.3: T12-09, 10, 11, 14, 16,
+  17, 18 y 19. 151 pruebas de Rust (+4 ignoradas) y clippy limpio.
+
+### Cómo se reparte lo que queda
+
+Acordado con el usuario el 2026-10-01: lo que falta sale en tres cortes, y lo que no cambia nada
+para quien usa la app acompaña al que le toque.
+
+| Corte | Tema | Tareas |
+|---|---|---|
+| **v1.8.3** | Robustez y seguridad al cerrar | T12-09, 10, 11, 14, 16, 17, 18 y 19 — **hechas, sin publicar** |
+| **v1.9.0** | Idioma y un ajuste nuevo | T12-31, T12-35, T12-39, con T12-28 y T12-33 |
+| **v1.9.1** | Avisos legales | T12-30, con T12-25 y T12-26 |
+
+Lo legal va aparte y al final porque T12-30 pide revisión legal y es la única que puede atascarse.
+
+### Las pruebas con la app en marcha
+
+Pedido por el usuario el 2026-10-01: **todo se prueba en marcha, y el dry run lo incluye.** Hasta
+entonces cada informe cerraba con «nada de esto se probó en vivo». `tools/prueba-en-marcha.mjs`
+compila una copia de la app con su propio identificador —no ve los ajustes del usuario ni choca con
+su app abierta—, la arranca y la conduce; `release.ps1` lo lanza al final de las comprobaciones.
+Son 20 comprobaciones sobre el binario de release. Lo que vieron de las tareas de este Tier:
+
+| Tarea | Visto en marcha |
+|---|---|
+| T12-01 a 04 | Kill no cierra un `cmd.exe` que no se vigila; `install_update` rechaza un archivo que no es el descargado («Ruta de instalador no permitida»); la ventana no puede mandar notificaciones |
+| T12-05, T12-38 | Con la app en inglés, el error de un Kill sale en inglés y `<html lang>` es `en` |
+| T12-09 | Kill cierra el proceso pedido y, repetido, contesta «ya no existe». **Un PID reciclado no se puede provocar** |
+| T12-10 | `node -r ./pre.js app.js` sale en la lista y en la tabla como `app.js` |
+| T12-11 | 10 servicios leídos en unos 86 ms |
+| T12-12 | Con un `settings.json` ilegible la app arranca con los de fábrica y deja **una** copia, aunque al arrancar lo lea dos veces |
+| T12-13, T12-16 | El cierre queda en el Historial, con su puerto y su origen |
+| T12-15 | Las cuatro vistas se pintan, sin ningún error de JavaScript |
+| T12-17 | El instalador de la v1.8.2 se descarga con el cliente nuevo y su hash coincide. **No con una conexión lenta** |
+| T12-19 | El binario, llamado con `--service-action`, sale con el código de cada rechazo |
+
+**Lo que el guion no puede ver, y sigue sin verse:** las notas de un release dentro de Ajustes
+(T12-36) —la versión de la copia sale de `Cargo.toml`, así que nunca hay una más nueva que
+ofrecerle—, una instalación de punta a punta (T12-02), el gancho de pánico (T12-14) y el aviso de
+«protegido» cuando el guardado falla (T12-08).
 
 ---
 

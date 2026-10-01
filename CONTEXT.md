@@ -47,11 +47,13 @@ auto-actualización. Para la v1.8.2, `a7353bbc…`. Desde T12-24 lo hace el prop
 terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
 existe.
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **23 de 39
-tareas hechas** a 2026-10-01: T12-01 a 08, 12, 13, 15, 20 a 24, 27, 29, 32, 34 y 36 a 38. Ningún
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **31 de 39
+tareas hechas** a 2026-10-01: todas menos T12-25, 26, 28, 30, 31, 33, 35 y 39. Ningún
 hallazgo era crítico ni alto, y **los nueve medios están cerrados**: el último fue `App.tsx`, de
-927 líneas a 367 (T12-15). Quedan 16, todas de severidad baja. La cobertura del frontend está en
-el 95,90 % (T12-20). Y
+927 líneas a 367 (T12-15). Quedan 8, todas de severidad baja, repartidas en dos cortes: la v1.9.0
+y la v1.9.1 (ver «Cómo se reparte lo que queda» en el ROADMAP). **En `main` y sin publicar** está la
+tanda de la v1.8.3: T12-09, 10, 11, 14, 16, 17, 18 y 19. La cobertura del frontend está en el
+95,90 % (T12-20). Y
 las cuatro tareas de antes que se dieron por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la
 D4 del Tier 11— ya están corregidas, en T12-37, T12-21, T12-22 y T12-07.
 
@@ -308,6 +310,10 @@ Tier 12 del [ROADMAP](ROADMAP.md) y en la [bitácora](docs/BITACORA.md).
 | 2026-10-01 | **Las notas de un release salen del CHANGELOG, y la app las lee hasta el título «Descarga»** | T12-23 y T12-36. `release.ps1` toma la sección `## [X.Y.Z]`, une sus líneas partidas y le añade la tabla de descarga; sin la sección, aborta antes de las pruebas. La app reduce ese Markdown a títulos, párrafos y listas (`src/lib/notas.ts`) y deja de leer en «Descarga», que a quien ya tiene la app no le sirve. De las dos vías que proponía la tarea, la otra —un resumen con enlace al release— pedía dar a la ventana permiso para abrir URLs, que hoy no tiene. El título «Descarga» es un contrato entre el script y la app, y una prueba del frontend lee `release.ps1` para vigilarlo |
 | 2026-10-01 | **Un archivo de datos que no se puede leer se copia aparte, y las escrituras van de una en una** | T12-12 y T12-13. Leer mal sigue degradando a los valores de fábrica, pero antes se deja `<archivo>.ilegible-<ms>` con los bytes originales: una por contenido, porque el mismo archivo se lee varias veces antes de que nada lo reescriba. Para escribir, **un solo candado en `Storage`** y no uno por archivo: se escribe pocas veces y durante milisegundos, y así no hay orden que respetar. Es una hoja —dentro no se pide ningún otro—, de modo que no rompe la regla de no anidar candados |
 | 2026-10-01 | **`App.tsx` une y pinta; el estado vive en hooks** | T12-15. La tarea pedía sacar los servicios y los cierres, y eso lo dejaba en unas 600 líneas. Salieron también los ajustes, la lista con su filtro, orden y selección, y la cabecera de Procesos. El diálogo de confirmación y los avisos se quedan en `App`, porque los comparten todas las vistas, y los hooks lo reciben como `confirmar`. La regla de tamaño, ~450 líneas como `lib.rs`, está en CLAUDE.md |
+| 2026-10-01 | **Un proceso es su PID y su hora de arranque, y la ventana cierra el que vio** | T12-09. Rust recuerda con qué hora de arranque vio la ventana cada PID —en la última lista que **le entregó**, no en la última que leyó— y `kill_one` se niega si no coincide. Se valoró que la ventana mandase la hora con cada PID, que no necesita estado en Rust, y se descartó: cambia el contrato de `kill_processes` y sus pruebas para llegar al mismo sitio. Solo aplica a la ventana, la única vía que cierra a partir de una lista que puede tener minutos. Antes de escribirlo se comprobó en el código de sysinfo que un PID no se recicla mientras su entrada siga en la lista: mantiene un handle abierto |
+| 2026-10-01 | **La descarga del instalador no tiene plazo total, solo entre lecturas** | T12-17. El `timeout` de reqwest cuenta hasta el final del cuerpo: con 30 s, por debajo de ~1,2 Mbit/s la actualización fallaba siempre. La descarga usa su propio cliente (15 s para conectar, 30 s sin datos); la API y el `.sha256`, que son pequeños, conservan el plazo total. El tamaño lo sigue acotando `MAX_DESCARGA` |
+| 2026-10-01 | **Lo que queda del Tier 12 sale en tres cortes** | Decisión del usuario. v1.8.3, robustez al cerrar; v1.9.0, idioma y el ajuste para apagar la comprobación de actualizaciones, que por ser un ajuste nuevo sube el número menor; v1.9.1, los avisos legales, aparte porque piden revisión y pueden atascarse. Lo interno acompaña al corte que toque |
+| 2026-10-01 | **Las pruebas con la app en marcha son parte del corte, y usan una copia con otro identificador** | Decisión del usuario: todo se prueba en marcha, y el dry run lo incluye. `tools/prueba-en-marcha.mjs` compila con `--config` y `CARGO_TARGET_DIR=target/envivo` una copia con el identificador `com.processdevkill.app.envivo`. Del identificador salen la carpeta de datos, la de WebView2 y el candado de instancia única, así que **no hay nada del usuario que respaldar ni restaurar**, que era el riesgo del procedimiento manual (puerto en `tauri.conf.json`, `runAsAdmin` apagado a mano, pedir que cierre su app). Se compila aparte para que el binario que se publica no pueda llevarse el puerto de depuración, y `release.ps1` lo comprueba además en `tauri.conf.json`. Límite conocido: la versión sale de `Cargo.toml`, así que la copia nunca ve una actualización que ofrecer. No está en la CI: pide una compilación de release y un escritorio |
 
 ## 5. Decisiones pendientes
 

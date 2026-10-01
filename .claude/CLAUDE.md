@@ -51,11 +51,11 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 
 - Comandos de Tauri en `snake_case`: `get_processes`, `kill_process`.
 - `lib.rs` es **arranque y `AppState`, y nada más**; los comandos viven en `commands.rs` y la
-  lógica en `processes`, `ports`, `storage`, `tray`, `poller`, `auto_kill`, `hotkey`, `notify`,
-  `textos`, `services`, `service_control`, `elevation` y `update`. **Cuando `lib.rs` vuelva a pasar de ~450
-  líneas de código, se parte otra vez**: ya ha pasado cuatro veces (Tier 4, Tier 7.6, Tier 10 y
-  Tier 11, que sacó el atajo global a `hotkey.rs`). **Ahora mismo van 419** (2026-09-30), medidas
-  sin el `mod tests`, que es como cuenta esta regla.
+  lógica en `lista`, `processes`, `ports`, `storage`, `tray`, `poller`, `auto_kill`, `hotkey`,
+  `notify`, `textos`, `services`, `service_control`, `elevation` y `update`. **Cuando `lib.rs` vuelva
+  a pasar de ~450 líneas de código, se parte otra vez**: ya ha pasado cinco veces (Tier 4, Tier 7.6,
+  Tier 10, Tier 11 y T12-16, que sacó a `lista.rs` el camino de la lista y del cierre). **Ahora
+  mismo van 302** (2026-10-01), medidas sin el `mod tests`, que es como cuenta esta regla.
 - Los comandos que tienen lógica propia detrás **no** están en `commands.rs`: los de servicios van
   en `service_control.rs` junto a su guardia, los del actualizador en `update.rs` y los del log en
   `logging.rs`. Se registran con su ruta (`service_control::control_service`) y el nombre por IPC
@@ -113,9 +113,22 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 ## Pruebas
 
 ```bash
-npm test                      # frontend: Vitest + Testing Library, en jsdom
-cd src-tauri && cargo test    # backend: lee procesos reales del equipo
+npm test                          # frontend: Vitest + Testing Library, en jsdom
+cd src-tauri && cargo test        # backend: lee procesos reales del equipo
+node tools/prueba-en-marcha.mjs   # el binario de release, arrancado y conducido
 ```
+
+- **Toda tanda de cambios se prueba también con la app en marcha**, no solo en las suites: lo pidió
+  el usuario el 2026-10-01, y `release.ps1` lo hace solo, también en `-DryRun`. El guion compila
+  una copia **con otro identificador** (`com.processdevkill.app.envivo`) en `target/envivo`: tiene
+  su propia carpeta de datos y su propio candado de instancia única, así que no ve los ajustes del
+  usuario ni choca con su app abierta, y no toca `tauri.conf.json`. Solo cierra los procesos que
+  él mismo lanza. **Una función nueva lleva su comprobación en ese guion**; lo que no se pueda
+  provocar en vivo —un pánico, un PID reciclado, una versión más nueva que ofrecer— se dice.
+  `--sin-compilar` reutiliza el binario cuando solo ha cambiado el guion.
+- **Es la excepción a «una comprobación nueva va en los dos sitios»**: las pruebas en marcha no
+  están en la CI. Piden una compilación de release entera y un escritorio donde abrir la ventana;
+  mientras no se pruebe que el runner lo aguanta, viven solo en el corte.
 
 - **La CI (`.github/workflows/ci.yml`) repite las comprobaciones de `release.ps1`** en cada push y
   PR, en `windows-latest`. Una comprobación nueva se añade **en los dos sitios**, o la CI dejará de
@@ -123,6 +136,10 @@ cd src-tauri && cargo test    # backend: lee procesos reales del equipo
   se queda (`permissions: contents: read`).
 - Las de Rust **solo matan procesos que lanzan ellas mismas**. Ninguna prueba puede tocar los
   procesos del usuario: es la regla que no se rompe.
+- **Una prueba de Rust que no puede montar lo que necesita llama a `omitir("motivo")` antes de su
+  `return`**, nunca sale callada (T12-18). Con `PDK_EXIGIR_NODE=1`, que ponen la CI y el corte, eso
+  es un fallo; en el equipo de quien desarrolla, un aviso. Y si necesita un proceso propio con un
+  nombre concreto, `lanzar_disfrazado` da una copia de `PING.EXE`, sin depender de Node.
 - Las del frontend doblan los módulos de Tauri en `src/test/setup.ts`. Motion también se dobla ahí:
   `AnimatePresence` mantiene montada la fila que sale y, sin el doble, las aserciones acaban
   midiendo la animación en vez del filtro.
@@ -139,9 +156,12 @@ cd src-tauri && cargo test    # backend: lee procesos reales del equipo
   sin contraseña—, hay que pasársela por `ProcessStartInfo.Environment`, que sí la admite. Con la
   variable borrada, el CLI de Tauri decide preguntar por consola y **el build se cuelga para
   siempre** sin dar error.
-- **Para inspeccionar la UI en marcha** hay que añadir `"additionalBrowserArgs":
-  "--remote-debugging-port=9222"` a la ventana en `tauri.conf.json` y **quitarlo después**. La
-  variable de entorno `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` no sirve: Tauri la sobrescribe.
+- **Para inspeccionar la UI en marcha, lo primero es `tools/prueba-en-marcha.mjs`**, que no toca
+  nada del usuario (ver Pruebas). Lo de abajo es para cuando haga falta mirar **la app instalada
+  de verdad**, con sus ajustes: hay que añadir `"additionalBrowserArgs":
+  "--remote-debugging-port=9222"` a la ventana en `tauri.conf.json` y **quitarlo después**
+  —`release.ps1` se niega a cortar si lo encuentra—. La variable de entorno
+  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` no sirve: Tauri la sobrescribe.
 - **Antes de abrir ese puerto, mira `runAsAdmin` en el `settings.json` del usuario**
   (`%APPDATA%\com.processdevkill.app\`). Si está encendido, la build con el puerto **arranca
   elevada**: sale un UAC y queda un CDP sin autenticación en un proceso con privilegios, que

@@ -172,8 +172,9 @@ Esta app lee la lista de procesos de tu equipo, así que conviene decir en voz a
   línea de comandos y la carpeta de trabajo**, una vez por proceso, y se queda **solo con dos
   nombres cortos**: el script (`vite`, `server.js`, `-m uvicorn`) y el último tramo de la carpeta
   (`mi-api`). **Nunca enseña la línea entera** ni el código en línea (`node -e …`). El script es el
-  primer argumento que no empieza por `-`, así que una opción con su valor separado por un espacio
-  (`node --token abc123 server.js`) enseña ese valor en su lugar: si pasas secretos por la línea de
+  primer argumento que no empieza por `-` —saltando, desde la próxima versión, el valor de las
+  opciones que la app conoce, como `-r` o `-X`—, así que una opción **que no conozca** con su valor
+  separado por un espacio (`node --token abc123 server.js`) enseña ese valor en su lugar: si pasas secretos por la línea de
   comandos, mejor con `=` (`--token=abc123`), que no se muestra. Esos nombres viven en memoria y no
   se guardan en el historial.
 - No lee variables de entorno, ni la memoria de los procesos más allá de eso, ni ningún archivo.

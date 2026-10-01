@@ -16,6 +16,32 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+### Cambiado
+- La vista de Servicios se lee más rápido: la app ya no pregunta el tipo de arranque de los ~300
+  servicios de Windows para quedarse con los de desarrollo. (T12-11)
+- Si la app falla por dentro —al arrancar, o el hilo que refresca la lista—, el motivo queda
+  escrito en el log, que se abre desde Ajustes → Acerca de. Antes no dejaba rastro. (T12-14)
+
+### Corregido
+- Kill ya no puede cerrar un proceso distinto del que se veía en la lista. Si el proceso de una
+  fila había muerto y Windows le había dado su número a otro `node.exe`, el Kill de esa fila
+  cerraba al nuevo; ahora contesta que el proceso ya no existe. Importaba sobre todo con el
+  auto-refresco en «Off». (T12-09)
+- La columna del script ya no enseña el valor de una opción en lugar del script: `node -r
+  ts-node/register app.ts` sale como `app.ts`, no como «register», y `python -X utf8 app.py` como
+  `app.py`. (T12-10)
+- La actualización ya no falla siempre en conexiones lentas. La descarga se cortaba a los 30
+  segundos aunque siguiera avanzando; ahora solo se corta si deja de llegar nada. (T12-17)
+
+### Interno
+- El camino de la lista y del cierre sale de `lib.rs` a su módulo. (T12-16)
+- Las pruebas que no pueden lanzar su `node` fallan en la CI y en el corte, en vez de saltarse
+  dándose por superadas. (T12-18)
+- La entrada del proceso elevado de los servicios tiene una prueba por rama. (T12-19)
+- Cada versión se prueba también con la app en marcha antes de publicarse: el script de publicación
+  arranca una copia aparte y comprueba que lista, cierra, protege y descarga como dice.
+- El script de publicación se niega a cortar si la configuración lleva un puerto de depuración.
+
 ## [1.8.2] — 2026-10-01
 
 Arreglos: lo que podía perder datos o decir una cosa por otra. Y las novedades de cada versión, que

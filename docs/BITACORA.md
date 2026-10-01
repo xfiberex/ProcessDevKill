@@ -8,6 +8,37 @@
 
 ---
 
+### 2026-10-01 (5) — La tanda de Rust de la v1.8.3, y el plan de cortes
+
+El usuario propuso repartir las 16 tareas que quedaban en varios cortes. Quedó en tres: v1.8.3
+(robustez al cerrar), v1.9.0 (idioma y un ajuste nuevo) y v1.9.1 (avisos legales). Esta sesión hizo
+las ocho de la primera.
+
+- **T12-16** primero, porque es mover sin cambiar: el camino de la lista y del cierre, a `lista.rs`.
+- **T12-09.** Antes de escribir nada se leyó sysinfo 0.39.6, por si un PID reciclado podía engañar
+  también a su lista: una entrada existente se actualiza en su sitio y `kill` es un `taskkill` por
+  número. No puede: sysinfo mantiene un handle abierto y Windows no reutiliza el PID mientras
+  tanto. **Se llegó a decir al usuario que el alcance cambiaba, y hubo que desdecirse** al
+  comprobarlo. El caso real es el de la tarea, y se arregla recordando la hora de arranque con la
+  que la ventana vio cada PID.
+- **T12-10.** Lista de opciones con valor. El caso general no tiene arreglo y el README lo dice.
+- **T12-11.** Medido antes y después: de ~200 ms a ~78 ms por lectura de servicios.
+- **T12-14.** Gancho de pánico y avisos repetidos como mucho una vez por minuto.
+- **T12-17.** Plazo entre lecturas. Probado a escala, con una prueba que reproduce el corte de antes.
+- **T12-18.** `omitir` y `PDK_EXIGIR_NODE`. Al probarlo sin Node salió una recursión infinita
+  metida por el propio reemplazo automático: con Node instalado no se habría visto nunca.
+- **T12-19.** `leer_encargo`, con una prueba por rama.
+- **«Realiza las pruebas en marcha siempre»**, dijo el usuario al leer que nada se había probado
+  con la app en marcha, y después: el dry run tiene que incluirlas. Salió
+  `tools/prueba-en-marcha.mjs`: una copia con otro identificador, compilada aparte, que no toca
+  nada suyo. 20 comprobaciones sobre el binario de release, enganchadas a `release.ps1`.
+  - A la primera pasaron 18. Las dos que fallaron eran del guion —una precedencia al buscar los
+    botones, y el título de Servicios, que es «Servicios de desarrollo»—, no de la app.
+  - La descarga real del instalador publicado, con el cliente nuevo, coincide con su `.sha256`.
+  - **Sigue sin verse:** las notas dentro de Ajustes, una instalación entera, el gancho de pánico
+    y un PID reciclado. Las dos primeras, porque la versión de la copia sale de `Cargo.toml`.
+- 151 pruebas de Rust (+4 ignoradas), 367 del frontend y 20 en marcha; clippy y ESLint limpios.
+
 ### 2026-10-01 (4) — Publicada la v1.8.2
 
 - Primer corte con las notas sacadas del CHANGELOG (T12-23) y con la comprobación de lo publicado
