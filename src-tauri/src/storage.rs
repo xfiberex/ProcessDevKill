@@ -3,9 +3,13 @@
 //! Todo error de lectura degrada a los valores por defecto en vez de propagarse:
 //! un JSON corrupto o un disco lleno no deberian impedir que la app arranque y
 //! liste procesos, que es lo que el usuario vino a hacer.
+//!
+//! Degradar no es tirar: el archivo que no se pudo leer se copia aparte antes de que el siguiente
+//! guardado lo pise (T12-12). Y las escrituras van de una en una (T12-13).
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -294,6 +298,8 @@ impl std::fmt::Display for FalloGuardado {
 
 pub struct Storage {
     dir: PathBuf,
+    /// Quien escribe, lo tiene. Ver [`Storage::en_exclusiva`].
+    escritura: Mutex<()>,
 }
 
 impl Storage {
@@ -301,7 +307,31 @@ impl Storage {
         if let Err(e) = fs::create_dir_all(&dir) {
             crate::avisar!("No se pudo crear {}: {e}", dir.display());
         }
-        Self { dir }
+        Self {
+            dir,
+            escritura: Mutex::new(()),
+        }
+    }
+
+    /// El turno para escribir: se pide **antes de leer** lo que se va a modificar y se suelta
+    /// después de guardarlo (T12-13).
+    ///
+    /// Añadir al historial es leer, modificar y escribir, y lo hacen dos hilos: el del poller,
+    /// con los cierres del Auto-Kill, y el del comando que atiende un Kill de la ventana. Sin
+    /// turno, los dos leen la misma lista y el segundo en escribir borra lo que añadió el primero.
+    /// Y como el temporal de `write_json` tiene nombre fijo, uno de los dos podía además fallar al
+    /// renombrarlo: la prueba lo vio como «El sistema no puede encontrar el archivo».
+    ///
+    /// Un solo candado para los tres archivos, y no uno por archivo: se escribe pocas veces y
+    /// durante milisegundos, y así no hay orden de candados que respetar. **Dentro no se pide
+    /// ningún otro candado**, así que tenerlo cogido no puede cerrar un ciclo con `sys` ni con
+    /// los ajustes.
+    ///
+    /// Solo ordena a los hilos de este proceso. El proceso elevado de los servicios lee
+    /// `settings.json` y no escribe nada.
+    fn en_exclusiva(&self) -> MutexGuard<'_, ()> {
+        // Un candado envenenado no guarda nada que pueda haber quedado a medias: es solo el turno.
+        self.escritura.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     fn settings_file(&self) -> PathBuf {
@@ -317,16 +347,64 @@ impl Storage {
     }
 
     fn read_json<T: Default + for<'de> Deserialize<'de>>(path: &Path) -> T {
-        let Ok(raw) = fs::read_to_string(path) else {
+        // En bytes y no con `read_to_string`: un archivo que no fuera UTF-8 fallaba ahí y se
+        // trataba como si no existiera, sin aviso ni copia.
+        let Ok(raw) = fs::read(path) else {
             return T::default(); // Todavia no existe: primera ejecucion.
         };
-        serde_json::from_str(&raw).unwrap_or_else(|e| {
+        serde_json::from_slice(&raw).unwrap_or_else(|e| {
             crate::avisar!(
                 "{} esta corrupto ({e}); se usan los valores por defecto",
                 path.display()
             );
+            Self::conservar_ilegible(path, &raw);
             T::default()
         })
+    }
+
+    /// Copia aparte un archivo que no se pudo leer, antes de que el siguiente guardado lo pise
+    /// (T12-12).
+    ///
+    /// Basta **un campo inválido** —una errata al editarlo a mano, un valor que escribió una
+    /// versión más nueva— para que serde rechace el archivo entero. La app arranca con los valores
+    /// de fábrica, que es lo correcto, pero al primer cambio en Ajustes los escribe encima, y con
+    /// eso se iban los procesos vigilados y **los protegidos**: lo que el usuario había dicho que
+    /// no se cerrara nunca. Con la copia, lo que escribió sigue en su carpeta y se puede recuperar.
+    ///
+    /// La copia es de los bytes tal como estaban, no de lo que se pudo entender de ellos.
+    ///
+    /// **Una por contenido, no una por lectura.** Al arrancar los ajustes se leen dos veces antes
+    /// de que nada los reescriba (`elevation.rs` mira `runAsAdmin`, y luego `lib.rs`), y el
+    /// historial se relee cada vez que se abre su vista: sin comparar, la carpeta se llenaría de
+    /// copias iguales.
+    ///
+    /// Si la copia falla —disco lleno, permisos— se avisa y se sigue: es una red de seguridad, y
+    /// no puede impedir que la app arranque.
+    fn conservar_ilegible(path: &Path, contenido: &[u8]) {
+        let (Some(dir), Some(nombre)) = (path.parent(), path.file_name().and_then(|n| n.to_str()))
+        else {
+            return;
+        };
+        let prefijo = format!("{nombre}.ilegible-");
+
+        let ya_conservado = fs::read_dir(dir).is_ok_and(|entradas| {
+            entradas
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_name().to_string_lossy().starts_with(&prefijo))
+                .any(|e| fs::read(e.path()).is_ok_and(|otra| otra == contenido))
+        });
+        if ya_conservado {
+            return;
+        }
+
+        let copia = dir.join(format!("{prefijo}{}", now_millis()));
+        match fs::write(&copia, contenido) {
+            Ok(()) => crate::avisar!(
+                "El original se ha conservado en {}; el proximo guardado sobrescribe {nombre}",
+                copia.display()
+            ),
+            Err(e) => crate::avisar!("No se pudo conservar el original en {}: {e}", copia.display()),
+        }
     }
 
     /// Escribe el JSON **sin dejar nunca el archivo bueno a medias**.
@@ -369,6 +447,7 @@ impl Storage {
     }
 
     pub fn save_settings(&self, settings: &Settings) -> Result<(), FalloGuardado> {
+        let _turno = self.en_exclusiva();
         Self::write_json(&self.settings_file(), settings)
     }
 
@@ -381,6 +460,7 @@ impl Storage {
         if entries.is_empty() {
             return Ok(());
         }
+        let _turno = self.en_exclusiva();
         let mut history = self.load_history();
         for entry in entries.into_iter().rev() {
             history.insert(0, entry);
@@ -390,6 +470,7 @@ impl Storage {
     }
 
     pub fn clear_history(&self) -> Result<(), FalloGuardado> {
+        let _turno = self.en_exclusiva();
         Self::write_json(&self.history_file(), &Vec::<HistoryEntry>::new())
     }
 
@@ -415,6 +496,7 @@ impl Storage {
         antes: crate::services::StartType,
         ahora: crate::services::StartType,
     ) -> Result<(), FalloGuardado> {
+        let _turno = self.en_exclusiva();
         let mut cambios = self.load_service_changes();
         let existente = cambios.iter().position(|c| c.name == name);
 
@@ -802,5 +884,163 @@ mod tests {
         let cambios = storage.load_service_changes();
         assert_eq!(cambios.len(), 2);
         assert_eq!(cambios[0].name, "postgresql-x64-17", "lo ultimo, arriba");
+    }
+
+    // ------------------------------- un archivo ilegible se conserva (T12-12) ---------------
+
+    /// Las copias `<archivo>.ilegible-<ms>` que hay en la carpeta de datos.
+    fn copias_ilegibles(storage: &Storage, archivo: &str) -> Vec<PathBuf> {
+        let prefijo = format!("{archivo}.ilegible-");
+        fs::read_dir(&storage.dir)
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| {
+                p.file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with(&prefijo))
+            })
+            .collect()
+    }
+
+    /// Un solo campo inválido basta para que serde rechace el archivo entero, y con él se iban los
+    /// vigilados y **los protegidos**: el siguiente guardado escribía los de fábrica encima.
+    const AJUSTES_CON_UN_CAMPO_MALO: &str =
+        r#"{ "customNames": ["docker"], "protected": ["mi-api"], "refreshMs": "rapido" }"#;
+
+    #[test]
+    fn un_settings_ilegible_se_conserva_antes_de_que_el_siguiente_guardado_lo_pise() {
+        let storage = temp_storage("ilegible");
+        fs::write(storage.settings_file(), AJUSTES_CON_UN_CAMPO_MALO).unwrap();
+
+        assert_eq!(storage.load_settings(), Settings::default());
+        storage.save_settings(&Settings::default()).unwrap();
+
+        let copias = copias_ilegibles(&storage, "settings.json");
+        assert_eq!(copias.len(), 1, "tiene que quedar una copia del original");
+        assert_eq!(
+            fs::read_to_string(&copias[0]).unwrap(),
+            AJUSTES_CON_UN_CAMPO_MALO,
+            "la copia es el archivo tal como estaba, no lo que se pudo entender de él"
+        );
+    }
+
+    /// Al arrancar el archivo se lee dos veces antes de que nada lo reescriba —`elevation.rs` mira
+    /// `runAsAdmin` y luego `lib.rs` carga los ajustes—, y el historial se relee en cada visita a
+    /// su vista. Sin esto, la carpeta se llenaría de copias iguales.
+    #[test]
+    fn leer_varias_veces_el_mismo_archivo_ilegible_deja_una_sola_copia() {
+        let storage = temp_storage("ilegible-repetido");
+        fs::write(storage.settings_file(), AJUSTES_CON_UN_CAMPO_MALO).unwrap();
+
+        for _ in 0..3 {
+            storage.load_settings();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        assert_eq!(copias_ilegibles(&storage, "settings.json").len(), 1);
+
+        // Otro contenido ilegible sí es otra copia: no se sabe cuál de los dos quiere el usuario.
+        fs::write(storage.settings_file(), "{ esto no es json").unwrap();
+        storage.load_settings();
+        assert_eq!(copias_ilegibles(&storage, "settings.json").len(), 2);
+    }
+
+    /// Antes un archivo que no era UTF-8 se trataba como si no existiera: ni aviso ni copia.
+    #[test]
+    fn un_archivo_que_no_es_utf8_tambien_se_conserva() {
+        let storage = temp_storage("ilegible-bytes");
+        let bytes = [0xff, 0xfe, b'{', 0x00, b'}', 0x00];
+        fs::write(storage.history_file(), bytes).unwrap();
+
+        assert!(storage.load_history().is_empty());
+
+        let copias = copias_ilegibles(&storage, "history.json");
+        assert_eq!(copias.len(), 1);
+        assert_eq!(fs::read(&copias[0]).unwrap(), bytes);
+    }
+
+    /// El criterio negativo: lo que se lee bien, o todavía no existe, no deja nada en la carpeta.
+    #[test]
+    fn un_archivo_sano_o_que_no_existe_no_deja_copia() {
+        let storage = temp_storage("sano");
+        storage.load_settings();
+        storage.save_settings(&Settings::default()).unwrap();
+        storage.load_settings();
+
+        let sobra: Vec<_> = fs::read_dir(&storage.dir)
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().into_owned()))
+            .filter(|n| n != "settings.json")
+            .collect();
+        assert!(sobra.is_empty(), "sobra en la carpeta de datos: {sobra:?}");
+    }
+
+    // ------------------------------- escrituras de una en una (T12-13) ----------------------
+
+    /// Un cierre del Auto-Kill (hilo del poller) y uno manual (hilo de un comando) a la vez: los
+    /// dos leen el historial, los dos le añaden lo suyo y el segundo en escribir pisa al primero.
+    /// Con un temporal de nombre fijo, además, uno de los dos podía fallar al renombrar.
+    #[test]
+    fn dos_hilos_anadiendo_al_historial_a_la_vez_no_pierden_ninguna_entrada() {
+        const POR_HILO: u32 = 40;
+        let storage = std::sync::Arc::new(temp_storage("concurrente"));
+
+        let hilos: Vec<_> = (0..2u32)
+            .map(|hilo| {
+                let storage = storage.clone();
+                std::thread::spawn(move || {
+                    for i in 0..POR_HILO {
+                        storage
+                            .append_history(vec![HistoryEntry {
+                                pid: hilo * 1000 + i,
+                                name: "node.exe".into(),
+                                freed_ports: vec![],
+                                killed_at: now_millis(),
+                                source: KillSource::Window,
+                            }])
+                            .expect("ninguna escritura debe fallar");
+                    }
+                })
+            })
+            .collect();
+        for h in hilos {
+            h.join().unwrap();
+        }
+
+        let mut pids: Vec<u32> = storage.load_history().iter().map(|h| h.pid).collect();
+        pids.sort_unstable();
+        let esperados: Vec<u32> = (0..POR_HILO).chain(1000..1000 + POR_HILO).collect();
+        assert_eq!(pids, esperados);
+    }
+
+    /// Lo mismo para el registro de deshacer: dos servicios cambiados a la vez, y quedan los dos.
+    #[test]
+    fn dos_hilos_anotando_cambios_de_servicio_a_la_vez_no_pierden_ninguno() {
+        const POR_HILO: usize = 25;
+        let storage = std::sync::Arc::new(temp_storage("concurrente-servicios"));
+
+        let hilos: Vec<_> = ["a", "b"]
+            .into_iter()
+            .map(|hilo| {
+                let storage = storage.clone();
+                std::thread::spawn(move || {
+                    for i in 0..POR_HILO {
+                        let nombre = format!("svc-{hilo}-{i}");
+                        storage
+                            .record_service_change(
+                                &nombre,
+                                &nombre,
+                                StartType::Manual,
+                                StartType::Disabled,
+                            )
+                            .expect("ninguna escritura debe fallar");
+                    }
+                })
+            })
+            .collect();
+        for h in hilos {
+            h.join().unwrap();
+        }
+
+        assert_eq!(storage.load_service_changes().len(), POR_HILO * 2);
     }
 }
