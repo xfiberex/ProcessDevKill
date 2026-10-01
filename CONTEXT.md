@@ -43,11 +43,13 @@
 lo que está en `main` sin publicar, en su sección «Sin publicar». Cada release se comprueba igual
 tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `tag_name` correcto y
 **el instalador descargado coincide con su `.sha256`**, que es la cadena entera que recorre la
-auto-actualización. Para la v1.8.1, `2fd060c7…`.
+auto-actualización. Para la v1.8.1, `2fd060c7…`. Desde T12-24 lo hace el propio `release.ps1` al
+terminar el corte, y `-VerifyOnly` lo repite sobre un release que ya existe.
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **17 de 39
-tareas hechas** a 2026-10-01: T12-01 a 07, 21 a 23, 27, 29, 32, 34 y 36 a 38. Ningún hallazgo era crítico
-ni alto. De los nueve medios **queda uno**: `App.tsx`, que ha vuelto a las 918 líneas (T12-15). Y
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **22 de 39
+tareas hechas** a 2026-10-01: T12-01 a 08, 12, 13, 15, 21 a 24, 27, 29, 32, 34 y 36 a 38. Ningún
+hallazgo era crítico ni alto, y **los nueve medios están cerrados**: el último fue `App.tsx`, de
+927 líneas a 367 (T12-15). Quedan 17, todas de severidad baja. Y
 las cuatro tareas de antes que se dieron por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la
 D4 del Tier 11— ya están corregidas, en T12-37, T12-21, T12-22 y T12-07.
 
@@ -302,6 +304,8 @@ Tier 12 del [ROADMAP](ROADMAP.md) y en la [bitácora](docs/BITACORA.md).
 | 2026-09-30 | **El instalador se bloquea desde que se comprueba hasta que se lanza** | T12-02. Lo lanzado tiene que ser exactamente lo verificado, y con la app elevada el instalador hereda la elevación. `share_mode(FILE_SHARE_READ)` sobre un handle que vive hasta después de `CreateProcess`, comprobado contra el NSIS real antes de escribirlo |
 | 2026-09-30 | **Lo cerrado sale del ROADMAP a `docs/`, y CONTEXT §3 dice el estado, no la historia** | Decisión del usuario, al pedir que se reorganizara y compactara la documentación. El ROADMAP pasó de 2.246 líneas a unas 640: los Tiers 1 a 11, **íntegros**, en `docs/TIERS-1-11.md`, y una línea por Tier en «Lo hecho». CONTEXT §3 perdió la cadena «Antes: la v1.x…», que ya cuenta el CHANGELOG, y sus decisiones de servicios pasaron aquí, a §4. **Se movió, no se borró**, con el criterio del Tier 7.7: borrar repetición, no información. §4 no se podó: son las razones, que es lo que da valor al repositorio |
 | 2026-10-01 | **Las notas de un release salen del CHANGELOG, y la app las lee hasta el título «Descarga»** | T12-23 y T12-36. `release.ps1` toma la sección `## [X.Y.Z]`, une sus líneas partidas y le añade la tabla de descarga; sin la sección, aborta antes de las pruebas. La app reduce ese Markdown a títulos, párrafos y listas (`src/lib/notas.ts`) y deja de leer en «Descarga», que a quien ya tiene la app no le sirve. De las dos vías que proponía la tarea, la otra —un resumen con enlace al release— pedía dar a la ventana permiso para abrir URLs, que hoy no tiene. El título «Descarga» es un contrato entre el script y la app, y una prueba del frontend lee `release.ps1` para vigilarlo |
+| 2026-10-01 | **Un archivo de datos que no se puede leer se copia aparte, y las escrituras van de una en una** | T12-12 y T12-13. Leer mal sigue degradando a los valores de fábrica, pero antes se deja `<archivo>.ilegible-<ms>` con los bytes originales: una por contenido, porque el mismo archivo se lee varias veces antes de que nada lo reescriba. Para escribir, **un solo candado en `Storage`** y no uno por archivo: se escribe pocas veces y durante milisegundos, y así no hay orden que respetar. Es una hoja —dentro no se pide ningún otro—, de modo que no rompe la regla de no anidar candados |
+| 2026-10-01 | **`App.tsx` une y pinta; el estado vive en hooks** | T12-15. La tarea pedía sacar los servicios y los cierres, y eso lo dejaba en unas 600 líneas. Salieron también los ajustes, la lista con su filtro, orden y selección, y la cabecera de Procesos. El diálogo de confirmación y los avisos se quedan en `App`, porque los comparten todas las vistas, y los hooks lo reciben como `confirmar`. La regla de tamaño, ~450 líneas como `lib.rs`, está en CLAUDE.md |
 
 ## 5. Decisiones pendientes
 

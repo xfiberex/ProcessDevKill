@@ -76,11 +76,20 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 - Separar la lógica pura del comando de Tauri (como `collect_processes` / `get_processes`) para
   poder probarla sin montar una `App`.
 - Los candados: copiar los ajustes y **soltar** su candado antes de bloquear `sys`. Nunca anidarlos.
+  El turno de escritura de `Storage` (T12-13) es una hoja: dentro no se pide ningún otro, y así se
+  queda.
+- **Lo que escribe en un archivo de datos pide el turno antes de leerlo** (`Storage::en_exclusiva`):
+  leer, modificar y escribir sin turno pierde lo que otro hilo acaba de guardar.
 - Cualquier comando que reciba un PID valida que sea de un runtime vigilado. Un comando de Tauri
   acepta lo que le manden; sin la guardia sería un «mata lo que quieras».
 
 ## Frontend (`src/`)
 
+- **`App.tsx` une y pinta; lo que tiene estado propio vive en su hook** (`hooks/useSettings`,
+  `useProcessList`, `useKills`, `useServices`, `useUpdater`). **Cuando vuelva a pasar de ~450
+  líneas, se parte otra vez**, igual que `lib.rs`: ya ha pasado dos veces (Tier 7.6 y T12-15, que
+  lo encontró en 927). **Ahora mismo van 367** (2026-10-01). El diálogo de confirmación y los avisos
+  se quedan en `App`, porque los comparten todas las vistas; un hook que los necesite los recibe.
 - **Una vista nueva usa `ViewHeader` y `ViewBody`** (`components/ViewHeader.tsx`): cabecera fija
   con su `h2` y cuerpo con scroll. Si el cuerpo no tiene nada enfocable, `ViewBody` con `label`, o
   con teclado no se puede desplazar (Tier 11, D1).
@@ -157,6 +166,10 @@ cd src-tauri && cargo test    # backend: lee procesos reales del equipo
 ## Releases
 
 `.\release.ps1 -Version X.Y.Z` hace el corte entero. Antes, `-DryRun`.
+
+**El corte termina comprobando lo publicado** (T12-24): los 4 assets, el `tag_name` de la API que
+consulta la app y el instalador descargado contra su `.sha256` y contra el compilado. Si falla, el
+release ya está fuera: se corrige o se despublica. `-VerifyOnly` repite solo esa comprobación.
 
 **Las notas del release salen del CHANGELOG** (T12-23). Antes de cortar, lo de «Sin publicar» pasa a
 una sección `## [X.Y.Z] — fecha`, con su enlace al final del archivo, y se commitea; sin esa sección

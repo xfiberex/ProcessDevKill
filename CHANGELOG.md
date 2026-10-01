@@ -21,10 +21,25 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
   con las marcas de Markdown a la vista —`###`, `**`, `<kbd>`— y con la tabla de descarga, que a
   quien ya tiene la app instalada no le dice nada. (T12-36)
 
+### Corregido
+- Si `settings.json` no se puede leer —una errata al editarlo a mano basta—, la app sigue
+  arrancando con los valores de fábrica, pero ahora guarda antes una copia del original en la misma
+  carpeta (`settings.json.ilegible-…`). Antes, el primer cambio en Ajustes lo sobrescribía y se
+  perdían los procesos vigilados y los protegidos. Lo mismo para el historial. (T12-12)
+- Un cierre del Auto-Kill y uno manual a la vez ya no pueden hacer que el Historial pierda uno de
+  los dos. (T12-13)
+- Al proteger un proceso desde su menú, el aviso «protegido» espera a que se haya guardado. Antes
+  salía aunque el guardado fallara, con el proceso sin proteger. (T12-08)
+- Con la app en inglés, el aviso de que no se pudieron leer los servicios salía en español.
+  (T12-15)
+
 ### Interno
 - Las notas de cada release salen de este archivo: el script de publicación toma la sección de la
   versión y le añade la tabla de descarga, y se niega a cortar si la sección no existe. Hasta la
   v1.8.1 se escribían a mano, aparte. (T12-23)
+- El script de publicación comprueba al terminar lo que ha publicado —los cuatro archivos, la
+  versión que ve la app y el hash del instalador descargado—, y falla si algo no cuadra. (T12-24)
+- `App.tsx` se parte en cuatro hooks y un componente: de 927 líneas a 367. (T12-15)
 
 ## [1.8.1] — 2026-09-30
 

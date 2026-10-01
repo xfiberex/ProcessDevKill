@@ -235,7 +235,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     elevar). Quitando la prop, el caso elevado falla. No se probó en vivo, porque exige la app
     elevada.
 
-- [ ] **[T12-08] «Protegido» solo cuando de verdad se ha guardado**
+- [x] **[T12-08] «Protegido» solo cuando de verdad se ha guardado**
   - **Severidad:** baja · **Área:** Código
   - **Ubicación:** `src/App.tsx:471-484`, `:529-542`
   - **Qué hacer:** `protegerFila` enseña el toast de éxito antes de saber si `save_settings` fue
@@ -243,6 +243,9 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     `saveSettings` devuelve si guardó, y el toast espera.
   - **Criterio de aceptación:** prueba con `save_settings` rechazado: no sale «protegido», sí el error.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** `saveSettings` devuelve si guardó y `protegerFila` espera a saberlo,
+    al proteger y al desproteger. Dos pruebas de `App` desde el menú de la fila, con el guardado
+    rechazado y aceptado; la primera falla con el código de antes.
 
 - [ ] **[T12-09] La guardia de PID reciclado, con la hora de arranque**
   - **Severidad:** baja · **Área:** Código
@@ -279,7 +282,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     (prueba o recuento); ningún `from_raw_parts_mut` sobre memoria sin inicializar.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
 
-- [ ] **[T12-12] Conservar un `settings.json` ilegible antes de pisarlo**
+- [x] **[T12-12] Conservar un `settings.json` ilegible antes de pisarlo**
   - **Severidad:** baja · **Área:** Código
   - **Ubicación:** `src-tauri/src/storage.rs:303-314`
   - **Qué hacer:** con un solo campo inválido —una errata a mano, un valor de una versión más nueva—
@@ -288,8 +291,18 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** prueba con un campo inválido: tras leer existe la copia con el
     contenido original.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01**, para los tres archivos de datos y no solo los ajustes: la copia sale de
+    `read_json`. Dos cosas que la tarea no pedía y hicieron falta:
+    - **una copia por contenido, no por lectura.** Al arrancar los ajustes se leen dos veces antes
+      de que nada los reescriba (`elevation.rs` y `lib.rs`), y el historial se relee al abrir su
+      vista: sin comparar con las copias que ya hay, la carpeta se llenaría de duplicados;
+    - **se lee en bytes.** Un archivo que no fuera UTF-8 fallaba en `read_to_string` y se trataba
+      como si no existiera, sin aviso ni copia.
 
-- [ ] **[T12-13] Escrituras del historial y del registro de servicios, de una en una**
+    Cuatro pruebas, con la negativa: un archivo sano o que no existe no deja nada en la carpeta.
+    Las tres primeras fallan con el código de antes. No se probó en vivo.
+
+- [x] **[T12-13] Escrituras del historial y del registro de servicios, de una en una**
   - **Severidad:** baja · **Área:** Código
   - **Ubicación:** `src-tauri/src/storage.rs:334-346`, `:361-375`, `:392-427`
   - **Qué hacer:** leer-modificar-escribir sin candado, con un `.json.tmp` de nombre fijo: un cierre
@@ -297,6 +310,12 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     `Mutex` en `Storage`.
   - **Criterio de aceptación:** prueba con dos hilos añadiendo a la vez: no se pierde ninguna entrada.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** Un solo `Mutex` en `Storage` para las cuatro operaciones que escriben,
+    cogido antes de leer lo que se va a modificar. Dentro no se pide ningún otro candado. Dos
+    pruebas, historial y registro de servicios, con dos hilos y decenas de escrituras cada uno. **Sin
+    el candado fallan las dos, y no solo por entradas perdidas**: uno de los hilos recibe un error 2
+    al renombrar el temporal de nombre fijo, que el otro ya se había llevado. Con él, cinco pasadas
+    seguidas en verde.
 
 - [ ] **[T12-14] Que un pánico deje rastro en el log**
   - **Severidad:** baja · **Área:** Código / Observabilidad
@@ -311,7 +330,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
 
 ### Fase C — Arquitectura
 
-- [ ] **[T12-15] Partir `App.tsx`**
+- [x] **[T12-15] Partir `App.tsx`**
   - **Severidad:** media · **Área:** Arquitectura / Refactorización
   - **Ubicación:** `src/App.tsx` (918 líneas; el Tier 7.6 lo dejó en 367): servicios en `:196-399`, cierres en `:565-659`
   - **Qué hacer:** sacar `useServices` (estado, acciones, dependencias, arranque y deshacer) y los
@@ -320,6 +339,19 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** `App.tsx` por debajo de ~450 líneas; las 299 pruebas en verde sin
     tocar aserciones.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** De 927 líneas a **367**. Sacar solo los servicios y los cierres lo
+    dejaba en unas 600, así que salió también lo demás con estado propio:
+    - `hooks/useSettings.ts`: los ajustes, guardarlos y proteger una fila;
+    - `hooks/useProcessList.ts`: la lista con su filtro, búsqueda, orden y selección;
+    - `hooks/useKills.ts`: `killMany` y `askNuke`;
+    - `hooks/useServices.ts`: los servicios enteros;
+    - `components/ProcessesHeader.tsx`: el buscador, el recuento, Refrescar y Nuke All.
+
+    Los comentarios viajaron con su código. **Las pruebas que había pasaron sin tocar ninguna
+    aserción** (eran 322 al empezar). La regla de tamaño está en CLAUDE.md. **Un cambio de
+    comportamiento, y se dice:** la función que lee los servicios se quedaba con el catálogo del
+    primer render, y con la app en inglés su aviso de fallo salía en español. Ahora depende del
+    idioma, con su prueba, que falla sin el cambio. No se probó en vivo.
 
 - [ ] **[T12-16] `lib.rs`: o arranque y nada más, o la regla dice lo que hay**
   - **Severidad:** baja · **Área:** Arquitectura
@@ -421,7 +453,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     descarga; una versión que no existe y un «Sin publicar» vacío dan `$null`. **No se ha visto en
     un corte real**: el primero será el de la v1.8.2.
 
-- [ ] **[T12-24] Comprobar lo publicado al terminar el corte**
+- [x] **[T12-24] Comprobar lo publicado al terminar el corte**
   - **Severidad:** baja · **Área:** DevOps
   - **Ubicación:** `release.ps1:562-569`
   - **Qué hacer:** lo que CONTEXT §3 repite a mano en cada versión —4 assets, el `tag_name` de la
@@ -430,6 +462,15 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** el corte termina con las tres comprobaciones hechas y falla si alguna
     no cuadra.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** `Test-ReleasePublicado` es el paso 9 del corte, y compara además el
+    instalador descargado con el que se compiló. Con `-VerifyOnly` se lanza solo, sobre un release
+    que ya existe, sin compilar ni tocar git. Probado contra los releases de verdad:
+    - la v1.8.1 pasa, con el mismo hash que se anotó a mano (`2fd060c7…`);
+    - la v1.8.0 falla, porque la API ya no la da como última;
+    - una versión que no existe falla al leer el release;
+    - con un hash local equivocado, falla diciendo que no es el compilado.
+
+    **No se ha visto dentro de un corte real**: el primero será el de la v1.8.2.
 
 - [ ] **[T12-25] El aviso de `THIRD-PARTY-NOTICES.txt`, por contenido y no por fecha**
   - **Severidad:** baja · **Área:** DevOps
@@ -646,7 +687,9 @@ Y dos que salen de esta re-auditoría:
   Rust. Y **15 de 39** con T12-32, al reorganizar la documentación: los Tiers 1 a 11 salen a
   `docs/TIERS-1-11.md` y las capturas se regeneran. Ese día se publicó la **v1.8.1**.
 - **2026-10-01** — **17 de 39**: T12-23 y T12-36, las notas del release desde el CHANGELOG y
-  legibles en la ventana. 320 pruebas del frontend y 126 de Rust (+3 ignoradas) en verde.
+  legibles en la ventana. 320 pruebas del frontend y 126 de Rust (+3 ignoradas) en verde. Y luego
+  **22 de 39**, con T12-08, T12-12, T12-13, T12-24 y T12-15, **el último de los nueve medios**:
+  `App.tsx` pasa de 927 líneas a 367. 323 pruebas del frontend y 132 de Rust (+3 ignoradas).
 
 ---
 

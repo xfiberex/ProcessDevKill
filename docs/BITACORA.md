@@ -8,6 +8,28 @@
 
 ---
 
+### 2026-10-01 (2) — Cinco tareas: datos que no se pierden, el corte que se comprueba y `App.tsx`
+
+Orden pedido por el usuario: primero lo que puede perder datos o confundir, luego el script, y al
+final la grande.
+
+- **T12-12.** Un archivo de datos ilegible se copia a `<archivo>.ilegible-<ms>` antes de degradar a
+  los valores de fábrica. Una copia por contenido: al arrancar se lee dos veces. Y se lee en bytes,
+  porque un archivo que no era UTF-8 pasaba por inexistente.
+- **T12-13.** Un `Mutex` en `Storage` para las escrituras. Sin él, la prueba de dos hilos no solo
+  perdía entradas: uno recibía un error 2 al renombrar el temporal que el otro ya se había llevado.
+- **T12-08.** El aviso de «protegido» espera al guardado.
+- **T12-24.** `release.ps1` comprueba lo publicado al terminar, y `-VerifyOnly` lo hace suelto.
+  Probado contra la v1.8.1 (pasa), la v1.8.0 (ya no es la última), una versión inexistente y un
+  hash local falso. Un `$tag:` dentro de una cadena era un error de sintaxis de PowerShell, que lo
+  lee como una unidad: `${tag}:`.
+- **T12-15.** `App.tsx`, de 927 a 367 líneas, en cuatro hooks y un componente. Las 322 pruebas
+  pasaron sin tocar aserciones. De paso salió que el aviso de servicios ilegibles usaba el catálogo
+  del primer render: en inglés salía en español. Corregido, con su prueba.
+- **Todas las pruebas nuevas se vieron fallar** con el código de antes.
+- **Quedó fuera:** nada de esto se probó en vivo, y T12-24 no se ha visto dentro de un corte real.
+- 323 pruebas del frontend y 132 de Rust (+3 ignoradas); ESLint y clippy limpios.
+
 ### 2026-10-01 — Las notas del release: del CHANGELOG al script, y legibles en la ventana
 
 Pedido por el usuario tras publicar la v1.8.1, cuyas notas hubo que escribir a mano y empezar con
