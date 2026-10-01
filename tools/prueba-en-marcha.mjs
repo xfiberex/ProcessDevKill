@@ -531,7 +531,7 @@ async function actualizador(cdp) {
       exigir(version, `Ajustes no nombra la versión ${nueva.tag}`);
       exigir(notas.titulos.length > 0, "las notas no tienen ningún título");
       exigir(notas.elementos > 0, "las notas no tienen ningún elemento de lista");
-      exigir(!/[#*\`<|]/.test(notas.texto), `quedan marcas a la vista: ${notas.texto.slice(0, 200)}`);
+      exigir(!/[#*`<|]/.test(notas.texto), `quedan marcas a la vista: ${notas.texto.slice(0, 200)}`);
       exigir(
         !/SmartScreen|setup\.exe|Get-FileHash/.test(notas.texto),
         "sale la tabla de descarga, que dentro de la app no hace falta",
