@@ -14,6 +14,7 @@ import {
 import { AUTO_KILL_MIN_MB, ZOMBIE_MIN_MINUTES } from "../types";
 import type { Settings } from "../types";
 import type { UpdateState } from "../hooks/useUpdater";
+import { Toaster } from "@/components/ui/sonner";
 
 function pintar(
   parcial: Partial<Settings> = {},
@@ -744,5 +745,154 @@ describe("los grupos de Ajustes", () => {
     expect(secciones.indexOf("Zombie Finder")).toBeGreaterThan(
       secciones.indexOf("Procesos protegidos"),
     );
+  });
+});
+
+/**
+ * T12-20. Los caminos de fallo de Ajustes: cada botón que abre o copia algo depende de Windows, y
+ * cuando falla tiene que decirlo. Ninguno tenía prueba: solo se miraba el caso en el que todo va
+ * bien. Aquí se pinta el `Toaster`, como hace `App`, para ver el aviso tal como sale.
+ */
+describe("cuando Windows no deja abrir o copiar algo", () => {
+  function pintarConAvisos(parcial: Partial<Settings> = {}) {
+    const onChange = vi.fn();
+    render(
+      <>
+        <SettingsView
+          settings={{ ...DEFAULT_TEST_SETTINGS, ...parcial }}
+          onChange={onChange}
+          updater={updaterFalso()}
+          elevated={null}
+          onRestartAsAdmin={vi.fn()}
+        />
+        <Toaster />
+      </>,
+    );
+    return { user: userEvent.setup(), onChange };
+  }
+
+  it("la carpeta del log", async () => {
+    const { user } = pintarConAvisos();
+    await screen.findByText(/processdevkill\.log/);
+
+    invoke.mockRejectedValueOnce(new Error("no existe"));
+    await user.click(screen.getByRole("button", { name: /Abrir la carpeta/ }));
+
+    expect(await screen.findByText("No se pudo abrir la carpeta")).toBeInTheDocument();
+    expect(screen.getByText("Error: no existe")).toBeInTheDocument();
+  });
+
+  it("la ruta del log: dice que se copió, o que no se pudo", async () => {
+    const { user } = pintarConAvisos();
+    await screen.findByText(/processdevkill\.log/);
+    const copiar = screen.getByRole("button", { name: /Copiar la ruta/ });
+
+    await user.click(copiar);
+    expect(await screen.findByText("Ruta copiada")).toBeInTheDocument();
+
+    writeText.mockRejectedValueOnce(new Error("portapapeles ocupado"));
+    await user.click(copiar);
+    expect(await screen.findByText("No se pudo copiar la ruta")).toBeInTheDocument();
+  });
+
+  /** Los dos archivos legales viajan en el instalador; si falta uno, se nombra cuál. */
+  it("la licencia y los avisos de terceros", async () => {
+    const { user } = pintarConAvisos();
+
+    await user.click(screen.getByRole("button", { name: "Licencia" }));
+    expect(openPath).toHaveBeenCalledWith("/recursos/LICENSE.txt");
+
+    openPath.mockRejectedValueOnce(new Error("no encontrado"));
+    await user.click(screen.getByRole("button", { name: "Avisos de terceros" }));
+
+    expect(
+      await screen.findByText("No se pudo abrir THIRD-PARTY-NOTICES.txt"),
+    ).toBeInTheDocument();
+  });
+
+  it("el repositorio y el enlace de apoyo", async () => {
+    const { user } = pintarConAvisos();
+
+    openUrl.mockRejectedValueOnce(new Error("sin navegador"));
+    await user.click(screen.getByRole("button", { name: /Repositorio/ }));
+    expect(await screen.findByText("No se pudo abrir el navegador")).toBeInTheDocument();
+
+    openUrl.mockRejectedValueOnce(new Error("sin navegador, otra vez"));
+    await user.click(screen.getByRole("button", { name: /Apoyar el proyecto/ }));
+    expect(await screen.findByText("Error: sin navegador, otra vez")).toBeInTheDocument();
+  });
+});
+
+describe("servicios vigilados, más allá de añadir", () => {
+  it("Enter también añade, e ignora el duplicado aunque cambie de caja", async () => {
+    const { user, onChange } = pintar({ customServices: ["MiMotor"] });
+    const campo = screen.getByRole("textbox", { name: "Servicios vigilados" });
+
+    await user.type(campo, "mimotor{Enter}");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(campo).toHaveValue("");
+
+    await user.type(campo, "OtroMotor{Enter}");
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ customServices: ["MiMotor", "OtroMotor"] }),
+    );
+  });
+
+  it("ignora un nombre en blanco", async () => {
+    const { user, onChange } = pintar({ customServices: [] });
+
+    await user.type(screen.getByRole("textbox", { name: "Servicios vigilados" }), "   {Enter}");
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("se quita con su botón", async () => {
+    const { user, onChange } = pintar({ customServices: ["MiMotor", "OtroMotor"] });
+
+    await user.click(screen.getByRole("button", { name: /MiMotor/ }));
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ customServices: ["OtroMotor"] }),
+    );
+  });
+});
+
+/**
+ * Los campos numéricos guardan su propio borrador mientras se teclea. Si Rust devuelve otro valor
+ * —porque lo corrigió, o porque el guardado falló y `App` volvió al anterior—, el campo tiene que
+ * seguirlo: si no, la ventana dice un umbral y el Auto-Kill aplica otro.
+ */
+describe("cuando los ajustes cambian desde fuera", () => {
+  it("el umbral y los minutos siguen al valor que llega", () => {
+    const props = {
+      onChange: vi.fn(),
+      updater: updaterFalso(),
+      elevated: null,
+      onRestartAsAdmin: vi.fn(),
+    };
+    const { rerender } = render(
+      <SettingsView settings={{ ...DEFAULT_TEST_SETTINGS }} {...props} />,
+    );
+    expect(umbral()).toHaveValue(2048);
+
+    rerender(
+      <SettingsView
+        settings={{ ...DEFAULT_TEST_SETTINGS, autoKillMb: 4096, zombieMinutes: 30 }}
+        {...props}
+      />,
+    );
+
+    expect(umbral()).toHaveValue(4096);
+    expect(minutos()).toHaveValue(30);
+  });
+
+  it("los minutos vuelven al valor guardado si el campo queda con basura", async () => {
+    const { user, onChange } = pintar({ zombieMinutes: 10 });
+
+    await user.clear(minutos());
+    await user.tab();
+
+    expect(minutos()).toHaveValue(10);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

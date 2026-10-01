@@ -36,7 +36,9 @@ export function useKills({ t, elevated, confirmar, onCerrados }: UseKillsParams)
       const pista = elevated === false ? t.avisos.quizaAdmin : undefined;
 
       if (failed.length === outcomes.length) {
-        toast.error(failed[0].error ?? t.avisos.noSePudoCerrar, {
+        // `?.` porque la lista puede venir vacía: Rust contesta eso si no pudo ni mirar los
+        // procesos. Sin él, lo que salía en el aviso era un `TypeError` de JavaScript.
+        toast.error(failed[0]?.error ?? t.avisos.noSePudoCerrar, {
           description: pista,
         });
       } else if (failed.length > 0) {

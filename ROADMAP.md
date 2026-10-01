@@ -393,13 +393,33 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** una prueba por rama de `intercept`.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
 
-- [ ] **[T12-20] Recuperar la cobertura donde se cierra y se eleva**
+- [x] **[T12-20] Recuperar la cobertura donde se cierra y se eleva**
   - **Severidad:** baja · **Área:** QA
   - **Ubicación:** `src/App.tsx` (70,91 %), `src/i18n.tsx` (64,92 %), `src/components/SettingsView.tsx` (74,62 %)
   - **Qué hacer:** la cobertura bajó del 89,61 % al **81,41 %** con los Tiers 10 y 11. Cubrir las
     acciones de Servicios de `App`, pintar cada vista en inglés y los caminos de fallo de Ajustes.
   - **Criterio de aceptación:** ≥ 85 % de sentencias en total e `i18n.tsx` ≥ 80 %.
   - **Esfuerzo:** medio · **Depende de:** T12-15
+  - **Hecho el 2026-10-01.** Del 84,97 % al **95,90 %** de sentencias, e `i18n.tsx` del 70,21 % al
+    **88,65 %**. 44 pruebas nuevas, en cuatro sitios:
+    - `useServices.test.ts`: el hook entero, que estaba al 33,84 %. Cada desenlace de arrancar,
+      detener y cambiar el arranque, y deshacer;
+    - `App.en.test.tsx`: **la ventana en inglés, vista a vista**, con datos. Además de ejecutar la
+      mitad inglesa del catálogo, comprueba que en pantalla no queda ni una letra del español: una
+      frase escrita a mano en un componente no pasa por ningún catálogo, y eso no lo veía nadie;
+    - `App.test.tsx`: los cierres, con éxito, a medias y fallando, y desproteger una fila;
+    - `SettingsView.test.tsx`: cada botón que abre o copia algo, cuando Windows no le deja.
+
+    **Seis de las pruebas se vieron fallar rompiendo el código** a propósito: una frase española a
+    mano en el sidebar, el tono del diálogo, la guardia de deshacer, la relectura tras la acción, el
+    fallo parcial y el Kill que no se libera. **Y salieron dos cosas que no eran cobertura:**
+    - el aviso de un cierre **con éxito** —qué se cerró y qué puertos quedaron libres, que es para
+      lo que existe la app— no tenía ninguna prueba, porque el doble de `kill_processes` contestaba
+      una lista vacía;
+    - con esa lista vacía, que Rust devuelve si no puede ni mirar los procesos, la ventana enseñaba
+      un `TypeError` de JavaScript en vez de «No se pudo cerrar el proceso». Corregido.
+
+    Lo que sigue sin cubrir de `i18n.tsx` son frases inglesas que solo salen en un fallo concreto.
 
 ### Fase E — DevOps y corte de versión
 
@@ -689,7 +709,8 @@ Y dos que salen de esta re-auditoría:
 - **2026-10-01** — **17 de 39**: T12-23 y T12-36, las notas del release desde el CHANGELOG y
   legibles en la ventana. 320 pruebas del frontend y 126 de Rust (+3 ignoradas) en verde. Y luego
   **22 de 39**, con T12-08, T12-12, T12-13, T12-24 y T12-15, **el último de los nueve medios**:
-  `App.tsx` pasa de 927 líneas a 367. 323 pruebas del frontend y 132 de Rust (+3 ignoradas).
+  `App.tsx` pasa de 927 líneas a 367. 323 pruebas del frontend y 132 de Rust (+3 ignoradas). Y
+  **23 de 39** con T12-20: la cobertura sube del 84,97 % al 95,90 %, con 367 pruebas del frontend.
 
 ---
 

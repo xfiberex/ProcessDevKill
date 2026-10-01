@@ -32,6 +32,8 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
   salía aunque el guardado fallara, con el proceso sin proteger. (T12-08)
 - Con la app en inglés, el aviso de que no se pudieron leer los servicios salía en español.
   (T12-15)
+- Si un cierre fallaba sin que la app pudiera ni mirar los procesos, el aviso enseñaba un error
+  interno en vez de decir que no se pudo cerrar. (T12-20)
 
 ### Interno
 - Las notas de cada release salen de este archivo: el script de publicación toma la sección de la
@@ -40,6 +42,8 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 - El script de publicación comprueba al terminar lo que ha publicado —los cuatro archivos, la
   versión que ve la app y el hash del instalador descargado—, y falla si algo no cuadra. (T12-24)
 - `App.tsx` se parte en cuatro hooks y un componente: de 927 líneas a 367. (T12-15)
+- La cobertura de las pruebas del frontend sube del 85 % al 96 %, con la ventana probada entera en
+  inglés. (T12-20)
 
 ## [1.8.1] — 2026-09-30
 

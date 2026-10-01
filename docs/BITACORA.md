@@ -8,6 +8,20 @@
 
 ---
 
+### 2026-10-01 (3) — T12-20: la cobertura, y lo que salió al buscarla
+
+- Del 84,97 % al 95,90 % de sentencias; `i18n.tsx`, del 70,21 % al 88,65 %. 44 pruebas nuevas.
+- **El hook de servicios** tenía un 33,84 %: se prueba ahora cada desenlace, con los avisos doblados
+  para mirar qué clase de aviso sale y con qué frase.
+- **La ventana en inglés, vista a vista.** Lo útil no es el porcentaje: comprueba que en pantalla
+  no queda una letra del español, que es como se caza una frase escrita a mano en un componente.
+  No encontró ninguna.
+- **Lo que salió sin buscarlo:** el aviso de un cierre con éxito no tenía prueba, y una respuesta
+  vacía de `kill_processes` enseñaba un `TypeError` en el aviso. Lo segundo, corregido.
+- Seis pruebas vistas fallar rompiendo el código. `replaceAll` y `.at()` no existen con el `lib`
+  del proyecto (ES2020): `tsc -b` lo dijo y Vitest no.
+- 367 pruebas del frontend y 132 de Rust (+3 ignoradas); ESLint limpio.
+
 ### 2026-10-01 (2) — Cinco tareas: datos que no se pierden, el corte que se comprueba y `App.tsx`
 
 Orden pedido por el usuario: primero lo que puede perder datos o confundir, luego el script, y al

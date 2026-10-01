@@ -46,10 +46,11 @@ tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `ta
 auto-actualización. Para la v1.8.1, `2fd060c7…`. Desde T12-24 lo hace el propio `release.ps1` al
 terminar el corte, y `-VerifyOnly` lo repite sobre un release que ya existe.
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **22 de 39
-tareas hechas** a 2026-10-01: T12-01 a 08, 12, 13, 15, 21 a 24, 27, 29, 32, 34 y 36 a 38. Ningún
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **23 de 39
+tareas hechas** a 2026-10-01: T12-01 a 08, 12, 13, 15, 20 a 24, 27, 29, 32, 34 y 36 a 38. Ningún
 hallazgo era crítico ni alto, y **los nueve medios están cerrados**: el último fue `App.tsx`, de
-927 líneas a 367 (T12-15). Quedan 17, todas de severidad baja. Y
+927 líneas a 367 (T12-15). Quedan 16, todas de severidad baja. La cobertura del frontend está en
+el 95,90 % (T12-20). Y
 las cuatro tareas de antes que se dieron por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la
 D4 del Tier 11— ya están corregidas, en T12-37, T12-21, T12-22 y T12-07.
 

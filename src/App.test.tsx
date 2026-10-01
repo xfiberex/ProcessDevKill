@@ -879,6 +879,130 @@ describe("cuando Rust rechaza", () => {
         settings: expect.objectContaining({ protected: ["mi-web"] }),
       });
     });
+
+    /**
+     * Al desproteger se quitan **todas** las entradas que lo protegen, y el aviso nombra la que
+     * había en la lista, no la clave con la que se protegería hoy.
+     */
+    it("desproteger quita sus entradas de la lista y lo dice", async () => {
+      const ajustes = { ...DEFAULT_TEST_SETTINGS, protected: ["mi-web", "otra-cosa"] };
+      const user = await montar(
+        [proceso({ pid: 100, project: "mi-web", protected: true })],
+        { get_settings: ajustes, save_settings: { ...ajustes, protected: ["otra-cosa"] } },
+      );
+      await user.pointer({
+        target: screen.getByLabelText("Seleccionar PID 100").closest("tr")!,
+        keys: "[MouseRight]",
+      });
+
+      await user.click(await screen.findByText("Dejar de proteger «mi-web»"));
+
+      expect(
+        await screen.findByText("«mi-web» ya no está protegido"),
+      ).toBeInTheDocument();
+      expect(invoke).toHaveBeenCalledWith("save_settings", {
+        settings: expect.objectContaining({ protected: ["otra-cosa"] }),
+      });
+    });
+  });
+
+  /**
+   * T12-20. Un lote que se cierra a medias no es ni un éxito ni un fallo, y es el caso en el que
+   * más importa decir cuántos: los que quedan vivos siguen ocupando su puerto.
+   */
+  it("un lote con fallos parciales dice cuántos no se cerraron, y por qué el primero", async () => {
+    const user = await montar(LISTA, {
+      kill_processes: [
+        { pid: 100, name: "node.exe", killed: true, error: null, freedPorts: [3000] },
+        { pid: 300, name: "python.exe", killed: false, error: "Acceso denegado", freedPorts: [] },
+      ],
+    });
+
+    await user.click(screen.getByLabelText("Seleccionar PID 100"));
+    await user.click(screen.getByLabelText("Seleccionar PID 300"));
+    await user.click(cerrarSeleccion(2));
+    await user.click(await screen.findByRole("button", { name: "Cerrar procesos" }));
+
+    expect(await screen.findByText("1 de 2 no se pudieron cerrar")).toBeInTheDocument();
+    expect(screen.getByText(/Acceso denegado/)).toBeInTheDocument();
+    expect(screen.queryByText(/procesos cerrados/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * El caso que sale bien, que es para lo que existe la app: qué se cerró y **qué puertos quedaron
+   * libres**. Hasta T12-20 no tenía prueba, porque el doble de `kill_processes` contestaba vacío.
+   */
+  describe("cuando el cierre sale bien", () => {
+    it("un Kill dice qué proceso se cerró y qué puerto liberó", async () => {
+      const user = await montar(LISTA, {
+        kill_processes: [
+          { pid: 100, name: "node.exe", killed: true, error: null, freedPorts: [3000] },
+        ],
+      });
+
+      await user.click(screen.getByRole("button", { name: "Kill node.exe, PID 100" }));
+
+      expect(await screen.findByText("node.exe cerrado")).toBeInTheDocument();
+      expect(screen.getByText("Puerto 3000 liberado")).toBeInTheDocument();
+    });
+
+    it("un lote dice cuántos, junta los puertos sin repetir y suelta la selección", async () => {
+      const user = await montar(LISTA, {
+        kill_processes: [
+          { pid: 100, name: "node.exe", killed: true, error: null, freedPorts: [8080, 3000] },
+          { pid: 300, name: "python.exe", killed: true, error: null, freedPorts: [8080] },
+        ],
+      });
+
+      await user.click(screen.getByLabelText("Seleccionar PID 100"));
+      await user.click(screen.getByLabelText("Seleccionar PID 300"));
+      await user.click(cerrarSeleccion(2));
+      await user.click(await screen.findByRole("button", { name: "Cerrar procesos" }));
+
+      expect(await screen.findByText("2 procesos cerrados")).toBeInTheDocument();
+      expect(screen.getByText("Puertos 3000, 8080 liberados")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.getByLabelText("Seleccionar PID 100")).not.toBeChecked(),
+      );
+    });
+
+    it("sin puertos que liberar, no inventa ninguno", async () => {
+      const user = await montar(LISTA, {
+        kill_processes: [
+          { pid: 200, name: "node.exe", killed: true, error: null, freedPorts: [] },
+        ],
+      });
+
+      await user.click(screen.getByRole("button", { name: "Kill node.exe, PID 200" }));
+
+      expect(await screen.findByText("node.exe cerrado")).toBeInTheDocument();
+      expect(screen.queryByText(/liberado/)).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Rust contesta una lista vacía si no pudo ni mirar los procesos (`kill_and_record` con el
+   * candado de `sys` roto). Sin esto, la ventana enseñaba un `TypeError` de JavaScript.
+   */
+  it("si Rust no contesta nada sobre lo pedido, dice que no se pudo cerrar", async () => {
+    const user = await montar(LISTA, { kill_processes: [] });
+
+    await user.click(screen.getByRole("button", { name: "Kill node.exe, PID 100" }));
+
+    expect(await screen.findByText("No se pudo cerrar el proceso")).toBeInTheDocument();
+    expect(screen.queryByText(/TypeError/)).not.toBeInTheDocument();
+  });
+
+  /** Si el comando entero falla, el Kill no puede quedarse apagado para siempre. */
+  it("si kill_processes falla entero, sale el error y el Kill vuelve a estar disponible", async () => {
+    const user = await montar();
+    const kill = () => screen.getByRole("button", { name: "Kill node.exe, PID 100" });
+
+    invoke.mockRejectedValueOnce(new Error("el estado no responde"));
+    await user.click(kill());
+
+    expect(await screen.findByText("Error: el estado no responde")).toBeInTheDocument();
+    await waitFor(() => expect(kill()).toBeEnabled());
   });
 });
 
