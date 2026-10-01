@@ -453,6 +453,27 @@ describe("navegacion", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("get_services"));
   });
 
+  /**
+   * Hasta T12-15 la función que lee los servicios se quedaba con el catálogo del primer render,
+   * que es el español de fábrica: con la app en inglés, este aviso salía en español.
+   */
+  it("si no se pueden leer los servicios, lo dice en el idioma de la app", async () => {
+    // Sin `montar`, que espera a ver la lista con sus textos en español.
+    invoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "get_services") throw new Error("SCM");
+      if (cmd === "get_settings") return { ...DEFAULT_TEST_SETTINGS, language: "en" };
+      if (cmd === "get_processes") return LISTA;
+      if (cmd === "get_service_changes") return [];
+      return null;
+    });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Services" }));
+
+    expect(await screen.findByText("The services could not be read")).toBeInTheDocument();
+  });
+
   it("el buscador solo existe en la vista de procesos", async () => {
     const user = await montar();
 
@@ -817,6 +838,47 @@ describe("cuando Rust rechaza", () => {
     expect(
       await screen.findByText("No se pudo vaciar el historial"),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * T12-08. El aviso de «protegido» salía a la vez que se pedía el guardado: si Rust rechazaba,
+   * quedaban dos avisos contradictorios y el proceso **sin proteger**, que es el único caso en el
+   * que decir que sí hace daño de verdad.
+   */
+  describe("al proteger una fila desde su menú", () => {
+    const FILA = [proceso({ pid: 100, project: "mi-web" })];
+
+    async function proteger() {
+      const user = await montar(FILA);
+      await user.pointer({
+        target: screen.getByLabelText("Seleccionar PID 100").closest("tr")!,
+        keys: "[MouseRight]",
+      });
+      return { user, opcion: await screen.findByText("Proteger «mi-web»") };
+    }
+
+    it("si no se pudo guardar, sale el error y no «protegido»", async () => {
+      const { user, opcion } = await proteger();
+
+      invoke.mockRejectedValueOnce(new Error("disco lleno"));
+      await user.click(opcion);
+
+      expect(
+        await screen.findByText("No se pudieron guardar los ajustes"),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("«mi-web» protegido")).not.toBeInTheDocument();
+    });
+
+    it("si se guardó, lo dice", async () => {
+      const { user, opcion } = await proteger();
+
+      await user.click(opcion);
+
+      expect(await screen.findByText("«mi-web» protegido")).toBeInTheDocument();
+      expect(invoke).toHaveBeenCalledWith("save_settings", {
+        settings: expect.objectContaining({ protected: ["mi-web"] }),
+      });
+    });
   });
 });
 
