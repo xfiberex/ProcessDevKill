@@ -679,7 +679,9 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     el script y falla si ese título cambia. Probado con las notas de la v1.8.0 tal como están en
     GitHub (`src/test/notas-v1.8.0.md`) y con la vista en jsdom. **Quedó fuera:** verlo en la
     ventana real —hace falta una versión más nueva que ofrecer—, y que las notas siguen estando
-    solo en español. Y quien actualice **desde la v1.8.1** aún las verá en crudo: el lector viaja
+    solo en español. **Visto en la ventana real el 2026-10-01**, con la copia de prueba compilada
+    como v1.8.2 justo después de publicar la v1.8.3: tres títulos, diez elementos, ninguna marca
+    y sin la tabla de descarga. Y quien actualice **desde la v1.8.1** aún las verá en crudo: el lector viaja
     en la versión siguiente.
 
 ### Fase H — Encontrado de paso, fuera del alcance acordado
@@ -759,7 +761,8 @@ Y dos que salen de esta re-auditoría:
   **23 de 39** con T12-20: la cobertura sube del 84,97 % al 95,90 %, con 367 pruebas del frontend.
   Ese día se publicó la **v1.8.2**, la primera con las notas sacadas del CHANGELOG y con el corte
   comprobándose solo. Y **31 de 39** con la tanda de Rust de la v1.8.3: T12-09, 10, 11, 14, 16,
-  17, 18 y 19. 151 pruebas de Rust (+4 ignoradas) y clippy limpio.
+  17, 18 y 19. 151 pruebas de Rust (+4 ignoradas) y clippy limpio. Ese día se publicó la
+  **v1.8.3**, la primera con las pruebas en marcha dentro del corte.
 
 ### Cómo se reparte lo que queda
 
@@ -795,10 +798,13 @@ Son 20 comprobaciones sobre el binario de release. Lo que vieron de las tareas d
 | T12-17 | El instalador de la v1.8.2 se descarga con el cliente nuevo y su hash coincide. **No con una conexión lenta** |
 | T12-19 | El binario, llamado con `--service-action`, sale con el código de cada rechazo |
 
-**Lo que el guion no puede ver, y sigue sin verse:** las notas de un release dentro de Ajustes
-(T12-36) —la versión de la copia sale de `Cargo.toml`, así que nunca hay una más nueva que
-ofrecerle—, una instalación de punta a punta (T12-02), el gancho de pánico (T12-14) y el aviso de
-«protegido» cuando el guardado falla (T12-08).
+**Las notas de un release dentro de Ajustes (T12-36)** solo se ven cuando la copia es más vieja
+que lo publicado: su versión sale de `Cargo.toml`, y recién compilada está al día. Pasa justo
+después de un corte, con `--sin-compilar`, y el guion lo aprovecha: tras publicar la v1.8.3 las
+enseñó bien. Son 21 comprobaciones ese día y 20 el resto.
+
+**Lo que el guion no puede ver, y sigue sin verse:** una instalación de punta a punta (T12-02), el
+gancho de pánico (T12-14) y el aviso de «protegido» cuando el guardado falla (T12-08).
 
 ---
 

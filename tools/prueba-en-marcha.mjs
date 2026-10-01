@@ -496,11 +496,50 @@ async function protegidos(cdp) {
 }
 
 async function actualizador(cdp) {
+  let nueva = null;
+
   await paso("Buscar actualizaciones consulta GitHub sin error", async () => {
     const r = await cdp.invoke("check_update");
     exigir(r.ok, r.error);
-    return r.valor ? `hay una versión más nueva: ${r.valor.tag}` : "la app está al día";
+    nueva = r.valor;
+    return nueva ? `hay una versión más nueva: ${nueva.tag}` : "la app está al día";
   });
+
+  // Solo cuando la copia es más vieja que lo publicado, que pasa justo después de un corte y con
+  // `--sin-compilar`: la versión de la copia sale de `Cargo.toml`, y recién compilada está al día.
+  // Es la única ocasión de ver las notas de un release dentro de la ventana (T12-36).
+  if (nueva) {
+    await paso("Ajustes enseña las novedades de la versión nueva, sin marcas de Markdown", async () => {
+      await cdp.pulsar("Ajustes", `document.querySelector("aside") ?? document`);
+      await esperar(() => cdp.js(`document.querySelector("main h2")?.textContent === "Ajustes"`));
+      await cdp.pulsar("Buscar actualizaciones", `document.querySelector("main")`);
+
+      const notas = await esperar(() =>
+        cdp.js(`(() => {
+          const caja = document.querySelector('[role="region"][aria-label="Novedades de la versión"]');
+          if (!caja) return null;
+          return {
+            texto: caja.textContent,
+            titulos: [...caja.querySelectorAll("h4")].map((h) => h.textContent),
+            elementos: caja.querySelectorAll("li").length,
+            enfocable: caja.tabIndex === 0,
+          };
+        })()`),
+      );
+      exigir(notas, "no aparecieron las novedades tras buscar actualizaciones");
+      const version = await cdp.js(`document.querySelector("main").textContent.includes("${nueva.tag}")`);
+      exigir(version, `Ajustes no nombra la versión ${nueva.tag}`);
+      exigir(notas.titulos.length > 0, "las notas no tienen ningún título");
+      exigir(notas.elementos > 0, "las notas no tienen ningún elemento de lista");
+      exigir(!/[#*\`<|]/.test(notas.texto), `quedan marcas a la vista: ${notas.texto.slice(0, 200)}`);
+      exigir(
+        !/SmartScreen|setup\.exe|Get-FileHash/.test(notas.texto),
+        "sale la tabla de descarga, que dentro de la app no hace falta",
+      );
+      exigir(notas.enfocable, "la caja tiene scroll y no se puede enfocar con el teclado");
+      return `${notas.titulos.join(" · ")} — ${notas.elementos} elementos`;
+    });
+  }
 
   let descargado = null;
 

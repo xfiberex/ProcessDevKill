@@ -8,6 +8,17 @@
 
 ---
 
+### 2026-10-01 (6) — Publicada la v1.8.3
+
+- Dry run y corte con las pruebas en marcha dentro. La CI, la primera con `PDK_EXIGIR_NODE`, en
+  verde: en el runner ninguna prueba se saltó. Comprobado por el propio script: 4 assets, la API
+  devuelve `v1.8.3` y el instalador descargado coincide (`53ad76ce…`).
+- **Y por fin se vieron las notas dentro de Ajustes (T12-36).** La copia de prueba seguía
+  compilada como v1.8.2, así que al publicar pasó a tener una versión más nueva que ofrecerle. Con
+  `--sin-compilar`: tres títulos, diez elementos, sin marcas ni tabla de descarga. Queda como
+  comprobación del guion para cuando se dé el caso.
+- Sigue sin verse una instalación de punta a punta: hace falta la app instalada del usuario.
+
 ### 2026-10-01 (5) — La tanda de Rust de la v1.8.3, y el plan de cortes
 
 El usuario propuso repartir las 16 tareas que quedaban en varios cortes. Quedó en tres: v1.8.3
