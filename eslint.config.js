@@ -69,4 +69,13 @@ export default tseslint.config(
       globals: { ...globals.node },
     },
   },
+
+  {
+    // Los guiones de `tools/` también son de Node, y de uno reciente: `fetch` y `WebSocket` son
+    // globales desde Node 22, que es lo que pide `prueba-en-marcha.mjs`.
+    files: ["tools/**/*.mjs"],
+    languageOptions: {
+      globals: { ...globals.node, fetch: "readonly", WebSocket: "readonly" },
+    },
+  },
 );

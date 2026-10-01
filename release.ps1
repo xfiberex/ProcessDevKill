@@ -7,7 +7,9 @@
       1. Valida la versión y el árbol de trabajo, y saca las notas del release de la sección
          `## [X.Y.Z]` de CHANGELOG.md. Sin esa sección no hay corte.
       2. Ejecuta las comprobaciones (salvo -SkipTests): `cargo test`, `cargo clippy`, `cargo audit`,
-         `npm audit --omit=dev`, `npm run lint`, `npm test` y `npm run build`.
+         `npm audit --omit=dev`, `npm run lint`, `npm test`, `npm run build` y, al final, **las
+         pruebas con la app en marcha** (`tools\prueba-en-marcha.mjs`): compila una copia aparte,
+         con su propio identificador, la arranca y la conduce. También en -DryRun.
       3. Actualiza la versión en los TRES sitios donde vive.
       4. Compila los instaladores con `npm run tauri build` (NSIS + MSI).
       5. Genera el .sha256 de cada instalador — con el que la app verifica la actualización.
@@ -492,6 +494,14 @@ foreach ($f in @($tauriConf, $packageJson, $cargoToml)) {
     if (-not (Test-Path $f)) { Die "No se encontró $f" }
 }
 
+# Un puerto de depuración en tauri.conf.json acabaría dentro del instalador: cualquier programa del
+# equipo podría conducir la app de quien la instale, y con ella cerrar sus procesos. Para
+# inspeccionar la interfaz a mano hay que añadirlo ahí (ver CLAUDE.md) y es fácil olvidarse de
+# quitarlo. Las pruebas en marcha no lo tocan: usan `--config` y otra carpeta de compilación.
+if ((Read-Texto $tauriConf) -match 'remote-debugging-port') {
+    Die "tauri.conf.json lleva un puerto de depuración (--remote-debugging-port). Quítalo antes de cortar: no puede viajar en un instalador."
+}
+
 # ── Versión ────────────────────────────────────────────────────────────────
 $confRaw = Read-Texto $tauriConf
 $currentVersion = $null
@@ -662,10 +672,18 @@ try {
         Warn "Pruebas omitidas (-SkipTests), ya pasadas en el dry run sobre $($headActual.Substring(0,7))."
     } else {
         Info "Ejecutando los tests de Rust..."
+        # Con PDK_EXIGIR_NODE, una prueba que no puede lanzar su `node` falla en vez de saltarse y
+        # contar como superada (T12-18). Igual que en la CI: un corte no se da por probado a medias.
+        $exigirPrevio = $env:PDK_EXIGIR_NODE
+        $env:PDK_EXIGIR_NODE = "1"
         Push-Location (Join-Path $root "src-tauri")
         try {
             if ((Invoke-Nativo cargo @('test','--quiet')) -ne 0) { Die "Los tests de Rust fallaron. Release abortado." }
-        } finally { Pop-Location }
+        } finally {
+            Pop-Location
+            if ($null -eq $exigirPrevio) { Remove-Item Env:\PDK_EXIGIR_NODE -ErrorAction SilentlyContinue }
+            else { $env:PDK_EXIGIR_NODE = $exigirPrevio }
+        }
         Ok "Tests de Rust correctos."
 
         # Clippy y las auditorias de dependencias. Antes no estaban, y el arbol de Rust —567
@@ -744,6 +762,16 @@ try {
         Info "Comprobando tipos y compilando el frontend..."
         if ((Invoke-Nativo npm @('run','build')) -ne 0) { Die "El build del frontend falló. Release abortado." }
         Ok "Frontend correcto."
+
+        # Lo último, y lo que más tarda: compila una copia de la app con su propio identificador
+        # —no toca los ajustes del usuario ni su app abierta—, la arranca y comprueba que hace lo
+        # que dice. Las suites prueban piezas; esto, el binario. Lo que comprueba y lo que no toca
+        # está en la cabecera del guion.
+        Info "Probando la app en marcha (compila una copia aparte; tarda unos minutos la primera vez)..."
+        if ((Invoke-Nativo node @((Join-Path $root 'tools\prueba-en-marcha.mjs'))) -ne 0) {
+            Die "Las pruebas con la app en marcha fallaron. Release abortado."
+        }
+        Ok "La app en marcha hace lo que dice."
     }
 
     # ── DRY RUN: mostrar plan y salir ────────────────────────────────────────
@@ -762,7 +790,7 @@ try {
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
         Write-Host "    7. Comprobar lo publicado: los 4 assets, la versión de la API y el hash" -ForegroundColor DarkGray
         Write-Host "       del instalador descargado" -ForegroundColor DarkGray
-        if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + eslint + npm test + npm run build" -ForegroundColor DarkGray }
+        if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + eslint + npm test + npm run build + la app en marcha" -ForegroundColor DarkGray }
 
         # Las notas son lo único del plan que se puede leer antes de publicarlo, y lo que no se
         # puede corregir después sin editar el release a mano.
