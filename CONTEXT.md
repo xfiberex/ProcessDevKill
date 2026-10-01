@@ -39,12 +39,13 @@
 
 ## 3. Estado actual
 
-**Publicada: la v1.8.1** (2026-09-30). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
+**Publicada: la v1.8.2** (2026-10-01). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
 lo que está en `main` sin publicar, en su sección «Sin publicar». Cada release se comprueba igual
 tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `tag_name` correcto y
 **el instalador descargado coincide con su `.sha256`**, que es la cadena entera que recorre la
-auto-actualización. Para la v1.8.1, `2fd060c7…`. Desde T12-24 lo hace el propio `release.ps1` al
-terminar el corte, y `-VerifyOnly` lo repite sobre un release que ya existe.
+auto-actualización. Para la v1.8.2, `a7353bbc…`. Desde T12-24 lo hace el propio `release.ps1` al
+terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
+existe.
 
 **Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **23 de 39
 tareas hechas** a 2026-10-01: T12-01 a 08, 12, 13, 15, 20 a 24, 27, 29, 32, 34 y 36 a 38. Ningún

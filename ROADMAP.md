@@ -470,8 +470,8 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     **antes** de las pruebas, para que falte la sección se sepa en segundos, y el dry run enseña las
     notas que publicaría. Probado: `-DryRun -Version 1.8.2` sin sección aborta antes de las pruebas;
     con una sección temporal, el dry run entero pasa y las notas son esa sección más la tabla de
-    descarga; una versión que no existe y un «Sin publicar» vacío dan `$null`. **No se ha visto en
-    un corte real**: el primero será el de la v1.8.2.
+    descarga; una versión que no existe y un «Sin publicar» vacío dan `$null`. **Visto en un corte
+    real el 2026-10-01**: las notas de la v1.8.2 son su sección del CHANGELOG, sin BOM.
 
 - [x] **[T12-24] Comprobar lo publicado al terminar el corte**
   - **Severidad:** baja · **Área:** DevOps
@@ -490,7 +490,9 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     - una versión que no existe falla al leer el release;
     - con un hash local equivocado, falla diciendo que no es el compilado.
 
-    **No se ha visto dentro de un corte real**: el primero será el de la v1.8.2.
+    **Visto dentro de un corte real el 2026-10-01**: el de la v1.8.2 terminó con los 4 assets, la
+    API devolviendo `v1.8.2` y el instalador descargado igual a su `.sha256` y al compilado
+    (`a7353bbc…`).
 
 - [ ] **[T12-25] El aviso de `THIRD-PARTY-NOTICES.txt`, por contenido y no por fecha**
   - **Severidad:** baja · **Área:** DevOps
@@ -711,6 +713,8 @@ Y dos que salen de esta re-auditoría:
   **22 de 39**, con T12-08, T12-12, T12-13, T12-24 y T12-15, **el último de los nueve medios**:
   `App.tsx` pasa de 927 líneas a 367. 323 pruebas del frontend y 132 de Rust (+3 ignoradas). Y
   **23 de 39** con T12-20: la cobertura sube del 84,97 % al 95,90 %, con 367 pruebas del frontend.
+  Ese día se publicó la **v1.8.2**, la primera con las notas sacadas del CHANGELOG y con el corte
+  comprobándose solo.
 
 ---
 

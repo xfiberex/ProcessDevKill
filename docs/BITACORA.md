@@ -8,6 +8,18 @@
 
 ---
 
+### 2026-10-01 (4) — Publicada la v1.8.2
+
+- Primer corte con las notas sacadas del CHANGELOG (T12-23) y con la comprobación de lo publicado
+  dentro del script (T12-24). Las dos funcionaron: 4 assets, la API devuelve `v1.8.2` y el
+  instalador descargado coincide con su `.sha256` y con el compilado (`a7353bbc…`).
+- **El primer dry run abortó** en `el_calentamiento_deja_medible_la_cpu_del_equipo`: exige que la
+  CPU del equipo marque menos del 100 %, y marcó 100 con el equipo compilando. No distingue un
+  100 % real de la lectura sin muestra previa que vigila. Seis pasadas después, todas en verde. No
+  se cambió; queda como prueba que puede saltar con el equipo cargado.
+- Sigue sin verse: las notas dentro de la ventana real (T12-36). Hace falta una copia con la
+  v1.8.2 y una versión posterior que ofrecerle.
+
 ### 2026-10-01 (3) — T12-20: la cobertura, y lo que salió al buscarla
 
 - Del 84,97 % al 95,90 % de sentencias; `i18n.tsx`, del 70,21 % al 88,65 %. 44 pruebas nuevas.
