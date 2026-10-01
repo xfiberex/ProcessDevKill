@@ -158,6 +158,12 @@ cd src-tauri && cargo test    # backend: lee procesos reales del equipo
 
 `.\release.ps1 -Version X.Y.Z` hace el corte entero. Antes, `-DryRun`.
 
+**Las notas del release salen del CHANGELOG** (T12-23). Antes de cortar, lo de «Sin publicar» pasa a
+una sección `## [X.Y.Z] — fecha`, con su enlace al final del archivo, y se commitea; sin esa sección
+el script aborta. El dry run enseña las notas que publicaría. Lo que el script añade detrás empieza
+por el título «Descarga», y **la app deja de leer las notas ahí** (`src/lib/notas.ts`): ese título
+no se cambia en un sitio sin el otro, y `notas.test.ts` lo vigila.
+
 La versión vive en **tres** sitios que tienen que ir a la vez: `tauri.conf.json` (la que manda),
 `package.json` y `Cargo.toml`. El script los toca los tres.
 

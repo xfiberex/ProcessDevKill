@@ -4,7 +4,8 @@
 
 .DESCRIPTION
     Flujo completo en un paso:
-      1. Valida la versión y el árbol de trabajo.
+      1. Valida la versión y el árbol de trabajo, y saca las notas del release de la sección
+         `## [X.Y.Z]` de CHANGELOG.md. Sin esa sección no hay corte.
       2. Ejecuta las comprobaciones (salvo -SkipTests): `cargo test`, `cargo clippy`, `cargo audit`,
          `npm audit --omit=dev`, `npm run lint`, `npm test` y `npm run build`.
       3. Actualiza la versión en los TRES sitios donde vive.
@@ -77,7 +78,9 @@
     Versión a publicar (X.Y.Z). Si se omite, usa la de tauri.conf.json.
 
 .PARAMETER NotesFile
-    Ruta a un archivo Markdown con las notas del release. Si se omite, se genera una plantilla.
+    Ruta a un archivo Markdown con las notas del release, para publicar otras que las del
+    CHANGELOG. Si se omite —lo normal—, las notas son la sección `## [X.Y.Z]` de CHANGELOG.md más
+    la tabla de descarga, y el corte ABORTA si esa sección no existe o está vacía (T12-23).
 
 .PARAMETER SkipTests
     Omite todas las comprobaciones del paso 2. Solo tiene sentido justo despues de un -DryRun que
@@ -278,12 +281,73 @@ function Write-Texto($ruta, $texto) {
     [System.IO.File]::WriteAllText($ruta, $texto, (New-Object System.Text.UTF8Encoding($false)))
 }
 
+<#
+.SYNOPSIS
+    La sección `## [X.Y.Z]` de CHANGELOG.md, sin su título y con las líneas partidas vueltas a unir.
+    Devuelve $null si la sección no existe o no tiene nada.
+
+.DESCRIPTION
+    Hasta la v1.8.1 las notas se escribían a mano en un archivo aparte, repitiendo lo que el
+    CHANGELOG ya decía; y sin -NotesFile se publicaba una plantilla que no contaba nada (T12-23).
+
+    HAY QUE UNIR LAS LÍNEAS. El CHANGELOG va partido a 100 columnas, y GitHub pinta cada salto de
+    línea del cuerpo de un release como un salto de verdad: sin unir, cada frase saldría cortada
+    donde la cortó el editor. Una línea continúa la anterior salvo que empiece algo —un elemento de
+    lista, un título, una tabla, una cita— o que haya una línea en blanco en medio. Los bloques de
+    código se copian tal cual.
+
+    La sección acaba en el siguiente `## [` o en las referencias de enlaces del final del archivo
+    (`[1.8.1]: https://…`), que pertenecen al CHANGELOG entero y no a la última versión.
+#>
+function Get-NotasDelChangelog($ruta, $version) {
+    if (-not (Test-Path $ruta)) { return $null }
+
+    $salida = New-Object System.Collections.Generic.List[string]
+    $dentro = $false
+    $enCodigo = $false
+    # Si la última línea de $salida admite que se le pegue una continuación.
+    $abierta = $false
+
+    foreach ($linea in ((Read-Texto $ruta) -split "`r?`n")) {
+        if (-not $enCodigo -and $linea -match '^## \[') {
+            if ($dentro) { break }
+            $dentro = $linea -match ('^## \[' + [regex]::Escape($version) + '\]')
+            continue
+        }
+        if (-not $dentro) { continue }
+        if (-not $enCodigo -and $linea -match '^\[[^\]]+\]:\s') { break }
+
+        if ($linea.TrimStart().StartsWith('```')) {
+            $enCodigo = -not $enCodigo
+            $salida.Add($linea); $abierta = $false
+            continue
+        }
+        if ($enCodigo) { $salida.Add($linea); continue }
+
+        if ($linea.Trim() -eq '') {
+            $salida.Add(''); $abierta = $false
+        } elseif ($linea -match '^\s*([-*+] |\d+\. |#{1,6} |\||>)') {
+            $salida.Add($linea.TrimEnd())
+            # A un título o a una fila de tabla no se le pega nada; a un elemento de lista, sí.
+            $abierta = $linea -match '^\s*([-*+] |\d+\. |>)'
+        } elseif ($abierta) {
+            $salida[$salida.Count - 1] += ' ' + $linea.Trim()
+        } else {
+            $salida.Add($linea.TrimEnd()); $abierta = $true
+        }
+    }
+
+    $texto = ($salida -join "`n").Trim()
+    if ($texto) { $texto } else { $null }
+}
+
 # ── Rutas ──────────────────────────────────────────────────────────────────
 $root       = $PSScriptRoot
 $tauriConf  = Join-Path $root "src-tauri\tauri.conf.json"
 $packageJson= Join-Path $root "package.json"
 $cargoToml  = Join-Path $root "src-tauri\Cargo.toml"
 $bundleDir  = Join-Path $root "src-tauri\target\release\bundle"
+$changelog  = Join-Path $root "CHANGELOG.md"
 
 foreach ($f in @($tauriConf, $packageJson, $cargoToml)) {
     if (-not (Test-Path $f)) { Die "No se encontró $f" }
@@ -363,6 +427,53 @@ try {
         Warn "Cambios sin commitear que ENTRARÁN en el release (-AllowDirty):"
         $modificados | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
     }
+
+
+    # ── Notas del release ──────────────────────────────────────────────────────
+    # Antes de las pruebas, y no después como hasta la v1.8.1: si falta la sección del CHANGELOG,
+    # mejor saberlo ahora que tras cinco minutos de comprobaciones.
+    $notesPath = $NotesFile
+    $tempNotes = $null
+    if (-not $notesPath) {
+        $seccion = Get-NotasDelChangelog $changelog $Version
+        if (-not $seccion) {
+            Die "CHANGELOG.md no tiene una sección '## [$Version]' con contenido. Pasa lo de «Sin publicar» a esa sección —con su fecha y su enlace al final del archivo— y commitéalo, o usa -NotesFile."
+        }
+
+        # La cola empieza por el título «Descarga» A PROPÓSITO: la app enseña las notas en Ajustes
+        # hasta ese título y no más allá (`COLA` en src/lib/notas.ts). Quien las lee ahí ya tiene
+        # la app instalada. Si se cambia el título aquí, se cambia allí.
+        $cola = @(
+            "---",
+            "",
+            "### Descarga",
+            "",
+            "| Archivo | Para qué |",
+            "|---|---|",
+            "| ``ProcessDevKill_${Version}_x64-setup.exe`` | Instalador recomendado (NSIS). Se instala para el usuario actual, sin pedir permisos de administrador. |",
+            "| ``ProcessDevKill_${Version}_x64_en-US.msi`` | Instalador MSI, para despliegue por directiva de grupo o quien lo prefiera. |",
+            "",
+            "Los ``.sha256`` son el hash de cada instalador, por si quieres verificar la descarga:",
+            "",
+            "``````powershell",
+            "Get-FileHash .\ProcessDevKill_${Version}_x64-setup.exe -Algorithm SHA256",
+            "``````",
+            "",
+            "### Aviso de SmartScreen",
+            "",
+            "Los instaladores no están firmados, así que la primera vez Windows mostrará el aviso de SmartScreen (*Windows protegió su PC*): **Más información → Ejecutar de todas formas**.",
+            "",
+            "Requiere Windows 10/11 con WebView2 (incluido de serie en Windows 11)."
+        ) -join "`n"
+
+        # Write-Texto y no Out-File: en PowerShell 5.1, `-Encoding utf8` pone un BOM, y la app
+        # enseña el cuerpo del release tal cual le llega.
+        $tempNotes = Join-Path $env:TEMP "pdk_release_$Version.md"
+        Write-Texto $tempNotes "$seccion`n`n$cola`n"
+        $notesPath = $tempNotes
+        Ok "Notas del release tomadas de CHANGELOG.md, sección [$Version]."
+    }
+    if (-not (Test-Path $notesPath)) { Die "No se encontró el archivo de notas: $notesPath" }
 
 
     # ── Pruebas ──────────────────────────────────────────────────────────────
@@ -476,39 +587,6 @@ try {
         Ok "Frontend correcto."
     }
 
-    # ── Notas del release ──────────────────────────────────────────────────────
-    $notesPath = $NotesFile
-    $tempNotes = $null
-    if (-not $notesPath) {
-        $tempNotes = Join-Path $env:TEMP "pdk_release_$Version.md"
-        @(
-            "## ProcessDevKill v$Version",
-            "",
-            "Gestor de procesos de desarrollo para Windows: lista los `node`, `python` y `dotnet` activos con su CPU, su RAM y **el puerto local que ocupa cada uno**, y permite cerrarlos de uno en uno o en lote.",
-            "",
-            "### Descarga",
-            "",
-            "| Archivo | Para qué |",
-            "|---|---|",
-            "| ``ProcessDevKill_${Version}_x64-setup.exe`` | Instalador recomendado (NSIS). Se instala para el usuario actual, sin pedir permisos de administrador. |",
-            "| ``ProcessDevKill_${Version}_x64_en-US.msi`` | Instalador MSI, para despliegue por directiva de grupo o quien lo prefiera. |",
-            "",
-            "Los ``.sha256`` son el hash de cada instalador, por si quieres verificar la descarga:",
-            "",
-            "``````powershell",
-            "Get-FileHash .\ProcessDevKill_${Version}_x64-setup.exe -Algorithm SHA256",
-            "``````",
-            "",
-            "### Aviso de SmartScreen",
-            "",
-            "Los instaladores no están firmados, así que la primera vez Windows mostrará el aviso de SmartScreen (*Windows protegió su PC*): Más información → Ejecutar de todas formas.",
-            "",
-            "Requiere Windows 10/11 con WebView2 (incluido de serie en Windows 11)."
-        ) | Out-File -FilePath $tempNotes -Encoding utf8
-        $notesPath = $tempNotes
-    }
-    if (-not (Test-Path $notesPath)) { Die "No se encontró el archivo de notas: $notesPath" }
-
     # ── DRY RUN: mostrar plan y salir ────────────────────────────────────────
     if ($DryRun) {
         Write-Host ""
@@ -524,6 +602,13 @@ try {
         Write-Host "         ProcessDevKill_${Version}_x64-setup.exe (+ .sha256)" -ForegroundColor DarkGray
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
         if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + eslint + npm test + npm run build" -ForegroundColor DarkGray }
+
+        # Las notas son lo único del plan que se puede leer antes de publicarlo, y lo que no se
+        # puede corregir después sin editar el release a mano.
+        Write-Host ""
+        Warn "Notas que se publicarían ($notesPath):"
+        (Read-Texto $notesPath) -split "`r?`n" | ForEach-Object { Write-Host "    | $_" -ForegroundColor DarkGray }
+        Write-Host ""
         if ($tempNotes) { Remove-Item $tempNotes -Force -ErrorAction SilentlyContinue }
 
         # Constancia de sobre qué código se pasaron las comprobaciones —el HEAD y lo modificado

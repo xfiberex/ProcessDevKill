@@ -404,7 +404,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     poder publicar: con el mismo código pasa; tras añadir una línea a `format.ts`, se niega; y en un
     clon con un archivo rastreado modificado y sin `-AllowDirty`, el corte para antes de las pruebas.
 
-- [ ] **[T12-23] Las notas del release, desde `CHANGELOG.md`**
+- [x] **[T12-23] Las notas del release, desde `CHANGELOG.md`**
   - **Severidad:** baja · **Área:** DevOps
   - **Ubicación:** `release.ps1:79-80`, `:395-426`
   - **Qué hacer:** sin `-NotesFile` se publican notas genéricas. Tomar la sección `## [X.Y.Z]` del
@@ -413,6 +413,13 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** sin la sección, el dry run aborta; con ella, `--notes-file` es esa
     sección.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01.** `Get-NotasDelChangelog` toma la sección, le quita el título y **une las
+    líneas partidas a 100 columnas**, que GitHub pintaría como saltos de verdad. El paso va ahora
+    **antes** de las pruebas, para que falte la sección se sepa en segundos, y el dry run enseña las
+    notas que publicaría. Probado: `-DryRun -Version 1.8.2` sin sección aborta antes de las pruebas;
+    con una sección temporal, el dry run entero pasa y las notas son esa sección más la tabla de
+    descarga; una versión que no existe y un «Sin publicar» vacío dan `$null`. **No se ha visto en
+    un corte real**: el primero será el de la v1.8.2.
 
 - [ ] **[T12-24] Comprobar lo publicado al terminar el corte**
   - **Severidad:** baja · **Área:** DevOps
@@ -551,7 +558,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** las pruebas que fijan esos textos, actualizadas y en verde.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
 
-- [ ] **[T12-36] Las notas del release dentro de la app**
+- [x] **[T12-36] Las notas del release dentro de la app**
   - **Severidad:** baja · **Área:** Redacción / UI
   - **Ubicación:** `src/components/Actualizaciones.tsx:68-72`
   - **Qué hacer:** se pintan como texto plano, y las publicadas llevan Markdown y `<kbd>`: quien
@@ -559,6 +566,14 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     HTML, o un resumen con enlace a la página del release.
   - **Criterio de aceptación:** las notas de la v1.8.0 se leen limpias en la ventana.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-01**, por la primera vía. `leerNotas` (`src/lib/notas.ts`) reduce el Markdown
+    a títulos, párrafos y listas, conserva la negrita y el código —lo que `Marcado` ya pintaba— y
+    corta en el título «Descarga», que es donde empieza lo que añade `release.ps1`; una prueba lee
+    el script y falla si ese título cambia. Probado con las notas de la v1.8.0 tal como están en
+    GitHub (`src/test/notas-v1.8.0.md`) y con la vista en jsdom. **Quedó fuera:** verlo en la
+    ventana real —hace falta una versión más nueva que ofrecer—, y que las notas siguen estando
+    solo en español. Y quien actualice **desde la v1.8.1** aún las verá en crudo: el lector viaja
+    en la versión siguiente.
 
 ### Fase H — Encontrado de paso, fuera del alcance acordado
 
@@ -629,7 +644,9 @@ Y dos que salen de esta re-auditoría:
   T12-34, T12-37 y T12-38. 307 pruebas del frontend y 121 de Rust (+3 ignoradas) en verde, y
   ESLint y clippy limpios. Y luego **14 de 39**, con T12-02 y T12-05, dos de los medios: 126 de
   Rust. Y **15 de 39** con T12-32, al reorganizar la documentación: los Tiers 1 a 11 salen a
-  `docs/TIERS-1-11.md` y las capturas se regeneran.
+  `docs/TIERS-1-11.md` y las capturas se regeneran. Ese día se publicó la **v1.8.1**.
+- **2026-10-01** — **17 de 39**: T12-23 y T12-36, las notas del release desde el CHANGELOG y
+  legibles en la ventana. 320 pruebas del frontend y 126 de Rust (+3 ignoradas) en verde.
 
 ---
 

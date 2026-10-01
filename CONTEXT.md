@@ -45,8 +45,8 @@ tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `ta
 **el instalador descargado coincide con su `.sha256`**, que es la cadena entera que recorre la
 auto-actualización. Para la v1.8.1, `2fd060c7…`.
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **15 de 39
-tareas hechas** a 2026-09-30: T12-01 a 07, 21, 22, 27, 29, 32, 34, 37 y 38. Ningún hallazgo era crítico
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **17 de 39
+tareas hechas** a 2026-10-01: T12-01 a 07, 21 a 23, 27, 29, 32, 34 y 36 a 38. Ningún hallazgo era crítico
 ni alto. De los nueve medios **queda uno**: `App.tsx`, que ha vuelto a las 918 líneas (T12-15). Y
 las cuatro tareas de antes que se dieron por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la
 D4 del Tier 11— ya están corregidas, en T12-37, T12-21, T12-22 y T12-07.
@@ -301,6 +301,7 @@ Tier 12 del [ROADMAP](ROADMAP.md) y en la [bitácora](docs/BITACORA.md).
 | 2026-09-30 | **Los errores de Rust que llegan a la ventana son enums, y la frase la pone `textos.rs`** | T12-05. Se valoró pasar el idioma a cada función, y se descartó: habría tocado decenas de firmas puras y sus pruebas, y una función nueva podía seguir devolviendo un `String` en español sin que nada lo notara. Con un enum, la frase vive en un `match` exhaustivo por idioma, y una variante sin traducir no compila. El detalle técnico que da el sistema va dentro de la variante y no se traduce. Consecuencia: las pruebas comparan la variante, no un trozo de frase |
 | 2026-09-30 | **El instalador se bloquea desde que se comprueba hasta que se lanza** | T12-02. Lo lanzado tiene que ser exactamente lo verificado, y con la app elevada el instalador hereda la elevación. `share_mode(FILE_SHARE_READ)` sobre un handle que vive hasta después de `CreateProcess`, comprobado contra el NSIS real antes de escribirlo |
 | 2026-09-30 | **Lo cerrado sale del ROADMAP a `docs/`, y CONTEXT §3 dice el estado, no la historia** | Decisión del usuario, al pedir que se reorganizara y compactara la documentación. El ROADMAP pasó de 2.246 líneas a unas 640: los Tiers 1 a 11, **íntegros**, en `docs/TIERS-1-11.md`, y una línea por Tier en «Lo hecho». CONTEXT §3 perdió la cadena «Antes: la v1.x…», que ya cuenta el CHANGELOG, y sus decisiones de servicios pasaron aquí, a §4. **Se movió, no se borró**, con el criterio del Tier 7.7: borrar repetición, no información. §4 no se podó: son las razones, que es lo que da valor al repositorio |
+| 2026-10-01 | **Las notas de un release salen del CHANGELOG, y la app las lee hasta el título «Descarga»** | T12-23 y T12-36. `release.ps1` toma la sección `## [X.Y.Z]`, une sus líneas partidas y le añade la tabla de descarga; sin la sección, aborta antes de las pruebas. La app reduce ese Markdown a títulos, párrafos y listas (`src/lib/notas.ts`) y deja de leer en «Descarga», que a quien ya tiene la app no le sirve. De las dos vías que proponía la tarea, la otra —un resumen con enlace al release— pedía dar a la ventana permiso para abrir URLs, que hoy no tiene. El título «Descarga» es un contrato entre el script y la app, y una prueba del frontend lee `release.ps1` para vigilarlo |
 
 ## 5. Decisiones pendientes
 

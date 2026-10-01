@@ -593,6 +593,7 @@ export const es = {
     alDia: "Ya tienes la última versión.",
     error: (mensaje: string) => `No se pudo comprobar: ${mensaje}`,
     hayVersion: "Hay una versión nueva:",
+    notasLabel: "Novedades de la versión",
     instalar: "Descargar e instalar",
     comoInstala:
       "Se instala en silencio: la app se cierra, se actualiza y vuelve a abrirse sola. No hay que responder a ninguna ventana.",
@@ -1015,6 +1016,7 @@ export const en: Catalogo = {
     alDia: "You already have the latest version.",
     error: (mensaje) => `Could not check: ${mensaje}`,
     hayVersion: "There is a new version:",
+    notasLabel: "What is new in this version",
     instalar: "Download and install",
     comoInstala:
       "It installs silently: the app closes, updates and opens again on its own. There is no window to answer.",

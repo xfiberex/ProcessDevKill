@@ -5,7 +5,8 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import type { useUpdater } from "../hooks/useUpdater";
-import { useT } from "../i18n";
+import { Marcado, useT } from "../i18n";
+import { leerNotas } from "../lib/notas";
 import { Button } from "@/components/ui/button";
 
 type ActualizacionesProps = {
@@ -19,6 +20,58 @@ type ActualizacionesProps = {
    */
   updater: ReturnType<typeof useUpdater>;
 };
+
+/**
+ * Las notas del release, que llegan de GitHub en Markdown (T12-36).
+ *
+ * Hasta la v1.8.1 se pintaban tal cual, con sus `###`, sus `**` y sus `<kbd>` a la vista.
+ * `leerNotas` las reduce a títulos, párrafos y listas, y aquí se pintan como texto de React.
+ *
+ * `tabIndex` y nombre porque la caja tiene scroll y dentro no hay nada enfocable: sin eso, con
+ * teclado no se puede leer más allá de lo que cabe (la misma razón que `ViewBody` con `label`).
+ */
+function Notas({ markdown, etiqueta }: { markdown: string; etiqueta: string }) {
+  const bloques = leerNotas(markdown);
+  if (bloques.length === 0) return null;
+
+  return (
+    <div
+      className="mt-2 max-h-40 space-y-1.5 overflow-y-auto text-sm text-muted-foreground select-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      role="region"
+      aria-label={etiqueta}
+      // La regla da por hecho que una región no necesita foco. Una con scroll y sin nada
+      // enfocable dentro sí (WCAG 2.1.1; axe, `scrollable-region-focusable`).
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+      tabIndex={0}
+    >
+      {bloques.map((b, i) => {
+        if (b.tipo === "titulo") {
+          return (
+            <h4 key={i} className="pt-1 font-medium text-foreground first:pt-0">
+              <Marcado texto={b.texto} />
+            </h4>
+          );
+        }
+        if (b.tipo === "lista") {
+          return (
+            <ul key={i} className="list-disc space-y-1 pl-5">
+              {b.items.map((item, j) => (
+                <li key={j}>
+                  <Marcado texto={item} />
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        return (
+          <p key={i}>
+            <Marcado texto={b.texto} />
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * Buscar e instalar actualizaciones.
@@ -65,11 +118,7 @@ export function Actualizaciones({ updater }: ActualizacionesProps) {
             {t.actualizador.hayVersion}{" "}
             <strong className="font-medium">v{state.version}</strong>
           </p>
-          {state.notas && (
-            <p className="mt-1 max-h-32 overflow-y-auto text-sm whitespace-pre-line text-muted-foreground select-text">
-              {state.notas}
-            </p>
-          )}
+          {state.notas && <Notas markdown={state.notas} etiqueta={t.actualizador.notasLabel} />}
           <Button className="mt-3" onClick={instalar}>
             <DownloadIcon />
             {t.actualizador.instalar}

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsView } from "./SettingsView";
@@ -427,6 +427,42 @@ describe("actualizaciones", () => {
     expect(
       screen.getByRole("button", { name: /Descargar e instalar/ }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * Las notas llegan de GitHub en Markdown y hasta la v1.8.1 se pintaban tal cual (T12-36).
+   * Lo que da cada forma de Markdown lo prueba `notas.test.ts`; aquí, que la ventana lo usa.
+   */
+  it("pinta las notas con sus títulos y listas, sin marcas a la vista", () => {
+    pintar(
+      {},
+      {
+        fase: "disponible",
+        version: "1.8.2",
+        notas: [
+          "### Cambiado",
+          "- **Buscar** con <kbd>Ctrl</kbd>+<kbd>F</kbd>,",
+          "  desde cualquier vista.",
+          "",
+          "---",
+          "",
+          "### Descarga",
+          "",
+          "| Archivo |",
+          "|---|",
+          "| `setup.exe` |",
+        ].join("\n"),
+      },
+    );
+
+    const notas = screen.getByRole("region", { name: "Novedades de la versión" });
+    expect(within(notas).getByRole("heading", { name: "Cambiado" })).toBeInTheDocument();
+    expect(within(notas).getByRole("listitem")).toHaveTextContent(
+      "Buscar con Ctrl+F, desde cualquier vista.",
+    );
+    expect(notas).not.toHaveTextContent(/[#*<|]|Descarga|setup\.exe/);
+    // Con scroll y sin nada enfocable dentro: sin esto, con teclado no se llega al final.
+    expect(notas).toHaveAttribute("tabindex", "0");
   });
 
   /** Descargar y reiniciar no puede pasar sin que el usuario lo pida. */

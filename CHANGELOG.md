@@ -16,6 +16,16 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+### Cambiado
+- Las novedades de una versión nueva se leen en Ajustes con sus títulos y sus listas. Antes salían
+  con las marcas de Markdown a la vista —`###`, `**`, `<kbd>`— y con la tabla de descarga, que a
+  quien ya tiene la app instalada no le dice nada. (T12-36)
+
+### Interno
+- Las notas de cada release salen de este archivo: el script de publicación toma la sección de la
+  versión y le añade la tabla de descarga, y se niega a cortar si la sección no existe. Hasta la
+  v1.8.1 se escribían a mano, aparte. (T12-23)
+
 ## [1.8.1] — 2026-09-30
 
 Arreglos y seguridad, salidos de la re-auditoría del Tier 12. No añade nada nuevo; lo que cambia es

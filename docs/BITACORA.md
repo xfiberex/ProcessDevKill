@@ -8,6 +8,29 @@
 
 ---
 
+### 2026-10-01 — Las notas del release: del CHANGELOG al script, y legibles en la ventana
+
+Pedido por el usuario tras publicar la v1.8.1, cuyas notas hubo que escribir a mano y empezar con
+cuatro líneas en texto plano porque la app las enseña tal cual.
+
+- **T12-23.** `release.ps1` saca las notas de la sección `## [X.Y.Z]` del CHANGELOG y le añade la
+  tabla de descarga. Une las líneas partidas a 100 columnas, que GitHub pinta como saltos de verdad.
+  El paso se adelantó a antes de las pruebas, y el dry run enseña las notas. Probado sin sección
+  (aborta en segundos) y con una temporal (dry run entero en verde).
+- **T12-36.** `leerNotas` reduce el Markdown a títulos, párrafos y listas, y `Actualizaciones` los
+  pinta con `Marcado`. Corta en «Descarga». La caja tiene scroll y nada enfocable dentro, así que
+  lleva `tabIndex` y nombre, como `ViewBody`; ESLint lo marcó y la excepción va comentada.
+- **Las pruebas se vieron fallar**: sin quitar las etiquetas HTML, sin el corte en «Descarga» y con
+  el título cambiado en `release.ps1`.
+- **Quedó fuera:** ver las notas en la ventana real y un corte de verdad con el script nuevo. Las
+  dos cosas pasarán con la v1.8.2. Quien actualice desde la v1.8.1 aún verá las notas en crudo.
+- 320 pruebas del frontend y 126 de Rust (+3 ignoradas); ESLint y clippy limpios.
+
+### 2026-09-30 (4) — Publicada la v1.8.1
+
+`release.ps1 -Version 1.8.1` tras un dry run en verde. Comprobado después: los 4 assets, el
+`tag_name` de la API y el instalador descargado contra su `.sha256` (`2fd060c7…`).
+
 ### 2026-09-30 (3) — La documentación, reorganizada, y las capturas, regeneradas
 
 Pedido por el usuario: actualizar, reorganizar y compactar la documentación, README incluido, y
