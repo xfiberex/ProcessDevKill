@@ -16,6 +16,11 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.8.2] — 2026-10-01
+
+Arreglos: lo que podía perder datos o decir una cosa por otra. Y las novedades de cada versión, que
+ahora se leen bien dentro de la app.
+
 ### Cambiado
 - Las novedades de una versión nueva se leen en Ajustes con sus títulos y sus listas. Antes salían
   con las marcas de Markdown a la vista —`###`, `**`, `<kbd>`— y con la tabla de descarga, que a
@@ -326,7 +331,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.8.1...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.8.2...HEAD
+[1.8.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.2
 [1.8.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.1
 [1.8.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.0
 [1.7.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.7.0
