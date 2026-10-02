@@ -47,8 +47,8 @@ auto-actualización. Para la v1.9.0, `26f910e9…`. Desde T12-24 lo hace el prop
 terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
 existe.
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **38 de 39
-tareas hechas** a 2026-10-02: todas menos T12-26, que está escrita y falta verla en GitHub. Ningún
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **las 39
+tareas hechas** a 2026-10-02; falta publicar la última tanda y archivar el Tier. Ningún
 hallazgo era crítico ni alto, y **los nueve medios están cerrados**: el último fue `App.tsx`, de
 927 líneas a 367 (T12-15). La tercera tanda, la de la v1.9.1, está en `main` sin publicar: los
 avisos de terceros generados (T12-30) y comprobados por contenido (T12-25), y la CI con las

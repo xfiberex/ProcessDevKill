@@ -31,6 +31,14 @@ Las tres últimas del Tier 12: T12-30, T12-25 y T12-26. Sin publicar.
   nombra, y ESLint lo cazó; y las pruebas del guion no pueden pedir el entorno `node`, porque
   `setup.ts` necesita un DOM.
 - 398 pruebas del frontend y 153 de Rust (+4 ignoradas); ESLint y clippy limpios.
+- **La CI falló a la primera, y enseñó algo.** Las pruebas del generador pasaban en local y caían
+  en el runner con «Invalid or unexpected token». Allí git descarga con finales CRLF, y Vitest no
+  lee un `#!` terminado en retorno de carro. Se reprodujo en local convirtiendo los dos archivos,
+  se quitó la línea y la segunda CI pasó. El paso de los avisos da en el runner lo mismo que aquí.
+- **Dependabot, encendido** por `gh` con permiso del usuario. Abrió cuatro PR al momento, todos de
+  dependencias de desarrollo. Sus alertas son 22 de desarrollo y una de `glib`, que es de Linux y
+  no va en el binario de Windows.
+- Con esto están hechas las 39 tareas del Tier 12.
 
 ### 2026-10-02 (2) — Publicada la v1.9.0
 

@@ -555,7 +555,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     y en `Cargo.lock`, como los deja el corte, pasa; con una crate más entre las dependencias
     (`shlex`, que ya estaba descargada), se para y dice la línea: «326 crates» frente a «327».
 
-- [ ] **[T12-26] CI: acciones fijadas, toolchain declarado y dependencias vigiladas**
+- [x] **[T12-26] CI: acciones fijadas, toolchain declarado y dependencias vigiladas**
   - **Severidad:** baja · **Área:** DevOps
   - **Ubicación:** `.github/workflows/ci.yml:40-51`, `:86-103`
   - **Qué hacer:** fijar las acciones por SHA, añadir `rust-toolchain.toml` y activar Dependabot
@@ -565,7 +565,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** ninguna acción por etiqueta, Dependabot activo y el informe semanal
     visible.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
-  - **Escrito el 2026-10-02, y sin marcar hasta verlo en GitHub.** Lo que hay:
+  - **Hecho el 2026-10-02.** Lo que hay:
     - las cuatro acciones, fijadas por el SHA de su commit, con la versión al lado. Los SHA se
       leyeron de la API de GitHub, no de memoria. La quinta, `dtolnay/rust-toolchain@stable`, era
       una rama y no se podía fijar: se quita, y el compilador lo instala el `rustup` del runner;
@@ -576,10 +576,17 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     - el informe del árbol de desarrollo, en el resumen de cada ejecución de la auditoría, sin
       bloquear. Hoy son 10 avisos, 4 altos; el día de la auditoría eran 7 y 2.
 
-    **Lo que falta para el criterio:** que la CI pase con todo esto —no se ha ejecutado todavía—,
-    ver el informe en el resumen, y **encender Dependabot en el repositorio**: las alertas y las
-    actualizaciones de seguridad están apagadas, y el archivo solo no abre ningún PR. Es un ajuste
-    de la cuenta del usuario.
+    **Visto en GitHub ese mismo día:**
+    - la CI de `63d1c5b` pasa entera con las acciones fijadas y el compilador de
+      `rust-toolchain.toml`, y el paso «Avisos de terceros al día» da en el runner lo mismo que en
+      el equipo del usuario: 29 y 326. **La primera, la de `e570f46`, falló**, y por algo que en
+      local no se veía: el runner de Windows descarga los archivos con finales CRLF, y Vitest no
+      sabe leer una línea `#!` que acaba en retorno de carro. Se quitó esa línea del generador;
+    - **Dependabot está encendido**, con el visto bueno del usuario: alertas y actualizaciones de
+      seguridad. Nada más encenderlo abrió cuatro PR —`undici`, `hono`, `brace-expansion` e
+      `ip-address`—, los cuatro de dependencias de desarrollo. Quedan abiertos: fusionarlos es
+      decisión del usuario;
+    - el paso del informe se ejecuta y termina bien. **El resumen en sí no se abrió** para leerlo.
 
 - [x] **[T12-27] La inspección en vivo, sin arrancar elevada con el puerto abierto**
   - **Severidad:** media · **Área:** DevOps / Seguridad del proceso de trabajo
@@ -854,8 +861,9 @@ Y dos que salen de esta re-auditoría:
   385 pruebas del frontend, 153 de Rust (+4 ignoradas) y 21 en marcha, todas en verde; ESLint y
   clippy limpios. Quedan las tres de la v1.9.1: T12-25, T12-26 y T12-30. Ese día se publicó la
   **v1.9.0**, la primera cuyo commit exacto tenía una CI completa en verde antes del corte. Y
-  **38 de 39** con T12-30 y T12-25: los avisos de terceros salen de un guion y el corte se para
-  si se quedan viejos. 398 pruebas del frontend. T12-26 está escrita y falta verla en GitHub.
+  **39 de 39** con T12-30, T12-25 y T12-26: los avisos de terceros salen de un guion, el corte se
+  para si se quedan viejos y la CI tiene sus acciones fijadas. 398 pruebas del frontend. **Las 39
+  tareas del Tier están hechas**; falta publicar la v1.9.1 y pasar el detalle del Tier a `docs/`.
 
 ### Cómo se reparte lo que queda
 
@@ -866,7 +874,7 @@ para quien usa la app acompaña al que le toque.
 |---|---|---|
 | **v1.8.3** | Robustez y seguridad al cerrar | T12-09, 10, 11, 14, 16, 17, 18 y 19 — **publicada el 2026-10-01** |
 | **v1.9.0** | Idioma y un ajuste nuevo | T12-31, T12-35, T12-39, con T12-28 y T12-33 — **publicada el 2026-10-02** |
-| **v1.9.1** | Avisos legales | T12-30, con T12-25 y T12-26 |
+| **v1.9.1** | Avisos legales | T12-30, con T12-25 y T12-26 — **hechas el 2026-10-02, sin publicar** |
 
 Lo legal va aparte y al final porque T12-30 pide revisión legal y es la única que puede atascarse.
 
