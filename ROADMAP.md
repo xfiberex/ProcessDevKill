@@ -49,16 +49,19 @@ abrir el siguiente.
   hace falta la app instalada del usuario. Tampoco se han visto en vivo el gancho de pánico
   (T12-14), un PID reciclado (T12-09), una conexión lenta de verdad (T12-17) ni el aviso de
   «protegido» cuando el guardado falla (T12-08). Los cinco tienen sus pruebas.
-- **Los PR de Dependabot se miran y se fusionan a mano.** Los cuatro primeros (`undici`, `hono`,
-  `brace-expansion`, `ip-address`) se fusionaron el 2026-10-02. Seguirá abriendo otros: cada uno
-  se lee, se comprueba que solo toca dependencias de desarrollo —o se regeneran los avisos de
-  terceros si no— y se fusiona con la CI en verde.
+- **Los PR de Dependabot se miran y se fusionan a mano.** Los siete que abrió al encenderlo
+  (`undici`, `hono`, `brace-expansion`, `ip-address`, `fast-uri`, `js-yaml` y `vitest`) se
+  fusionaron el 2026-10-02. Seguirá abriendo otros: cada uno se lee, se comprueba que solo toca
+  dependencias de desarrollo —o se regeneran los avisos de terceros si no— y se fusiona con la
+  CI en verde. Queda una alerta abierta, la de `glib`: es un crate de Linux, no va en el binario
+  de Windows, y `cargo audit` la deja pasar como aviso.
 - **Las pruebas con la app en marcha no están en la CI**: piden una compilación de release y un
   escritorio. Nadie ha probado si el runner lo aguanta.
 - **El inglés no lo ha leído un hablante nativo** (T12-35), y las notas de cada versión siguen
   saliendo solo en español (T12-36).
 - **El resumen del informe de dependencias de desarrollo** (T12-26) se genera en cada ejecución
-  de la CI y nadie lo ha abierto todavía. Hoy son 10 avisos, 4 altos, ninguno en el instalador.
+  de la CI y nadie lo ha abierto todavía. Tras los PR de Dependabot queda 1 aviso, moderado
+  (`qs`), que no viaja en el instalador; eran 10, con 4 altos.
 
 ---
 

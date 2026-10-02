@@ -23,7 +23,10 @@ Las dos cosas sueltas que el usuario pidió cerrar después del Tier 12.
   real: dos líneas cambian y ninguna más. Los PR ya lo habían dejado en la 1.9.1.
 - Tras fusionar: 398 pruebas del frontend, ESLint, build y avisos de terceros, bien. La auditoría
   del árbol de desarrollo baja de 10 avisos a 6.
-- Dependabot abrió otros tres PR mientras tanto: `fast-uri`, `js-yaml` y `vitest`.
+- Dependabot abrió otros tres PR mientras tanto: `fast-uri`, `js-yaml` y `vitest`. Mismo trato:
+  leídos, solo de desarrollo, CI en verde, fusionados. Con Vitest 4.1.11 pasan las 398. La
+  auditoría del árbol de desarrollo queda en 1 aviso moderado (`qs`), y en GitHub, una alerta:
+  `glib`, que es de Linux.
 
 ### 2026-10-02 (4) — Publicada la v1.9.1, y cerrado el Tier 12
 
