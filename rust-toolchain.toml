@@ -1,0 +1,12 @@
+# El compilador con el que se compila, se prueba y se publica ProcessDevKill (T12-26).
+#
+# Hasta la v1.9.0 no estaba escrito en ningún sitio: la CI usaba «la estable de hoy» y el corte,
+# la que hubiera en el equipo. Dos compiladores distintos pueden discrepar en un aviso de clippy,
+# y entonces la CI deja de adelantar lo que luego aborta el corte.
+#
+# rustup lo lee solo, desde esta carpeta y desde `src-tauri/`. Para subirlo: se cambia el número,
+# se pasan las comprobaciones (`release.ps1 -DryRun` las hace todas) y se commitea.
+[toolchain]
+channel = "1.98.1"
+profile = "minimal"
+components = ["clippy"]

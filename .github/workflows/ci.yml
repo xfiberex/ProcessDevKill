@@ -6,6 +6,15 @@
 #
 # Repite las mismas comprobaciones que `release.ps1`, y **no publica nada**: el corte de versión
 # sigue siendo local (decision del 2026-07-24). Por eso no hay secretos ni permisos de escritura.
+#
+# Las acciones van fijadas por el SHA del commit, con la versión al lado (T12-26). Una etiqueta
+# como `v4` la puede mover quien controle ese repositorio, y lo que apunte mañana correría aquí
+# sin que nadie lo haya mirado; un SHA no se mueve. Para subir una: se busca el SHA de la versión
+# nueva (`gh api repos/<dueño>/<acción>/commits/<etiqueta> -q .sha`) y se cambian los dos, el SHA
+# y el comentario.
+#
+# El compilador de Rust lo declara `rust-toolchain.toml`, en la raíz: es el mismo aquí y en el
+# equipo donde se corta la versión.
 name: CI
 
 on:
@@ -37,18 +46,20 @@ jobs:
     if: github.event_name != 'schedule'
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: lts/*
           cache: npm
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+      # Sin acción de terceros: el runner ya trae rustup, y sin argumentos instala la versión y
+      # los componentes que pide `rust-toolchain.toml`. Antes iba `dtolnay/rust-toolchain@stable`,
+      # que es una rama: ni se podía fijar ni decía qué compilador tocaba cada semana.
+      - name: Compilador de Rust (el de rust-toolchain.toml)
+        run: rustup toolchain install
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src-tauri
 
@@ -71,6 +82,12 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
 
+      # Después de clippy, que ya ha descargado los crates: el generador lee de cada uno su
+      # archivo de licencia. Si falla, `THIRD-PARTY-NOTICES.txt` —que viaja en el instalador— no
+      # es el de las dependencias de este commit: se regenera con el mismo guion, sin `--comprobar`.
+      - name: Avisos de terceros al día
+        run: node tools/avisos-de-terceros.mjs --comprobar
+
       # Las pruebas de Rust leen procesos reales y lanzan sus propios `node`: en el runner no hay
       # procesos de nadie, que es justo el sitio donde se puede probar sin riesgo.
       # `PDK_EXIGIR_NODE`: varias pruebas lanzan un `node` y, si no pueden, se saltan dándose por
@@ -87,9 +104,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: lts/*
 
@@ -98,10 +115,31 @@ jobs:
       - name: npm audit
         run: npm audit --omit=dev --audit-level=high
 
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-audit
 
+      # El binario directamente y no `cargo audit`: pasando por `cargo`, rustup instalaría antes
+      # el compilador de `rust-toolchain.toml`, y para leer un Cargo.lock no hace falta ninguno.
       - name: cargo audit
         working-directory: src-tauri
-        run: cargo audit
+        run: cargo-audit audit
+
+      # Lo de arriba mira solo lo que viaja en el instalador, que es lo que bloquea. Las
+      # dependencias de desarrollo —ESLint, Vitest, el CLI de shadcn— no viajan, pero corren en el
+      # equipo de quien desarrolla y en este runner: sus avisos no pueden quedarse sin que nadie
+      # los mire (T12-26). Este paso **no bloquea**: deja el informe en el resumen de la
+      # ejecución, también en la del lunes, que es la que se abre para ver si hay algo nuevo.
+      - name: Informe del árbol de desarrollo (no bloquea)
+        if: always()
+        continue-on-error: true
+        run: |
+          {
+            echo "## Avisos de npm, con las dependencias de desarrollo"
+            echo
+            echo "No bloquea la CI: lo que viaja en el instalador se audita aparte, y eso sí bloquea."
+            echo
+            echo '```'
+            npm audit || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

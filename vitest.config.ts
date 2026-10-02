@@ -22,7 +22,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    // Los de `tools/` son guiones de Node con su prueba al lado. Corren en jsdom como las demás,
+    // aunque no toquen ningún DOM: `setup.ts` lo necesita, y partir la configuración en dos
+    // proyectos por un archivo no compensa.
+    include: ["src/**/*.test.{ts,tsx}", "tools/**/*.test.mjs"],
     css: false,
 
     /**

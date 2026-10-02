@@ -16,6 +16,21 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+Los avisos legales de lo que viaja en el instalador, completos.
+
+### Cambiado
+- El archivo «Avisos de terceros» que se abre desde Ajustes → Acerca de reproduce ahora la
+  licencia y el aviso de copyright de cada componente que viaja en el instalador: 29 de npm y 326
+  crates de Rust. Antes los listaba con el nombre de su licencia y enlazaba varios de los textos.
+  El propio archivo dice lo que sigue sin cubrir. (T12-30)
+
+### Interno
+- Ese archivo lo genera un guion, y el script de publicación y la CI se paran si no corresponde a
+  las dependencias de ahora. Antes el aviso comparaba fechas y saltaba en todos los cortes.
+  (T12-25, T12-30)
+- La CI fija sus acciones por el SHA del commit y el compilador de Rust queda declarado en
+  `rust-toolchain.toml`. (T12-26)
+
 ## [1.9.0] — 2026-10-02
 
 Idioma, y una consulta a la red que ahora se puede apagar.

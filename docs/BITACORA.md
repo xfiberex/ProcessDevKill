@@ -8,6 +8,30 @@
 
 ---
 
+### 2026-10-02 (3) — La tanda de la v1.9.1: los avisos legales y la CI
+
+Las tres últimas del Tier 12: T12-30, T12-25 y T12-26. Sin publicar.
+
+- **T12-30.** Antes de elegir herramienta se midió: 350 crates para Windows, **326** siguiendo
+  solo las dependencias normales —el número de la re-auditoría—, y 11 de ellos sin archivo de
+  licencia. `cargo about` no estaba instalado y no cubre npm; salió un guion propio,
+  `tools/avisos-de-terceros.mjs`. El archivo pasa de 254 líneas a 14.431.
+  - Al mirar por qué `webview2-com-sys` no traía licencia apareció lo que nadie había anotado:
+    enlaza de forma estática el cargador de WebView2 de Microsoft, que tiene la suya. Queda dicho
+    en el archivo, sin reproducir.
+  - La sección de los packs de skills se conserva tal cual, en su propio archivo de texto.
+- **T12-25.** Con el generador, la comprobación es regenerar y comparar. Probado con los dos casos
+  del criterio; el de la crate nueva se hizo de verdad, añadiendo `shlex` a `Cargo.toml` y
+  devolviendo después los dos archivos a como estaban.
+- **T12-26.** Los SHA de las acciones, leídos de la API de GitHub. Al declarar el compilador,
+  rustup instaló en este equipo la 1.98.1 con su nombre propio: es la misma versión que la
+  «stable» que ya había, pero otra entrada, unos 150 MB. Dependabot está apagado en el
+  repositorio: el archivo no basta.
+- **Tropiezos:** la herramienta de escritura convirtió un `\uFEFF` en el carácter invisible que
+  nombra, y ESLint lo cazó; y las pruebas del guion no pueden pedir el entorno `node`, porque
+  `setup.ts` necesita un DOM.
+- 398 pruebas del frontend y 153 de Rust (+4 ignoradas); ESLint y clippy limpios.
+
 ### 2026-10-02 (2) — Publicada la v1.9.0
 
 - Dry run entero en verde, y la CI de `24459b5` también, antes de cortar. Comprobado por el

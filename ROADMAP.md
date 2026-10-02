@@ -538,7 +538,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     API devolviendo `v1.8.2` y el instalador descargado igual a su `.sha256` y al compilado
     (`a7353bbc…`).
 
-- [ ] **[T12-25] El aviso de `THIRD-PARTY-NOTICES.txt`, por contenido y no por fecha**
+- [x] **[T12-25] El aviso de `THIRD-PARTY-NOTICES.txt`, por contenido y no por fecha**
   - **Severidad:** baja · **Área:** DevOps
   - **Ubicación:** `release.ps1:368-379`
   - **Qué hacer:** compara fechas, y el propio corte toca `package.json` y `Cargo.lock` al subir la
@@ -547,6 +547,13 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** un corte sin cambios de dependencias no avisa; uno con una crate
     nueva, sí.
   - **Esfuerzo:** bajo · **Depende de:** T12-30
+  - **Hecho el 2026-10-02.** No hay huella que comparar: el generador de T12-30 rehace el archivo
+    en memoria y `--comprobar` dice si coincide con el que hay. La salida no lleva fecha ni rutas,
+    así que con las mismas dependencias sale lo mismo en cualquier equipo. **Y ya no avisa,
+    aborta**, en el corte y en la CI: un «no coincide» es seguro, no una sospecha, y arreglarlo es
+    un comando. Probado con los dos casos del criterio: con la versión cambiada en los tres sitios
+    y en `Cargo.lock`, como los deja el corte, pasa; con una crate más entre las dependencias
+    (`shlex`, que ya estaba descargada), se para y dice la línea: «326 crates» frente a «327».
 
 - [ ] **[T12-26] CI: acciones fijadas, toolchain declarado y dependencias vigiladas**
   - **Severidad:** baja · **Área:** DevOps
@@ -558,6 +565,21 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** ninguna acción por etiqueta, Dependabot activo y el informe semanal
     visible.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Escrito el 2026-10-02, y sin marcar hasta verlo en GitHub.** Lo que hay:
+    - las cuatro acciones, fijadas por el SHA de su commit, con la versión al lado. Los SHA se
+      leyeron de la API de GitHub, no de memoria. La quinta, `dtolnay/rust-toolchain@stable`, era
+      una rama y no se podía fijar: se quita, y el compilador lo instala el `rustup` del runner;
+    - `rust-toolchain.toml` en la raíz, con la 1.98.1, que es la que venía compilando los
+      releases. `cargo audit` pasa a llamarse como `cargo-audit audit`, para que auditar un
+      `Cargo.lock` no descargue un compilador;
+    - `.github/dependabot.yml` para npm, cargo y las acciones, solo seguridad;
+    - el informe del árbol de desarrollo, en el resumen de cada ejecución de la auditoría, sin
+      bloquear. Hoy son 10 avisos, 4 altos; el día de la auditoría eran 7 y 2.
+
+    **Lo que falta para el criterio:** que la CI pase con todo esto —no se ha ejecutado todavía—,
+    ver el informe en el resumen, y **encender Dependabot en el repositorio**: las alertas y las
+    actualizaciones de seguridad están apagadas, y el archivo solo no abre ningún PR. Es un ajuste
+    de la cuenta del usuario.
 
 - [x] **[T12-27] La inspección en vivo, sin arrancar elevada con el puerto abierto**
   - **Severidad:** media · **Área:** DevOps / Seguridad del proceso de trabajo
@@ -628,6 +650,26 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** el archivo sale de un comando documentado e incluye licencia y aviso
     de cada componente distribuido.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-10-02, sin `cargo about`.** `node tools/avisos-de-terceros.mjs` lee
+    `package-lock.json` y `cargo metadata` para el binario de Windows, y de la carpeta de cada
+    paquete copia sus archivos de licencia tal cual, que es donde va el aviso de copyright. Un
+    guion propio y no `cargo about` porque cubre npm y Rust a la vez, no añade una herramienta que
+    instalar en la CI y su salida se puede comparar byte a byte (T12-25). Salen **29 componentes
+    de npm y 326 crates** —el número que dio la re-auditoría—, con **218 textos de licencia
+    distintos**: el archivo pasa de 13 KB a 784 KB. Los textos BSD y Unicode ya no son un enlace.
+    El generador **se para ante una licencia que no esté en su lista**, que es la de las que el
+    proyecto ya había mirado; trece pruebas, con la negativa.
+  - **Lo que no cubre, y lo dice el propio archivo:**
+    - **13 componentes no publican archivo de licencia** en su paquete (los `unic-*`, los tres
+      `webview2-com`, `clipboard-win`, `selectors`, `alloc-stdlib` y dos plugins de Tauri de npm).
+      Van con lo que declaran: licencia, autores y origen;
+    - **el cargador de WebView2 de Microsoft**, que `webview2-com-sys` enlaza de forma estática
+      sin traer su licencia. Está nombrado, con el enlace al paquete que la publica, y **no
+      reproducida**;
+    - la biblioteca estándar de Rust y el propio instalador (NSIS, WiX), nombrados con su enlace.
+  - **La revisión legal no se ha hecho, y esta tarea no la sustituye.** Lo que se ha hecho es
+    dejar de omitir lo que sí se podía reproducir. Por dónde empezaría una: el cargador de
+    WebView2, y si los trece sin archivo quedan cubiertos con lo que declaran.
 
 - [x] **[T12-31] Poder apagar la comprobación de actualizaciones del arranque**
   - **Severidad:** baja · **Área:** Legal / Producto
@@ -811,7 +853,9 @@ Y dos que salen de esta re-auditoría:
 - **2026-10-02** — **36 de 39**: la tanda de la v1.9.0, T12-28, T12-31, T12-33, T12-35 y T12-39.
   385 pruebas del frontend, 153 de Rust (+4 ignoradas) y 21 en marcha, todas en verde; ESLint y
   clippy limpios. Quedan las tres de la v1.9.1: T12-25, T12-26 y T12-30. Ese día se publicó la
-  **v1.9.0**, la primera cuyo commit exacto tenía una CI completa en verde antes del corte.
+  **v1.9.0**, la primera cuyo commit exacto tenía una CI completa en verde antes del corte. Y
+  **38 de 39** con T12-30 y T12-25: los avisos de terceros salen de un guion y el corte se para
+  si se quedan viejos. 398 pruebas del frontend. T12-26 está escrita y falta verla en GitHub.
 
 ### Cómo se reparte lo que queda
 

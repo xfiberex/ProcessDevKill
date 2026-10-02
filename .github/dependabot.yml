@@ -1,0 +1,34 @@
+# Dependabot, **solo para avisos de seguridad** (T12-26).
+#
+# `open-pull-requests-limit: 0` apaga las subidas de versión rutinarias y deja las de seguridad:
+# cuando sale un aviso sobre una dependencia, Dependabot abre un PR con la versión que lo arregla.
+# Las subidas rutinarias no se quieren: cada una cambia lo que viaja en el instalador, y eso se
+# decide al preparar una versión, no cuando lo propone un bot.
+#
+# Para que abra esos PR, en el repositorio tienen que estar encendidas las «Dependabot alerts» y
+# las «Dependabot security updates» (Settings → Advanced Security). Este archivo solo dice dónde
+# mirar.
+#
+# Un PR suyo que cambie una dependencia de producción falla en «Avisos de terceros al día», y está
+# bien que falle: hay que regenerar THIRD-PARTY-NOTICES.txt en esa rama con
+# `node tools/avisos-de-terceros.mjs` y mirar el cambio.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: cargo
+    directory: "/src-tauri"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+
+  # Las acciones de la CI, fijadas por SHA en ci.yml.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0

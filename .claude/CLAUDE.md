@@ -132,6 +132,7 @@ identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_esp
 npm test                          # frontend: Vitest + Testing Library, en jsdom
 cd src-tauri && cargo test        # backend: lee procesos reales del equipo
 node tools/prueba-en-marcha.mjs   # el binario de release, arrancado y conducido
+node tools/avisos-de-terceros.mjs --comprobar   # que THIRD-PARTY-NOTICES.txt está al día
 ```
 
 - **Toda tanda de cambios se prueba también con la app en marcha**, no solo en las suites: lo pidió
@@ -150,6 +151,12 @@ node tools/prueba-en-marcha.mjs   # el binario de release, arrancado y conducido
   PR, en `windows-latest`. Una comprobación nueva se añade **en los dos sitios**, o la CI dejará de
   adelantar lo que luego aborta el corte. La CI solo comprueba: no publica ni tiene secretos, y así
   se queda (`permissions: contents: read`).
+- **Una acción de la CI se fija por el SHA de su commit, con la versión en un comentario**, nunca
+  por etiqueta (T12-26): una etiqueta la puede mover quien controle ese repositorio. Y antes de
+  añadir una acción de terceros, mirar si el runner ya trae lo que hace: el compilador de Rust lo
+  instala `rustup toolchain install` a partir de `rust-toolchain.toml`.
+- **El compilador de Rust es el de `rust-toolchain.toml`**, en la raíz: el mismo en la CI y en el
+  corte. Se sube cambiando el número y pasando el dry run.
 - Las de Rust **solo matan procesos que lanzan ellas mismas**. Ninguna prueba puede tocar los
   procesos del usuario: es la regla que no se rompe.
 - **Una prueba de Rust que no puede montar lo que necesita llama a `omitir("motivo")` antes de su
@@ -210,6 +217,14 @@ node tools/prueba-en-marcha.mjs   # el binario de release, arrancado y conducido
 **El corte termina comprobando lo publicado** (T12-24): los 4 assets, el `tag_name` de la API que
 consulta la app y el instalador descargado contra su `.sha256` y contra el compilado. Si falla, el
 release ya está fuera: se corrige o se despublica. `-VerifyOnly` repite solo esa comprobación.
+
+**`THIRD-PARTY-NOTICES.txt` no se edita a mano: lo genera `node tools/avisos-de-terceros.mjs`**
+(T12-30). Viaja dentro del instalador, con la licencia y el aviso de copyright de cada componente.
+Al añadir, quitar o subir una dependencia que acabe en el instalador hay que regenerarlo y mirar
+el cambio; el corte y la CI lo comprueban con `--comprobar` y **se paran** si no coincide (T12-25).
+Si el generador se niega por una licencia que no conoce, no se añade a su lista sin mirar antes si
+se puede distribuir dentro de un programa GPLv3: eso es una decisión, no un trámite. La sección de
+los packs de skills se edita en `tools/avisos-de-terceros.skills.txt`.
 
 **Las notas del release salen del CHANGELOG** (T12-23). Antes de cortar, lo de «Sin publicar» pasa a
 una sección `## [X.Y.Z] — fecha`, con su enlace al final del archivo, y se commitea; sin esa sección

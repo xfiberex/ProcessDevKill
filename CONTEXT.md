@@ -47,11 +47,12 @@ auto-actualización. Para la v1.9.0, `26f910e9…`. Desde T12-24 lo hace el prop
 terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
 existe.
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **36 de 39
-tareas hechas** a 2026-10-02: todas menos T12-25, 26 y 30. Ningún
+**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **38 de 39
+tareas hechas** a 2026-10-02: todas menos T12-26, que está escrita y falta verla en GitHub. Ningún
 hallazgo era crítico ni alto, y **los nueve medios están cerrados**: el último fue `App.tsx`, de
-927 líneas a 367 (T12-15). Quedan 3, todas de severidad baja y las tres del último corte, la
-v1.9.1 (ver «Cómo se reparte lo que queda» en el ROADMAP). La primera de las tres tandas, la de
+927 líneas a 367 (T12-15). La tercera tanda, la de la v1.9.1, está en `main` sin publicar: los
+avisos de terceros generados (T12-30) y comprobados por contenido (T12-25), y la CI con las
+acciones fijadas (T12-26) (ver «Cómo se reparte lo que queda» en el ROADMAP). La primera de las tres tandas, la de
 la v1.8.3, ya está publicada: T12-09, 10, 11, 14, 16, 17, 18 y 19. **La segunda, la de la v1.9.0,
 también**: T12-28, 31, 33, 35 y 39. La cobertura del frontend está en el
 95,90 % (T12-20). Y
@@ -77,8 +78,8 @@ nada.
 `npm audit --omit=dev`, todas dentro de `release.ps1`, que aborta si algo falla. Si faltan clippy o
 `cargo-audit`, avisa y sigue. **Se para con cambios sin commitear**, rastreados o no, salvo
 `-AllowDirty`, y `-SkipTests` se niega si el `HEAD` o lo modificado encima no son lo que vio el
-último *dry run*. Avisa además si `package.json` o `Cargo.lock` son más recientes que
-`THIRD-PARTY-NOTICES.txt`, un aviso que hoy salta siempre (T12-25).
+último *dry run*. Y se para si `THIRD-PARTY-NOTICES.txt` no es el que sale de las dependencias
+de ahora: lo vuelve a generar y lo compara (T12-25). También pasa las pruebas con la app en marcha.
 
 **Y en cada push y pull request, las mismas en GitHub Actions** (desde el 2026-09-23):
 `.github/workflows/ci.yml` corre ESLint, `npm test`, `npm run build`, clippy y `cargo test` en
@@ -320,6 +321,9 @@ Tier 12 del [ROADMAP](ROADMAP.md) y en la [bitácora](docs/BITACORA.md).
 | 2026-10-02 | **El inglés del catálogo es en-US, con cuatro reglas y pruebas que las hacen cumplir** | T12-35. Se tradujo frase a frase desde el español y arrastraba ortografía británica junto a la americana, la raya española y comillas rectas junto a tipográficas. Las reglas están encima de `en` en `i18n.tsx`. Hasta aquí las pruebas solo miraban que el inglés no fuera español; ahora miran cómo está escrito. No lo ha leído un hablante nativo |
 | 2026-10-02 | **Las capturas del README se sacan con una copia aparte, como las pruebas en marcha** | T12-28. La tarea pedía respaldar el `settings.json` del usuario y restaurarlo; se hizo lo que decidió el 2026-10-01 para las pruebas: otro identificador (`com.processdevkill.app.capturas`, distinto del `.envivo` para que no se pisen la carpeta) por `tauri dev --config`, con unos ajustes que escribe el script. No hay nada del usuario que restaurar, el idioma lo pone el script y `tauri.conf.json` no se abre para escribir, así que **la guardia de `runAsAdmin` de T12-27 se retira**: la copia no puede arrancar elevada. La captura de Ajustes termina antes de «Acerca de», que enseñaría la ruta del log de la copia. Lo que sigue saliendo del equipo de quien las genera son sus procesos y servicios: se miran antes de publicarlas |
 | 2026-10-02 | **Los comentarios nuevos van con tildes; lo existente no se reformatea** | T12-33. Convivían los dos estilos desde el Tier 7.3. Se elige el que lleva todo lo escrito desde el Tier 10. Un commit que solo pusiera tildes cambiaría cientos de líneas sin arreglar nada y dejaría el `git blame` apuntando a él. La regla está en CLAUDE.md |
+| 2026-10-02 | **`THIRD-PARTY-NOTICES.txt` lo genera un guion propio, con los archivos de licencia de cada paquete** | T12-30. La tarea proponía `cargo about`. Se escribió `tools/avisos-de-terceros.mjs` porque cubre npm y Rust a la vez, no añade una herramienta que instalar en la CI y su salida, sin fecha ni rutas, se puede comparar byte a byte. Lee `package-lock.json` y `cargo metadata --filter-platform x86_64-pc-windows-msvc` siguiendo solo las dependencias normales —326 crates de los 566 del lockfile— y copia de cada paquete sus `LICENSE*`, `COPYING*` y `NOTICE*` tal cual: ahí va el aviso de copyright. Los textos idénticos van una vez. Entran los crates de las macros de procedimiento: sobran, y de más no hace daño. **Se para ante una licencia que no esté en su lista**, que es la de las que ya se habían mirado contra la GPLv3. Lo que no puede reproducir —13 paquetes sin archivo, el cargador de WebView2, la biblioteca estándar de Rust, NSIS y WiX— lo dice el propio archivo. **No sustituye a la revisión legal, que no se ha hecho** |
+| 2026-10-02 | **Unos avisos de terceros viejos abortan el corte y la CI, en vez de avisar** | T12-25. El aviso comparaba fechas y saltaba en todos los cortes, porque el corte escribe la versión en `package.json` y `Cargo.lock`. Ahora se regenera en memoria y se compara: un «no coincide» es seguro, no una sospecha, así que se para. Contradice a sabiendas el «avisa, no aborta» con el que nació el aviso: aquel era la respuesta razonable a una comprobación que no podía estar segura |
+| 2026-10-02 | **Las acciones de la CI, por SHA; el compilador, en `rust-toolchain.toml`; Dependabot, solo seguridad** | T12-26. Una etiqueta de una acción la puede mover quien controle su repositorio. `dtolnay/rust-toolchain@stable` era una rama y no se podía fijar: se quita, y el compilador lo instala el `rustup` del runner a partir de `rust-toolchain.toml` (1.98.1, el que venía compilando los releases), que además iguala la CI con el corte. Dependabot con `open-pull-requests-limit: 0`: abre PR ante un aviso de seguridad y no propone subidas rutinarias, que cambian lo que viaja en el instalador y se deciden al preparar una versión. Los SHA fijados no se actualizan solos: se suben a mano. Las dependencias de desarrollo siguen sin bloquear, pero su auditoría queda en el resumen de cada ejecución |
 
 ## 5. Decisiones pendientes
 

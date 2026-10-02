@@ -297,6 +297,7 @@ comprueba**: corre sin secretos y no publica nada.
 |---|---|
 | [`release.ps1`](release.ps1) | Corta una versión entera: pruebas, versión en los tres sitios, build, `.sha256`, tag y GitHub Release. Admite `-DryRun`. |
 | [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1) | Regenera las capturas de este README conduciendo por CDP una copia aparte de la app, sin tocar la instalada ni sus ajustes. |
+| [`tools/avisos-de-terceros.mjs`](tools/avisos-de-terceros.mjs) | Genera `THIRD-PARTY-NOTICES.txt` a partir de las dependencias que viajan en el instalador. Con `--comprobar`, dice si se quedó viejo. |
 | [`tools/prueba-en-marcha.mjs`](tools/prueba-en-marcha.mjs) | Arranca el binario de release y comprueba que lista, cierra, protege y descarga como dice. Lo lanza `release.ps1`. |
 | `npm run tauri icon app-icon.svg` | Regenera todos los tamaños de icono tras editar `app-icon.svg`. |
 
@@ -350,7 +351,9 @@ publiquen su código fuente**. Se ofrece **sin ninguna garantía**.
 
 Las licencias de los componentes de terceros que el instalador empaqueta —incluida la tipografía
 Geist, con su licencia OFL-1.1— están en [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), y todas
-son compatibles con la GPLv3.
+son compatibles con la GPLv3. En `main`, todavía sin publicar, ese archivo lo genera
+[`tools/avisos-de-terceros.mjs`](tools/avisos-de-terceros.mjs) y reproduce la licencia y el aviso
+de copyright de cada componente; dice también lo que no cubre. **No ha pasado una revisión legal.**
 
 El repositorio incluye además **18 packs de skills de agente** en `.claude/skills/` y
 `.agents/skills/`, unos 270 de los 400 archivos versionados. **No forman parte de la app**: no se

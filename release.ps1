@@ -9,7 +9,8 @@
       2. Ejecuta las comprobaciones (salvo -SkipTests): `cargo test`, `cargo clippy`, `cargo audit`,
          `npm audit --omit=dev`, `npm run lint`, `npm test`, `npm run build` y, al final, **las
          pruebas con la app en marcha** (`tools\prueba-en-marcha.mjs`): compila una copia aparte,
-         con su propio identificador, la arranca y la conduce. También en -DryRun.
+         con su propio identificador, la arranca y la conduce. También en -DryRun. Entre medias
+         comprueba que `THIRD-PARTY-NOTICES.txt` es el de las dependencias de ahora.
       3. Actualiza la versión en los TRES sitios donde vive.
       4. Compila los instaladores con `npm run tauri build` (NSIS + MSI).
       5. Genera el .sha256 de cada instalador — con el que la app verifica la actualización.
@@ -737,18 +738,22 @@ try {
         if ((Invoke-Nativo npm @('run','lint')) -ne 0) { Die "ESLint encontro problemas. Release abortado." }
         Ok "Frontend sin avisos de ESLint."
 
-        # Aviso -no aborta- si las dependencias cambiaron despues de generarse los avisos de
-        # terceros. THIRD-PARTY-NOTICES.txt viaja DENTRO del instalador como recurso y la app enlaza
-        # a el desde Ajustes: su valor entero esta en ser exacto. Se quedo viejo una vez -declaraba
-        # una version de shadcn que nunca estuvo instalada y le faltaban cuatro crates que si van en
-        # el binario- porque nada relacionaba las dos cosas.
-        $avisos = Join-Path $root "THIRD-PARTY-NOTICES.txt"
-        foreach ($manifiesto in @("package.json", "src-tauri/Cargo.lock")) {
-            $ruta = Join-Path $root $manifiesto
-            if ((Get-Item $ruta).LastWriteTime -gt (Get-Item $avisos).LastWriteTime) {
-                Warn "$manifiesto es mas reciente que THIRD-PARTY-NOTICES.txt: revisa si hay que regenerarlo (ver la cabecera de ese archivo)."
-            }
+        # THIRD-PARTY-NOTICES.txt viaja DENTRO del instalador como recurso y la app enlaza a él
+        # desde Ajustes: su valor entero está en ser exacto. Se quedó viejo una vez —declaraba una
+        # versión de shadcn que nunca estuvo instalada y le faltaban cuatro crates que sí van en
+        # el binario— porque nada relacionaba las dos cosas.
+        #
+        # Hasta la v1.9.0 esto comparaba FECHAS: avisaba si package.json o Cargo.lock eran más
+        # recientes que el archivo. El propio corte escribe la versión en los dos, así que el
+        # aviso saltaba en todos los cortes, y un aviso que siempre salta enseña a no leerlo
+        # (T12-25). Ahora se compara el CONTENIDO: el generador lo rehace en memoria y dice si
+        # coincide. Y ya no avisa, aborta: un «no coincide» es seguro, no una sospecha, y
+        # arreglarlo es un comando.
+        Info "Comprobando que los avisos de terceros son los de las dependencias de ahora..."
+        if ((Invoke-Nativo node @((Join-Path $root 'tools\avisos-de-terceros.mjs'), '--comprobar')) -ne 0) {
+            Die "THIRD-PARTY-NOTICES.txt no está al día. Regenéralo con 'node tools\avisos-de-terceros.mjs', revisa el cambio y commitéalo. Release abortado."
         }
+        Ok "Avisos de terceros al día."
 
         # Pruebas del frontend (Vitest + Testing Library, Tier 6.4). Corren en jsdom con los
         # modulos de Tauri doblados, asi que no tocan procesos reales ni necesitan la ventana:
@@ -790,7 +795,7 @@ try {
         Write-Host "         ProcessDevKill_${Version}_x64_en-US.msi (+ .sha256)" -ForegroundColor DarkGray
         Write-Host "    7. Comprobar lo publicado: los 4 assets, la versión de la API y el hash" -ForegroundColor DarkGray
         Write-Host "       del instalador descargado" -ForegroundColor DarkGray
-        if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + eslint + npm test + npm run build + la app en marcha" -ForegroundColor DarkGray }
+        if (-not $SkipTests) { Write-Host "    Ya ejecutado en este dry run: cargo test + clippy + cargo audit + npm audit + eslint + avisos de terceros + npm test + npm run build + la app en marcha" -ForegroundColor DarkGray }
 
         # Las notas son lo único del plan que se puede leer antes de publicarlo, y lo que no se
         # puede corregir después sin editar el release a mano.
