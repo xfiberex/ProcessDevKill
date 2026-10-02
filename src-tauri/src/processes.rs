@@ -1472,9 +1472,14 @@ mod tests {
     /// estaban ociosos y 0 % era una respuesta plausible.
     #[test]
     fn reporta_cpu_de_un_proceso_ocupado() {
+        // 60 s y no los 4 que tenía: la prueba cierra el proceso ella misma en cuanto lo ha medido,
+        // así que el plazo solo está para que no quede huérfano si la prueba muere. Con 4 s, y el
+        // equipo cargado por el resto de la suite, el proceso se acababa antes de que la lista
+        // llegara a leerlo, y la prueba fallaba por «no sale en la lista»: pasó en el dry run de
+        // la v1.9.1. Los demás procesos de prueba de este archivo ya vivían 60 s.
         let mut child = match std::process::Command::new("node")
             .arg("-e")
-            .arg("const fin=Date.now()+4000;let a=0;while(Date.now()<fin){a+=Math.sqrt(a)}")
+            .arg("const fin=Date.now()+60000;let a=0;while(Date.now()<fin){a+=Math.sqrt(a)}")
             .spawn()
         {
             Ok(child) => child,
