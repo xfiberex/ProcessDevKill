@@ -39,25 +39,21 @@
 
 ## 3. Estado actual
 
-**Publicada: la v1.9.0** (2026-10-02). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
+**Publicada: la v1.9.1** (2026-10-02). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
 lo que está en `main` sin publicar, en su sección «Sin publicar». Cada release se comprueba igual
 tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `tag_name` correcto y
 **el instalador descargado coincide con su `.sha256`**, que es la cadena entera que recorre la
-auto-actualización. Para la v1.9.0, `26f910e9…`. Desde T12-24 lo hace el propio `release.ps1` al
+auto-actualización. Para la v1.9.1, `cbf36770…`. Desde T12-24 lo hace el propio `release.ps1` al
 terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
 existe.
 
-**Abierto: [Tier 12 — Re-auditoría completa](ROADMAP.md)**, desde el 2026-09-25, con **las 39
-tareas hechas** a 2026-10-02; falta publicar la última tanda y archivar el Tier. Ningún
-hallazgo era crítico ni alto, y **los nueve medios están cerrados**: el último fue `App.tsx`, de
-927 líneas a 367 (T12-15). La tercera tanda, la de la v1.9.1, está en `main` sin publicar: los
-avisos de terceros generados (T12-30) y comprobados por contenido (T12-25), y la CI con las
-acciones fijadas (T12-26) (ver «Cómo se reparte lo que queda» en el ROADMAP). La primera de las tres tandas, la de
-la v1.8.3, ya está publicada: T12-09, 10, 11, 14, 16, 17, 18 y 19. **La segunda, la de la v1.9.0,
-también**: T12-28, 31, 33, 35 y 39. La cobertura del frontend está en el
-95,90 % (T12-20). Y
-las cuatro tareas de antes que se dieron por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la
-D4 del Tier 11— ya están corregidas, en T12-37, T12-21, T12-22 y T12-07.
+**No hay ningún Tier abierto.** El **[Tier 12 — Re-auditoría completa](docs/TIER-12.md)** se cerró
+el 2026-10-02 con la v1.9.1: 39 tareas en cinco versiones, de la v1.8.1 a la v1.9.1. Ningún hallazgo
+era crítico ni alto, y los nueve medios se cerraron antes que los bajos. Corrigió además las cuatro
+tareas de antes que se habían dado por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la D4
+del Tier 11—. **Hechas las 39, no todo quedó visto**: lo que sigue pendiente está en «Lo que queda
+suelto», en el [ROADMAP](ROADMAP.md), y lo primero de esa lista es que **los avisos de terceros no
+han pasado una revisión legal**. La cobertura del frontend está en el 95,90 % (T12-20).
 
 **Cerrado: los Tiers 1 a 11** —del MVP a la auditoría de UX/UI que terminó en la v1.8.0— y **la
 revisión del 2026-08-18**, 37 de 37. Su detalle vive en [docs/TIERS-1-11.md](docs/TIERS-1-11.md) y
@@ -116,8 +112,8 @@ en el equipo y 26 vigilados por la app.
 ### Lo que está verificado sobre la app en ejecución
 
 Todo lo del producto se ha comprobado con la app corriendo, no solo con pruebas. El detalle de cada
-verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/TIERS-1-11.md), en el
-Tier 12 del [ROADMAP](ROADMAP.md) y en la [bitácora](docs/BITACORA.md).
+verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/TIERS-1-11.md), en
+[docs/TIER-12.md](docs/TIER-12.md) y en la [bitácora](docs/BITACORA.md).
 
 - **La lista y el cierre:** procesos reales con su puerto, buscar por puerto y liberarlo al cerrar,
   el refresco por eventos desde Rust, Escape cancelando el diálogo destructivo, la tabla que no
@@ -324,6 +320,7 @@ Tier 12 del [ROADMAP](ROADMAP.md) y en la [bitácora](docs/BITACORA.md).
 | 2026-10-02 | **`THIRD-PARTY-NOTICES.txt` lo genera un guion propio, con los archivos de licencia de cada paquete** | T12-30. La tarea proponía `cargo about`. Se escribió `tools/avisos-de-terceros.mjs` porque cubre npm y Rust a la vez, no añade una herramienta que instalar en la CI y su salida, sin fecha ni rutas, se puede comparar byte a byte. Lee `package-lock.json` y `cargo metadata --filter-platform x86_64-pc-windows-msvc` siguiendo solo las dependencias normales —326 crates de los 566 del lockfile— y copia de cada paquete sus `LICENSE*`, `COPYING*` y `NOTICE*` tal cual: ahí va el aviso de copyright. Los textos idénticos van una vez. Entran los crates de las macros de procedimiento: sobran, y de más no hace daño. **Se para ante una licencia que no esté en su lista**, que es la de las que ya se habían mirado contra la GPLv3. Lo que no puede reproducir —13 paquetes sin archivo, el cargador de WebView2, la biblioteca estándar de Rust, NSIS y WiX— lo dice el propio archivo. **No sustituye a la revisión legal, que no se ha hecho** |
 | 2026-10-02 | **Unos avisos de terceros viejos abortan el corte y la CI, en vez de avisar** | T12-25. El aviso comparaba fechas y saltaba en todos los cortes, porque el corte escribe la versión en `package.json` y `Cargo.lock`. Ahora se regenera en memoria y se compara: un «no coincide» es seguro, no una sospecha, así que se para. Contradice a sabiendas el «avisa, no aborta» con el que nació el aviso: aquel era la respuesta razonable a una comprobación que no podía estar segura |
 | 2026-10-02 | **Las acciones de la CI, por SHA; el compilador, en `rust-toolchain.toml`; Dependabot, solo seguridad** | T12-26. Una etiqueta de una acción la puede mover quien controle su repositorio. `dtolnay/rust-toolchain@stable` era una rama y no se podía fijar: se quita, y el compilador lo instala el `rustup` del runner a partir de `rust-toolchain.toml` (1.98.1, el que venía compilando los releases), que además iguala la CI con el corte. Dependabot con `open-pull-requests-limit: 0`: abre PR ante un aviso de seguridad y no propone subidas rutinarias, que cambian lo que viaja en el instalador y se deciden al preparar una versión. Los SHA fijados no se actualizan solos: se suben a mano. Las dependencias de desarrollo siguen sin bloquear, pero su auditoría queda en el resumen de cada ejecución |
+| 2026-10-02 | **El Tier 12 sale del ROADMAP a `docs/TIER-12.md`, y lo que dejó sin hacer se queda en el ROADMAP** | La regla del 2026-09-30, aplicada: cerrado, es historia. Pero un Tier cerrado con las 39 casillas marcadas deja cosas dichas y sin hacer —la revisión legal, lo que nunca se vio en vivo, los PR de Dependabot—, y archivarlas con él sería esconderlas donde nadie mira antes de trabajar. Se quedan en el ROADMAP, en «Lo que queda suelto», sin casilla: no son tareas con criterio de aceptación, son lo que hay que saber antes de abrir el Tier 13 |
 
 ## 5. Decisiones pendientes
 

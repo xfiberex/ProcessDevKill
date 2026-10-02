@@ -8,6 +8,21 @@
 
 ---
 
+### 2026-10-02 (4) — Publicada la v1.9.1, y cerrado el Tier 12
+
+- **El dry run falló a la primera**, en una prueba de Rust que dependía del reloj: su `node` de
+  prueba vivía 4 s y, con el equipo cargado, moría antes de que la lista lo leyera. Ahora vive 60,
+  como los demás; la prueba lo cierra ella misma. Tres pasadas seguidas en verde y, después, el
+  dry run entero y la CI de `c5ea3de`.
+- Corte de la v1.9.1, comprobado por el script: 4 assets, la API devuelve `v1.9.1` y el
+  instalador descargado coincide (`cbf36770…`). El instalador creció unos 30 KB con los avisos nuevos.
+- En marcha, con la copia anterior: 22 comprobaciones, y las notas de la v1.9.1 dentro de Ajustes.
+- **Los cuatro PR de Dependabot, leídos y sin tocar:** solo dependencias de desarrollo. Están en
+  rojo porque nacieron sobre el commit del fallo de la línea `#!`. Al leerlos salió que
+  `package-lock.json` sigue diciendo v1.5.3: el corte no lo actualiza.
+- **El Tier 12 sale del ROADMAP** a `docs/TIER-12.md`, entero. En el ROADMAP queda su línea y una
+  sección nueva, «Lo que queda suelto», con lo que el Tier dejó dicho y sin hacer.
+
 ### 2026-10-02 (3) — La tanda de la v1.9.1: los avisos legales y la CI
 
 Las tres últimas del Tier 12: T12-30, T12-25 y T12-26. Sin publicar.
