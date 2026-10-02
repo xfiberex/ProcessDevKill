@@ -26,9 +26,25 @@ export function formatMemory(mb: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`;
 }
 
-/** Rust guarda epoch en ms; el formato lo pone aqui la configuracion del equipo. */
-export function formatTimestamp(millis: number): string {
-  return new Date(millis).toLocaleString();
+/**
+ * El `locale` con el que se escriben las fechas: **el idioma de la app**, con la variante regional
+ * del equipo si el equipo habla ese mismo idioma (T12-39).
+ *
+ * Con la app en inglés sobre un Windows en español, la hora relativa salía en inglés y la exacta
+ * del `title` en español: dos idiomas en la misma celda. Pero pasar «es» a secas tampoco vale:
+ * `Intl` lo lee como español de España, y a quien tiene el equipo en `es-MX` le cambiaría su
+ * «7:12 p. m.» por «19:12». La región se respeta cuando no contradice al idioma elegido.
+ */
+export function localeDeFechas(
+  idioma: string,
+  delEquipo: readonly string[] = navigator.languages,
+): string {
+  return delEquipo.find((l) => l === idioma || l.startsWith(`${idioma}-`)) ?? idioma;
+}
+
+/** Rust guarda epoch en ms; el formato lo pone aquí el `locale` que se le pase. */
+export function formatTimestamp(millis: number, locale: string): string {
+  return new Date(millis).toLocaleString(locale);
 }
 
 /**

@@ -138,7 +138,8 @@ Get-FileHash .\ProcessDevKill_X.Y.Z_x64-setup.exe -Algorithm SHA256
 
 ## Actualizaciones
 
-La app comprueba al arrancar si hay una versión nueva y avisa con un toast. La descarga y la
+La app comprueba al arrancar si hay una versión nueva y avisa con un toast; en `main`, todavía sin
+publicar, esa comprobación se puede apagar en *Ajustes → Actualizaciones*. La descarga y la
 instalación **no ocurren solas**: se lanzan desde *Ajustes → Actualizaciones*, con el número de
 versión y las notas delante. Al confirmar, **la instalación es silenciosa**: la app se cierra, se
 actualiza y vuelve a abrirse sola, sin ningún asistente.
@@ -200,7 +201,8 @@ se hace nada. Correr elevada entera es opcional, desde Ajustes, y Windows lo con
 **La red.** La única petición que hace la app por su cuenta es la comprobación de actualizaciones al
 arrancar, a la API de `github.com`, sin identificador ni cuenta: GitHub verá tu IP como si abrieras
 la página. No se descarga nada sin que lo confirmes. Lo demás lo abres tú, como el navegador al
-pulsar **Repositorio**.
+pulsar **Repositorio**. En `main`, todavía sin publicar, esa comprobación tiene un interruptor en
+*Ajustes → Actualizaciones*: apagado, la app no hace **ninguna** petición por su cuenta.
 
 Los permisos de la ventana son los mínimos para lo anterior, y se pueden comprobar en
 [`capabilities/default.json`](src-tauri/capabilities/default.json): el portapapeles es de **solo
@@ -294,7 +296,8 @@ comprueba**: corre sin secretos y no publica nada.
 | Herramienta | Para qué |
 |---|---|
 | [`release.ps1`](release.ps1) | Corta una versión entera: pruebas, versión en los tres sitios, build, `.sha256`, tag y GitHub Release. Admite `-DryRun`. |
-| [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1) | Regenera las capturas de este README conduciendo la app por CDP. |
+| [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1) | Regenera las capturas de este README conduciendo por CDP una copia aparte de la app, sin tocar la instalada ni sus ajustes. |
+| [`tools/prueba-en-marcha.mjs`](tools/prueba-en-marcha.mjs) | Arranca el binario de release y comprueba que lista, cierra, protege y descarga como dice. Lo lanza `release.ps1`. |
 | `npm run tauri icon app-icon.svg` | Regenera todos los tamaños de icono tras editar `app-icon.svg`. |
 
 ## Estructura

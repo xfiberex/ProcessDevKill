@@ -138,6 +138,8 @@ class Cdp {
   #pendientes = new Map();
   /** Excepciones de JavaScript y errores de consola vistos durante toda la sesión. */
   errores = [];
+  /** Los comandos de Rust que la ventana ha pedido, en orden. Ver `recargar`. */
+  comandos = [];
 
   static async conectar(puerto) {
     const pagina = await esperar(
@@ -162,6 +164,8 @@ class Cdp {
     });
     await cdp.enviar("Runtime.enable");
     await cdp.enviar("Log.enable");
+    await cdp.enviar("Network.enable");
+    await cdp.enviar("Page.enable");
     return cdp;
   }
 
@@ -176,7 +180,19 @@ class Cdp {
       this.errores.push(d.exception?.description ?? d.text);
     } else if (mensaje.method === "Log.entryAdded" && mensaje.params.entry.level === "error") {
       this.errores.push(mensaje.params.entry.text);
+    } else if (mensaje.method === "Network.requestWillBeSent") {
+      // El IPC de Tauri viaja como una petición a `ipc.localhost/<comando>`: se ve desde fuera,
+      // sin inyectar nada en la página.
+      const url = new URL(mensaje.params.request.url);
+      if (url.hostname === "ipc.localhost") this.comandos.push(decodeURIComponent(url.pathname.slice(1)));
     }
+  }
+
+  /** Recarga la ventana y devuelve cómo leer los comandos que pide al volver a arrancar. */
+  async recargar() {
+    const desde = this.comandos.length;
+    await this.enviar("Page.reload");
+    return () => this.comandos.slice(desde);
   }
 
   enviar(method, params = {}) {
@@ -453,9 +469,103 @@ async function vistasEIdioma(cdp) {
     const r = await cdp.invoke("kill_processes", { pids: [4_000_000_001] });
     exigir(/no longer exists/.test(r.valor?.[0]?.error ?? ""), `el error no salió en inglés: ${JSON.stringify(r)}`);
 
+    // El Historial, en inglés: el recuento (T12-35) y la hora exacta del `title`, que seguía a la
+    // configuración de Windows y no a la app (T12-39). Hay una entrada: el cierre de antes.
+    await cdp.pulsar("History", `document.querySelector("aside") ?? document`);
+    const historial = await esperar(() =>
+      cdp.js(`(() => {
+        const hora = document.querySelector("main time");
+        if (!hora) return null;
+        const cuando = new Date(hora.dateTime);
+        const delEquipo = navigator.languages.find((l) => l === "en" || l.startsWith("en-"));
+        return {
+          titulo: hora.title,
+          enIngles: cuando.toLocaleString(delEquipo ?? "en"),
+          comoWindows: cuando.toLocaleString(),
+          relativa: hora.textContent,
+          texto: document.querySelector("main").textContent,
+          equipo: navigator.language,
+        };
+      })()`),
+    );
+    exigir(historial, "la vista de History no enseña ninguna hora");
+    exigir(
+      historial.titulo === historial.enIngles,
+      `la hora exacta sale como «${historial.titulo}», y en inglés es «${historial.enIngles}»`,
+    );
+    exigir(/ago|now/.test(historial.relativa), `la hora relativa no está en inglés: ${historial.relativa}`);
+    exigir(historial.texto.includes("1 closed process"), "el recuento no dice «1 closed process»");
+    const distinta = historial.comoWindows !== historial.enIngles;
+
+    await cdp.pulsar("Settings", `document.querySelector("aside") ?? document`);
+    await esperar(() => cdp.js(`document.querySelector("main h2")?.textContent === "Settings"`));
     await cdp.pulsar("Español", `document.querySelector("main")`);
     const vuelta = await esperar(() => cdp.js(`document.documentElement.lang === "es"`));
     exigir(vuelta, "la ventana no volvió al español");
+    return distinta
+      ? `en inglés, la hora exacta es «${historial.titulo}», con Windows en ${historial.equipo}`
+      : `Windows está en ${historial.equipo}: la hora exacta habría salido igual sin el arreglo`;
+  });
+}
+
+/**
+ * La consulta a GitHub del arranque se puede apagar (T12-31).
+ *
+ * Quien lanza esa consulta es la ventana, al montarse, y Rust solo consulta dentro del comando
+ * `check_update`. Así que recargar la ventana es volver a arrancarla, y contar ese comando es
+ * contar las consultas. Con el ajuste encendido tiene que salir una: es lo que prueba que el
+ * recuento ve algo, y que el cero de antes no es ceguera.
+ */
+async function consultaDelArranque(cdp) {
+  const actuales = await cdp.invoke("get_settings");
+  const guardar = (encendido) =>
+    cdp.invoke("save_settings", { settings: { ...actuales.valor, checkUpdatesOnStart: encendido } });
+
+  /** Recarga, espera a que la ventana esté arrancada del todo y dice cuántas veces consultó. */
+  async function consultasAlArrancar() {
+    const pedidos = await cdp.recargar();
+    const arrancada = await esperar(
+      () => pedidos().includes("get_settings") && pedidos().includes("get_processes"),
+      { ms: 15_000 },
+    );
+    exigir(arrancada, `la ventana no volvió a arrancar tras recargar: pidió ${pedidos().join(", ")}`);
+    await esperar(() => cdp.js(`document.querySelector("main h2")?.textContent === "Procesos"`));
+    // La consulta sale en cuanto llegan los ajustes; tres segundos es de sobra para verla.
+    await dormir(3_000);
+    return pedidos().filter((c) => c === "check_update").length;
+  }
+
+  await paso("Con la búsqueda del arranque apagada, la app no consulta a GitHub al arrancar", async () => {
+    exigir(actuales.ok, actuales.error);
+    exigir(actuales.valor.checkUpdatesOnStart === true, "de fábrica tenía que venir encendida");
+
+    exigir((await guardar(false)).ok, "no se pudo apagar el ajuste");
+    const apagada = await consultasAlArrancar();
+    exigir(apagada === 0, `con el ajuste apagado la ventana consultó ${apagada} vez o veces`);
+
+    // Y el botón sigue buscando: apagar el arranque no apaga el actualizador.
+    await cdp.pulsar("Ajustes", `document.querySelector("aside") ?? document`);
+    const interruptor = await esperar(() =>
+      cdp.js(`(() => {
+        const rotulo = document.querySelector('label[for="check-updates"]');
+        const el = document.getElementById("check-updates");
+        if (!rotulo || !el) return null;
+        const sw = el.matches('[role="switch"]')
+          ? el
+          : rotulo.parentElement.querySelector('[role="switch"]');
+        return sw?.getAttribute("aria-checked") ?? "sin-estado: " + rotulo.parentElement.innerHTML.slice(0, 400);
+      })()`),
+    );
+    exigir(interruptor === "false", `el interruptor de Ajustes sale como «${interruptor}»`);
+    const antes = cdp.comandos.length;
+    await cdp.pulsar("Buscar actualizaciones", `document.querySelector("main")`);
+    const buscada = await esperar(() => cdp.comandos.slice(antes).includes("check_update"));
+    exigir(buscada, "con el ajuste apagado, el botón de buscar no consultó");
+
+    exigir((await guardar(true)).ok, "no se pudo volver a encender el ajuste");
+    const encendida = await consultasAlArrancar();
+    exigir(encendida === 1, `con el ajuste encendido tenía que consultar una vez, y fueron ${encendida}`);
+    return "apagada, 0 consultas; el botón, 1; encendida, 1";
   });
 }
 
@@ -641,6 +751,7 @@ async function main() {
     await listaYCierre(cdp);
     await vistasEIdioma(cdp);
     await protegidos(cdp);
+    await consultaDelArranque(cdp);
     await actualizador(cdp);
 
     await paso("La ventana no ha dado ningún error de JavaScript en toda la prueba", () => {

@@ -219,6 +219,8 @@ export type Settings = {
   customServices: string[];
   /** Relanzarse como administrador al arrancar. Apagado de fábrica: ver `elevation.rs`. */
   runAsAdmin: boolean;
+  /** Preguntar a GitHub por una versión nueva al arrancar. Encendido de fábrica (T12-31). */
+  checkUpdatesOnStart: boolean;
 };
 
 /** Espejo de `MIN_AUTO_KILL_MB` en src-tauri/src/storage.rs. Rust lo impone; aqui

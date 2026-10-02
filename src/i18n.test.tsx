@@ -206,6 +206,71 @@ describe("el catálogo de idiomas", () => {
   });
 });
 
+/**
+ * T12-35: el inglés, en una sola variante y con su propia puntuación.
+ *
+ * El catálogo se tradujo frase a frase desde el español y arrastraba tres cosas: palabras
+ * británicas junto a americanas («licence» al lado de «canceled»), la raya española —pegada al
+ * inciso y con coma detrás—, y comillas rectas junto a tipográficas. Las reglas están escritas
+ * encima de `en`, en `i18n.tsx`; esto es lo que las hace cumplir en lo que se añada después.
+ */
+describe("el inglés del catálogo", () => {
+  const frasesEnIngles = () => [
+    ...pares(es, en).map((p) => ({ donde: p.ruta, texto: p.en })),
+    ...FRASES.map((f) => ({ donde: "frase compuesta", texto: f(en) })),
+  ];
+
+  it("usa la ortografía americana", () => {
+    const britanicas = /\b(licences?|cancell(ed|ing)|colour|behaviour|favour)\b/i;
+
+    for (const { donde, texto } of frasesEnIngles()) {
+      expect(britanicas.test(texto), `${donde}: «${texto}»`).toBe(false);
+    }
+  });
+
+  it("escribe los incisos con la raya entre espacios, no a la española", () => {
+    for (const { donde, texto } of frasesEnIngles()) {
+      expect(/\S—|—\S/.test(texto), `${donde}: «${texto}»`).toBe(false);
+    }
+  });
+
+  it("cita con comillas tipográficas, nunca rectas", () => {
+    const conComillas = [
+      ...frasesEnIngles(),
+      { donde: "arranque.mensaje", texto: en.servicios.arranque.mensaje("MySQL80", "Manual", "Disabled") },
+      { donde: "arranque.hecho", texto: en.servicios.arranque.hecho("MySQL80", "Disabled") },
+      { donde: "arranque.registroFila", texto: en.servicios.arranque.registroFila("Manual", "Disabled") },
+      { donde: "tabla.proteger", texto: en.tabla.proteger("vite") },
+    ];
+
+    for (const { donde, texto } of conComillas) {
+      expect(texto.includes('"'), `${donde}: «${texto}»`).toBe(false);
+    }
+    expect(en.servicios.arranque.mensaje("MySQL80", "Manual", "Disabled")).toBe(
+      "MySQL80 will go from “Manual” to “Disabled”.",
+    );
+  });
+
+  /** Las frases que señaló la re-auditoría, tal como quedan. */
+  it("dice cada frase como la diría quien la lee", () => {
+    // «closes» como sustantivo contable no se dice.
+    expect(en.historial.recuento(1)).toBe("1 closed process");
+    expect(en.historial.recuento(4)).toBe("4 closed processes");
+    // «neither … nor» es para dos; aquí hay cinco.
+    expect(en.tabla.protegidoTitulo).not.toMatch(/neither|nor/);
+    expect(en.tabla.protegidoTitulo).toContain("the shortcut, and Auto-Kill");
+    // «on their own» al final se leía como que los procesos se pasaban solos del límite.
+    expect(en.ajustes.autoKill.interruptor).toBe(
+      "Automatically close processes that go over the RAM limit",
+    );
+    expect(en.servicios.arranque.rechazado("MySQL80")).toBe(
+      "Windows did not allow the startup type of MySQL80 to be changed.",
+    );
+    expect(en.ajustes.acercaDe.licencia).toBe("License");
+    expect(en.ajustes.acercaDe.descripcion("")).toContain("licenses");
+  });
+});
+
 describe("Marcado", () => {
   it("convierte las marcas en negrita y código, y deja el resto tal cual", () => {
     render(<Marcado texto="Cierra **todos** los `node` de golpe." />);

@@ -16,6 +16,33 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+Idioma, y una consulta a la red que ahora se puede apagar.
+
+### Añadido
+- Un interruptor en Ajustes → Actualizaciones para que la app **no pregunte a GitHub por
+  versiones nuevas al arrancar**. Viene encendido, como hasta ahora. Apagado, la app no hace
+  ninguna consulta a la red por su cuenta: solo busca cuando pulsas «Buscar actualizaciones».
+  (T12-31)
+
+### Cambiado
+- El inglés de la interfaz, repasado entero: una sola variante (en-US), la puntuación del inglés
+  en vez de la del español y varias frases que se leían traducidas, como «closes recorded» o
+  «neither Kill, Nuke All, the tray, the shortcut nor Auto-Kill». (T12-35)
+- En inglés, el menú de la bandeja dice qué cierra: «Close all Node processes», no «Close all
+  Node». (T12-35)
+
+### Corregido
+- La hora exacta de cada cierre del Historial —la que sale al dejar el ratón encima— aparecía en
+  el idioma de Windows y no en el de la app: con la app en inglés sobre un Windows en español, la
+  misma celda decía «5 minutes ago» y «1/10/2026, 19:12:43». (T12-39)
+- La comprobación de actualizaciones del arranque salía antes de leer los ajustes guardados.
+  (T12-31)
+
+### Interno
+- El script que saca las capturas del README usa una copia aparte de la app, con sus propios
+  ajustes: ya no cambia el tema de quien lo lanza ni depende de su idioma. (T12-28)
+- Los comentarios nuevos del código se escriben con tildes; la regla está escrita. (T12-33)
+
 ## [1.8.3] — 2026-10-01
 
 Robustez al cerrar: Kill no puede cerrar un proceso distinto del que se veía, la actualización

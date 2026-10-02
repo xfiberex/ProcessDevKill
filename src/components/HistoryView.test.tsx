@@ -1,7 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryView } from "./HistoryView";
+import { I18nProvider } from "../i18n";
 import type { HistoryEntry } from "../types";
 
 function entrada(extra: Partial<HistoryEntry> = {}): HistoryEntry {
@@ -168,5 +169,46 @@ describe("agrupado por accion", () => {
     expect(hora.tagName).toBe("TIME");
     expect(hora).toHaveAttribute("dateTime", new Date(hace5min).toISOString());
     expect(hora).toHaveAttribute("title");
+  });
+});
+
+/**
+ * T12-39: la hora exacta del `title` sigue al idioma de la app, no al del equipo.
+ *
+ * La relativa ya lo hacía, y la exacta usaba la configuración de Windows: con la app en inglés
+ * sobre un equipo en español, la misma celda decía «5 minutes ago» y «1/10/2026, 19:12:43».
+ */
+describe("la hora exacta, en el idioma de la app", () => {
+  const CUANDO = Date.UTC(2026, 9, 1, 19, 12, 43);
+
+  function pintarEn(language: "es" | "en", delEquipo: string[]) {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(delEquipo);
+    render(
+      <I18nProvider language={language}>
+        <HistoryView entries={[entrada({ killedAt: CUANDO })]} onClear={vi.fn()} />
+      </I18nProvider>,
+    );
+    return document.querySelector("time")!.getAttribute("title");
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("con la app en inglés y el equipo en español, sale en inglés", () => {
+    const titulo = pintarEn("en", ["es-ES", "es"]);
+
+    expect(titulo).toBe(new Date(CUANDO).toLocaleString("en"));
+    expect(titulo).not.toBe(new Date(CUANDO).toLocaleString("es-ES"));
+  });
+
+  it("con la app en español y el equipo en inglés, sale en español", () => {
+    expect(pintarEn("es", ["en-US", "en"])).toBe(new Date(CUANDO).toLocaleString("es"));
+  });
+
+  it("si el equipo habla el idioma de la app, se respeta su región", () => {
+    // El caso que «es» a secas rompería: `Intl` lo lee como español de España.
+    expect(pintarEn("es", ["es-MX", "es"])).toBe(new Date(CUANDO).toLocaleString("es-MX"));
+    expect(new Date(CUANDO).toLocaleString("es-MX")).not.toBe(
+      new Date(CUANDO).toLocaleString("es"),
+    );
   });
 });

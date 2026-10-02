@@ -4,7 +4,7 @@ import { ChevronRightIcon } from "lucide-react";
 import type { HistoryEntry } from "../types";
 import { useT } from "../i18n";
 import type { Catalogo } from "../i18n";
-import { formatRelative, formatTimestamp } from "../lib/format";
+import { formatRelative, formatTimestamp, localeDeFechas } from "../lib/format";
 import { agruparEnTandas, puertosDeTanda } from "../lib/history";
 import type { Tanda } from "../lib/history";
 import { ViewBody, ViewHeader } from "./ViewHeader";
@@ -132,7 +132,10 @@ export function HistoryView({ entries, onClear }: HistoryViewProps) {
  */
 function Cuando({ millis, ahora, t }: { millis: number; ahora: number; t: Catalogo }) {
   return (
-    <time dateTime={new Date(millis).toISOString()} title={formatTimestamp(millis)}>
+    <time
+      dateTime={new Date(millis).toISOString()}
+      title={formatTimestamp(millis, localeDeFechas(t.historial.locale))}
+    >
       {formatRelative(millis, ahora, t.historial.locale)}
     </time>
   );

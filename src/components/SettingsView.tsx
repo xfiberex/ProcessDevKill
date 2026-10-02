@@ -791,6 +791,22 @@ export function SettingsView({
               <p className="text-sm text-muted-foreground">
                 <Marcado texto={t.ajustes.actualizaciones.descripcion} />
               </p>
+              <div className="mt-3 flex items-start gap-3">
+                <Switch
+                  id="check-updates"
+                  checked={settings.checkUpdatesOnStart}
+                  onCheckedChange={(checked) =>
+                    onChange({ ...settings, checkUpdatesOnStart: checked })
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor="check-updates" className="cursor-pointer text-sm">
+                  <span>{t.ajustes.actualizaciones.alArrancar}</span>
+                  <span className="mt-1 block text-muted-foreground">
+                    <Marcado texto={t.ajustes.actualizaciones.alArrancarDetalle} />
+                  </span>
+                </label>
+              </div>
               <Actualizaciones updater={updater} />
             </div>
           </Grupo>

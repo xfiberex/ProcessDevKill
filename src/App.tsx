@@ -55,7 +55,7 @@ export default function App() {
   // `t` sale de aquí además de proveerlo más abajo: los toast y los diálogos se arman en
   // callbacks de este componente y de sus hooks, que están **fuera** del proveedor y no pueden
   // usar `useT()`.
-  const { settings, t, saveSettings, protegerFila } = useSettings();
+  const { settings, cargados, t, saveSettings, protegerFila } = useSettings();
   const lista = useProcessList();
   const { killing, killMany, askNuke } = useKills({
     t,
@@ -146,9 +146,14 @@ export default function App() {
    * levantandose— y no merece un error en la cara nada mas abrir la app. Si hay
    * version nueva se avisa con un toast que lleva a Ajustes, donde esta el boton
    * de instalar: descargar y reiniciar no puede pasar sin que el usuario lo pida.
+   *
+   * **Espera a que los ajustes estén leídos**, y no consulta si ahí pone que no (T12-31). Antes
+   * salía al montar, con los ajustes de fábrica todavía: la petición ya estaba en camino cuando
+   * llegaba el «no» del usuario.
    */
   const { buscar: buscarActualizacion } = updater;
   useEffect(() => {
+    if (!cargados || !settings.checkUpdatesOnStart) return;
     let cancelado = false;
 
     buscarActualizacion(true).then((version) => {
@@ -168,9 +173,11 @@ export default function App() {
     };
     // `t` queda fuera de las dependencias a proposito: este efecto tiene que correr **una vez**,
     // al arrancar. Incluirlo relanzaria la comprobacion de actualizaciones cada vez que se cambia
-    // de idioma, que es una consulta de red por un ajuste que no tiene nada que ver.
+    // de idioma, que es una consulta de red por un ajuste que no tiene nada que ver. Y el ajuste
+    // tampoco está, por lo mismo: encenderlo más tarde no es arrancar, y para buscar en ese
+    // momento ya está el botón de al lado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buscarActualizacion]);
+  }, [buscarActualizacion, cargados]);
 
   /**
    * Copia al portapapeles desde el menu contextual de una fila.

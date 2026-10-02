@@ -146,6 +146,14 @@ pub struct Settings {
     /// tiene que pedirlo quien lo quiera. Sin elevar la app funciona entera; lo que no ve es la RAM
     /// de los servicios ni el detalle de los procesos lanzados como administrador, y lo dice.
     pub run_as_admin: bool,
+    /// Si la app pregunta a GitHub por una versión nueva al arrancar (T12-31).
+    ///
+    /// **Encendido de fábrica**, que es lo que la app hacía siempre: quien no tenga el campo
+    /// guardado no nota nada. Es la única petición de red que la app hace por su cuenta, y hasta
+    /// aquí estaba dicha en el README y en Ajustes pero no se podía apagar. Apagado, solo se
+    /// consulta al pulsar «Buscar actualizaciones». Lo aplica la ventana, que es quien lanza la
+    /// comprobación del arranque (`App.tsx`); Rust no consulta nada por su cuenta.
+    pub check_updates_on_start: bool,
 }
 
 impl Default for Settings {
@@ -178,6 +186,8 @@ impl Default for Settings {
             custom_services: Vec::new(),
             // Apagado: ver el comentario del campo.
             run_as_admin: false,
+            // Encendido: es lo que había antes de que existiera el ajuste.
+            check_updates_on_start: true,
         }
     }
 }
@@ -628,6 +638,8 @@ mod tests {
             custom_services: vec!["elasticsearch-service-x64".into()],
             // Encendido, por lo mismo: el de fábrica es `false`.
             run_as_admin: true,
+            // Apagado, por lo mismo al revés: el de fábrica es `true`.
+            check_updates_on_start: false,
         };
 
         storage.save_settings(&settings).unwrap();
@@ -736,6 +748,25 @@ mod tests {
         )
         .unwrap();
         assert!(!storage.load_settings().run_as_admin);
+    }
+
+    /// La comprobación del arranque es lo que la app hacía siempre: quien actualiza desde una
+    /// versión sin el campo la conserva. Y apagarla sobrevive a escribirse en el disco con ese
+    /// nombre, que es el que lee la ventana (T12-31).
+    #[test]
+    fn buscar_actualizaciones_al_arrancar_viene_encendido() {
+        assert!(Settings::default().check_updates_on_start);
+
+        let storage = temp_storage("sin-check-updates");
+        fs::write(
+            storage.settings_file(),
+            r#"{"customNames":[],"hotkeyEnabled":false,"refreshMs":2000}"#,
+        )
+        .unwrap();
+        assert!(storage.load_settings().check_updates_on_start);
+
+        fs::write(storage.settings_file(), r#"{"checkUpdatesOnStart":false}"#).unwrap();
+        assert!(!storage.load_settings().check_updates_on_start);
     }
 
     /// Quien actualiza con el atajo ya encendido lo conserva —su archivo trae `hotkeyEnabled`—,

@@ -63,7 +63,7 @@ pub const EN: Textos = Textos {
     sin_acceso_al_sistema: "Could not read the system state",
     servicio_no_vigilado: "That service is not a development service",
     sin_ejecutable: "Could not find the app executable",
-    sin_elevacion: "Could not request administrator permission",
+    sin_elevacion: "Could not request administrator rights",
     sin_carpeta_de_log: "There is no log folder yet.",
 };
 
@@ -78,10 +78,13 @@ pub fn de(lang: Language) -> &'static Textos {
 ///
 /// El nombre del runtime no se traduce: «Node», «Python» y «.NET» se llaman igual en los dos
 /// idiomas, y traducirlos seria inventarse nombres de productos.
+///
+/// En inglés lleva el sustantivo (T12-35): «todos los Node» se entiende en español, pero «Close
+/// all Node» se queda sin decir qué cierra, y «.NET» a secas todavía menos.
 pub fn cerrar_todos(lang: Language, runtime: &str) -> String {
     match lang {
         Language::Es => format!("Cerrar todos los {runtime}"),
-        Language::En => format!("Close all {runtime}"),
+        Language::En => format!("Close all {runtime} processes"),
     }
 }
 
@@ -325,7 +328,7 @@ fn fallo_actualizacion_en(fallo: &crate::update::Fallo) -> String {
     match fallo {
         F::ClienteHttp(d) => format!("Could not set up the HTTP client: {d}"),
         F::ConsultaGithub(d) => format!("Could not reach GitHub: {d}"),
-        F::GithubRespondio(d) => format!("GitHub answered {d}"),
+        F::GithubRespondio(d) => format!("GitHub responded with {d}"),
         F::RespuestaIlegible(d) => format!("Unreadable response from GitHub: {d}"),
         F::UrlInvalida => "The download URL is not valid.".into(),
         F::SinHttps => "The download must use HTTPS.".into(),
@@ -343,7 +346,7 @@ fn fallo_actualizacion_en(fallo: &crate::update::Fallo) -> String {
             "The installer changed after it was downloaded, so it was deleted. Download it again."
                 .into()
         }
-        F::DescargaRespondio(d) => format!("The download answered {d}"),
+        F::DescargaRespondio(d) => format!("The download responded with {d}"),
         F::NoSeEscribe(d) => format!("Could not write the installer: {d}"),
         F::Interrumpida(d) => format!("Download interrupted: {d}"),
         F::DemasiadoGrande => "The download went over a reasonable size and was canceled.".into(),
@@ -441,6 +444,14 @@ mod tests {
             closed_sentence(Language::En, 5, None, Some("Ctrl+Alt+K")),
             "5 processes closed with Ctrl+Alt+K."
         );
+    }
+
+    /// La entrada del menú de la bandeja dice qué cierra, también en inglés (T12-35).
+    #[test]
+    fn la_entrada_de_la_bandeja_nombra_lo_que_cierra() {
+        assert_eq!(cerrar_todos(Language::Es, "Node"), "Cerrar todos los Node");
+        assert_eq!(cerrar_todos(Language::En, "Node"), "Close all Node processes");
+        assert_eq!(cerrar_todos(Language::En, ".NET"), "Close all .NET processes");
     }
 
     /// Un solo aviso por accion: el recuento y los puertos van en el mismo mensaje.

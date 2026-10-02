@@ -671,6 +671,41 @@ describe("el idioma", () => {
 });
 
 
+/**
+ * T12-31: la consulta a GitHub del arranque se puede apagar. Encendida de fábrica, que es lo que
+ * la app hacía siempre; el botón de buscar a mano no depende de ella.
+ */
+describe("buscar actualizaciones al arrancar", () => {
+  const interruptor = () =>
+    screen.getByRole("switch", { name: /Buscar actualizaciones al arrancar/ });
+
+  it("viene encendido, y dice qué deja de pasar al apagarlo", () => {
+    pintar();
+
+    expect(interruptor()).toBeChecked();
+    expect(screen.getByText(/no consulta nada por su cuenta/)).toBeInTheDocument();
+  });
+
+  it("se puede apagar", async () => {
+    const { user, onChange } = pintar();
+
+    await user.click(interruptor());
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ checkUpdatesOnStart: false }),
+    );
+  });
+
+  it("apagado, el botón de buscar sigue ahí y sigue buscando", async () => {
+    const { user, updater } = pintar({ checkUpdatesOnStart: false });
+
+    expect(interruptor()).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: /^Buscar actualizaciones$/ }));
+
+    expect(updater.buscar).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("permisos de administrador", () => {
   const interruptor = () =>
     screen.getByRole("switch", { name: /Iniciar siempre como administrador/ });

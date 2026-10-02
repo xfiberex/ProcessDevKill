@@ -30,6 +30,8 @@ const DEFAULT_SETTINGS: Settings = {
   customServices: [],
   // Apagado: el UAC en cada arranque tiene que pedirlo quien lo quiera.
   runAsAdmin: false,
+  // Encendido, como en Rust: es lo que la app hacía antes de que se pudiera apagar.
+  checkUpdatesOnStart: true,
 };
 
 /**
@@ -41,10 +43,25 @@ const DEFAULT_SETTINGS: Settings = {
  */
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  /**
+   * Si los ajustes que hay son ya los del disco, y no los de fábrica con los que se pinta el
+   * primer render (T12-31).
+   *
+   * Lo necesita quien no puede actuar con los de fábrica: la comprobación de actualizaciones del
+   * arranque está encendida de fábrica, y lanzarla antes de leer los ajustes sería consultar a
+   * GitHub justo a quien pidió que no se hiciera. Si la lectura falla se queda en `false`: sin
+   * saber qué eligió el usuario, no se consulta.
+   */
+  const [cargados, setCargados] = useState(false);
   const t = CATALOGOS[settings.language] ?? CATALOGOS.es;
 
   useEffect(() => {
-    invoke<Settings>("get_settings").then(setSettings).catch(() => {});
+    invoke<Settings>("get_settings")
+      .then((leidos) => {
+        setSettings(leidos);
+        setCargados(true);
+      })
+      .catch(() => {});
   }, []);
 
   /** Guarda los ajustes y dice si quedaron guardados, para quien tenga algo que anunciar después. */
@@ -92,5 +109,5 @@ export function useSettings() {
     }
   }
 
-  return { settings, t, saveSettings, protegerFila };
+  return { settings, cargados, t, saveSettings, protegerFila };
 }

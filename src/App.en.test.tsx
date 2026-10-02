@@ -195,7 +195,7 @@ describe("la ventana en inglés", () => {
 
     await user.click(screen.getByRole("button", { name: /^History/ }));
 
-    expect(await screen.findByText("4 closes recorded")).toBeInTheDocument();
+    expect(await screen.findByText("4 closed processes")).toBeInTheDocument();
     expect(screen.getByText("Shortcut")).toBeInTheDocument();
     expect(screen.getByText("Auto-Kill")).toBeInTheDocument();
     expect(textoDeLaVentana()).not.toMatch(DEL_ESPANOL);

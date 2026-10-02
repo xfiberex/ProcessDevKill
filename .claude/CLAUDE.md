@@ -47,6 +47,14 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 > de CPU por `cpus.len()` y con `System::new()` esa lista queda vacía → todos los procesos
 > reportarían 0 %.
 
+**Lo nuevo se escribe con su ortografía entera: tildes, «ñ», «¿» y «¡»** (T12-33). El Tier 7.3 dejó
+los comentarios sin tildes «de forma sistemática» y desde entonces conviven los dos estilos:
+`textos.rs` y `lib.rs` sin ellas, `service_control.rs` y `elevation.rs` con ellas. Todo lo escrito
+desde el Tier 10 las lleva, así que esa es la regla. **Lo que ya está no se reformatea**: un commit
+que solo pone tildes cambia cientos de líneas, no arregla nada y deja el `git blame` apuntando a él.
+Un comentario se corrige cuando se toca por otro motivo. Los nombres de las pruebas de Rust son
+identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_espanol`).
+
 ## Backend (Rust, `src-tauri/src/`)
 
 - Comandos de Tauri en `snake_case`: `get_processes`, `kill_process`.
@@ -88,13 +96,21 @@ Ejemplo del estilo que se busca, de `processes.rs`:
 - **`App.tsx` une y pinta; lo que tiene estado propio vive en su hook** (`hooks/useSettings`,
   `useProcessList`, `useKills`, `useServices`, `useUpdater`). **Cuando vuelva a pasar de ~450
   líneas, se parte otra vez**, igual que `lib.rs`: ya ha pasado dos veces (Tier 7.6 y T12-15, que
-  lo encontró en 927). **Ahora mismo van 367** (2026-10-01). El diálogo de confirmación y los avisos
+  lo encontró en 927). **Ahora mismo van 374** (2026-10-02). El diálogo de confirmación y los avisos
   se quedan en `App`, porque los comparten todas las vistas; un hook que los necesite los recibe.
 - **Una vista nueva usa `ViewHeader` y `ViewBody`** (`components/ViewHeader.tsx`): cabecera fija
   con su `h2` y cuerpo con scroll. Si el cuerpo no tiene nada enfocable, `ViewBody` con `label`, o
   con teclado no se puede desplazar (Tier 11, D1).
 - **Un solo verbo para cerrar procesos**: «Kill» y «Nuke All» en inglés en los dos idiomas; todo lo
   demás, «cerrar» / «close». Nada de «matar» ni «terminar» en textos de cara al usuario (D3).
+- **El inglés es en-US y tiene su propia puntuación** (T12-35): «license», coma antes del «and» que
+  cierra una lista, incisos entre rayas con espacios y comillas tipográficas. Las reglas están
+  escritas encima de `en` en `i18n.tsx`, y `i18n.test.tsx` las hace cumplir.
+- **Una fecha se escribe en el idioma de la app, no en el de Windows** (T12-39): `localeDeFechas`
+  en `lib/format.ts`. Un `toLocaleString()` sin argumento es el fallo que arregló.
+- **Lo que no puede actuar con los ajustes de fábrica espera a `cargados`** (`useSettings`). El
+  primer render se pinta con los de fábrica, y los del disco llegan después: la comprobación de
+  actualizaciones del arranque salía antes de saber que el usuario la había apagado (T12-31).
 - **Una tabla con `table-fixed` lleva `min-w`**: la suma de sus columnas fijas más unos 100 px para la
   flexible. La ventana admite zoom, y sin mínimo la columna sin ancho —la del nombre, la que
   identifica la fila— se queda en 0 px (Tier 11, E).
@@ -156,6 +172,10 @@ node tools/prueba-en-marcha.mjs   # el binario de release, arrancado y conducido
   sin contraseña—, hay que pasársela por `ProcessStartInfo.Environment`, que sí la admite. Con la
   variable borrada, el CLI de Tauri decide preguntar por consola y **el build se cuelga para
   siempre** sin dar error.
+- **Las capturas del README las saca `tools/capture-screenshots.ps1` con el mismo truco**: una
+  copia con otro identificador (`.capturas`) y sus propios ajustes, escritos por el script. No
+  toca `tauri.conf.json` ni nada del usuario (T12-28). Enseñan los procesos y servicios reales del
+  equipo: se miran antes de publicarlas.
 - **Para inspeccionar la UI en marcha, lo primero es `tools/prueba-en-marcha.mjs`**, que no toca
   nada del usuario (ver Pruebas). Lo de abajo es para cuando haga falta mirar **la app instalada
   de verdad**, con sus ajustes: hay que añadir `"additionalBrowserArgs":

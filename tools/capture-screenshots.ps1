@@ -3,13 +3,27 @@
     Regenera las capturas del README conduciendo la app de verdad.
 
 .DESCRIPTION
-    Lanza ProcessDevKill en modo desarrollo con el puerto de depuración de WebView2
-    abierto, se conecta por CDP, mueve la interfaz (tema, menú contextual, Servicios y
-    Ajustes) y guarda un PNG de cada estado en docs/screenshots/.
+    Lanza una copia de ProcessDevKill en modo desarrollo con el puerto de depuración de
+    WebView2 abierto, se conecta por CDP, mueve la interfaz (tema, menú contextual, Servicios
+    y Ajustes) y guarda un PNG de cada estado en docs/screenshots/.
 
-    Antes de abrir el puerto se niega si «Iniciar siempre como administrador» está encendido
-    (T12-27). Quien lo lance tiene que apagarlo mientras dura, y respaldar `settings.json`: el
-    script devuelve el tema por la interfaz, pero no restaura el archivo byte a byte (T12-28).
+    NO TOCA NADA DEL USUARIO (T12-28)
+    La copia arranca con OTRO IDENTIFICADOR (`com.processdevkill.app.capturas`), que entra por
+    `--config` en un archivo temporal. Del identificador salen la carpeta de datos, la de
+    WebView2 y el candado de instancia única, así que la copia:
+      - no lee ni escribe el `settings.json` del usuario: usa uno propio, que este script
+        escribe antes de arrancar y borra al terminar. Hasta el 2026-10-02 cambiaba el tema
+        del usuario por la interfaz y lo devolvía igual; si fallaba a medias, se quedaba
+        cambiado;
+      - sale siempre en español y con los mismos ajustes, los genere quien los genere. Antes
+        buscaba los botones por su texto en español sobre los ajustes de quien lo lanzara, y
+        con la app en inglés abortaba;
+      - no choca con la app abierta del usuario, ni arranca elevada aunque él tenga encendido
+        «Iniciar siempre como administrador». Por eso ya no hace falta la guardia de T12-27;
+      - no abre `tauri.conf.json` para escribir. `release.ps1` se niega a cortar si ese
+        archivo lleva un puerto de depuración; aquí ya no puede quedarse dentro por accidente.
+    Es el mismo mecanismo que `tools/prueba-en-marcha.mjs`, con otro identificador para que
+    las dos cosas no se pisen la carpeta.
 
     Las imágenes salen del propio webview (`Page.captureScreenshot`), no de la pantalla:
     no llevan barra de título ni fondo de escritorio, y miden siempre lo mismo gracias a
@@ -17,14 +31,12 @@
     Windows del equipo que las genere. Se capturan a x2 para que se vean nítidas en
     pantallas HiDPI y en el zoom de GitHub.
 
-    POR QUÉ SE TOCA tauri.conf.json
-    El puerto de depuración solo se puede pedir por `additionalBrowserArgs`. La variable
-    de entorno WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS no vale: Tauri la sobrescribe. El
-    script guarda los bytes originales del archivo y los restaura al terminar, pase lo que
-    pase; ese argumento NO debe llegar a producción. El valor que se escribe conserva
-    además los argumentos por defecto de Tauri, porque `additionalBrowserArgs` los
-    sustituye en bloque en vez de añadirse a ellos: sin eso, el webview de las capturas no
-    se comportaría como el de la app publicada.
+    EL PUERTO DE DEPURACIÓN
+    Solo se puede pedir por `additionalBrowserArgs`. La variable de entorno
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS no vale: Tauri la sobrescribe. El valor que se
+    escribe conserva además los argumentos por defecto de Tauri, porque
+    `additionalBrowserArgs` los sustituye en bloque en vez de añadirse a ellos: sin eso, el
+    webview de las capturas no se comportaría como el de la app publicada.
 
     LO QUE ESTE MÉTODO NO PUEDE CAPTURAR
     Todo lo que dibuje Windows por encima del webview: el menú de la bandeja y las
@@ -38,6 +50,11 @@
     (3000 y 8080) mientras dura la sesión y los cierra al terminar; uno de ellos hace algo
     de trabajo para que las barras de CPU no salgan todas a cero. Con -SkipDemo se captura
     solo lo que ya hubiera en la máquina.
+
+    LO QUE SÍ SALE DEL EQUIPO DE QUIEN LAS GENERA
+    Los procesos y los servicios son los de verdad: la lista enseña el script y la carpeta
+    de cada proceso de desarrollo abierto, y Servicios, los motores instalados. Conviene
+    mirar las imágenes antes de publicarlas.
 
 .PARAMETER OutDir
     Carpeta de salida. Por defecto, docs/screenshots del repositorio.
@@ -57,8 +74,8 @@
     No levanta los servidores Node de demostración; captura lo que ya haya en la máquina.
 
 .PARAMETER KeepRunning
-    No cierra la sesión de `tauri dev` al terminar. Ojo: la configuración se restaura
-    igualmente, y eso hace que Tauri reinicie la app una vez, ya sin puerto de depuración.
+    No cierra la copia al terminar, ni borra su carpeta de datos. Sigue con el puerto de
+    depuración abierto: ciérrala a mano cuando acabes de mirarla.
 
 .EXAMPLE
     .\tools\capture-screenshots.ps1
@@ -335,6 +352,9 @@ function Close-Popup($ws) {
             nativeVirtualKeyCode  = 27
         } | Out-Null
     }
+    # El ratón sintético se queda donde abrió el menú, y la fila de debajo sigue resaltada en
+    # las capturas siguientes, con su Kill en rojo. Se aparta a la esquina del título.
+    Invoke-Cdp $ws "Input.dispatchMouseEvent" @{ type = "mouseMoved"; x = 2; y = 2; buttons = 0 } | Out-Null
     Start-Sleep -Milliseconds 400
 }
 
@@ -344,18 +364,37 @@ $raiz = Split-Path $PSScriptRoot -Parent
 if (-not $OutDir) { $OutDir = Join-Path $raiz "docs\screenshots" }
 if (-not [IO.Path]::IsPathRooted($OutDir)) { $OutDir = Join-Path $raiz $OutDir }
 
+# El identificador de la copia. Distinto del de la app y del de las pruebas en marcha
+# (`.envivo`), que borran su carpeta al empezar: con el mismo, lanzar las dos cosas a la vez
+# dejaría a una sin ajustes a media sesión.
+$IDENTIFICADOR = "com.processdevkill.app.capturas"
+$datos       = Join-Path $env:APPDATA $IDENTIFICADOR
+$webview     = Join-Path $env:LOCALAPPDATA $IDENTIFICADOR
+
+# Los ajustes con los que salen las capturas, iguales las genere quien las genere. En español
+# porque el README lo está; con un vigilado y un protegido para que esas secciones no salgan
+# vacías; y sin la consulta a GitHub del arranque, que aquí solo podría poner un aviso de
+# «versión disponible» encima de la lista.
+$AJUSTES = '{"customNames":["docker"],"protected":["mi-api"],"language":"es","theme":"dark","checkUpdatesOnStart":false}'
+
 $configPath  = Join-Path $raiz "src-tauri\tauri.conf.json"
-$configBytes = $null
+$configCopia = Join-Path ([IO.Path]::GetTempPath()) "pdk-capturas-$PID.json"
+$sinBom      = New-Object Text.UTF8Encoding($false)
 $lanzado     = $null
 $demos       = @()
 $ws          = $null
-$temaOriginal = $null
-$etiquetas   = @{ system = "Sistema"; light = "Claro"; dark = "Oscuro" }
 $codigo      = 0
 
 try {
     if (-not (Test-Path $configPath)) {
         throw "No se encontró $configPath. ¿Se está ejecutando desde el repositorio?"
+    }
+
+    # Si el puerto ya contesta, lo que hay detrás no es la copia de este script: puede ser la
+    # app del usuario, abierta a mano con el puerto, y conducirla sería cambiarle sus ajustes.
+    if (Get-CdpPagina $Port) {
+        throw ("Ya hay algo escuchando en el puerto de depuración $Port. Ciérralo, o elige " +
+               "otro con -Port: este script solo conduce la copia que lanza él.")
     }
 
     if (-not $SkipDemo) {
@@ -366,60 +405,52 @@ try {
         ) | Where-Object { $_ }
     }
 
-    $yaAbierta = Get-CdpPagina $Port
-    if ($yaAbierta) {
-        Info "Hay una app escuchando ya en el puerto $Port; se usa esa."
-    } else {
-        if (Get-Process -Name "processdevkill" -ErrorAction SilentlyContinue) {
-            throw ("Hay una instancia de ProcessDevKill abierta sin puerto de depuración. " +
-                   "Ciérrala (incluido el icono de la bandeja) y vuelve a ejecutar el script.")
-        }
+    Info "Preparando la copia de la app ($IDENTIFICADOR)."
+    foreach ($dir in @($datos, $webview)) {
+        if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
+    }
+    New-Item -ItemType Directory -Path $datos -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $datos "settings.json"), $AJUSTES, $sinBom)
 
-        # Con «Iniciar siempre como administrador» encendido, la build con el puerto arranca
-        # ELEVADA: sale un UAC y queda un CDP sin autenticación en 127.0.0.1 que cualquier programa
-        # del equipo puede conducir con privilegios. Y esta consola, sin elevar, no puede cerrarla
-        # (UIPI). Pasó el 2026-09-25 en la re-auditoría (T12-27). Se para aquí, antes de tocar nada.
-        $ajustesPath = Join-Path $env:APPDATA "com.processdevkill.app\settings.json"
-        if (Test-Path $ajustesPath) {
-            $ajustes = $null
-            try { $ajustes = [IO.File]::ReadAllText($ajustesPath) | ConvertFrom-Json } catch { }
-            if ($ajustes -and $ajustes.runAsAdmin) {
-                throw ("«Iniciar siempre como administrador» está encendido en $ajustesPath, y con " +
-                       "él la app arrancaría elevada con el puerto de depuración abierto. Apágalo " +
-                       "en Ajustes mientras haces las capturas, y vuelve a encenderlo después.")
-            }
-        }
+    # Un `--config` no mezcla listas, las sustituye: la ventana va entera, con lo suyo más el
+    # puerto. El primer argumento es el que pone Tauri por su cuenta, y hay que repetirlo.
+    $cfg = [IO.File]::ReadAllText($configPath) | ConvertFrom-Json
+    $ventana = $cfg.app.windows[0]
+    $ventana | Add-Member -NotePropertyName additionalBrowserArgs -Force -NotePropertyValue (
+        "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection " +
+        "--remote-debugging-port=$Port")
+    $cambios = @{ identifier = $IDENTIFICADOR; app = @{ windows = @($ventana) } }
+    [IO.File]::WriteAllText($configCopia, ($cambios | ConvertTo-Json -Depth 20), $sinBom)
 
-        Info "Abriendo el puerto de depuración en tauri.conf.json (temporal)."
-        $configBytes = [IO.File]::ReadAllBytes($configPath)
-        $cfg = [Text.Encoding]::UTF8.GetString($configBytes) | ConvertFrom-Json
-        # El primero es el que pone Tauri por su cuenta; `additionalBrowserArgs` sustituye
-        # los argumentos por defecto en bloque, así que hay que repetirlo.
-        $argumentos = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection " +
-                      "--remote-debugging-port=$Port"
-        $cfg.app.windows[0] |
-            Add-Member -NotePropertyName additionalBrowserArgs -NotePropertyValue $argumentos -Force
-        [IO.File]::WriteAllText(
-            $configPath,
-            ($cfg | ConvertTo-Json -Depth 20),
-            (New-Object Text.UTF8Encoding($false))
-        )
+    Info "Lanzando 'npm run tauri dev' con esa configuración. La primera compilación puede tardar."
+    $lanzado = Start-Process -FilePath "npm.cmd" -PassThru -WorkingDirectory $raiz `
+        -ArgumentList "run", "tauri", "dev", "--", "--config", "`"$configCopia`""
 
-        Info "Lanzando 'npm run tauri dev'. La primera compilación puede tardar."
-        $lanzado = Start-Process -FilePath "npm.cmd" -ArgumentList "run", "tauri", "dev" `
-                                 -WorkingDirectory $raiz -PassThru
+    $pagina = $null
+    $limite = (Get-Date).AddSeconds($LaunchTimeoutSec)
+    while (-not $pagina -and (Get-Date) -lt $limite) {
+        if ($lanzado.HasExited) { throw "La sesión de desarrollo terminó antes de abrir la ventana." }
+        Start-Sleep -Seconds 2
+        $pagina = Get-CdpPagina $Port
+    }
+    if (-not $pagina) { throw "La app no abrió el puerto $Port en $LaunchTimeoutSec s." }
 
-        $limite = (Get-Date).AddSeconds($LaunchTimeoutSec)
-        while (-not $yaAbierta -and (Get-Date) -lt $limite) {
-            if ($lanzado.HasExited) { throw "La sesión de desarrollo terminó antes de abrir la ventana." }
-            Start-Sleep -Seconds 2
-            $yaAbierta = Get-CdpPagina $Port
-        }
-        if (-not $yaAbierta) { throw "La app no abrió el puerto $Port en $LaunchTimeoutSec s." }
+    Ok "Ventana encontrada: $($pagina.url)"
+    $ws = Connect-Cdp $pagina.webSocketDebuggerUrl
+
+    # El puerto contesta antes de que la página haya cargado: con el target caliente, la ventana
+    # aparece mientras Vite todavía sirve el primer módulo, y Tauri aún no ha puesto su puente.
+    $limite = (Get-Date).AddSeconds(60)
+    while (-not (Invoke-Js $ws "typeof window.__TAURI_INTERNALS__?.invoke === 'function'")) {
+        if ((Get-Date) -gt $limite) { throw "La ventana abrió, pero la app no terminó de cargar en 60 s." }
+        Start-Sleep -Milliseconds 500
     }
 
-    Ok "Ventana encontrada: $($yaAbierta.url)"
-    $ws = Connect-Cdp $yaAbierta.webSocketDebuggerUrl
+    # La prueba de que es la copia y no otra cosa: sus ajustes son los que se acaban de escribir.
+    $leidos =Invoke-Js $ws "window.__TAURI_INTERNALS__.invoke('get_settings')"
+    if (($leidos.protected -join ",") -ne "mi-api" -or $leidos.language -ne "es") {
+        throw "La ventana del puerto $Port no es la copia de las capturas: sus ajustes son otros."
+    }
 
     Info "Esperando a que la lista tenga datos."
     $limite = (Get-Date).AddSeconds(60)
@@ -450,14 +481,9 @@ try {
     Info "Ordenando por puerto para que la columna que justifica la app salga llena."
     Invoke-Boton $ws "Puerto"
 
-    # El tema es un ajuste del usuario y estas capturas lo cambian dos veces: se anota para
-    # devolverlo tal y como estaba.
-    $temaOriginal = (Invoke-Js $ws "window.__TAURI_INTERNALS__.invoke('get_settings')").theme
-
+    # Los botones se buscan por su texto en español, y es seguro: el idioma lo ponen los
+    # ajustes de arriba, no el equipo. El tema arranca en oscuro por lo mismo.
     Info "Capturando la lista en tema oscuro."
-    Invoke-Boton $ws "Ajustes"
-    Invoke-Boton $ws "Oscuro"
-    Invoke-Boton $ws "Procesos"
     Save-Captura $ws (Join-Path $OutDir "procesos-oscuro.png")
 
     Info "Capturando el menú contextual."
@@ -490,25 +516,27 @@ try {
     Info "Capturando la vista de Ajustes."
     Invoke-Boton $ws "Ajustes"
     Invoke-Boton $ws "Oscuro"
-    # Ajustes no cabe en ninguna ventana razonable: desde el Tier 11 mide unos 2500 px, en tres
+    # Ajustes no cabe en ninguna ventana razonable: desde el Tier 11 mide unos 2500 px, en cinco
     # grupos. Lo que enseña la captura son las funciones que la app añade —los vigilados, los
-    # protegidos, el Auto-Kill y el Zombie Finder—, así que se desplaza el cuerpo hasta el grupo
-    # «Vigilancia» y se captura una ventana tan alta como lo que queda. Idioma y tema, arriba, no
-    # le dicen nada a quien lee el README. La app es redimensionable: sigue siendo una ventana
-    # posible.
+    # protegidos, el Auto-Kill y el Zombie Finder—, así que va del grupo «Vigilancia» al final
+    # de «Actualizaciones». Idioma y tema, arriba, no le dicen nada a quien lee el README; y
+    # «Acerca de», abajo, enseñaría la ruta del log de la copia, que no es la de nadie. La app
+    # es redimensionable: sigue siendo una ventana posible.
     #
+    # Los grupos se cuentan por su posición (el 2.º y el 5.º `h3`), no por su rótulo.
     # El scroll lo lleva el cuerpo de la vista (`ViewBody`), no `main > div` ni la página.
     $js = @'
 (() => {
   const cuerpo = document.querySelector('main .overflow-y-auto');
-  const grupo = Array.from(cuerpo.querySelectorAll('h3')).find(h => h.textContent.trim() === 'Vigilancia');
-  if (!grupo) return null;
-  cuerpo.scrollTop += grupo.getBoundingClientRect().top - cuerpo.getBoundingClientRect().top - 16;
-  return Math.ceil(cuerpo.getBoundingClientRect().top + cuerpo.scrollHeight - cuerpo.scrollTop);
+  const grupos = Array.from(cuerpo.querySelectorAll('h3'));
+  if (grupos.length < 5) return null;
+  const arriba = cuerpo.getBoundingClientRect().top;
+  cuerpo.scrollTop += grupos[1].getBoundingClientRect().top - arriba - 16;
+  return Math.ceil(grupos[4].getBoundingClientRect().top - 24);
 })()
 '@
     $alto = Invoke-Js $ws $js
-    if (-not $alto) { throw "No se encontró el grupo «Vigilancia» en Ajustes." }
+    if (-not $alto) { throw "Ajustes no tiene los cinco grupos que esta captura espera." }
     $alto = [Math]::Min(1600, [Math]::Max($ALTO, [int]$alto))
     Set-Viewport $ws $alto | Out-Null
     # Cambiar el viewport puede recolocar el scroll: se vuelve a llevar el grupo arriba.
@@ -521,27 +549,12 @@ try {
     Write-Host "[X] $($_.Exception.Message)" -ForegroundColor Red
     $codigo = 1
 } finally {
-    if ($ws -and $ws.State -eq [Net.WebSockets.WebSocketState]::Open) {
-        try {
-            if ($temaOriginal -and $etiquetas[$temaOriginal]) {
-                Info "Devolviendo el tema a '$($etiquetas[$temaOriginal])'."
-                Invoke-Boton $ws "Ajustes"
-                Invoke-Boton $ws $etiquetas[$temaOriginal]
-                Invoke-Boton $ws "Procesos"
-            }
-            Invoke-Cdp $ws "Emulation.clearDeviceMetricsOverride" @{} | Out-Null
-        } catch {
-            Warn "No se pudo dejar la app como estaba: $($_.Exception.Message)"
-        }
-        try { $ws.Dispose() } catch { }
-    }
+    if ($ws) { try { $ws.Dispose() } catch { } }
 
-    # Primero se cierra la app y después se restaura el archivo: al revés, Tauri detecta el
-    # cambio en tauri.conf.json y reinicia la app en mitad de la limpieza.
     if ($lanzado -and -not $KeepRunning) {
-        Info "Cerrando la sesión de desarrollo."
+        Info "Cerrando la copia."
         & taskkill /PID $($lanzado.Id) /T /F 2>&1 | Out-Null
-        Start-Sleep -Seconds 1
+        Start-Sleep -Seconds 2
     }
 
     foreach ($demo in $demos) {
@@ -551,11 +564,18 @@ try {
         }
     }
 
-    if ($configBytes) {
-        [IO.File]::WriteAllBytes($configPath, $configBytes)
-        Ok "tauri.conf.json restaurado (sin puerto de depuración)."
-        if ($KeepRunning) {
-            Warn "Con -KeepRunning la app sigue abierta, pero Tauri la reiniciará al ver el cambio y ya no tendrá puerto de depuración."
+    if ($KeepRunning -and $lanzado) {
+        Warn "Con -KeepRunning la copia sigue abierta, con el puerto $Port y su carpeta en $datos."
+    } else {
+        Remove-Item $configCopia -Force -ErrorAction SilentlyContinue
+        # WebView2 tarda un momento en soltar su carpeta después de morir quien la abrió.
+        foreach ($dir in @($datos, $webview)) {
+            foreach ($intento in 1..10) {
+                if (-not (Test-Path $dir)) { break }
+                Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+                if (Test-Path $dir) { Start-Sleep -Milliseconds 400 }
+            }
+            if (Test-Path $dir) { Warn "No se pudo borrar $dir. Es de la copia: se puede borrar a mano." }
         }
     }
 }

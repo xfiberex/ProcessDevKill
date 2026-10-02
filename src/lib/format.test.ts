@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMemory, formatRelative, formatUptime } from "./format";
+import { formatMemory, formatRelative, formatUptime, localeDeFechas } from "./format";
 
 describe("formatUptime", () => {
   it("usa segundos por debajo del minuto", () => {
@@ -65,5 +65,23 @@ describe("formatRelative", () => {
 
     const añoPasado = new Date(2025, 11, 30, 12, 0).getTime();
     expect(formatRelative(añoPasado, AHORA, "es")).toMatch(/2025/);
+  });
+});
+
+describe("localeDeFechas", () => {
+  it("usa la región del equipo cuando el equipo habla el idioma de la app", () => {
+    expect(localeDeFechas("es", ["es-MX", "es", "en-US"])).toBe("es-MX");
+    expect(localeDeFechas("en", ["es-ES", "en-GB"])).toBe("en-GB");
+    expect(localeDeFechas("es", ["es"])).toBe("es");
+  });
+
+  it("si el equipo está en otro idioma, manda el de la app", () => {
+    expect(localeDeFechas("en", ["es-ES", "es"])).toBe("en");
+    expect(localeDeFechas("es", [])).toBe("es");
+  });
+
+  it("no confunde un idioma con otro que empieza igual", () => {
+    // «est» es estonio, no una región del español.
+    expect(localeDeFechas("es", ["est", "en-US"])).toBe("es");
   });
 });

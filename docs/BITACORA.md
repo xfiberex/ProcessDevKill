@@ -8,6 +8,37 @@
 
 ---
 
+### 2026-10-02 — La tanda de la v1.9.0: idioma y un ajuste nuevo
+
+Las cinco del segundo corte: T12-39, T12-31, T12-35, T12-28 y T12-33. Sin publicar.
+
+- **T12-39.** La hora exacta del Historial, en el idioma de la app. Con un matiz: «es» a secas es
+  español de España para `Intl`, así que se respeta la región del equipo cuando habla el mismo
+  idioma.
+- **T12-31.** El interruptor para no consultar a GitHub al arrancar. **Lo que la tarea no decía:**
+  la consulta salía al montar la ventana, con los ajustes de fábrica todavía; un usuario con el
+  ajuste apagado habría consultado igual. La comprobación espera ahora a que los ajustes estén
+  leídos.
+- **T12-35.** El inglés entero, no solo las nueve frases: más de cincuenta entradas y cuatro de Rust. Con sus
+  reglas escritas y cuatro pruebas que las vigilan.
+- **T12-28.** El script de capturas ya no toca nada del usuario: otra copia con su identificador
+  y sus ajustes, como las pruebas en marcha. Se probó con `runAsAdmin` encendido en los ajustes de
+  verdad —el caso en el que antes se negaba—, y los hashes de `settings.json` y `tauri.conf.json`
+  no cambian. Las capturas de prueba fueron a una carpeta temporal; las del README se
+  regeneraron después, cuando el usuario lo aprobó: enseñan lo que corre en su equipo.
+  - La segunda pasada falló donde la primera no: con la compilación ya hecha, la ventana abre su
+    puerto antes de que Tauri ponga su puente en la página. El script espera ahora a que esté.
+  - Y la captura en claro salía con la primera fila resaltada: el ratón sintético se quedaba
+    donde abrió el menú contextual. Se aparta al cerrar el menú.
+- **T12-33.** Con tildes, y sin reformatear lo que hay.
+- **En marcha:** 21 comprobaciones. La nueva de T12-31 cuenta los comandos que la ventana pide a
+  Rust al recargarse, mirando el tráfico del IPC por CDP: apagado, cero; encendido, una. A la
+  primera falló por el guion, que buscaba el estado del interruptor en el elemento equivocado.
+- **Un tropiezo de herramienta, otra vez:** un heredoc de bash convirtió el `\b` de una expresión
+  regular en un carácter de retroceso dentro de `i18n.test.tsx`. Se vio al releer la línea. Los
+  scripts con barras invertidas se escriben a un archivo, no por heredoc.
+- 385 pruebas del frontend, 153 de Rust (+4 ignoradas) y 21 en marcha; ESLint y clippy limpios.
+
 ### 2026-10-01 (6) — Publicada la v1.8.3
 
 - Dry run y corte con las pruebas en marcha dentro. La CI, la primera con `PDK_EXIGIR_NODE`, en

@@ -572,8 +572,11 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Hecho el 2026-09-30.** Probado con el `settings.json` real del usuario, que lo tiene encendido:
     el script se para antes de tocar `tauri.conf.json` (mismo hash antes y después) y sin lanzar
     nada. El mensaje dice qué ajuste apagar y dónde.
+  - **Precisión del 2026-10-02:** la guardia ya no está, porque ya no hace falta. Desde T12-28 el
+    script lanza una copia con otro identificador, que lee sus propios ajustes y no arranca
+    elevada tenga el usuario lo que tenga.
 
-- [ ] **[T12-28] El script de capturas: respaldar los ajustes y no depender del idioma**
+- [x] **[T12-28] El script de capturas: respaldar los ajustes y no depender del idioma**
   - **Severidad:** baja · **Área:** DevOps
   - **Ubicación:** `tools/capture-screenshots.ps1:432-481`
   - **Qué hacer:** cambia el tema del usuario por la interfaz —guarda `settings.json` de verdad— y lo
@@ -583,6 +586,21 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** con la app en inglés las capturas salen, y el `settings.json` final
     es idéntico byte a byte al inicial.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-02, por otro camino que el de la tarea, y mejor.** En vez de respaldar y
+    restaurar los ajustes del usuario, el script **no los toca**: lanza `tauri dev --config` con
+    otro identificador (`com.processdevkill.app.capturas`), igual que las pruebas en marcha, y le
+    escribe a esa copia sus propios ajustes —español, tema oscuro, un vigilado y un protegido—. El
+    idioma lo pone el script, no el equipo, así que buscar los botones por su texto vuelve a ser
+    seguro. De paso desaparecen tres cosas: escribir en `tauri.conf.json`, pedir que se cierre la
+    app del usuario y la guardia de `runAsAdmin` (T12-27). **Probado en vivo**, con el usuario
+    teniendo «Iniciar siempre como administrador» encendido: las cinco capturas salen, y el
+    `settings.json` del usuario y `tauri.conf.json` tienen el mismo SHA-256 antes y después. No
+    queda ni la carpeta de la copia ni su archivo de configuración. **Un cambio en lo que se ve:**
+    la captura de Ajustes acaba antes de «Acerca de», que enseñaría la ruta del log de la copia.
+    **Las capturas del README se regeneraron ese día**, con el visto bueno del usuario, porque
+    enseñan los procesos del equipo de quien las saca. Al hacerlo salieron dos fallos del script
+    que la primera pasada no vio: con la compilación ya hecha, el puerto contesta antes de que la
+    página cargue, y el ratón sintético dejaba resaltada la fila del menú en la captura siguiente.
 
 ### Fase F — Documentación y legal
 
@@ -611,7 +629,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     de cada componente distribuido.
   - **Esfuerzo:** medio · **Depende de:** ninguna
 
-- [ ] **[T12-31] Poder apagar la comprobación de actualizaciones del arranque**
+- [x] **[T12-31] Poder apagar la comprobación de actualizaciones del arranque**
   - **Severidad:** baja · **Área:** Legal / Producto
   - **Ubicación:** `src/App.tsx:438-469`; `src-tauri/src/storage.rs:82-145`; `src/components/SettingsView.tsx:764-771`
   - **Qué hacer:** cada arranque consulta `api.github.com` (IP y User-Agent con la versión). Está
@@ -620,6 +638,16 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Criterio de aceptación:** con el ajuste apagado no sale ninguna petición al arrancar, probado
     en vivo; «Buscar actualizaciones» sigue funcionando.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-02.** `checkUpdatesOnStart`, encendido de fábrica, con su interruptor en
+    Ajustes → Actualizaciones. **Al hacerlo salió que apagarlo no habría bastado:** la consulta
+    salía al montar la ventana, con los ajustes de fábrica, antes de que llegaran los del disco.
+    Ahora espera a que estén leídos (`cargados`, en `useSettings`), y si no se pueden leer no
+    consulta. Cinco pruebas de `App`; quitando cada mitad de la guardia fallan tres y cinco.
+    **Probado en vivo** sobre el binario de release, contando el comando `check_update` —el único
+    camino por el que Rust consulta— al recargar la ventana: apagado, ninguna consulta; el botón
+    de Ajustes, una; encendido, una, que es lo que prueba que el recuento ve. **Lo que no se
+    midió:** el tráfico de red desde fuera del proceso. Lo de la jurisdicción sigue siendo cosa de
+    la revisión legal (T12-30).
 
 - [x] **[T12-32] Documentación y comentarios que se quedaron atrás**
   - **Severidad:** baja · **Área:** Documentación
@@ -633,7 +661,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     líneas ya no señala nada reconocible y no se tocó a ciegas; y el «matarlo» de un comentario
     interno de `processes.rs`, que no es texto de cara al usuario.
 
-- [ ] **[T12-33] Decidir y escribir la convención de tildes en los comentarios**
+- [x] **[T12-33] Decidir y escribir la convención de tildes en los comentarios**
   - **Severidad:** baja · **Área:** Refactorización / Redacción
   - **Ubicación:** `.claude/CLAUDE.md` (Comentarios); `docs/TIERS-1-11.md` (Tier 7.3)
   - **Qué hacer:** el Tier 7.3 dejó los comentarios «sin tildes de forma sistemática», y hoy conviven
@@ -641,6 +669,10 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     uno para lo nuevo y escribirlo en CLAUDE.md, **sin reformatear lo existente**.
   - **Criterio de aceptación:** la convención está en CLAUDE.md.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-02: con tildes.** Es lo que lleva todo lo escrito desde el Tier 10, y un
+    proyecto que pide ortografía en su interfaz no puede escribir sus comentarios sin ella. Lo
+    existente no se reformatea; se corrige al tocarlo por otro motivo. La eligió el agente por lo
+    que ya hacía el código: si el usuario prefiere la contraria, es una línea de CLAUDE.md.
 
 ### Fase G — Redacción
 
@@ -658,12 +690,19 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     eso `tsconfig` gana `ES2021.Intl` en `lib`, sin cambiar el `target`. El origen `hotkey` sale de
     la lista de «coinciden con motivo» de `i18n.test.tsx`, porque ya no coincide.
 
-- [ ] **[T12-35] Repaso del inglés**
+- [x] **[T12-35] Repaso del inglés**
   - **Severidad:** baja · **Área:** Redacción
   - **Ubicación:** `src/i18n.tsx:696`, `:965`, `:991` (rayas y coma a la española), `:956-957` (licence/License), `:827` («closes recorded»), `:715` («neither … nor» con cinco), `:933` («on their own»), `:815`; `src-tauri/src/textos.rs:79-80` («Close all Node»)
   - **Qué hacer:** cada frase, en el inglés que escribiría un nativo y con una sola variante (en-US).
   - **Criterio de aceptación:** las pruebas que fijan esos textos, actualizadas y en verde.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-02.** Las nueve frases de la tarea y el resto del catálogo: más de cincuenta entradas de
+    `i18n.tsx` y cuatro de `textos.rs`. Una sola variante, en-US, con cuatro reglas escritas
+    encima de `en` —«license», coma antes del «and» final, incisos entre rayas con espacios,
+    comillas tipográficas— y **cuatro pruebas que las hacen cumplir** en lo que se añada después;
+    antes no había ninguna que mirase cómo estaba escrito el inglés, solo que no fuera español.
+    El menú de la bandeja dice «Close all Node processes». Visto en vivo: el Historial en inglés
+    dice «1 closed process». **Lo que no tiene:** la lectura de un hablante nativo.
 
 - [x] **[T12-36] Las notas del release dentro de la app**
   - **Severidad:** baja · **Área:** Redacción / UI
@@ -711,13 +750,19 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
   - **Hecho el 2026-09-30**, con la prueba del criterio, y **también en vivo**: cambiando el idioma
     desde Ajustes en el binario de release, `lang` pasa de `es` a `en` y vuelve.
 
-- [ ] **[T12-39] La hora exacta del Historial, en el idioma de la app**
+- [x] **[T12-39] La hora exacta del Historial, en el idioma de la app**
   - **Severidad:** baja · **Área:** i18n
   - **Ubicación:** `src/lib/format.ts:29-31`; `src/components/HistoryView.tsx:133-139`
   - **Qué hacer:** `formatTimestamp` usa el idioma del sistema y la hora relativa el de la app: el
     `title` puede salir en el otro idioma. Pasarle el `locale` del catálogo.
   - **Criterio de aceptación:** prueba con `language: en` y sistema en español: el `title` sale en inglés.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-02**, con un matiz que la tarea no pedía: pasar «es» a secas le cambiaría
+    el formato a quien tiene Windows en español de México, porque `Intl` lo lee como español de
+    España. `localeDeFechas` usa el idioma de la app **con la región del equipo si el equipo habla
+    ese idioma**. Seis pruebas; las tres de la vista fallan con el código de antes. **Visto en
+    vivo** en este equipo, que está en `es-419`: con la app en inglés la hora exacta sale
+    «10/2/2026, 12:31:32 PM».
 
 ### Lo que este Tier no propone, y por qué
 
@@ -763,6 +808,9 @@ Y dos que salen de esta re-auditoría:
   comprobándose solo. Y **31 de 39** con la tanda de Rust de la v1.8.3: T12-09, 10, 11, 14, 16,
   17, 18 y 19. 151 pruebas de Rust (+4 ignoradas) y clippy limpio. Ese día se publicó la
   **v1.8.3**, la primera con las pruebas en marcha dentro del corte.
+- **2026-10-02** — **36 de 39**: la tanda de la v1.9.0, T12-28, T12-31, T12-33, T12-35 y T12-39.
+  385 pruebas del frontend, 153 de Rust (+4 ignoradas) y 21 en marcha, todas en verde; ESLint y
+  clippy limpios. Quedan las tres de la v1.9.1: T12-25, T12-26 y T12-30.
 
 ### Cómo se reparte lo que queda
 
@@ -772,7 +820,7 @@ para quien usa la app acompaña al que le toque.
 | Corte | Tema | Tareas |
 |---|---|---|
 | **v1.8.3** | Robustez y seguridad al cerrar | T12-09, 10, 11, 14, 16, 17, 18 y 19 — **publicada el 2026-10-01** |
-| **v1.9.0** | Idioma y un ajuste nuevo | T12-31, T12-35, T12-39, con T12-28 y T12-33 |
+| **v1.9.0** | Idioma y un ajuste nuevo | T12-31, T12-35, T12-39, con T12-28 y T12-33 — **hechas el 2026-10-02, sin publicar** |
 | **v1.9.1** | Avisos legales | T12-30, con T12-25 y T12-26 |
 
 Lo legal va aparte y al final porque T12-30 pide revisión legal y es la única que puede atascarse.
@@ -797,11 +845,13 @@ Son 20 comprobaciones sobre el binario de release. Lo que vieron de las tareas d
 | T12-15 | Las cuatro vistas se pintan, sin ningún error de JavaScript |
 | T12-17 | El instalador de la v1.8.2 se descarga con el cliente nuevo y su hash coincide. **No con una conexión lenta** |
 | T12-19 | El binario, llamado con `--service-action`, sale con el código de cada rechazo |
+| T12-31 | Con la búsqueda del arranque apagada, la ventana no pide `check_update` al arrancar; el botón sí, y encendida, una vez |
+| T12-35, T12-39 | Con la app en inglés, el Historial dice «1 closed process» y la hora exacta sale en inglés con Windows en español |
 
 **Las notas de un release dentro de Ajustes (T12-36)** solo se ven cuando la copia es más vieja
 que lo publicado: su versión sale de `Cargo.toml`, y recién compilada está al día. Pasa justo
 después de un corte, con `--sin-compilar`, y el guion lo aprovecha: tras publicar la v1.8.3 las
-enseñó bien. Son 21 comprobaciones ese día y 20 el resto.
+enseñó bien. Desde el 2026-10-02 son 22 comprobaciones ese día y 21 el resto.
 
 **Lo que el guion no puede ver, y sigue sin verse:** una instalación de punta a punta (T12-02), el
 gancho de pánico (T12-14) y el aviso de «protegido» cuando el guardado falla (T12-08).

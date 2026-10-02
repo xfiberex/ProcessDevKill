@@ -1291,3 +1291,88 @@ describe("Refrescar", () => {
     );
   });
 });
+
+/**
+ * T12-31: la consulta a GitHub del arranque, que se puede apagar.
+ *
+ * Es la única petición de red que la app hace por su cuenta. Las pruebas miran el comando
+ * `check_update` porque es el único camino por el que Rust consulta: sin esa llamada, no sale nada.
+ */
+describe("comprobación de actualizaciones al arrancar", () => {
+  const consultas = () => invoke.mock.calls.filter((c) => c[0] === "check_update").length;
+  const ajustes = (parcial: Partial<typeof DEFAULT_TEST_SETTINGS> = {}) => ({
+    ...DEFAULT_TEST_SETTINGS,
+    ...parcial,
+  });
+
+  it("de fábrica, consulta una vez", async () => {
+    await montar();
+
+    await waitFor(() => expect(consultas()).toBe(1));
+  });
+
+  it("con el ajuste apagado no consulta, y el botón de Ajustes sigue buscando", async () => {
+    const user = await montar(LISTA, {
+      get_settings: ajustes({ checkUpdatesOnStart: false }),
+      save_settings: ajustes({ checkUpdatesOnStart: false }),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+    // Con Ajustes pintado y el interruptor apagado, los ajustes ya están leídos: si la consulta
+    // fuera a salir, ya habría salido.
+    expect(
+      await screen.findByRole("switch", { name: /Buscar actualizaciones al arrancar/ }),
+    ).not.toBeChecked();
+    expect(consultas()).toBe(0);
+
+    await user.click(screen.getByRole("button", { name: /^Buscar actualizaciones$/ }));
+    await waitFor(() => expect(consultas()).toBe(1));
+  });
+
+  it("no consulta antes de saber qué dicen los ajustes", async () => {
+    // Los ajustes tardan: es el hueco en el que la versión anterior ya había consultado, con los
+    // de fábrica, aunque el usuario lo tuviera apagado.
+    let entregar: (s: typeof DEFAULT_TEST_SETTINGS) => void = () => {};
+    const pendientes = new Promise<typeof DEFAULT_TEST_SETTINGS>((r) => (entregar = r));
+
+    await montar(LISTA, { get_settings: pendientes });
+    expect(consultas()).toBe(0);
+
+    await act(async () => entregar(ajustes({ checkUpdatesOnStart: false })));
+    expect(consultas()).toBe(0);
+  });
+
+  it("si los ajustes no se pueden leer, no consulta", async () => {
+    invoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "get_settings") throw new Error("disco");
+      if (cmd === "get_processes") return LISTA;
+      if (cmd === "get_history") return [];
+      return null;
+    });
+    render(<App />);
+
+    // Con la lista pintada, el arranque ha terminado.
+    await screen.findByLabelText("Seleccionar PID 100");
+    expect(consultas()).toBe(0);
+  });
+
+  it("encenderlo más tarde no lanza la consulta: eso no es arrancar", async () => {
+    let guardados = ajustes({ checkUpdatesOnStart: false });
+    const user = await montar(LISTA, { get_settings: guardados });
+    invoke.mockImplementation(async (cmd: string, args?: { settings?: typeof guardados }) => {
+      if (cmd === "save_settings") return (guardados = args!.settings!);
+      if (cmd === "get_processes") return LISTA;
+      return null;
+    });
+
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+    const interruptor = await screen.findByRole("switch", {
+      name: /Buscar actualizaciones al arrancar/,
+    });
+    await user.click(interruptor);
+
+    await waitFor(() => expect(interruptor).toBeChecked());
+    expect(guardados.checkUpdatesOnStart).toBe(true);
+    expect(consultas()).toBe(0);
+  });
+});

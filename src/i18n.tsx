@@ -538,8 +538,12 @@ export const es = {
     },
     actualizaciones: {
       titulo: "Actualizaciones",
+      /** No dice «al arrancar»: desde T12-31 eso se puede apagar, y lo cuenta el interruptor. */
       descripcion:
-        "La app comprueba al arrancar si hay una versión nueva en GitHub. Es lo **único** que consulta en la red, y solo descarga si lo confirmas." as Rico,
+        "Las versiones nuevas se publican en GitHub. Preguntar por ellas es lo **único** que la app consulta en la red, y solo descarga si lo confirmas." as Rico,
+      alArrancar: "Buscar actualizaciones al arrancar",
+      alArrancarDetalle:
+        "Con esto apagado, la app no consulta nada por su cuenta: solo busca cuando pulsas el botón de abajo. En cada consulta GitHub ve tu IP, igual que al abrir su página." as Rico,
     },
     acercaDe: {
       titulo: "Acerca de",
@@ -615,11 +619,22 @@ export const es = {
 /** La forma del catálogo, derivada del español. El inglés tiene que encajar aquí exactamente. */
 export type Catalogo = typeof es;
 
+/**
+ * El inglés, repasado en T12-35. **Una sola variante, en-US**, y cuatro reglas para que lo nuevo
+ * no vuelva a mezclar estilos:
+ *
+ * - «license» y «canceled», no «licence» ni «cancelled»;
+ * - coma antes del «and» o del «or» que cierra una lista de tres o más, que es además lo que
+ *   escribe `Intl.ListFormat("en")` en `unir`: «A, B, and C»;
+ * - el inciso va entre rayas **con espacios y sin coma detrás** (« — así — »). La raya pegada y
+ *   seguida de coma («—así—,») es puntuación española;
+ * - comillas tipográficas (“ ”) para citar, nunca rectas.
+ */
 export const en: Catalogo = {
   idioma: {
     titulo: "Idioma / Language",
     descripcion:
-      "Changes the window, the tray menu and the Windows notifications. No restart needed.",
+      "Changes the window, the tray menu, and Windows notifications. No restart needed.",
     nombres: { es: "Español", en: "English" },
   },
 
@@ -663,7 +678,7 @@ export const en: Catalogo = {
     sinAdmin: {
       titulo: "Not running as admin",
       detalle: "Service RAM and some process details are not visible.",
-      destino: "See in Settings",
+      destino: "View in Settings",
     },
   },
 
@@ -673,18 +688,18 @@ export const en: Catalogo = {
     midiendo: "Measuring…",
     equipo: "Machine",
     tituloCpu: (dev, total) =>
-      `Your watched processes are using ${dev} of the CPU. The whole machine, ${total}.`,
+      `Your watched processes are using ${dev} of the CPU. The whole machine is using ${total}.`,
     tituloRam: (dev, usada, instalada) =>
-      `Your watched processes are using ${dev}. The whole machine, ${usada} of the ${instalada} installed.`,
+      `Your watched processes are using ${dev}. The whole machine is using ${usada} of ${instalada} installed.`,
   },
 
   cabecera: {
-    buscarPlaceholder: "Search by name, script, folder, PID or port…",
+    buscarPlaceholder: "Search by name, script, folder, PID, or port…",
     buscarLabel: "Search processes",
     enLaLista: (n) => (n === 1 ? "1 process listed" : `${n} processes listed`),
     refrescar: "Refresh",
-    refrescarTitulo: (cada) => `Refresh now. The list already refreshes itself every ${cada}.`,
-    borrarBusqueda: "Clear the search",
+    refrescarTitulo: (cada) => `Refresh now. The list already refreshes on its own every ${cada}.`,
+    borrarBusqueda: "Clear search",
     nukeAll: "Nuke All",
     nukeFiltrados: "Nuke filtered",
     nukeFiltradosLabel: (n) =>
@@ -702,11 +717,11 @@ export const en: Catalogo = {
   },
 
   vacio: {
-    sinCoincidencias: "No process matches the filter.",
+    sinCoincidencias: "No processes match the filter.",
     quitarFiltro: "Clear filter",
     sinProcesos: "No development processes running.",
     sugerencia:
-      "Node, Python and .NET are always watched. If you work with others —`docker`, `go`, `php`—, add them in Settings.",
+      "Node, Python, and .NET are always watched. If you work with others — `docker`, `go`, `php` — add them in Settings.",
     boton: "Add watched processes",
   },
 
@@ -725,9 +740,9 @@ export const en: Catalogo = {
     cerrarProceso: "Close process",
     protegido: "Protected",
     protegidoTitulo:
-      "Protected: neither Kill, Nuke All, the tray, the shortcut nor Auto-Kill will close it. Remove it from the row menu or in Settings.",
+      "Protected: Kill, Nuke All, the tray, the shortcut, and Auto-Kill all leave it alone. Unprotect it from the row menu or in Settings.",
     proteger: (clave) => `Protect “${clave}”`,
-    desproteger: (clave) => `Stop protecting “${clave}”`,
+    desproteger: (clave) => `Unprotect “${clave}”`,
     copiarPid: "Copy PID",
     copiarNombre: "Copy name",
     copiarPuertos: (n) => (n === 1 ? "Copy port" : "Copy ports"),
@@ -741,13 +756,13 @@ export const en: Catalogo = {
     cargando: "Reading the services…",
     descripcion:
       "The ones that start with Windows without you noticing.",
-    porQueAdmin: "Why does it ask for administrator?",
+    porQueAdmin: "Why does it ask for administrator rights?",
     porQueAdminDetalle:
-      "Windows only lets administrators touch a service. If the app is not running as administrator, starting, stopping or changing the startup type shows the UAC prompt **just for that action**. The startup type survives a reboot, so each change is recorded below so you can undo it.",
+      "Windows only lets administrators control a service. If the app is not running as administrator, starting, stopping, or changing the startup type brings up the UAC prompt **for that action only**. The startup type survives a reboot, so every change is recorded below, where you can undo it.",
     recuento: (n) => (n === 1 ? "1 service" : `${n} services`),
-    vacio: "No development service was found.",
+    vacio: "No development services found.",
     vacioDetalle:
-      "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker and IIS are looked for. If you use another one, add it in Settings.",
+      "The app looks for SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker, and IIS. If you use something else, add it in Settings.",
     irAAjustes: "Add watched services",
     caption: "Installed development services, running ones first",
     columnas: {
@@ -783,11 +798,11 @@ export const en: Catalogo = {
       other: "Other",
     },
     ramDesconocida:
-      "A service's RAM can only be read with administrator rights. The app can start with them from Settings.",
+      "A service's RAM can only be read with administrator rights. You can have the app start with them in Settings.",
     ramNoLeida: "This service's RAM could not be read.",
     parado: "Stopped: it uses no RAM or ports.",
     sinPuertos:
-      "It is not listening on any TCP port. That is normal: SQL Express, for one, ships with TCP/IP disabled.",
+      "It is not listening on any TCP port. That is normal: SQL Express, for example, ships with TCP/IP disabled.",
     arrancaSolo: "Starts with Windows",
     acciones: {
       arrancar: "Start",
@@ -797,52 +812,53 @@ export const en: Catalogo = {
       trabajando: "Waiting for Windows…",
       detenerTitulo: (n) => `Stop ${n}`,
       detenerMensaje: (n) =>
-        `Windows will stop ${n}. Whatever is using it right now — an open connection, a query midway — gets cut off. You can start it again from here.`,
+        `Windows will stop ${n}. Anything using it right now — an open connection, a query in progress — will be cut off. You can start it again from here.`,
       detenerBoton: "Stop service",
       dependientes: (nombres) =>
         nombres.length === 1
-          ? `Windows will not stop it while ${nombres[0]} keeps running. Stop that one first.`
-          : `Windows will not stop it while these keep running: ${nombres.join(", ")}. Stop those first.`,
+          ? `Windows will not stop it while ${nombres[0]} is still running. Stop that one first.`
+          : `Windows will not stop it while these are still running: ${nombres.join(", ")}. Stop those first.`,
       pideAdmin:
-        "You will have to approve the Windows administrator prompt. Only this action runs elevated, and only while it lasts.",
+        "You will need to approve the Windows administrator prompt. Only this action runs elevated, and only for as long as it takes.",
       arrancado: (n) => `${n} is running.`,
       detenido: (n) => `${n} is stopped.`,
       enTransicion: (n) =>
-        `${n} is still changing state. Refresh in a few seconds to see where it lands.`,
+        `${n} is still changing state. Refresh in a few seconds to see where it ends up.`,
       bloqueado: (n, nombres) =>
         `${n} could not be stopped: ${unir(nombres, "en")} ${nombres.length === 1 ? "is" : "are"} still running.`,
-      rechazado: (n) => `Windows did not let the action on ${n} go through.`,
+      rechazado: (n) => `Windows did not allow the action on ${n}.`,
     },
     arranque: {
       etiqueta: (n) => `Startup type for ${n}`,
       noAjustable:
         "This startup type belongs to system drivers and cannot be changed from here.",
-      titulo: (n) => `Change startup for ${n}`,
-      mensaje: (n, de, a) => `${n} will go from "${de}" to "${a}".`,
+      titulo: (n) => `Change the startup type of ${n}`,
+      mensaje: (n, de, a) => `${n} will go from “${de}” to “${a}”.`,
       aviso:
         "**This change survives a reboot** and it happens in Windows, not inside the app. It is recorded below so you can undo it.",
       avisoDeshacer:
         "**This change survives a reboot** and it happens in Windows, not inside the app. The service goes back to how it was and leaves this list.",
       boton: "Change startup",
-      hecho: (n, a) => `${n} is now set to "${a}".`,
-      rechazado: (n) => `Windows did not let the startup of ${n} change.`,
-      registroTitulo: "Changes ProcessDevKill made",
+      hecho: (n, a) => `${n} is now set to “${a}”.`,
+      rechazado: (n) => `Windows did not allow the startup type of ${n} to be changed.`,
+      registroTitulo: "Changes made by ProcessDevKill",
       registroDetalle:
-        "The app changed these startup types and they stay that way after a reboot. Undo puts each one back the way it was.",
-      registroFila: (de, a) => `from "${de}" to "${a}"`,
+        "The app changed these startup types, and they stay that way after a reboot. Undo puts each one back the way it was.",
+      registroFila: (de, a) => `from “${de}” to “${a}”`,
       deshacer: "Undo",
       deshacerLabel: (n) => `Undo the startup change for ${n}`,
     },
   },
 
   historial: {
-    vacio: "No process has been closed yet.",
-    recuento: (n) => (n === 1 ? "1 close recorded" : `${n} closes recorded`),
+    vacio: "No processes have been closed yet.",
+    // «closes» como sustantivo contable no se dice: lo que se cuenta son procesos cerrados.
+    recuento: (n) => (n === 1 ? "1 closed process" : `${n} closed processes`),
     vaciar: "Clear history",
     caption: "Closed processes, newest first",
     locale: "en",
     tanda: (n) => `${n} processes`,
-    tandaSr: "closed at once",
+    tandaSr: "closed together",
     cuando: "When",
     proceso: "Process",
     pid: "PID",
@@ -853,12 +869,13 @@ export const en: Catalogo = {
   confirmar: {
     cancelar: "Cancel",
     cerrarTitulo: (n) => `Close ${n} ${n === 1 ? "process" : "processes"}`,
-    // «This will terminate …» y no el ámbito de primero: en inglés el ámbito empieza por
-    // minúscula («the selected process»), y abrir la frase con él la deja mal escrita.
+    // «This will close …» y no el ámbito de primero: en inglés el ámbito empieza por minúscula
+    // («the selected process»), y abrir la frase con él la deja mal escrita. «Immediately» y no
+    // «at once», que también se lee como «todos a la vez».
     cerrarMensaje: (n, ambito) =>
       `This will close ${ambito}. ${
         n === 1 ? "The process is closed" : "The processes are closed"
-      } at once, without saving anything. This action cannot be undone.`,
+      } immediately, without saving anything. This action cannot be undone.`,
     cerrarBoton: (n) => (n === 1 ? "Close process" : "Close processes"),
     ambitoSeleccionados: (n) =>
       n === 1 ? "the selected process" : `the ${n} selected processes`,
@@ -870,7 +887,7 @@ export const en: Catalogo = {
         : `The ${n} protected processes in the list are left alone.`,
     vaciarTitulo: "Clear the history",
     vaciarMensaje:
-      "The record of closed processes will be deleted. It does not affect any running process.",
+      "The record of closed processes will be deleted. This does not affect any running process.",
     vaciarBoton: "Clear",
   },
 
@@ -878,7 +895,7 @@ export const en: Catalogo = {
     ajustesNoGuardados: "Settings could not be saved",
     noSePudoCerrar: "The process could not be closed",
     quizaAdmin:
-      "If it was opened as administrator, the app needs that right to close it: see Settings.",
+      "If it was opened as administrator, the app needs administrator rights to close it. See Settings.",
     fallosParciales: (fallidos, total) =>
       `${fallidos} of ${total} could not be closed`,
     cerradoUno: (name) => `${name} closed`,
@@ -891,7 +908,7 @@ export const en: Catalogo = {
     noSePudoCopiar: (e) => `Could not copy: ${e}`,
     historialNoVaciado: "The history could not be cleared",
     hayVersion: (version) => `ProcessDevKill v${version} available`,
-    hayVersionComo: "Open it in Settings to download and install it.",
+    hayVersionComo: "Go to Settings to download and install it.",
     irAAjustes: "Settings",
     rutaCopiada: "Path copied",
     carpetaNoAbierta: "Could not open the folder",
@@ -917,18 +934,18 @@ export const en: Catalogo = {
     vigilados: {
       titulo: "Watched processes",
       descripcion:
-        "Node, Python and .NET are always watched. Here you can add other executables, such as `docker`, `go` or `php`. The name is matched exactly, without the extension.",
+        "Node, Python, and .NET are always watched. Here you can add other executables, such as `docker`, `go`, or `php`. The name is matched exactly, without the extension.",
       placeholder: "executable name",
       anadir: "Add",
       anadirLabel: "Add watched process",
       critico: (nombre) =>
-        `${nombre} is part of Windows: closing it can freeze the computer or end the session, so it is not watched.`,
+        `${nombre} is part of Windows: closing it can freeze the computer or end your session, so it is not watched.`,
       quitar: (nombre) => `Remove ${nombre}`,
     },
     servicios: {
       titulo: "Watched services",
       descripcion:
-        "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker and IIS are always watched. Here you can add others by their **service name**: the short one, like `MSSQL$SQLEXPRESS`, not the one Windows shows. It is matched exactly.",
+        "SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker, and IIS are always watched. Here you can add others by their **service name**: the short one, like `MSSQL$SQLEXPRESS`, not the one Windows displays. It is matched exactly.",
       placeholder: "service name",
       anadir: "Add",
       anadirLabel: "Add watched service",
@@ -937,17 +954,18 @@ export const en: Catalogo = {
     protegidos: {
       titulo: "Protected processes",
       descripcion:
-        "What you add here is **never closed by the app**: not by Kill, Nuke All, the tray, the shortcut or Auto-Kill. It can be the executable (`node`), the script (`vite`) or the project folder (`my-api`), matched exactly. You can also protect a process from its row menu.",
-      placeholder: "executable, script or folder",
+        "Anything you add here is **never closed by the app**: not by Kill, Nuke All, the tray, the shortcut, or Auto-Kill. It can be the executable (`node`), the script (`vite`), or the project folder (`my-api`), matched exactly. You can also protect a process from its row menu.",
+      placeholder: "executable, script, or folder",
       anadir: "Add",
       anadirLabel: "Add protected process",
       quitar: (nombre) => `Remove ${nombre}`,
     },
     autoKill: {
       titulo: "Auto-Kill by memory",
-      interruptor: "Close processes that go over the RAM limit on their own",
+      // «On their own» al final se leía como que los procesos se pasaban solos del límite.
+      interruptor: "Automatically close processes that go over the RAM limit",
       detalle:
-        "Watches the processes in the list and closes the one that goes over the threshold **without asking for confirmation**. Meant for memory leaks and runaway watchers. It notifies you and is recorded in the history as **Auto-Kill**.",
+        "Watches the processes in the list and closes any that goes over the threshold **without asking for confirmation**. Meant for memory leaks and runaway watchers. You get a notification, and the close is recorded in the history as **Auto-Kill**.",
       campoLabel: "RAM threshold in MB",
       unidad: (equivalencia, minimo) =>
         `MB per process${equivalencia ? ` (${equivalencia})` : ""}. Minimum ${minimo} MB.`,
@@ -956,20 +974,23 @@ export const en: Catalogo = {
       titulo: "Zombie Finder",
       interruptor: "Highlight forgotten processes",
       detalle:
-        "Marks in the table the ones that have gone a while without using CPU **and are still holding a port**: last week's server still sitting on 3000. It closes nothing, it only points them out.",
-      campoLabel: "Minutes without activity",
+        "Flags processes in the table that have used no CPU for a while **and are still holding a port**: last week's server still sitting on 3000. It closes nothing; it only points them out.",
+      campoLabel: "Minutes of inactivity",
       unidad: (minimo) => `minutes idle. Minimum ${minimo}.`,
     },
     actualizaciones: {
       titulo: "Updates",
       descripcion:
-        "The app checks GitHub for a new version at startup. It is the **only** thing it asks the network, and it only downloads if you confirm.",
+        "New versions are published on GitHub. Checking for them is the **only** network request the app makes, and it only downloads if you confirm.",
+      alArrancar: "Check for updates at startup",
+      alArrancarDetalle:
+        "With this off, the app makes no requests on its own: it only checks when you press the button below. On every check, GitHub sees your IP address, just as when you open its website.",
     },
     acercaDe: {
       titulo: "About",
       descripcion: (version) =>
-        `ProcessDevKill${version} — free software under **GPL-3.0**. The third-party components the app bundles, with their licences, are in the notices.`,
-      licencia: "Licence",
+        `ProcessDevKill${version} — free software under **GPL-3.0**. The third-party components bundled with the app, along with their licenses, are listed in the notices.`,
+      licencia: "License",
       avisos: "Third-party notices",
       repositorio: "Repository",
       apoyar: "Support the project",
@@ -977,37 +998,37 @@ export const en: Catalogo = {
         "The app is free and will stay that way. Supporting it is optional and unlocks nothing.",
       logTitulo: "Warning log",
       logDescripcion:
-        "When something fails inside —saving the settings, reading the ports—, the app writes it down here. It is a local file: **it is never sent anywhere** and you can delete it whenever you want. Attaching it to an issue helps.",
+        "When something fails internally — saving the settings, reading the ports — the app records it here. It is a local file: **it is never sent anywhere**, and you can delete it whenever you want. If you open an issue, attaching it helps.",
       abrirCarpeta: "Open the folder",
       copiarRuta: "Copy the path",
     },
     administrador: {
       titulo: "Administrator rights",
       estadoSi:
-        "The app is running **as administrator**: it sees service RAM and the details of every process, and can close them all.",
+        "The app is running **as administrator**: it can see service RAM and the details of every process, and it can close them all.",
       estadoNo:
-        "The app is running **without administrator rights**. Windows does not let it see service RAM, or the script and folder of processes opened as administrator — from an elevated terminal, for instance — or close them. Everything else works the same.",
+        "The app is running **without administrator rights**. Windows does not let it see service RAM, see the script and folder of processes opened as administrator — from an elevated terminal, for example — or close those processes. Everything else works the same.",
       reiniciar: "Restart as administrator",
       interruptor: "Always start as administrator",
       detalle:
-        "Windows will ask for confirmation (**UAC**) every time the app opens. If it is closed without approving, the app starts anyway, without the rights. Takes effect from the next start.",
+        "Windows will ask for confirmation (**UAC**) every time the app opens. If you dismiss the prompt, the app still starts, without administrator rights. Takes effect the next time the app starts.",
       noSePudo: "Could not restart as administrator",
     },
     alCerrar: {
       titulo: "When the window is closed",
       interruptor: "Leave it in the tray instead of quitting the app",
       detalle:
-        "With this on, **the ✕ button** hides the window and ProcessDevKill **keeps running** in the background: Auto-Kill and the global shortcut go on watching. To bring it back, click its tray icon; to quit for good, **Quit** in that icon's menu.",
+        "With this on, **the ✕ button** hides the window and ProcessDevKill **keeps running** in the background: Auto-Kill and the global shortcut stay active. To bring it back, click its tray icon; to quit completely, choose **Quit** from that icon's menu.",
     },
     atajo: {
       titulo: "Global shortcut",
       activar: "Enable",
       detalle:
-        "Closes **every** watched process that is not protected, whether or not the window is working. It is global: while it is on, **no other app receives that combination** —in JetBrains IDEs, Ctrl+Alt+K is “Commit and Push”—. It is recorded in the history.",
+        "Closes **every** watched process that is not protected, whether or not the window is responding. It is global: while it is on, **no other app receives that combination** (in JetBrains IDEs, Ctrl+Alt+K is “Commit and Push”). Every use is recorded in the history.",
       combinacion: "Combination",
       doble: "Require two presses",
       dobleDetalle:
-        "The first one only tells you how many processes would go; the second, **within 3 seconds**, closes them. Without this, a single stray press closes everything without asking.",
+        "The first press only tells you how many processes would be closed; the second, **within 3 seconds**, closes them. Without this, a single stray press closes everything without asking.",
     },
   },
 
@@ -1015,20 +1036,20 @@ export const en: Catalogo = {
     buscar: "Check for updates",
     alDia: "You already have the latest version.",
     error: (mensaje) => `Could not check: ${mensaje}`,
-    hayVersion: "There is a new version:",
-    notasLabel: "What is new in this version",
+    hayVersion: "A new version is available:",
+    notasLabel: "What's new in this version",
     instalar: "Download and install",
     comoInstala:
-      "It installs silently: the app closes, updates and opens again on its own. There is no window to answer.",
+      "It installs silently: the app closes, updates, and reopens on its own. There are no prompts to answer.",
     descargando: "Downloading…",
     progresoLabel: "Download progress",
     instalando: "Installing and restarting…",
   },
 
   error: {
-    titulo: "The window has failed",
+    titulo: "The window crashed",
     cuerpo:
-      "Something broke while painting the interface. **No process has been closed** because of this, and your settings and your history are still there.",
+      "Something broke while rendering the interface. **No process has been closed** because of this, and your settings and history are intact.",
     recargar: "Reload the window",
   },
 };
