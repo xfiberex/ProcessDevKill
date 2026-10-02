@@ -1,10 +1,13 @@
-#!/usr/bin/env node
 /**
  * Genera `THIRD-PARTY-NOTICES.txt`: qué componentes de terceros viajan en el instalador, con la
  * licencia y el aviso de copyright que publica cada uno (T12-30).
  *
  *     node tools/avisos-de-terceros.mjs               # reescribe el archivo
  *     node tools/avisos-de-terceros.mjs --comprobar   # sale con 1 si el archivo se quedó viejo
+ *
+ * Sin línea `#!` al principio, y no es un olvido: este archivo lo importa su prueba, y en el
+ * runner de Windows git lo descarga con finales CRLF. Vitest no sabe leer un `#!…` que acaba en
+ * retorno de carro, y la CI caía con un «Invalid or unexpected token» que en local no salía.
  *
  * ## Por qué existe
  *
