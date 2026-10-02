@@ -16,6 +16,12 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+### Interno
+- Cuatro dependencias de desarrollo suben por avisos de seguridad (`undici`, `hono`,
+  `brace-expansion`, `ip-address`). Ninguna viaja en el instalador.
+- El script de publicación escribe la versión también en `package-lock.json`, que se había quedado
+  en la v1.5.3.
+
 ## [1.9.1] — 2026-10-02
 
 Los avisos legales de lo que viaja en el instalador, completos.

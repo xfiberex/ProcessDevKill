@@ -25,11 +25,13 @@
 
     LA VERSIÓN VIVE EN TRES SITIOS y tienen que ir a la vez:
       - src-tauri/tauri.conf.json  → es la que MANDA (la que acaba en el instalador y el .exe)
-      - package.json               → la del paquete npm
+      - package.json               → la del paquete npm, y arrastra a package-lock.json
       - src-tauri/Cargo.toml       → la del crate, y arrastra a Cargo.lock
     Si se tocara solo una, el instalador y el binario saldrían con versiones distintas. Tras
     cambiar Cargo.toml se corre `cargo check` para que Cargo.lock quede al día; si no, el
     commit del release deja el árbol sucio justo después de haberlo commiteado.
+    package-lock.json repite la versión del paquete en sus dos primeras entradas, y se escribe
+    a mano: hasta la v1.9.1 nadie lo hacía, y el archivo siguió diciendo «1.5.3» seis versiones.
 
     EL .sha256 NO ES CORTESÍA: ES LO QUE VERIFICA LA AUTO-ACTUALIZACIÓN.
 
@@ -491,6 +493,7 @@ $cargoToml  = Join-Path $root "src-tauri\Cargo.toml"
 $bundleDir  = Join-Path $root "src-tauri\target\release\bundle"
 $changelog  = Join-Path $root "CHANGELOG.md"
 
+$packageLock= Join-Path $root "package-lock.json"
 foreach ($f in @($tauriConf, $packageJson, $cargoToml)) {
     if (-not (Test-Path $f)) { Die "No se encontró $f" }
 }
@@ -784,7 +787,7 @@ try {
         Write-Host ""
         Warn "DRY RUN — no se modificará nada. Plan:"
         Write-Host "    1. Poner la versión $Version en tauri.conf.json, package.json y Cargo.toml" -ForegroundColor DarkGray
-        Write-Host "       + 'cargo check' para actualizar Cargo.lock" -ForegroundColor DarkGray
+        Write-Host "       + 'cargo check' para actualizar Cargo.lock, y la misma versión en package-lock.json" -ForegroundColor DarkGray
         Write-Host "    2. npm run tauri build  (NSIS + MSI, SIN firma de código:" -ForegroundColor DarkGray
         Write-Host "       SmartScreen seguirá avisando)" -ForegroundColor DarkGray
         Write-Host "    3. Generar los .sha256 — con el que la app verifica la actualización" -ForegroundColor DarkGray
@@ -831,6 +834,23 @@ try {
 
         $pkg = Read-Texto $packageJson
         Write-Texto $packageJson ($rx::Replace($pkg, '"version"\s*:\s*"[^"]+"', """version"": ""$Version""", 1))
+
+        # package-lock.json repite la versión del paquete dos veces: arriba del todo y en la
+        # entrada `""` de `packages`. Las dos van antes de la primera dependencia, así que se
+        # cambia solo ese tramo; lo de después son las versiones de los demás paquetes. Si el
+        # tramo no tiene exactamente dos, el archivo no es como se esperaba: se avisa y no se
+        # toca, que un lockfile mal escrito rompe `npm ci`.
+        if (Test-Path $packageLock) {
+            $lock = Read-Texto $packageLock
+            $corte = $lock.IndexOf('"node_modules/')
+            $cabeza = if ($corte -gt 0) { $lock.Substring(0, $corte) } else { "" }
+            if ($rx::Matches($cabeza, '"version"\s*:\s*"[^"]+"').Count -eq 2) {
+                $cabeza = $rx::Replace($cabeza, '"version"\s*:\s*"[^"]+"', """version"": ""$Version""")
+                Write-Texto $packageLock ($cabeza + $lock.Substring($corte))
+            } else {
+                Warn "package-lock.json no tiene la versión del paquete donde se esperaba: no se ha tocado."
+            }
+        }
 
         $cargo = Read-Texto $cargoToml
         Write-Texto $cargoToml ($rx::Replace($cargo, '(?m)^version\s*=\s*"[^"]+"', "version = ""$Version""", 1))

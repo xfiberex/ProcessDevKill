@@ -197,6 +197,10 @@ node tools/avisos-de-terceros.mjs --comprobar   # que THIRD-PARTY-NOTICES.txt es
   cualquier programa del equipo puede conducir. Además, una consola sin elevar no puede cerrarla,
   porque UIPI se lo impide. Apágalo, respaldando antes el archivo, mientras dure la inspección.
   Pasó el 2026-09-25 (T12-27).
+- **`npm ci` borra `node_modules` antes de instalar, y en este equipo puede quedarse a medias**:
+  si el editor u otro proceso tiene abierto un `.node` nativo (el de Tailwind, por ejemplo),
+  falla con `EPERM` después de haber borrado casi todo. Se recupera con `npm install`, que no
+  borra. Para probar un `package-lock.json` nuevo en local, `npm install`; `npm ci` es para la CI.
 - **Si la build que lanzas se cierra sola al arrancar, hay otra instancia abierta**: la app es de
   instancia única y le pasa el testigo a la que ya corre, casi siempre la instalada del usuario. Si
   esa corre elevada, `Get-Process` no enseña su ruta y no se puede cerrar desde una consola sin
@@ -235,7 +239,15 @@ por el título «Descarga», y **la app deja de leer las notas ahí** (`src/lib/
 no se cambia en un sitio sin el otro, y `notas.test.ts` lo vigila.
 
 La versión vive en **tres** sitios que tienen que ir a la vez: `tauri.conf.json` (la que manda),
-`package.json` y `Cargo.toml`. El script los toca los tres.
+`package.json` y `Cargo.toml`. El script los toca los tres, y con ellos los dos lockfiles, que la
+repiten: `Cargo.lock` y, desde el 2026-10-02, `package-lock.json`, que se había quedado en la
+v1.5.3 seis versiones sin que nada lo notara.
+
+**Un PR de Dependabot se fusiona con `--squash` y el asunto en español**, como el resto del
+historial («Sube undici de 7.29.0 a 7.30.0 (#4)»). Solo abre PR de seguridad. Antes de
+fusionar: que la CI esté en verde y que solo toque dependencias de desarrollo; si toca una que
+viaja en el instalador, la CI falla en «Avisos de terceros al día» y hay que regenerarlos en esa
+rama.
 
 **El `.sha256` del instalador NSIS no es decorativo: es lo que verifica la auto-actualización.** La
 app lo descarga y lo compara con el instalador antes de ejecutarlo (`src-tauri/src/update.rs`). Un

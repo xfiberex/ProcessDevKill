@@ -8,6 +8,23 @@
 
 ---
 
+### 2026-10-02 (5) — Los PR de Dependabot y el `package-lock.json`
+
+Las dos cosas sueltas que el usuario pidió cerrar después del Tier 12.
+
+- **Los cuatro PR.** Se le pidió a Dependabot que los rehiciera sobre `main` (`@dependabot
+  rebase`); con la CI en verde se fusionaron con `--squash` y el asunto en español. Los cuatro
+  añadían las mismas líneas al lockfile, y aun así se fusionaron seguidos sin conflicto.
+- **`npm ci` dejó `node_modules` a medias** al traerlos: borra antes de instalar, y un `.node` de
+  Tailwind estaba abierto por otro proceso del equipo. No se cerró nada del usuario; `npm install`
+  lo recuperó, sin tocar el lockfile. Anotado en CLAUDE.md.
+- **`release.ps1` escribe ya la versión en `package-lock.json`**, en las dos entradas que la
+  repiten y solo en el tramo de antes de la primera dependencia. Probado aparte sobre el archivo
+  real: dos líneas cambian y ninguna más. Los PR ya lo habían dejado en la 1.9.1.
+- Tras fusionar: 398 pruebas del frontend, ESLint, build y avisos de terceros, bien. La auditoría
+  del árbol de desarrollo baja de 10 avisos a 6.
+- Dependabot abrió otros tres PR mientras tanto: `fast-uri`, `js-yaml` y `vitest`.
+
 ### 2026-10-02 (4) — Publicada la v1.9.1, y cerrado el Tier 12
 
 - **El dry run falló a la primera**, en una prueba de Rust que dependía del reloj: su `node` de

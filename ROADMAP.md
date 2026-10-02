@@ -49,11 +49,10 @@ abrir el siguiente.
   hace falta la app instalada del usuario. Tampoco se han visto en vivo el gancho de pánico
   (T12-14), un PID reciclado (T12-09), una conexión lenta de verdad (T12-17) ni el aviso de
   «protegido» cuando el guardado falla (T12-08). Los cinco tienen sus pruebas.
-- **Los cuatro PR de Dependabot** abiertos el 2026-10-02 (`undici`, `hono`, `brace-expansion`,
-  `ip-address`), todos de dependencias de desarrollo. Hay que pedirle que los rehaga sobre
-  `main` y fusionarlos con la CI en verde.
-- **`package-lock.json` dice que la app es la v1.5.3**: `release.ps1` sube la versión en
-  `package.json` y no ahí. No rompe nada; se vio al leer esos PR.
+- **Los PR de Dependabot se miran y se fusionan a mano.** Los cuatro primeros (`undici`, `hono`,
+  `brace-expansion`, `ip-address`) se fusionaron el 2026-10-02. Seguirá abriendo otros: cada uno
+  se lee, se comprueba que solo toca dependencias de desarrollo —o se regeneran los avisos de
+  terceros si no— y se fusiona con la CI en verde.
 - **Las pruebas con la app en marcha no están en la CI**: piden una compilación de release y un
   escritorio. Nadie ha probado si el runner lo aguanta.
 - **El inglés no lo ha leído un hablante nativo** (T12-35), y las notas de cada versión siguen
