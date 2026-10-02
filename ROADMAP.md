@@ -647,7 +647,7 @@ cerradas que no lo estaban del todo**, lo que se dice aquí a propósito:
     aparece» es falso (`node --token abc123 server.js` enseña `abc123`), y **T12-10 no lo arregla
     del todo**, porque solo salta las opciones conocidas. El README cuenta la limitación tal cual.
 
-- [ ] **[T12-30] Avisos de terceros generados por herramienta y con los avisos de copyright** — *requiere revisión legal*
+- [x] **[T12-30] Avisos de terceros generados por herramienta y con los avisos de copyright** — *requiere revisión legal*
   - **Severidad:** baja · **Área:** Legal
   - **Ubicación:** `THIRD-PARTY-NOTICES.txt` (secciones 3 y 4)
   - **Qué hacer:** el archivo reconoce que no reproduce los avisos de copyright de los crates, y MIT,
