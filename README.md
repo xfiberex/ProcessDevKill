@@ -138,8 +138,8 @@ Get-FileHash .\ProcessDevKill_X.Y.Z_x64-setup.exe -Algorithm SHA256
 
 ## Actualizaciones
 
-La app comprueba al arrancar si hay una versión nueva y avisa con un toast; en `main`, todavía sin
-publicar, esa comprobación se puede apagar en *Ajustes → Actualizaciones*. La descarga y la
+La app comprueba al arrancar si hay una versión nueva y avisa con un toast; desde la v1.9.0, esa
+comprobación se puede apagar en *Ajustes → Actualizaciones*. La descarga y la
 instalación **no ocurren solas**: se lanzan desde *Ajustes → Actualizaciones*, con el número de
 versión y las notas delante. Al confirmar, **la instalación es silenciosa**: la app se cierra, se
 actualiza y vuelve a abrirse sola, sin ningún asistente.
@@ -201,7 +201,7 @@ se hace nada. Correr elevada entera es opcional, desde Ajustes, y Windows lo con
 **La red.** La única petición que hace la app por su cuenta es la comprobación de actualizaciones al
 arrancar, a la API de `github.com`, sin identificador ni cuenta: GitHub verá tu IP como si abrieras
 la página. No se descarga nada sin que lo confirmes. Lo demás lo abres tú, como el navegador al
-pulsar **Repositorio**. En `main`, todavía sin publicar, esa comprobación tiene un interruptor en
+pulsar **Repositorio**. Desde la v1.9.0, esa comprobación tiene un interruptor en
 *Ajustes → Actualizaciones*: apagado, la app no hace **ninguna** petición por su cuenta.
 
 Los permisos de la ventana son los mínimos para lo anterior, y se pueden comprobar en
@@ -335,7 +335,7 @@ Y la documentación, donde cada cosa vive en un solo sitio:
 
 ## Estado
 
-La versión actual es la **v1.8.3**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.9.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía. Lo que viene está en el [ROADMAP](ROADMAP.md).
 
 Lo que **no** hay, por si importa antes de instalarla: **firma de código** —de ahí el aviso de

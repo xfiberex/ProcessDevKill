@@ -16,6 +16,8 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.9.0] — 2026-10-02
+
 Idioma, y una consulta a la red que ahora se puede apagar.
 
 ### Añadido
@@ -389,7 +391,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.8.3...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.9.0
 [1.8.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.3
 [1.8.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.2
 [1.8.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.1
