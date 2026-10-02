@@ -336,7 +336,7 @@ Y la documentación, donde cada cosa vive en un solo sitio:
 
 ## Estado
 
-La versión actual es la **v1.9.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.9.1**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía. Lo que viene está en el [ROADMAP](ROADMAP.md).
 
 Lo que **no** hay, por si importa antes de instalarla: **firma de código** —de ahí el aviso de
@@ -351,7 +351,7 @@ publiquen su código fuente**. Se ofrece **sin ninguna garantía**.
 
 Las licencias de los componentes de terceros que el instalador empaqueta —incluida la tipografía
 Geist, con su licencia OFL-1.1— están en [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), y todas
-son compatibles con la GPLv3. En `main`, todavía sin publicar, ese archivo lo genera
+son compatibles con la GPLv3. Desde la v1.9.1, ese archivo lo genera
 [`tools/avisos-de-terceros.mjs`](tools/avisos-de-terceros.mjs) y reproduce la licencia y el aviso
 de copyright de cada componente; dice también lo que no cubre. **No ha pasado una revisión legal.**
 
