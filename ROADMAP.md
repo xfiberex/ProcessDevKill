@@ -810,7 +810,8 @@ Y dos que salen de esta re-auditoría:
   **v1.8.3**, la primera con las pruebas en marcha dentro del corte.
 - **2026-10-02** — **36 de 39**: la tanda de la v1.9.0, T12-28, T12-31, T12-33, T12-35 y T12-39.
   385 pruebas del frontend, 153 de Rust (+4 ignoradas) y 21 en marcha, todas en verde; ESLint y
-  clippy limpios. Quedan las tres de la v1.9.1: T12-25, T12-26 y T12-30.
+  clippy limpios. Quedan las tres de la v1.9.1: T12-25, T12-26 y T12-30. Ese día se publicó la
+  **v1.9.0**, la primera cuyo commit exacto tenía una CI completa en verde antes del corte.
 
 ### Cómo se reparte lo que queda
 
@@ -820,7 +821,7 @@ para quien usa la app acompaña al que le toque.
 | Corte | Tema | Tareas |
 |---|---|---|
 | **v1.8.3** | Robustez y seguridad al cerrar | T12-09, 10, 11, 14, 16, 17, 18 y 19 — **publicada el 2026-10-01** |
-| **v1.9.0** | Idioma y un ajuste nuevo | T12-31, T12-35, T12-39, con T12-28 y T12-33 — **hechas el 2026-10-02, sin publicar** |
+| **v1.9.0** | Idioma y un ajuste nuevo | T12-31, T12-35, T12-39, con T12-28 y T12-33 — **publicada el 2026-10-02** |
 | **v1.9.1** | Avisos legales | T12-30, con T12-25 y T12-26 |
 
 Lo legal va aparte y al final porque T12-30 pide revisión legal y es la única que puede atascarse.

@@ -8,6 +8,16 @@
 
 ---
 
+### 2026-10-02 (2) — Publicada la v1.9.0
+
+- Dry run entero en verde, y la CI de `24459b5` también, antes de cortar. Comprobado por el
+  propio script: 4 assets, la API devuelve `v1.9.0` y el instalador descargado coincide con su
+  `.sha256` y con el compilado (`26f910e9…`).
+- Después del corte, las pruebas en marcha con la copia anterior, que seguía en la v1.8.3: 22
+  comprobaciones. Ve la v1.9.0 como más nueva y enseña sus notas en Ajustes, con los cuatro
+  títulos y siete elementos, sin marcas.
+- Sigue sin verse una instalación de punta a punta: hace falta la app instalada del usuario.
+
 ### 2026-10-02 — La tanda de la v1.9.0: idioma y un ajuste nuevo
 
 Las cinco del segundo corte: T12-39, T12-31, T12-35, T12-28 y T12-33. Sin publicar.

@@ -39,11 +39,11 @@
 
 ## 3. Estado actual
 
-**Publicada: la v1.8.3** (2026-10-01). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
+**Publicada: la v1.9.0** (2026-10-02). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
 lo que está en `main` sin publicar, en su sección «Sin publicar». Cada release se comprueba igual
 tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `tag_name` correcto y
 **el instalador descargado coincide con su `.sha256`**, que es la cadena entera que recorre la
-auto-actualización. Para la v1.8.3, `53ad76ce…`. Desde T12-24 lo hace el propio `release.ps1` al
+auto-actualización. Para la v1.9.0, `26f910e9…`. Desde T12-24 lo hace el propio `release.ps1` al
 terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
 existe.
 
@@ -53,7 +53,7 @@ hallazgo era crítico ni alto, y **los nueve medios están cerrados**: el últim
 927 líneas a 367 (T12-15). Quedan 3, todas de severidad baja y las tres del último corte, la
 v1.9.1 (ver «Cómo se reparte lo que queda» en el ROADMAP). La primera de las tres tandas, la de
 la v1.8.3, ya está publicada: T12-09, 10, 11, 14, 16, 17, 18 y 19. **La segunda, la de la v1.9.0,
-está hecha y en `main` sin publicar**: T12-28, 31, 33, 35 y 39. La cobertura del frontend está en el
+también**: T12-28, 31, 33, 35 y 39. La cobertura del frontend está en el
 95,90 % (T12-20). Y
 las cuatro tareas de antes que se dieron por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la
 D4 del Tier 11— ya están corregidas, en T12-37, T12-21, T12-22 y T12-07.
