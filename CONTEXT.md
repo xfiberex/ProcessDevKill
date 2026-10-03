@@ -321,6 +321,7 @@ verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/
 | 2026-10-02 | **Unos avisos de terceros viejos abortan el corte y la CI, en vez de avisar** | T12-25. El aviso comparaba fechas y saltaba en todos los cortes, porque el corte escribe la versión en `package.json` y `Cargo.lock`. Ahora se regenera en memoria y se compara: un «no coincide» es seguro, no una sospecha, así que se para. Contradice a sabiendas el «avisa, no aborta» con el que nació el aviso: aquel era la respuesta razonable a una comprobación que no podía estar segura |
 | 2026-10-02 | **Las acciones de la CI, por SHA; el compilador, en `rust-toolchain.toml`; Dependabot, solo seguridad** | T12-26. Una etiqueta de una acción la puede mover quien controle su repositorio. `dtolnay/rust-toolchain@stable` era una rama y no se podía fijar: se quita, y el compilador lo instala el `rustup` del runner a partir de `rust-toolchain.toml` (1.98.1, el que venía compilando los releases), que además iguala la CI con el corte. Dependabot con `open-pull-requests-limit: 0`: abre PR ante un aviso de seguridad y no propone subidas rutinarias, que cambian lo que viaja en el instalador y se deciden al preparar una versión. Los SHA fijados no se actualizan solos: se suben a mano. Las dependencias de desarrollo siguen sin bloquear, pero su auditoría queda en el resumen de cada ejecución |
 | 2026-10-02 | **El Tier 12 sale del ROADMAP a `docs/TIER-12.md`, y lo que dejó sin hacer se queda en el ROADMAP** | La regla del 2026-09-30, aplicada: cerrado, es historia. Pero un Tier cerrado con las 39 casillas marcadas deja cosas dichas y sin hacer —la revisión legal, lo que nunca se vio en vivo, los PR de Dependabot—, y archivarlas con él sería esconderlas donde nadie mira antes de trabajar. Se quedan en el ROADMAP, en «Lo que queda suelto», sin casilla: no son tareas con criterio de aceptación, son lo que hay que saber antes de abrir el Tier 13 |
+| 2026-10-02 | **Java, Deno y Bun se vigilan de fábrica; Java también** | Lo decidió el usuario al abrir el Tier 13, y cierra la pendiente de §5. La duda era Java: `java` y `javaw` también ejecutan programas que no son de desarrollo. Pesa más que cada fila diga qué proceso es —el script o la clase, desde el Tier 11—, y lo que no sea de desarrollo se protege. Lo que no cubre: las vías que cierran sin mirar la fila (Nuke All, la bandeja, el atajo, el Auto-Kill). Por eso el README lo dice y la prueba negativa de T13-01 es la de un `java` protegido |
 
 ## 5. Decisiones pendientes
 
@@ -328,7 +329,6 @@ Solo lo abierto. Lo cerrado está en §4 si se decidió con un motivo, y en la
 [bitácora](docs/BITACORA.md) si solo se hizo. La firma Authenticode no está aquí porque está
 decidida: no la habrá (§4, 2026-08-18).
 
-- [ ] Lista inicial de procesos vigilados por defecto (¿incluir `java`, `deno`, `bun` desde el inicio?).
 - [ ] Ampliar el catálogo de servicios de fábrica según lo que aparezca en equipos reales. Hoy son
       siete familias; lo que falte se puede añadir a mano en Ajustes, así que no bloquea a nadie.
 
