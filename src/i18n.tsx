@@ -101,6 +101,9 @@ export const es = {
     node: "Node.js",
     python: "Python",
     dotnet: ".NET",
+    java: "Java",
+    deno: "Deno",
+    bun: "Bun",
     other: "Otros",
   } satisfies Record<Runtime, string>,
 
@@ -207,7 +210,7 @@ export const es = {
     quitarFiltro: "Quitar filtro",
     sinProcesos: "No hay procesos de desarrollo activos.",
     sugerencia:
-      "Node, Python y .NET se vigilan siempre. Si trabajas con otros —`docker`, `go`, `php`—, añádelos en Ajustes." as Rico,
+      "Node, Python, .NET, Java, Deno y Bun se vigilan siempre. Si trabajas con otros —`docker`, `go`, `php`—, añádelos en Ajustes." as Rico,
     boton: "Añadir procesos vigilados",
   },
 
@@ -484,7 +487,7 @@ export const es = {
     vigilados: {
       titulo: "Procesos vigilados",
       descripcion:
-        "Node, Python y .NET se vigilan siempre. Aquí puedes añadir otros ejecutables, como `docker`, `go` o `php`. Se compara el nombre exacto, sin la extensión." as Rico,
+        "Node, Python, .NET, Java, Deno y Bun se vigilan siempre. Aquí puedes añadir otros ejecutables, como `docker`, `go` o `php`. Se compara el nombre exacto, sin la extensión." as Rico,
       placeholder: "nombre del ejecutable",
       anadir: "Añadir",
       /**
@@ -513,7 +516,7 @@ export const es = {
     protegidos: {
       titulo: "Procesos protegidos",
       descripcion:
-        "Lo que pongas aquí **no lo cierra nada** de la app: ni Kill, ni Nuke All, ni la bandeja, ni el atajo, ni el Auto-Kill. Vale el ejecutable (`node`), el script (`vite`) o la carpeta del proyecto (`mi-api`), exacto. También se protege desde el menú de cada fila." as Rico,
+        "Lo que pongas aquí **no lo cierra nada** de la app: ni Kill, ni Nuke All, ni la bandeja, ni el atajo, ni el Auto-Kill. Vale el ejecutable (`node`), el script (`vite`) o la carpeta del proyecto (`mi-api`), exacto. También se protege desde el menú de cada fila. Si usas un programa en Java que no es de desarrollo —un juego, una aplicación de escritorio—, protégelo aquí: Java se vigila siempre." as Rico,
       placeholder: "ejecutable, script o carpeta",
       anadir: "Añadir",
       anadirLabel: "Añadir proceso protegido",
@@ -642,6 +645,9 @@ export const en: Catalogo = {
     node: "Node.js",
     python: "Python",
     dotnet: ".NET",
+    java: "Java",
+    deno: "Deno",
+    bun: "Bun",
     other: "Other",
   },
 
@@ -721,7 +727,7 @@ export const en: Catalogo = {
     quitarFiltro: "Clear filter",
     sinProcesos: "No development processes running.",
     sugerencia:
-      "Node, Python, and .NET are always watched. If you work with others — `docker`, `go`, `php` — add them in Settings.",
+      "Node, Python, .NET, Java, Deno, and Bun are always watched. If you work with others — `docker`, `go`, `php` — add them in Settings.",
     boton: "Add watched processes",
   },
 
@@ -934,7 +940,7 @@ export const en: Catalogo = {
     vigilados: {
       titulo: "Watched processes",
       descripcion:
-        "Node, Python, and .NET are always watched. Here you can add other executables, such as `docker`, `go`, or `php`. The name is matched exactly, without the extension.",
+        "Node, Python, .NET, Java, Deno, and Bun are always watched. Here you can add other executables, such as `docker`, `go`, or `php`. The name is matched exactly, without the extension.",
       placeholder: "executable name",
       anadir: "Add",
       anadirLabel: "Add watched process",
@@ -954,7 +960,7 @@ export const en: Catalogo = {
     protegidos: {
       titulo: "Protected processes",
       descripcion:
-        "Anything you add here is **never closed by the app**: not by Kill, Nuke All, the tray, the shortcut, or Auto-Kill. It can be the executable (`node`), the script (`vite`), or the project folder (`my-api`), matched exactly. You can also protect a process from its row menu.",
+        "Anything you add here is **never closed by the app**: not by Kill, Nuke All, the tray, the shortcut, or Auto-Kill. It can be the executable (`node`), the script (`vite`), or the project folder (`my-api`), matched exactly. You can also protect a process from its row menu. If you run a Java program that is not for development — a game, a desktop app — protect it here: Java is always watched.",
       placeholder: "executable, script, or folder",
       anadir: "Add",
       anadirLabel: "Add protected process",
@@ -1073,6 +1079,16 @@ let vigente: Catalogo = es;
 /** Los textos del idioma elegido. Sin proveedor delante, español. */
 export function useT(): Catalogo {
   return useContext(I18nContext);
+}
+
+/**
+ * El idioma elegido, para lo que no es un texto del catálogo: las notas de un release llegan de
+ * GitHub en los dos idiomas y hay que saber qué mitad enseñar (T13-04). Sale del propio catálogo,
+ * sin un segundo contexto que pudiera decir otra cosa.
+ */
+export function useIdioma(): Language {
+  const t = useT();
+  return (Object.keys(CATALOGOS) as Language[]).find((l) => CATALOGOS[l] === t) ?? "es";
 }
 
 /** El catálogo vigente sin pasar por React. **Solo para lo que vive fuera del proveedor.** */

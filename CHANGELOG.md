@@ -16,6 +16,20 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+### Añadido
+- **Java, Deno y Bun se vigilan de fábrica**, cada uno con su icono, su filtro y su entrada en el
+  menú de la bandeja. La fila de un Java dice su clase principal o su `.jar`, y la de Deno o Bun,
+  el script o la tarea (`bun run dev` → `dev`). Si usas un programa en Java que no es de
+  desarrollo, protégelo en Ajustes: Nuke All, la bandeja, el atajo y el Auto-Kill lo cerrarían.
+  (T13-01)
+- **Las notas de cada versión, también en inglés.** Con la app en inglés, Ajustes enseña en inglés
+  lo que trae una versión nueva. Las versiones publicadas antes de esta solo tienen notas en
+  español. (T13-04)
+
+### Cambiado
+- El sidebar solo enseña los filtros de los runtimes que tienen procesos, más el que esté
+  pulsado. Con seis runtimes de fábrica, enseñarlos todos no cabía. (T13-01)
+
 ### Interno
 - Ocho dependencias de desarrollo suben por avisos de seguridad (`undici`, `hono`,
   `brace-expansion`, `ip-address`, `fast-uri`, `js-yaml`, `vitest` y `qs`). Ninguna viaja en el

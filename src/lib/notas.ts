@@ -1,4 +1,5 @@
 import type { Rico } from "../i18n";
+import type { Language } from "../types";
 
 /**
  * Un trozo de las notas de un release, listo para pintar. El texto es un [`Rico`]: conserva
@@ -15,6 +16,13 @@ export type BloqueNota =
  * un botón, así que de ahí en adelante no se enseña nada.
  */
 const COLA = "descarga";
+
+/**
+ * El título bajo el que `release.ps1` pone las notas en inglés, sacadas de `CHANGELOG.en.md`
+ * (T13-04). Lo de antes es el español; lo de después, hasta `COLA`, el inglés. Igual que `COLA`:
+ * no se cambia aquí sin cambiarlo allí, y `notas.test.ts` lo vigila.
+ */
+const INGLES = "english";
 
 /**
  * Deja una línea en lo que `Marcado` entiende: fuera etiquetas HTML (`<kbd>`), enlaces reducidos a
@@ -45,9 +53,16 @@ function limpiar(texto: string): Rico {
  * cortada donde la cortó el editor.
  *
  * Lo que se devuelve se pinta como texto de React, nunca como HTML: las notas vienen de internet.
+ *
+ * **Las notas traen los dos idiomas** desde la v1.10.0, el inglés bajo el título `INGLES`, y se
+ * devuelve la mitad de `idioma`. Los releases anteriores solo traen español, y uno cortado con
+ * `-NotesFile` puede no traer inglés: entonces se enseña el español, que es mejor que no enseñar
+ * nada de lo que trae la versión.
  */
-export function leerNotas(markdown: string): BloqueNota[] {
-  const bloques: BloqueNota[] = [];
+export function leerNotas(markdown: string, idioma: Language = "es"): BloqueNota[] {
+  const espanol: BloqueNota[] = [];
+  const ingles: BloqueNota[] = [];
+  let bloques = espanol;
   // El bloque al que se pega una línea de continuación; `null` tras una línea en blanco.
   let abierto: "parrafo" | "item" | null = null;
   let enCodigo = false;
@@ -80,6 +95,11 @@ export function leerNotas(markdown: string): BloqueNota[] {
     if (titulo) {
       const texto = limpiar(titulo[1]);
       if (texto.toLowerCase() === COLA) break;
+      if (texto.toLowerCase() === INGLES) {
+        bloques = ingles;
+        abierto = null;
+        continue;
+      }
       if (texto) bloques.push({ tipo: "titulo", texto });
       abierto = null;
       continue;
@@ -105,11 +125,16 @@ export function leerNotas(markdown: string): BloqueNota[] {
 
   // Se limpia al final y no línea a línea: una negrita o un enlace pueden empezar en una línea y
   // acabar en la siguiente.
-  return bloques
-    .map((b): BloqueNota =>
-      b.tipo === "lista"
-        ? { tipo: "lista", items: b.items.map(limpiar).filter(Boolean) }
-        : { ...b, texto: limpiar(b.texto) },
-    )
-    .filter((b) => (b.tipo === "lista" ? b.items.length > 0 : b.texto !== ""));
+  const limpios = (mitad: BloqueNota[]) =>
+    mitad
+      .map((b): BloqueNota =>
+        b.tipo === "lista"
+          ? { tipo: "lista", items: b.items.map(limpiar).filter(Boolean) }
+          : { ...b, texto: limpiar(b.texto) },
+      )
+      .filter((b) => (b.tipo === "lista" ? b.items.length > 0 : b.texto !== ""));
+
+  // Se elige después de limpiar: una mitad inglesa que solo tuviera una tabla quedaría en nada.
+  const enIngles = idioma === "en" ? limpios(ingles) : [];
+  return enIngles.length > 0 ? enIngles : limpios(espanol);
 }

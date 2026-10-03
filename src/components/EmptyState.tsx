@@ -16,8 +16,8 @@ type EmptyStateProps = {
  * Son dos situaciones que se parecen en pantalla y no tienen nada que ver: no
  * haber encontrado nada, y no estar buscando lo correcto. La primera es lo
  * primero que ve alguien que acaba de instalar la app, y decir solo "no hay
- * procesos" la deja en un callejon sin salida: Node, Python y .NET se vigilan
- * siempre, pero quien trabaje con Go, Docker o PHP no vera nunca nada hasta que
+ * procesos" la deja en un callejon sin salida: Node, Python, .NET, Java, Deno
+ * y Bun se vigilan siempre, pero quien trabaje con Go, Docker o PHP no vera nunca nada hasta que
  * los añada, y eso no se adivina.
  */
 export function EmptyState({ sinProcesos, onIrAAjustes, onQuitarFiltro }: EmptyStateProps) {

@@ -87,7 +87,7 @@ impl Hotkey {
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
 pub struct Settings {
-    /// Nombres extra a vigilar ademas de node/python/dotnet (ej. "docker", "go").
+    /// Nombres extra a vigilar ademas de los de fabrica (`Runtime::BUILT_INS`) (ej. "docker", "go").
     pub custom_names: Vec<String>,
     /// Si el atajo global esta activo.
     ///

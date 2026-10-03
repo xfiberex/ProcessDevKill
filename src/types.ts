@@ -1,5 +1,5 @@
 /** Espejo de `Runtime` en src-tauri/src/processes.rs. */
-export type Runtime = "node" | "python" | "dotnet" | "other";
+export type Runtime = "node" | "python" | "dotnet" | "java" | "deno" | "bun" | "other";
 
 /** Espejo de `ProcessInfo` en src-tauri/src/processes.rs. */
 export type ProcessInfo = {
@@ -298,6 +298,9 @@ export const RUNTIME_COLORS: Record<Runtime, string> = {
   node: "var(--color-node)",
   python: "var(--color-python)",
   dotnet: "var(--color-dotnet)",
+  java: "var(--color-java)",
+  deno: "var(--color-deno)",
+  bun: "var(--color-bun)",
   other: "var(--color-other)",
 };
 

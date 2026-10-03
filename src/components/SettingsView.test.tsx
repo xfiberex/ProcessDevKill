@@ -466,6 +466,43 @@ describe("actualizaciones", () => {
     expect(notas).toHaveAttribute("tabindex", "0");
   });
 
+  /**
+   * T13-04. Desde la v1.10.0 las notas traen los dos idiomas; qué mitad es cuál lo prueba
+   * `notas.test.ts`, y aquí, que la ventana enseña la de su idioma y no la otra.
+   */
+  describe("con unas notas en los dos idiomas", () => {
+    const estado: UpdateState = {
+      fase: "disponible",
+      version: "1.10.0",
+      notas: "### Añadido\n- Vigila Java.\n\n## English\n\n### Added\n- Watches Java.\n\n### Descarga\n\nTabla.",
+    };
+
+    it("la app en español enseña las españolas", () => {
+      pintar({}, estado);
+
+      const notas = screen.getByRole("region", { name: "Novedades de la versión" });
+      expect(within(notas).getByRole("listitem")).toHaveTextContent("Vigila Java.");
+      expect(notas).not.toHaveTextContent(/Watches|English|Added/);
+    });
+
+    it("la app en inglés enseña las inglesas", () => {
+      render(
+        <I18nProvider language="en">
+          <SettingsView
+            settings={{ ...DEFAULT_TEST_SETTINGS, language: "en" }}
+            onChange={vi.fn()}
+            updater={updaterFalso(estado)}
+          />
+        </I18nProvider>,
+      );
+
+      const notas = screen.getByRole("region", { name: "What's new in this version" });
+      expect(within(notas).getByRole("heading", { name: "Added" })).toBeInTheDocument();
+      expect(within(notas).getByRole("listitem")).toHaveTextContent("Watches Java.");
+      expect(notas).not.toHaveTextContent(/Vigila|Añadido|English|Descarga/);
+    });
+  });
+
   /** Descargar y reiniciar no puede pasar sin que el usuario lo pida. */
   it("no instala hasta que se pulsa el boton", async () => {
     const { user, updater } = pintar(

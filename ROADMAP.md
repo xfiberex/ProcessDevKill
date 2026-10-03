@@ -43,7 +43,7 @@ que se puede hacer sin depender de otra persona.*
 >
 > Esfuerzo: **bajo** = una sesión corta; **medio** = una sesión larga o dos.
 
-- [ ] **[T13-01] Java, Deno y Bun, vigilados de fábrica**
+- [x] **[T13-01] Java, Deno y Bun, vigilados de fábrica**
   - **Ubicación:** `src-tauri/src/processes.rs` (`Runtime`, `classify`, `OPCIONES_CON_VALOR`),
     `src-tauri/src/tray.rs`, `src-tauri/src/textos.rs`, `src/types.ts`, `src/icons.tsx`,
     `src/i18n.tsx`, `tools/prueba-en-marcha.mjs`
@@ -70,8 +70,25 @@ que se puede hacer sin depender de otra persona.*
     sale en su filtro y se cierra; si el equipo no tiene Java, Deno o Bun, `lanzar_disfrazado` da
     la copia con el nombre, y se dice.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-10-02.** `Runtime` gana `Java` (`java` y `javaw`), `Deno` y `Bun` (`bun` y
+    `bunx`), con su espejo en `types.ts` —que ahora vigila `types.test.ts`, como los demás enums—,
+    icono, color, filtro, textos y entrada en la bandeja. La bandeja saca el id de cada entrada de
+    una sola función (`tray::id_de`), para que el menú y el clic no puedan desincronizarse.
+    `describe` lee cada ejecutable con su `Sintaxis`: opciones con valor, verbos que se saltan
+    (`run`, `task`, `x`…) y verbos detrás de los que va código (`deno eval`, `bun exec`), que no se
+    enseña. Probado: la negativa obligatoria, **`un_java_protegido_no_cae_por_ninguna_via`**, con
+    una copia de `PING.EXE` llamada `java.exe` —la bandeja, el atajo y la ventana no lo cierran;
+    sin proteger, sí—, más los nombres parecidos que no entran (`javaws`, `javac`, `bunny`,
+    `denort`…) y la lectura de Gradle, Spring Boot, Deno y Bun. En marcha, los tres salen con su
+    runtime, en su filtro, y Kill los cierra. **Lo que no se vio en marcha**: la descripción de la
+    fila, porque `PING` no acepta argumentos de Java; solo la prueban las de Rust. Los colores
+    pasan de 4,34:1 en el peor caso, y los iconos se miraron a 16 px en los dos temas.
+  - **Una decisión que no estaba en la tarea:** el sidebar solo pinta los filtros de los runtimes
+    con procesos, más el activo (CONTEXT §4). Con cinco runtimes vivos a la vez y el aviso de
+    administrador, la navegación hace scroll al alto de fábrica; es el caso extremo, y el que el
+    sidebar ya preveía.
 
-- [ ] **[T13-02] Los avisos de las dependencias de desarrollo, resueltos o explicados**
+- [x] **[T13-02] Los avisos de las dependencias de desarrollo, resueltos o explicados**
   - **Ubicación:** `package.json`, `package-lock.json`, este ROADMAP
   - **Qué hacer:** el 2026-10-02, después de los PR de Dependabot, `npm audit` da **7 avisos, 6 altos
     y 1 moderado**, no el moderado solo que se había anotado. Los altos son de `braces`, por
@@ -81,8 +98,8 @@ que se puede hacer sin depender de otra persona.*
   - **Criterio de aceptación:** el resumen de la CI enseña 0 avisos, o cada uno que quede tiene
     escrito aquí por qué. `node tools/avisos-de-terceros.mjs --comprobar` sigue en verde.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
-  - **Hecho en local el 2026-10-02; falta verlo en el resumen de la CI tras el push.** Producción
-    sigue a 0. `qs` sube de 6.15.3 a 6.16.0 con `npm update qs`, que cierra los dos avisos
+  - **Hecho el 2026-10-02, y visto en la CI el 2026-10-03** (`79860f1`, en verde): la auditoría
+    de producción da 0, y la de desarrollo, los 6 altos de `braces` y nada más. `qs` sube de 6.15.3 a 6.16.0 con `npm update qs`, que cierra los dos avisos
     moderados y solo toca esa entrada del lockfile. **`npm audit fix` no sirve aquí**: de paso sube
     `shadcn` de 3.8.3 a 3.8.5 sin quitar ningún aviso, y `shadcn` sí viaja —su `tailwind.css` va en
     el CSS compilado—, así que obligaba a regenerar los avisos de terceros a cambio de nada.
@@ -104,6 +121,12 @@ que se puede hacer sin depender de otra persona.*
     sigue como está.
   - **Criterio de aceptación:** una ejecución en verde con su enlace, o el motivo exacto del fallo.
   - **Esfuerzo:** bajo a medio · **Depende de:** ninguna
+  - **Escrito el 2026-10-03, sin ejecutar.** `.github/workflows/en-marcha.yml`: un workflow
+    aparte, solo `workflow_dispatch`, con las mismas acciones fijadas por SHA que `ci.yml`. No se
+    puede lanzar hasta que esté en `main`. **Falta lo que pide la tarea**: subirlo, lanzarlo con
+    `gh workflow run en-marcha.yml` y anotar aquí el enlace de la ejecución o por qué falla. Lo
+    que puede fallar sin que sea la app: el runner sin escritorio, y la cuota de la API de GitHub
+    sin autenticar, que desde un runner se comparte.
 
 - [ ] **[T13-04] Las notas de cada versión, también en inglés** (T12-36)
   - **Ubicación:** `CHANGELOG.md`, `src/lib/notas.ts`, `src/lib/notas.test.ts`, `release.ps1`
@@ -113,6 +136,18 @@ que se puede hacer sin depender de otra persona.*
   - **Criterio de aceptación:** `notas.test.ts` cubre los dos idiomas y la falta del inglés (cae
     al español, no a nada); en vivo, la app en inglés enseña las notas en inglés.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-10-03 y probado en las suites; en vivo no se puede ver hasta el corte.** El
+    inglés vive en `CHANGELOG.en.md`, que empieza en la v1.10.0; `release.ps1` lo pone en el
+    cuerpo del release bajo el título «English» y aborta si la versión no tiene su sección ahí;
+    `leerNotas` parte por ese título y devuelve la mitad del idioma de la app (CONTEXT §4).
+    Probado: los dos idiomas, la caída al español sin mitad inglesa o con una vacía, las notas
+    reales de la v1.8.0, la atadura del título con `release.ps1`, que la ventana usa el idioma, y
+    que los dos CHANGELOG tienen la misma forma. La función de `release.ps1` se ejecutó suelta
+    sobre una copia con la sección ya titulada: saca las dos mitades y da vacío para la v1.9.1.
+    **Lo que falta, y por qué la casilla sigue sin marcar:** verlo en la ventana. Hace falta un
+    release con notas en inglés y una copia más vieja que él, y eso solo pasa justo después de
+    cortar la v1.10.0, con `node tools/prueba-en-marcha.mjs --sin-compilar`. El paso está escrito
+    en el guion y nunca ha corrido. Tampoco se ha hecho un `-DryRun` con las dos secciones.
 
 - [ ] **[T13-05] Una actualización de punta a punta, vista** (T12-02)
   - **Qué hacer:** con la v1.9.1 instalada, actualizar a la v1.10.0 desde la app: una vez normal y

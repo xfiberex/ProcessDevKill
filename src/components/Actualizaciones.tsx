@@ -5,7 +5,7 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import type { useUpdater } from "../hooks/useUpdater";
-import { Marcado, useT } from "../i18n";
+import { Marcado, useIdioma, useT } from "../i18n";
 import { leerNotas } from "../lib/notas";
 import { Button } from "@/components/ui/button";
 
@@ -26,12 +26,13 @@ type ActualizacionesProps = {
  *
  * Hasta la v1.8.1 se pintaban tal cual, con sus `###`, sus `**` y sus `<kbd>` a la vista.
  * `leerNotas` las reduce a títulos, párrafos y listas, y aquí se pintan como texto de React.
+ * Desde la v1.10.0 traen los dos idiomas, y se enseña el de la app (T13-04).
  *
  * `tabIndex` y nombre porque la caja tiene scroll y dentro no hay nada enfocable: sin eso, con
  * teclado no se puede leer más allá de lo que cabe (la misma razón que `ViewBody` con `label`).
  */
 function Notas({ markdown, etiqueta }: { markdown: string; etiqueta: string }) {
-  const bloques = leerNotas(markdown);
+  const bloques = leerNotas(markdown, useIdioma());
   if (bloques.length === 0) return null;
 
   return (

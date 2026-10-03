@@ -60,6 +60,24 @@ fn kill_all_of(app: &AppHandle, runtime: Runtime) {
     );
 }
 
+/// El id de la entrada «Cerrar todos los …» de un runtime.
+///
+/// En un solo sitio, y no un `match` al armar el menú y otro al recibir el clic (T13-01): con seis
+/// runtimes, añadir uno en el primero y olvidarlo en el segundo era una entrada que no hacía nada
+/// al pulsarla. El `match` es **exhaustivo** a propósito —sin comodín—, para que un runtime nuevo
+/// en el enum sea un error de compilación aquí y no una entrada con la etiqueta de otro.
+fn id_de(runtime: Runtime) -> &'static str {
+    match runtime {
+        Runtime::Node => "kill_node",
+        Runtime::Python => "kill_python",
+        Runtime::Dotnet => "kill_dotnet",
+        Runtime::Java => "kill_java",
+        Runtime::Deno => "kill_deno",
+        Runtime::Bun => "kill_bun",
+        Runtime::Other => "kill_other",
+    }
+}
+
 /// Arma el menu en el idioma pedido.
 ///
 /// Aparte de `build` porque el menu se rehace al cambiar de idioma en Ajustes: Windows no
@@ -72,19 +90,12 @@ fn menu(app: &AppHandle, lang: Language) -> tauri::Result<Menu<Wry>> {
     let quit = MenuItemBuilder::with_id("quit", t.salir).build(app)?;
 
     // Una entrada por runtime de fabrica, recorriendo `BUILT_INS` en vez de escribir las tres a
-    // mano: asi la traduccion se pide una sola vez. El `match` de los ids es **exhaustivo** a
-    // proposito —sin comodin—, para que un runtime nuevo en el enum sea un error de compilacion
-    // aqui y no una entrada de menu con la etiqueta de otro.
+    // mano: asi la traduccion se pide una sola vez.
     let cierres: Vec<_> = Runtime::BUILT_INS
         .iter()
         .map(|runtime| {
-            let id = match runtime {
-                Runtime::Node => "kill_node",
-                Runtime::Python => "kill_python",
-                Runtime::Dotnet => "kill_dotnet",
-                Runtime::Other => "kill_other",
-            };
-            MenuItemBuilder::with_id(id, textos::cerrar_todos(lang, runtime.label())).build(app)
+            MenuItemBuilder::with_id(id_de(*runtime), textos::cerrar_todos(lang, runtime.label()))
+                .build(app)
         })
         .collect::<tauri::Result<_>>()?;
 
@@ -135,11 +146,12 @@ pub fn build(app: &AppHandle, lang: Language) -> tauri::Result<()> {
         .menu(&menu(app, lang)?)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show" => show_main_window(app),
-            "kill_node" => kill_all_of(app, Runtime::Node),
-            "kill_python" => kill_all_of(app, Runtime::Python),
-            "kill_dotnet" => kill_all_of(app, Runtime::Dotnet),
             "quit" => app.exit(0),
-            _ => {}
+            id => {
+                if let Some(runtime) = Runtime::BUILT_INS.into_iter().find(|r| id_de(*r) == id) {
+                    kill_all_of(app, runtime);
+                }
+            }
         })
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
@@ -154,4 +166,21 @@ pub fn build(app: &AppHandle, lang: Language) -> tauri::Result<()> {
         .build(app)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// El clic se resuelve buscando el id entre los de `BUILT_INS`: con dos runtimes que
+    /// compartieran id, pulsar uno cerraría los procesos del otro.
+    #[test]
+    fn cada_runtime_de_la_bandeja_tiene_su_propio_id() {
+        let mut ids: Vec<_> = Runtime::BUILT_INS.into_iter().map(id_de).collect();
+        let total = ids.len();
+        ids.sort_unstable();
+        ids.dedup();
+        assert_eq!(ids.len(), total, "hay dos runtimes con el mismo id: {ids:?}");
+        assert!(!ids.contains(&"show") && !ids.contains(&"quit"));
+    }
 }

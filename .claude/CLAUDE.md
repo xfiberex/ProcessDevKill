@@ -34,6 +34,8 @@ que es lo que pasa siempre. Al añadir una regla aquí, no se replica en ningún
   cuando está escrita. Si se probó a medias, se dice qué quedó fuera.
 - **Lo que cambia para quien usa la app se anota en la sección «Sin publicar» del CHANGELOG** al
   hacerlo, no al cortar la versión. Y si el README describe algo que aún no está publicado, lo dice.
+  **Y se traduce a la vez en `CHANGELOG.en.md`**, con los mismos títulos y el mismo número de
+  cambios bajo cada uno: `notas.test.ts` compara los dos archivos (T13-04).
 - Toda decisión técnica que contradiga o precise el roadmap se anota en CONTEXT.md §4 con su fecha.
 
 ## Comentarios
@@ -147,7 +149,9 @@ node tools/avisos-de-terceros.mjs --comprobar   # que THIRD-PARTY-NOTICES.txt es
   `--sin-compilar` reutiliza el binario cuando solo ha cambiado el guion.
 - **Es la excepción a «una comprobación nueva va en los dos sitios»**: las pruebas en marcha no
   están en la CI. Piden una compilación de release entera y un escritorio donde abrir la ventana;
-  mientras no se pruebe que el runner lo aguanta, viven solo en el corte.
+  mientras no se pruebe que el runner lo aguanta, viven solo en el corte. Para probarlo está
+  `.github/workflows/en-marcha.yml`, que solo se lanza a mano (`gh workflow run en-marcha.yml`) y
+  no bloquea nada (T13-03).
 
 - **La CI (`.github/workflows/ci.yml`) repite las comprobaciones de `release.ps1`** en cada push y
   PR, en `windows-latest`. Una comprobación nueva se añade **en los dos sitios**, o la CI dejará de
@@ -237,6 +241,12 @@ una sección `## [X.Y.Z] — fecha`, con su enlace al final del archivo, y se co
 el script aborta. El dry run enseña las notas que publicaría. Lo que el script añade detrás empieza
 por el título «Descarga», y **la app deja de leer las notas ahí** (`src/lib/notas.ts`): ese título
 no se cambia en un sitio sin el otro, y `notas.test.ts` lo vigila.
+
+**Las notas van en los dos idiomas** (T13-04). La sección `## [X.Y.Z]` tiene que estar también en
+`CHANGELOG.en.md`, traducida; sin ella el script aborta igual. El script la pone detrás del
+español, bajo el título «English», y la app enseña la mitad de su idioma: con ese título pasa lo
+mismo que con «Descarga». Un release sin mitad inglesa —todos hasta la v1.9.1— se lee en español
+también con la app en inglés.
 
 La versión vive en **tres** sitios que tienen que ir a la vez: `tauri.conf.json` (la que manda),
 `package.json` y `Cargo.toml`. El script los toca los tres, y con ellos los dos lockfiles, que la

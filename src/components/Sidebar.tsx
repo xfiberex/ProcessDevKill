@@ -132,16 +132,25 @@ export function Sidebar({
               active={filter === "all"}
               onClick={() => onFilterChange("all")}
             />
-            {(Object.keys(RUNTIME_COLORS) as Runtime[]).map((runtime) => (
-              <FilterButton
-                key={runtime}
-                label={t.runtimes[runtime]}
-                runtime={runtime}
-                count={processes.filter((p) => p.runtime === runtime).length}
-                active={filter === runtime}
-                onClick={() => onFilterChange(runtime)}
-              />
-            ))}
+            {/* Solo los runtimes que tienen procesos, más el filtro activo aunque se quede a cero:
+                que desaparezca el botón que se acaba de pulsar dejaría sin forma de ver qué filtra.
+                Con los siete siempre (T13-01), el sidebar pedía ~660 px y a 680 —el alto de
+                fábrica— el aviso de administrador ya no cabía sin scroll (ver `AvisoSinAdmin`). Que
+                se vigilan los seis lo dicen el estado vacío y Ajustes; aquí se cuenta lo que hay. */}
+            {(Object.keys(RUNTIME_COLORS) as Runtime[]).map((runtime) => {
+              const count = processes.filter((p) => p.runtime === runtime).length;
+              if (count === 0 && filter !== runtime) return null;
+              return (
+                <FilterButton
+                  key={runtime}
+                  label={t.runtimes[runtime]}
+                  runtime={runtime}
+                  count={count}
+                  active={filter === runtime}
+                  onClick={() => onFilterChange(runtime)}
+                />
+              );
+            })}
           </div>
         )}
 
@@ -201,7 +210,7 @@ export function Sidebar({
  * siempre así; aquí solo cabe qué falta.
  *
  * **Cabe en el hueco, no lo agranda.** Con los filtros desplegados el sidebar pide 582 px sin el
- * aviso, así que a 680 —el alto de fábrica— quedan 98: el aviso entero mide unos 84. Por debajo va
+ * aviso —con cuatro runtimes con procesos; los que no tienen no se pintan (T13-01)—, así que a 680 —el alto de fábrica— quedan 98: el aviso entero mide unos 84. Por debajo va
  * por escalones, para que la navegación no tenga que hacer scroll: de 620 a 679 px de alto, solo
  * el título (el detalle pasa a `sr-only`); por debajo de 620, nada, que el sidebar ya va justo
  * (Tier 11, C3) y lo que no puede quedar fuera es el auto-refresco. El aviso sigue en Ajustes.

@@ -124,3 +124,108 @@ describe("las notas de un release, leídas para la ventana", () => {
     ]);
   });
 });
+
+/**
+ * T13-04. Desde la v1.10.0 el cuerpo de un release trae las notas en español, luego las mismas en
+ * inglés bajo el título «English», y al final la cola de «Descarga».
+ */
+describe("las notas en los dos idiomas", () => {
+  const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+  const DOBLES =
+    "Resumen.\n\n### Añadido\n- Uno.\n\n## English\n\nSummary.\n\n### Added\n- One.\n\n---\n\n### Descarga\n\nTabla.";
+
+  it("en español enseña la mitad española, sin el inglés ni la descarga", () => {
+    expect(leerNotas(DOBLES, "es")).toEqual([
+      { tipo: "parrafo", texto: "Resumen." },
+      { tipo: "titulo", texto: "Añadido" },
+      { tipo: "lista", items: ["Uno."] },
+    ]);
+    // Sin decir idioma, español: es lo que enseñaba la app antes de que hubiera dos.
+    expect(leerNotas(DOBLES)).toEqual(leerNotas(DOBLES, "es"));
+  });
+
+  it("en inglés enseña la mitad inglesa, sin el español, el título «English» ni la descarga", () => {
+    expect(leerNotas(DOBLES, "en")).toEqual([
+      { tipo: "parrafo", texto: "Summary." },
+      { tipo: "titulo", texto: "Added" },
+      { tipo: "lista", items: ["One."] },
+    ]);
+  });
+
+  /**
+   * El criterio negativo: todos los releases hasta la v1.9.1 solo traen español, y uno cortado con
+   * `-NotesFile` puede no traer inglés. La app en inglés enseña el español, no una caja vacía.
+   */
+  it("sin mitad inglesa, la app en inglés cae al español y no a nada", () => {
+    const soloEspanol = "Resumen.\n\n- Uno.\n\n### Descarga\n\nTabla.";
+    expect(leerNotas(soloEspanol, "en")).toEqual(leerNotas(soloEspanol, "es"));
+    expect(leerNotas(soloEspanol, "en")).not.toEqual([]);
+
+    // El título está pero debajo no hay nada que pintar: tampoco vale una caja vacía.
+    const inglesVacio = "- Uno.\n\n## English\n\n| a |\n|---|\n\n### Descarga\n\nTabla.";
+    expect(leerNotas(inglesVacio, "en")).toEqual([{ tipo: "lista", items: ["Uno."] }]);
+  });
+
+  it("las notas reales de la v1.8.0, que no tienen inglés, salen igual en los dos idiomas", () => {
+    const v180 = readFileSync(path.join(raiz, "src/test/notas-v1.8.0.md"), "utf8");
+    expect(leerNotas(v180, "en")).toEqual(leerNotas(v180, "es"));
+  });
+
+  /** La misma atadura que con «Descarga»: el título lo escribe otro archivo, en otro lenguaje. */
+  it("release.ps1 pone el inglés bajo el título que la app busca, entre el español y la cola", () => {
+    const script = readFileSync(path.join(raiz, "release.ps1"), "utf8");
+    const titulo = /\$tituloIngles = "(#{1,6} [^"]+)"/.exec(script)?.[1];
+
+    expect(titulo).toBe("## English");
+    expect(script).toContain('"$seccion`n`n$tituloIngles`n`n$seccionEn`n`n$cola`n"');
+    expect(leerNotas(`- Uno.\n\n${titulo}\n\n- One.`, "en")).toEqual([
+      { tipo: "lista", items: ["One."] },
+    ]);
+  });
+
+  /**
+   * `CHANGELOG.en.md` se traduce al escribir el cambio, no al cortar: `release.ps1` aborta si la
+   * versión no tiene su sección inglesa, pero que la tenga **a medias** solo se vería en el
+   * release publicado. Se comparan los títulos y cuántos cambios hay bajo cada uno.
+   */
+  it("cada sección de CHANGELOG.en.md tiene la misma forma que la de CHANGELOG.md", () => {
+    const TITULOS: Record<string, string> = {
+      Added: "Añadido",
+      Changed: "Cambiado",
+      Fixed: "Corregido",
+      Removed: "Eliminado",
+      Security: "Seguridad",
+      Documentation: "Documentación",
+      Internal: "Interno",
+    };
+    /** Por versión, la lista de `título: nº de cambios`. */
+    const forma = (archivo: string, traducir: boolean) => {
+      const secciones = new Map<string, string[]>();
+      let actual: string[] | null = null;
+      for (const linea of readFileSync(path.join(raiz, archivo), "utf8").split(/\r?\n/)) {
+        const version = /^## \[([^\]]+)\]/.exec(linea)?.[1];
+        const titulo = /^### (.+)$/.exec(linea)?.[1];
+        if (version) {
+          const clave = version === "Unreleased" ? "Sin publicar" : version;
+          secciones.set(clave, (actual = []));
+        } else if (titulo && actual) {
+          actual.push(`${traducir ? (TITULOS[titulo] ?? `¿${titulo}?`) : titulo}: 0`);
+        } else if (/^- /.test(linea) && actual?.length) {
+          const [nombre, n] = actual[actual.length - 1].split(": ");
+          actual[actual.length - 1] = `${nombre}: ${Number(n) + 1}`;
+        }
+      }
+      return secciones;
+    };
+
+    const es = forma("CHANGELOG.md", false);
+    const en = forma("CHANGELOG.en.md", true);
+
+    expect(en.size, "CHANGELOG.en.md no tiene ninguna sección").toBeGreaterThan(0);
+    for (const [version, titulos] of en) {
+      expect(es.get(version), `la versión ${version} no está en CHANGELOG.md`).toEqual(titulos);
+    }
+    // Lo que está sin publicar se traduce a la vez que se escribe.
+    expect(en.get("Sin publicar")).toEqual(es.get("Sin publicar"));
+  });
+});

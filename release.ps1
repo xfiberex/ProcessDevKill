@@ -5,7 +5,8 @@
 .DESCRIPTION
     Flujo completo en un paso:
       1. Valida la versión y el árbol de trabajo, y saca las notas del release de la sección
-         `## [X.Y.Z]` de CHANGELOG.md. Sin esa sección no hay corte.
+         `## [X.Y.Z]` de CHANGELOG.md, y las mismas en inglés de CHANGELOG.en.md. Sin esas dos
+         secciones no hay corte.
       2. Ejecuta las comprobaciones (salvo -SkipTests): `cargo test`, `cargo clippy`, `cargo audit`,
          `npm audit --omit=dev`, `npm run lint`, `npm test`, `npm run build` y, al final, **las
          pruebas con la app en marcha** (`tools\prueba-en-marcha.mjs`): compila una copia aparte,
@@ -86,8 +87,9 @@
 
 .PARAMETER NotesFile
     Ruta a un archivo Markdown con las notas del release, para publicar otras que las del
-    CHANGELOG. Si se omite —lo normal—, las notas son la sección `## [X.Y.Z]` de CHANGELOG.md más
-    la tabla de descarga, y el corte ABORTA si esa sección no existe o está vacía (T12-23).
+    CHANGELOG. Si se omite —lo normal—, las notas son la sección `## [X.Y.Z]` de CHANGELOG.md, la
+    misma sección de CHANGELOG.en.md bajo el título «English» y la tabla de descarga, y el corte
+    ABORTA si alguna de las dos secciones no existe o está vacía (T12-23, T13-04).
 
 .PARAMETER SkipTests
     Omite todas las comprobaciones del paso 2. Solo tiene sentido justo despues de un -DryRun que
@@ -492,6 +494,7 @@ $packageJson= Join-Path $root "package.json"
 $cargoToml  = Join-Path $root "src-tauri\Cargo.toml"
 $bundleDir  = Join-Path $root "src-tauri\target\release\bundle"
 $changelog  = Join-Path $root "CHANGELOG.md"
+$changelogEn= Join-Path $root "CHANGELOG.en.md"
 
 $packageLock= Join-Path $root "package-lock.json"
 foreach ($f in @($tauriConf, $packageJson, $cargoToml)) {
@@ -613,6 +616,17 @@ try {
             Die "CHANGELOG.md no tiene una sección '## [$Version]' con contenido. Pasa lo de «Sin publicar» a esa sección —con su fecha y su enlace al final del archivo— y commitéalo, o usa -NotesFile."
         }
 
+        # Las mismas notas, en inglés (T13-04). La app enseña la mitad de su idioma: lo que va
+        # antes de este título es el español, y lo que va después, hasta «Descarga», el inglés
+        # (`INGLES` en src/lib/notas.ts). Si se cambia el título aquí, se cambia allí. Sin la
+        # sección no hay corte: quien tiene la app en inglés leería la versión nueva en español,
+        # y eso solo se nota con el release ya fuera.
+        $tituloIngles = "## English"
+        $seccionEn = Get-NotasDelChangelog $changelogEn $Version
+        if (-not $seccionEn) {
+            Die "CHANGELOG.en.md no tiene una sección '## [$Version]' con contenido. Traduce ahí la de CHANGELOG.md y commitéalo, o usa -NotesFile."
+        }
+
         # La cola empieza por el título «Descarga» A PROPÓSITO: la app enseña las notas en Ajustes
         # hasta ese título y no más allá (`COLA` en src/lib/notas.ts). Quien las lee ahí ya tiene
         # la app instalada. Si se cambia el título aquí, se cambia allí.
@@ -642,9 +656,9 @@ try {
         # Write-Texto y no Out-File: en PowerShell 5.1, `-Encoding utf8` pone un BOM, y la app
         # enseña el cuerpo del release tal cual le llega.
         $tempNotes = Join-Path $env:TEMP "pdk_release_$Version.md"
-        Write-Texto $tempNotes "$seccion`n`n$cola`n"
+        Write-Texto $tempNotes "$seccion`n`n$tituloIngles`n`n$seccionEn`n`n$cola`n"
         $notesPath = $tempNotes
-        Ok "Notas del release tomadas de CHANGELOG.md, sección [$Version]."
+        Ok "Notas del release tomadas de CHANGELOG.md y CHANGELOG.en.md, sección [$Version]."
     }
     if (-not (Test-Path $notesPath)) { Die "No se encontró el archivo de notas: $notesPath" }
 

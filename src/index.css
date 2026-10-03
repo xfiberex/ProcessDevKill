@@ -35,6 +35,9 @@ body {
   --color-node: var(--runtime-node);
   --color-python: var(--runtime-python);
   --color-dotnet: var(--runtime-dotnet);
+  --color-java: var(--runtime-java);
+  --color-deno: var(--runtime-deno);
+  --color-bun: var(--runtime-bun);
   --color-other: var(--runtime-other);
 
   --color-sidebar-ring: var(--sidebar-ring);
@@ -139,6 +142,12 @@ body {
   --runtime-node: #4a8b3a;
   --runtime-python: #2f6690;
   --runtime-dotnet: #6f3cc4;
+  /* Los tres de T13-01, medidos contra el sidebar, la fila activa y el fondo: el peor da 4,34:1
+     (Java sobre la fila activa), por encima del Node de siempre. Deno es casi negro porque su
+     logo es en blanco y negro; lo separa de «Otros» el icono, no el gris. */
+  --runtime-java: #c2410c;
+  --runtime-deno: #27272a;
+  --runtime-bun: #be185d;
   --runtime-other: #64748b;
 }
 
@@ -188,6 +197,10 @@ body {
   --runtime-node: #6cb85a;
   --runtime-python: #4b93cc;
   --runtime-dotnet: #a173e8;
+  /* En oscuro, el peor de los tres es Bun: 5,15:1 sobre la fila activa. */
+  --runtime-java: #f0883e;
+  --runtime-deno: #e4e4e7;
+  --runtime-bun: #f472b6;
   --runtime-other: #94a3b8;
 }
 

@@ -423,6 +423,85 @@ async function listaYCierre(cdp) {
   });
 }
 
+/**
+ * Java, Deno y Bun, vigilados de fábrica (T13-01): que salgan con su runtime, en su filtro del
+ * sidebar, y que Kill los cierre.
+ *
+ * Son copias de `PING.EXE` con esos nombres, como en las pruebas de Rust: así no depende de que el
+ * equipo los tenga, y ningún Java del usuario puede entrar en lo que se cierra —se manda cerrar
+ * por PID, y solo los tres de aquí—. **Lo que no se ve así es la descripción de la fila**: `PING`
+ * no acepta los argumentos de Java, Deno ni Bun, así que la clase principal o el script de cada
+ * uno solo lo prueban las de `processes.rs` (`de_java_sale_la_clase_principal_o_el_jar` y las de
+ * al lado).
+ */
+async function runtimesNuevos(cdp) {
+  const ping = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "PING.EXE");
+  const lanzados = ["java", "deno", "bun"].map((runtime) => {
+    const dir = path.join(TRABAJO, `pdk-envivo-${runtime}`);
+    fs.mkdirSync(dir, { recursive: true });
+    const exe = path.join(dir, `${runtime}.exe`);
+    fs.copyFileSync(ping, exe);
+    const hijo = lanzar(exe, ["-n", "120", "127.0.0.1"], { cwd: dir });
+    return { runtime, hijo, pid: hijo.pid };
+  });
+
+  try {
+    await paso("Java, Deno y Bun salen en la lista, cada uno con su runtime", async () => {
+      const filas = await esperar(async () => {
+        const lista = await cdp.invoke("get_processes");
+        if (!lista.ok) return null;
+        const vistas = lanzados.map((l) => lista.valor.find((p) => p.pid === l.pid));
+        return vistas.every(Boolean) && vistas;
+      });
+      exigir(filas, "alguno de los tres no salió en la lista");
+      for (const [i, { runtime }] of lanzados.entries()) {
+        exigir(filas[i].runtime === runtime, `${filas[i].name} sale como «${filas[i].runtime}»`);
+      }
+      return filas.map((f) => `${f.name} → ${f.runtime}`).join(", ");
+    });
+
+    await paso("Cada uno tiene su filtro en el sidebar, y el filtro enseña su fila", async () => {
+      const titulo = await cdp.js(`document.querySelector("main h2")?.textContent`);
+      if (titulo !== "Procesos") await cdp.pulsar("Procesos", `document.querySelector("aside")`);
+      // Ya en Procesos, el mismo botón pliega y despliega los filtros, y `listaYCierre` lo pulsa
+      // estando ahí: los deja plegados. Se despliegan si hace falta, mirando su `aria-expanded`.
+      const plegados = await esperar(() =>
+        cdp.js(`(() => {
+          const b = document.querySelector("aside button[aria-expanded]");
+          return b ? b.getAttribute("aria-expanded") : null;
+        })()`),
+      );
+      if (plegados === "false") await cdp.pulsar("Procesos", `document.querySelector("aside")`);
+      const filtros = { java: "Java", deno: "Deno", bun: "Bun" };
+      for (const { runtime, pid } of lanzados) {
+        const filtro = await esperar(() =>
+          cdp.js(`[...document.querySelectorAll("aside button")]
+            .some((b) => b.textContent.trim().startsWith(${JSON.stringify(filtros[runtime])}))`),
+        );
+        const aside = filtro || (await cdp.js(`document.querySelector("aside").innerText`));
+        exigir(filtro, `no hay filtro «${filtros[runtime]}» en el sidebar: ${JSON.stringify(aside)}`);
+        await cdp.pulsar(filtros[runtime], `document.querySelector("aside")`);
+        const fila = await esperar(() =>
+          cdp.js(`Boolean(document.querySelector('[aria-label="Seleccionar PID ${pid}"]'))`),
+        );
+        exigir(fila, `con el filtro «${filtros[runtime]}» no se ve la fila del PID ${pid}`);
+      }
+      await cdp.pulsar("Todos", `document.querySelector("aside")`);
+    });
+
+    await paso("Kill cierra los tres", async () => {
+      const r = await cdp.invoke("kill_processes", { pids: lanzados.map((l) => l.pid) });
+      exigir(r.ok, r.error);
+      const fallidos = r.valor.filter((o) => !o.killed);
+      exigir(fallidos.length === 0, fallidos.map((o) => `${o.name}: ${o.error}`).join("; "));
+      const muertos = await esperar(() => lanzados.every((l) => !vivo(l.hijo)), { ms: 5_000 });
+      exigir(muertos, "Rust dijo que los cerró, pero alguno sigue vivo");
+    });
+  } finally {
+    for (const { hijo } of lanzados) hijo.kill();
+  }
+}
+
 async function vistasEIdioma(cdp) {
   await paso("Las cuatro vistas se pintan, cada una con su título", async () => {
     const vistas = [
@@ -647,7 +726,35 @@ async function actualizador(cdp) {
         "sale la tabla de descarga, que dentro de la app no hace falta",
       );
       exigir(notas.enfocable, "la caja tiene scroll y no se puede enfocar con el teclado");
-      return `${notas.titulos.join(" · ")} — ${notas.elementos} elementos`;
+      exigir(!/\bEnglish\b/.test(notas.texto), "en español sale la mitad inglesa de las notas");
+
+      // Desde la v1.10.0 el release trae también las notas en inglés (T13-04): con la app en
+      // inglés tiene que salir esa mitad y no la española. Uno anterior no las trae, y entonces
+      // no hay nada que mirar aquí: que caiga al español lo prueba `notas.test.ts`.
+      if (!/^#{1,6}\s+English\s*$/m.test(nueva.notes ?? "")) {
+        return `${notas.titulos.join(" · ")} — ${notas.elementos} elementos; sin notas en inglés`;
+      }
+      await cdp.pulsar("English", `document.querySelector("main")`);
+      try {
+        const enIngles = await esperar(() =>
+          cdp.js(`(() => {
+            const caja = document.querySelector('[role="region"][aria-label="What\\'s new in this version"]');
+            return caja ? { texto: caja.textContent, titulos: [...caja.querySelectorAll("h4")].map((h) => h.textContent) } : null;
+          })()`),
+        );
+        exigir(enIngles, "con la app en inglés no aparecieron las novedades");
+        exigir(enIngles.texto !== notas.texto, "con la app en inglés salen las mismas notas que en español");
+        exigir(
+          !enIngles.titulos.some((t) => notas.titulos.includes(t)),
+          `en inglés sale un título de la mitad española: ${enIngles.titulos.join(" · ")}`,
+        );
+        exigir(!/[#*`<|]/.test(enIngles.texto), `quedan marcas a la vista: ${enIngles.texto.slice(0, 200)}`);
+        return `${notas.titulos.join(" · ")} — en inglés: ${enIngles.titulos.join(" · ")}`;
+      } finally {
+        // Pase lo que pase, la app vuelve al español: los pasos de detrás buscan sus textos.
+        await cdp.pulsar("Español", `document.querySelector("main")`);
+        await esperar(() => cdp.js(`document.documentElement.lang === "es"`));
+      }
     });
   }
 
@@ -751,6 +858,8 @@ async function main() {
     await listaYCierre(cdp);
     await vistasEIdioma(cdp);
     await protegidos(cdp);
+    // Después de `vistasEIdioma`, que cuenta un solo cierre en el Historial: este añade tres.
+    await runtimesNuevos(cdp);
     await consultaDelArranque(cdp);
     await actualizador(cdp);
 

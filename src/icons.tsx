@@ -34,6 +34,50 @@ export function DotnetIcon({ className, style }: IconProps) {
   );
 }
 
+/** La taza con vapor: el logo de Java tiene dueño, y la taza es lo que lo reconoce todo el mundo. */
+export function JavaIcon({ className, style }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style} aria-hidden>
+      <path d="M3.5 10.5h13v4a5 5 0 0 1-5 5h-3a5 5 0 0 1-5-5v-4Z" />
+      <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+        <path d="M16.5 11.5h1.25a2.5 2.5 0 0 1 0 5H16" />
+        <path d="M3 22h15" />
+        <path d="M8 2.5c-1 1-1 2 0 3s1 2 0 3" />
+        <path d="M12 2.5c-1 1-1 2 0 3s1 2 0 3" />
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * Un círculo con el dinosaurio recortado, como el logo de Deno. De cuerpo entero, con cola y
+ * patas: la primera versión, solo cabeza y cuello, a 16 px se leía como una «R». Se eligió entre
+ * tres pintándolos dentro de la app en marcha.
+ */
+export function DenoIcon({ className, style }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style} aria-hidden>
+      <path
+        fillRule="evenodd"
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 3.2c2.3-.5 4.6.4 4.8 2.1.1 1.2-1 1.9-2.6 1.9h-.6l.2 3c1 .6 1.6 1.6 1.6 2.8v3.6h-1.7l-.4-2.2h-3.2l-.5 2.2H9l.1-2.7c-1.5-.3-2.7-1-3.6-2.3 1.4.3 2.9.1 4.1-.6l1.1-.6.2-3.3c-.1-1.6.6-2.9 2.1-3.9Z"
+      />
+      <circle cx="15" cy="7.1" r="0.8" />
+    </svg>
+  );
+}
+
+/** Un bollo con cara, como el de Bun. */
+export function BunIcon({ className, style }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style} aria-hidden>
+      <path
+        fillRule="evenodd"
+        d="M12 4.5c-5.3 0-9.5 3.6-9.5 8.1 0 3.8 4.1 6.9 9.5 6.9s9.5-3.1 9.5-6.9c0-4.5-4.2-8.1-9.5-8.1ZM7.6 12a1.2 1.2 0 1 0 2.4 0 1.2 1.2 0 0 0-2.4 0Zm6.4 0a1.2 1.2 0 1 0 2.4 0 1.2 1.2 0 0 0-2.4 0Zm-3.6 2.3h3.2a1.6 1.6 0 0 1-3.2 0Z"
+      />
+    </svg>
+  );
+}
+
 /** Para los nombres que añade el usuario, que no tienen logo propio. */
 export function GenericIcon({ className, style }: IconProps) {
   return (
@@ -47,5 +91,8 @@ export const RUNTIME_ICONS = {
   node: NodeIcon,
   python: PythonIcon,
   dotnet: DotnetIcon,
+  java: JavaIcon,
+  deno: DenoIcon,
+  bun: BunIcon,
   other: GenericIcon,
 } as const;

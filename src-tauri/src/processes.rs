@@ -18,6 +18,9 @@ pub enum Runtime {
     Node,
     Python,
     Dotnet,
+    Java,
+    Deno,
+    Bun,
     Other,
 }
 
@@ -27,6 +30,9 @@ impl Runtime {
             Runtime::Node => "Node",
             Runtime::Python => "Python",
             Runtime::Dotnet => ".NET",
+            Runtime::Java => "Java",
+            Runtime::Deno => "Deno",
+            Runtime::Bun => "Bun",
             Runtime::Other => "otros",
         }
     }
@@ -36,7 +42,14 @@ impl Runtime {
     /// Estuvo bajo `cfg(test)` mientras el menu nombraba los tres a mano. Al traducirlo (T4-01)
     /// esas tres lineas pasaron a pedir cada una su traduccion, asi que el menu se arma
     /// recorriendo esta lista y la constante dejo de ser solo de pruebas.
-    pub const BUILT_INS: [Runtime; 3] = [Runtime::Node, Runtime::Python, Runtime::Dotnet];
+    pub const BUILT_INS: [Runtime; 6] = [
+        Runtime::Node,
+        Runtime::Python,
+        Runtime::Dotnet,
+        Runtime::Java,
+        Runtime::Deno,
+        Runtime::Bun,
+    ];
 }
 
 #[derive(Serialize, Clone)]
@@ -128,6 +141,7 @@ pub fn describe(cmd: &[OsString], cwd: Option<&Path>) -> (Option<String>, Option
 /// Sin esta lista, ese valor se tomaba por el script (T12-10). Solo estan las que de verdad toman
 /// un valor aparte: meter aqui una opcion que no lo lleva haria lo contrario, saltarse el script.
 /// Por eso no esta `-c`, que en Python lleva codigo —y se trata mas abajo— y en Node no lleva nada.
+/// Las de Java, Deno y Bun van en su [`Sintaxis`], porque chocan con estas.
 ///
 /// **No resuelve el caso general, y no puede:** una opcion que la app no conoce, con su valor
 /// aparte (`node --token abc123 server.js`), sigue enseñando el valor. Lo dice el README en
@@ -156,24 +170,122 @@ const OPCIONES_CON_VALOR: &[&str] = &[
     "--additional-deps",
 ];
 
+/// Lo que un ejecutable tiene de suyo al leer su línea de comandos (T13-01).
+///
+/// Va aparte de `OPCIONES_CON_VALOR` porque estas opciones **chocan** con las de los otros: `-p` es
+/// el *module path* en Java y en Node es `--print`; `-c` es el archivo de configuración en Deno y
+/// Bun, y en Python, código en línea. Juntas en una lista, una de las dos lecturas saldría mal.
+struct Sintaxis {
+    /// Opciones que llevan su valor en el argumento siguiente, además de las comunes.
+    con_valor: &'static [&'static str],
+    /// Verbos que no dicen qué se ejecuta: se saltan y vale lo que venga detrás. Si detrás no
+    /// viene nada (`deno test`, `bun test`), el verbo es lo que mejor lo describe y sale él.
+    verbos: &'static [&'static str],
+    /// Verbos detrás de los que viene **código**, no un nombre: se enseña el verbo y se para, por
+    /// lo mismo que `-e` (ver `el_codigo_en_linea_no_se_muestra`). Por eso no están en `verbos`.
+    codigo: &'static [&'static str],
+}
+
+const SIN_SINTAXIS: Sintaxis = Sintaxis {
+    con_valor: &[],
+    verbos: &[],
+    codigo: &[],
+};
+
+/// Sin esto, `java -cp C:\libs\a.jar;C:\libs\b.jar com.app.Main` tomaba el classpath por el script y
+/// la fila decía `b.jar`. Lo que identifica un proceso de Java es su clase principal o su `.jar`;
+/// `-jar app.jar` ya salía bien, porque `-jar` no se salta como opción con valor.
+const JAVA: Sintaxis = Sintaxis {
+    con_valor: &[
+        "-cp",
+        "-classpath",
+        "--class-path",
+        "-p",
+        "--module-path",
+        "--upgrade-module-path",
+        "--add-modules",
+        "--add-opens",
+        "--add-exports",
+        "--add-reads",
+        "--patch-module",
+        "--limit-modules",
+        "--enable-native-access",
+        "--source",
+    ],
+    verbos: &[],
+    codigo: &[],
+};
+
+const DENO: Sintaxis = Sintaxis {
+    con_valor: &[
+        "-c",
+        "--config",
+        "--import-map",
+        "--lock",
+        "--cert",
+        "--location",
+        "-L",
+        "--log-level",
+        "--port",
+    ],
+    verbos: &["run", "serve", "task", "test", "bench"],
+    codigo: &["eval"],
+};
+
+const BUN: Sintaxis = Sintaxis {
+    con_valor: &[
+        "-c",
+        "--config",
+        "--cwd",
+        "--preload",
+        "--env-file",
+        "--tsconfig-override",
+        "--port",
+    ],
+    verbos: &["run", "x", "test"],
+    // `bun exec "..."` ejecuta una orden de shell entera, que puede llevar cualquier cosa.
+    codigo: &["exec"],
+};
+
+fn sintaxis_de(cmd: &[OsString]) -> &'static Sintaxis {
+    let Some(exe) = cmd.first() else {
+        return &SIN_SINTAXIS;
+    };
+    // Del primer argumento vale el nombre del archivo: suele venir con su ruta entera.
+    let exe = exe.to_string_lossy().to_lowercase();
+    let nombre = exe.rsplit(['\\', '/']).next().unwrap_or(&exe);
+    match nombre.strip_suffix(".exe").unwrap_or(nombre) {
+        "java" | "javaw" => &JAVA,
+        "deno" => &DENO,
+        "bun" | "bunx" => &BUN,
+        _ => &SIN_SINTAXIS,
+    }
+}
+
 fn script_of(cmd: &[OsString]) -> Option<String> {
+    let sintaxis = sintaxis_de(cmd);
     let mut args = cmd.iter().skip(1).map(|a| a.to_string_lossy().into_owned());
+    let mut verbo = None;
 
     while let Some(a) = args.next() {
+        // Las opciones con valor, antes que nada: en Deno y Bun, `-c` lleva un archivo y no código.
+        if sintaxis.con_valor.contains(&a.as_str()) || OPCIONES_CON_VALOR.contains(&a.as_str()) {
+            args.next();
+            continue;
+        }
         match a.as_str() {
             "-m" => return args.next().map(|m| format!("-m {m}")),
             "-e" | "-p" | "-c" | "--eval" | "--print" => return Some(a),
+            _ if sintaxis.codigo.contains(&a.as_str()) => return Some(a),
             // `dotnet exec app.dll`: el verbo no identifica nada, el ensamblado si.
             "exec" => {}
-            // Su valor va en el argumento siguiente: se consume para que no pase por el script.
-            _ if OPCIONES_CON_VALOR.contains(&a.as_str()) => {
-                args.next();
-            }
+            // Solo el primero: en `bun run test`, `test` es el script y no otro verbo.
+            _ if verbo.is_none() && sintaxis.verbos.contains(&a.as_str()) => verbo = Some(a),
             _ if a.starts_with('-') => {}
             _ => return Some(script_name(&a)),
         }
     }
-    None
+    verbo
 }
 
 /// El nombre corto de un script: el paquete si vive en `node_modules`, el archivo si no.
@@ -370,6 +482,13 @@ pub fn classify(file_name: &str, custom: &[String]) -> Option<Runtime> {
         "node" | "nodejs" => Some(Runtime::Node),
         "dotnet" => Some(Runtime::Dotnet),
         "python" | "pythonw" => Some(Runtime::Python),
+        // `javaw` es el mismo Java sin consola, y lo usan herramientas de desarrollo (Eclipse, los
+        // servidores de lenguaje). También algún programa que no lo es: por eso se protege, no se
+        // deja fuera (CONTEXT §4, 2026-10-02). `javaws`, el de Web Start, no es ninguno de los dos.
+        "java" | "javaw" => Some(Runtime::Java),
+        "deno" => Some(Runtime::Deno),
+        // `bunx` es `bun x` con otro nombre, y se instala con Bun: el proceso es el mismo Bun.
+        "bun" | "bunx" => Some(Runtime::Bun),
         _ => stem
             .strip_prefix("python")
             .filter(|v| !v.is_empty() && v.chars().all(|c| c.is_ascii_digit() || c == '.'))
@@ -769,6 +888,11 @@ mod tests {
         assert_eq!(classify("python3", SIN_EXTRAS), Some(Runtime::Python));
         assert_eq!(classify("python3.11", SIN_EXTRAS), Some(Runtime::Python));
         assert_eq!(classify("dotnet.exe", SIN_EXTRAS), Some(Runtime::Dotnet));
+        assert_eq!(classify("java.exe", SIN_EXTRAS), Some(Runtime::Java));
+        assert_eq!(classify("javaw.exe", SIN_EXTRAS), Some(Runtime::Java));
+        assert_eq!(classify("Deno.exe", SIN_EXTRAS), Some(Runtime::Deno));
+        assert_eq!(classify("bun.exe", SIN_EXTRAS), Some(Runtime::Bun));
+        assert_eq!(classify("bunx.exe", SIN_EXTRAS), Some(Runtime::Bun));
     }
 
     #[test]
@@ -777,6 +901,36 @@ mod tests {
         assert_eq!(classify("pythonista", SIN_EXTRAS), None);
         assert_eq!(classify("explorer.exe", SIN_EXTRAS), None);
         assert_eq!(classify("", SIN_EXTRAS), None);
+    }
+
+    /// El criterio negativo de T13-01: los tres runtimes nuevos se comparan exactos, como los
+    /// otros. `javaws` es Java Web Start, `jav` y `javac` no son procesos que se queden vivos, y lo
+    /// demás solo se parece en el nombre.
+    #[test]
+    fn java_deno_y_bun_no_atrapan_nombres_parecidos() {
+        for nombre in [
+            "javaws.exe",
+            "javac.exe",
+            "jav.exe",
+            "javascript.exe",
+            "java8.exe",
+            "denort.exe",
+            "denomination.exe",
+            "bunny.exe",
+            "bundle.exe",
+            "bunx-helper.exe",
+        ] {
+            assert_eq!(classify(nombre, SIN_EXTRAS), None, "{nombre} no deberia vigilarse");
+        }
+    }
+
+    /// Quien ya vigilaba `java` a mano lo tenia como «otros». Ahora es Java, y no cuenta dos veces.
+    #[test]
+    fn un_runtime_nuevo_que_ya_estaba_en_la_lista_del_usuario_pasa_a_ser_suyo() {
+        let custom = vec!["java".to_string(), "deno".to_string(), "bun".to_string()];
+        assert_eq!(classify("java.exe", &custom), Some(Runtime::Java));
+        assert_eq!(classify("deno.exe", &custom), Some(Runtime::Deno));
+        assert_eq!(classify("bun.exe", &custom), Some(Runtime::Bun));
     }
 
     #[test]
@@ -1789,6 +1943,107 @@ mod tests_identidad {
         );
     }
 
+    /// T13-01. Lo que identifica un proceso de Java es su clase principal o su `.jar`, no el
+    /// classpath: `-cp a.jar;b.jar Main` salia como `b.jar`. Las lineas son las de verdad del
+    /// demonio de Gradle y de un Spring Boot, recortadas.
+    #[test]
+    fn de_java_sale_la_clase_principal_o_el_jar() {
+        let script = |args: &[&str]| describe(&cmd(args), None).0;
+
+        assert_eq!(
+            script(&[
+                r"C:\Program Files\Java\jdk-21\bin\java.exe",
+                "-Xmx512m",
+                "-Dfile.encoding=UTF-8",
+                "-cp",
+                r"C:\Users\u\.gradle\wrapper\dists\gradle-8.5\lib\gradle-launcher-8.5.jar",
+                "org.gradle.launcher.daemon.bootstrap.GradleDaemon",
+                "8.5",
+            ])
+            .as_deref(),
+            Some("org.gradle.launcher.daemon.bootstrap.GradleDaemon")
+        );
+        assert_eq!(
+            script(&["java", "-jar", r"C:\apps\api\target\api-0.0.1.jar", "--server.port=8080"])
+                .as_deref(),
+            Some("api-0.0.1.jar")
+        );
+        assert_eq!(
+            script(&[
+                "javaw.exe",
+                "--add-opens",
+                "java.base/java.lang=ALL-UNNAMED",
+                "-p",
+                r"C:\mods",
+                "-m",
+                "com.app/com.app.Main",
+            ])
+            .as_deref(),
+            Some("-m com.app/com.app.Main")
+        );
+        assert_eq!(
+            script(&["java", "--source", "21", "Hola.java"]).as_deref(),
+            Some("Hola.java")
+        );
+    }
+
+    #[test]
+    fn de_deno_y_bun_sale_lo_que_va_detras_del_verbo() {
+        let script = |args: &[&str]| describe(&cmd(args), None).0;
+
+        assert_eq!(script(&["deno.exe", "run", "-A", "main.ts"]).as_deref(), Some("main.ts"));
+        assert_eq!(
+            script(&["deno", "serve", "--port", "8000", "server.ts"]).as_deref(),
+            Some("server.ts")
+        );
+        assert_eq!(script(&["deno", "task", "dev"]).as_deref(), Some("dev"));
+        // El servidor de lenguaje que lanza el editor: `lsp` no es un verbo que saltar.
+        assert_eq!(script(&["deno.exe", "lsp"]).as_deref(), Some("lsp"));
+        assert_eq!(
+            script(&["deno", "run", "-c", "deno.json", "main.ts"]).as_deref(),
+            Some("main.ts"),
+            "en Deno, -c es el archivo de configuracion y no codigo"
+        );
+
+        assert_eq!(script(&["bun.exe", "run", "dev"]).as_deref(), Some("dev"));
+        assert_eq!(script(&["bun", "index.ts"]).as_deref(), Some("index.ts"));
+        assert_eq!(script(&["bun", "x", "vite"]).as_deref(), Some("vite"));
+        assert_eq!(script(&["bunx.exe", "vite"]).as_deref(), Some("vite"));
+        // Un script de package.json que se llama como un verbo: el verbo es solo el primero.
+        assert_eq!(script(&["bun", "run", "test"]).as_deref(), Some("test"));
+        assert_eq!(
+            script(&["bun", "--cwd", r"C:\web", "run", "dev"]).as_deref(),
+            Some("dev")
+        );
+    }
+
+    /// Sin nada detras, el verbo es lo unico que dice que hace el proceso.
+    #[test]
+    fn un_verbo_solo_se_nombra_a_si_mismo() {
+        assert_eq!(describe(&cmd(&["deno", "test"]), None).0.as_deref(), Some("test"));
+        assert_eq!(describe(&cmd(&["bun", "test", "--watch"]), None).0.as_deref(), Some("test"));
+    }
+
+    /// El criterio negativo: el codigo que reciben `deno eval` y `bun exec` no acaba en la tabla,
+    /// igual que el de `node -e`. Y las opciones propias de un runtime no cambian como se leen
+    /// las de los demas: `-p` sigue siendo codigo en Node aunque en Java lleve una ruta.
+    #[test]
+    fn el_codigo_de_deno_y_bun_no_se_muestra_y_las_opciones_no_se_cruzan() {
+        let script = |args: &[&str]| describe(&cmd(args), None).0;
+
+        assert_eq!(
+            script(&["deno", "eval", "fetch('https://user:secreto@host')"]).as_deref(),
+            Some("eval")
+        );
+        assert_eq!(script(&["bun", "exec", "curl -u user:secreto host"]).as_deref(), Some("exec"));
+        assert_eq!(script(&["bun", "-e", "console.log(process.env)"]).as_deref(), Some("-e"));
+
+        assert_eq!(script(&["node", "-p", "process.env.TOKEN"]).as_deref(), Some("-p"));
+        assert_eq!(script(&["python", "-c", "import os"]).as_deref(), Some("-c"));
+        // Un ejecutable que no es ninguno de los tres no hereda sus verbos.
+        assert_eq!(script(&["node", "run", "x.js"]).as_deref(), Some("run"));
+    }
+
     #[test]
     fn sin_argumentos_no_hay_script() {
         assert_eq!(describe(&cmd(&["node.exe"]), None).0, None);
@@ -1877,9 +2132,8 @@ mod tests_protegidos {
     fn un_protegido_no_cae_por_ninguna_via() {
         let carpeta = std::env::temp_dir().join(format!("pdk-protegido-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&carpeta);
-        let nombre = carpeta.file_name().unwrap().to_string_lossy().to_lowercase();
 
-        let Ok(mut hijo) = std::process::Command::new("node")
+        let Ok(hijo) = std::process::Command::new("node")
             .args(["-e", "setTimeout(()=>{},60000)"])
             .current_dir(&carpeta)
             .spawn()
@@ -1887,6 +2141,52 @@ mod tests_protegidos {
             omitir("sin node instalado");
             return;
         };
+        comprobar_que_no_cae(hijo, &carpeta, Runtime::Node, Some("-e"));
+        let _ = std::fs::remove_dir(&carpeta);
+    }
+
+    /// La prueba negativa de T13-01. Java entra de fábrica, y lo que lo hace seguro para un
+    /// programa que no es de desarrollo —un juego, una aplicación de escritorio— es protegerlo.
+    /// Así que la misma comprobación que la de arriba, con un proceso que se llama `java.exe`.
+    ///
+    /// Una copia de `PING.EXE` con ese nombre y no un Java de verdad: así no depende de que el
+    /// equipo lo tenga, y nunca puede tocar uno del usuario. La bandeja y el atajo eligen entre
+    /// **todos** los `java` del equipo, pero aquí solo se mira si eligen a este, y solo se cierra él.
+    #[test]
+    fn un_java_protegido_no_cae_por_ninguna_via() {
+        let carpeta = std::env::temp_dir().join(format!("pdk-juego-java-{}", std::process::id()));
+        let copia = carpeta.join("java.exe");
+        let preparado = std::fs::create_dir_all(&carpeta).is_ok()
+            && std::fs::copy(r"C:\Windows\System32\PING.EXE", &copia).is_ok();
+        let lanzado = preparado
+            .then(|| {
+                std::process::Command::new(&copia)
+                    .args(["-n", "60", "127.0.0.1"])
+                    .current_dir(&carpeta)
+                    .stdout(std::process::Stdio::null())
+                    .spawn()
+                    .ok()
+            })
+            .flatten();
+        let Some(hijo) = lanzado else {
+            let _ = std::fs::remove_dir_all(&carpeta);
+            omitir("no se pudo lanzar la copia de PING.EXE llamada java.exe");
+            return;
+        };
+
+        comprobar_que_no_cae(hijo, &carpeta, Runtime::Java, None);
+        let _ = std::fs::remove_dir_all(&carpeta);
+    }
+
+    /// Lo común de las dos de arriba: `hijo` trabaja en `carpeta`, y se protege por el nombre de
+    /// esa carpeta. Cierra a `hijo` al terminar, pase lo que pase.
+    fn comprobar_que_no_cae(
+        mut hijo: std::process::Child,
+        carpeta: &std::path::Path,
+        runtime: Runtime,
+        script: Option<&str>,
+    ) {
+        let nombre = carpeta.file_name().unwrap().to_string_lossy().to_lowercase();
         let pid = hijo.id();
         let protegidos = vec![nombre.clone()];
 
@@ -1910,7 +2210,7 @@ mod tests_protegidos {
             return;
         };
 
-        let bandeja = pids_of_runtime(&mut sys, NADA, &protegidos, Runtime::Node);
+        let bandeja = pids_of_runtime(&mut sys, NADA, &protegidos, runtime);
         let atajo = unprotected_pids(&mut sys, NADA, &protegidos);
         let ventana = kill_many(&mut sys, NADA, &protegidos, vec![pid], &HashMap::new(), crate::storage::Language::Es);
 
@@ -1925,10 +2225,12 @@ mod tests_protegidos {
 
         let _ = hijo.kill();
         let _ = hijo.wait();
-        let _ = std::fs::remove_dir(&carpeta);
 
+        assert_eq!(visto.runtime, runtime, "la prueba no demuestra nada si no es de {runtime:?}");
         assert_eq!(visto.project.as_deref().map(str::to_lowercase), Some(nombre));
-        assert_eq!(visto.script.as_deref(), Some("-e"));
+        if script.is_some() {
+            assert_eq!(visto.script.as_deref(), script);
+        }
         assert!(!bandeja.contains(&pid), "la bandeja eligio a un protegido");
         assert!(!atajo.contains(&pid), "el atajo eligio a un protegido");
         assert!(!ventana[0].killed, "la guardia dejo matar a un protegido");

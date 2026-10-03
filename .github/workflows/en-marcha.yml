@@ -1,0 +1,54 @@
+# Las pruebas con la app en marcha, en el runner. Solo a mano.
+#
+# `tools/prueba-en-marcha.mjs` compila el binario de release, lo arranca y lo conduce por su puerto
+# de depuración. Hasta el Tier 13 vivía solo en el corte (`release.ps1`), porque pide una
+# compilación de release entera y un escritorio donde abrir la ventana, y nadie había probado si
+# el runner lo aguanta. Este workflow es esa prueba (T13-03).
+#
+# **Solo `workflow_dispatch`, y aparte de `ci.yml`**: mientras no se sepa que pasa de forma fiable,
+# no puede poner en rojo un push ni un PR. Y no es una de las comprobaciones que la CI repite del
+# corte: la excepción de CLAUDE.md sigue en pie hasta que se decida lo contrario con ejecuciones
+# en la mano.
+#
+# Como `ci.yml`: no publica nada, no tiene secretos, y las acciones van fijadas por SHA.
+name: Pruebas en marcha
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  en-marcha:
+    name: La app, arrancada y conducida
+    runs-on: windows-latest
+    # Compila el binario de release entero, en frío la primera vez. El plazo es holgado a
+    # propósito: cuánto tarda de verdad es una de las cosas que esta prueba viene a medir.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # El guion usa el `WebSocket` global: Node 22 o posterior.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Compilador de Rust (el de rust-toolchain.toml)
+        run: rustup toolchain install
+
+      # Clave propia: es un perfil de release, no el de depuración de `ci.yml`. La copia de prueba
+      # compila en `src-tauri/target/envivo`; si la caché llega a aprovecharse ahí, está por ver.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri
+          key: envivo
+
+      - run: npm ci
+
+      # El guion consulta la API de GitHub sin autenticar, como la app. Desde un runner, esa
+      # cuota es compartida con todo lo que sale por la misma IP: si falla solo ese paso con un
+      # 403, es eso y no la app.
+      - name: Pruebas con la app en marcha
+        run: node tools/prueba-en-marcha.mjs

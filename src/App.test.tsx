@@ -170,6 +170,50 @@ describe("filtros por runtime del sidebar", () => {
 
     expect(filas()).toHaveLength(2);
   });
+
+  /**
+   * T13-01. Con seis runtimes de fábrica, pintarlos todos hacía que el sidebar no cupiera a su alto
+   * de fábrica; solo salen los que tienen procesos. En `LISTA` no hay Java, Deno, Bun ni «Otros».
+   */
+  it("solo enseña los runtimes que tienen procesos", async () => {
+    await montar();
+
+    for (const nombre of [/^Node\.js/, /^Python/, /^\.NET/]) {
+      expect(screen.getByRole("button", { name: nombre })).toBeInTheDocument();
+    }
+    for (const nombre of [/^Java/, /^Deno/, /^Bun/, /^Otros/]) {
+      expect(screen.queryByRole("button", { name: nombre })).not.toBeInTheDocument();
+    }
+  });
+
+  it("un runtime nuevo aparece en cuanto tiene un proceso, con su recuento", async () => {
+    await montar();
+
+    await emitir([
+      ...LISTA,
+      proceso({ pid: 500, name: "java.exe", runtime: "java" }),
+      proceso({ pid: 501, name: "javaw.exe", runtime: "java" }),
+    ]);
+
+    const java = await screen.findByRole("button", { name: /^Java/ });
+    expect(within(java).getByText("2")).toBeInTheDocument();
+  });
+
+  /** Si el filtro pulsado desapareciera al quedarse a cero, no quedaría nada que dijera qué filtra. */
+  it("el filtro activo se queda aunque su runtime se quede sin procesos", async () => {
+    const user = await montar([...LISTA, proceso({ pid: 600, name: "bun.exe", runtime: "bun" })]);
+
+    await user.click(screen.getByRole("button", { name: /^Bun/ }));
+    await emitir(LISTA);
+
+    const bun = screen.getByRole("button", { name: /^Bun/ });
+    expect(bun).toHaveAttribute("aria-pressed", "true");
+    expect(within(bun).getByText("0")).toBeInTheDocument();
+
+    // Al cambiar de filtro, ya no hay motivo para enseñarlo.
+    await user.click(screen.getByRole("button", { name: /^Todos/ }));
+    expect(screen.queryByRole("button", { name: /^Bun/ })).not.toBeInTheDocument();
+  });
 });
 
 /**

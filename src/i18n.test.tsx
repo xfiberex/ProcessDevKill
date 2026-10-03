@@ -152,6 +152,9 @@ describe("el catálogo de idiomas", () => {
       "runtimes.node": "nombre de producto",
       "runtimes.python": "nombre de producto",
       "runtimes.dotnet": "nombre de producto",
+      "runtimes.java": "nombre de producto",
+      "runtimes.deno": "nombre de producto",
+      "runtimes.bun": "nombre de producto",
       "ajustes.zombie.titulo": "nombre de la funcion, como Auto-Kill",
       "origenes.auto": "nombre de la funcion",
       // Siglas y palabras que ya eran inglesas en la version española.

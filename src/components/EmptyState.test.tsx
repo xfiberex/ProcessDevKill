@@ -23,14 +23,18 @@ describe("sin ningun proceso", () => {
   });
 
   /**
-   * Es lo primero que ve alguien que acaba de instalar la app. Node, Python y
-   * .NET se vigilan siempre, pero quien trabaje con Go, Docker o PHP no vera
+   * Es lo primero que ve alguien que acaba de instalar la app. Los seis de
+   * fábrica se vigilan siempre, pero quien trabaje con Go, Docker o PHP no vera
    * nunca nada hasta que los añada, y eso no se adivina desde una pantalla que
-   * solo dice "no hay procesos".
+   * solo dice "no hay procesos". Desde T13-01 es además el único sitio de la
+   * ventana principal que nombra los seis: el sidebar solo enseña los que tienen
+   * procesos.
    */
   it("explica que hay runtimes que hay que añadir a mano", () => {
     pintar();
-    expect(screen.getByText(/Node, Python y .NET se vigilan siempre/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Node, Python, .NET, Java, Deno y Bun se vigilan siempre/),
+    ).toBeInTheDocument();
     expect(screen.getByText("docker")).toBeInTheDocument();
   });
 

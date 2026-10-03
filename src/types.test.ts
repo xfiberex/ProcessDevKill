@@ -7,6 +7,7 @@ import {
   HOTKEYS,
   PROCESOS_CRITICOS,
   PROCESSES_UPDATED,
+  RUNTIME_COLORS,
   SETTABLE_START_TYPES,
   SYSTEM_USAGE,
   ZOMBIE_MIN_MINUTES,
@@ -249,6 +250,21 @@ describe("el contrato con Rust", () => {
     expect(bloque, "no se encontro CRITICOS en processes.rs").not.toBeNull();
     const nombres = [...bloque![1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
     expect([...PROCESOS_CRITICOS].sort()).toEqual(nombres.sort());
+  });
+
+  /**
+   * El enum que más crece: T13-01 le sumó tres variantes. Un runtime que Rust envía y aquí no
+   * existe llegaría a la tabla sin icono, sin color y sin filtro, y TypeScript no lo vería nunca:
+   * el dato entra por IPC, sin comprobar.
+   */
+  it("cubre los mismos runtimes que el enum Runtime de processes.rs", () => {
+    const rust = leerRust("processes.rs");
+    const bloque = rust.match(/pub enum Runtime\s*\{([^}]+)\}/);
+    expect(bloque, "no se encontro el enum Runtime").not.toBeNull();
+    const variantes = [...bloque![1].matchAll(/^\s*([A-Z]\w+)/gm)].map((v) =>
+      v[1].toLowerCase(),
+    );
+    expect(Object.keys(RUNTIME_COLORS).sort()).toEqual(variantes.sort());
   });
 
   it("cubre los cuatro origenes de KillSource", () => {

@@ -4,8 +4,8 @@
 
 **"El puerto 3000 está ocupado y no sé por quién."**
 
-Gestor de procesos de desarrollo para Windows: lista los `node`, `python` y `dotnet` activos
-con su CPU, su RAM y **el puerto local que ocupa cada uno**, y los cierra de uno en uno o en lote.
+Gestor de procesos de desarrollo para Windows: lista los `node`, `python`, `dotnet`, `java`,
+`deno` y `bun` activos con su CPU, su RAM y **el puerto local que ocupa cada uno**, y los cierra de uno en uno o en lote.
 
 [![Última versión](https://img.shields.io/github/v/release/xfiberex/ProcessDevKill?label=descarga&color=22c55e)](https://github.com/xfiberex/ProcessDevKill/releases/latest)
 [![CI](https://github.com/xfiberex/ProcessDevKill/actions/workflows/ci.yml/badge.svg)](https://github.com/xfiberex/ProcessDevKill/actions/workflows/ci.yml)
@@ -35,8 +35,9 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 
 **Ver qué corre**
 
-- Lista **Node, Python y .NET** —más los ejecutables que añadas— con CPU, RAM, tiempo activo y los
-  puertos TCP en escucha de cada proceso.
+- Lista **Node, Python, .NET, Java, Deno y Bun** —más los ejecutables que añadas— con CPU, RAM,
+  tiempo activo y los puertos TCP en escucha de cada proceso. *(Java, Deno y Bun, desde la
+  v1.10.0, que aún no está publicada.)*
 - **Cada fila dice qué es**: debajo de `node.exe`, el script y la carpeta del proyecto
   —`vite · mi-web`—, para saber cuál de los trece `node.exe` es el tuyo.
 - Busca por nombre, script, carpeta, PID **o número de puerto**: escribe `3000` y te queda la fila
@@ -52,6 +53,9 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 - **Procesos protegidos** —por ejecutable, script o carpeta—: no los cierra nada de la app. Y los
   procesos críticos de Windows (`svchost`, `csrss`, `explorer`…) no se pueden vigilar aunque se
   añadan *(desde la v1.8.1)*.
+- **Si usas un programa en Java que no es de desarrollo** —un juego, una aplicación de escritorio—,
+  protégelo: Java se vigila siempre, y Nuke All, la bandeja, el atajo y el Auto-Kill cierran sin
+  mirar qué es cada fila *(desde la v1.10.0, aún sin publicar)*.
 - **Menú contextual** en cada fila, con clic derecho o con teclado: copiar el PID, el nombre, el
   puerto o `http://localhost:PUERTO`, proteger el proceso y, al final, cerrarlo.
 - **Historial** de cierres con su origen —ventana, bandeja, atajo o Auto-Kill—, agrupado por acción.
