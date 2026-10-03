@@ -14,6 +14,10 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+## [1.10.0] — 2026-10-03
+
+Java, Deno, and Bun, watched out of the box, and release notes in English too.
+
 ### Added
 - **Java, Deno, and Bun are watched out of the box**, each with its own icon, filter, and entry in
   the tray menu. A Java row shows its main class or its `.jar`, and a Deno or Bun row shows the
@@ -33,3 +37,6 @@ are tasks from the [ROADMAP](ROADMAP.md).
   in the installer. (T13-02)
 - The publishing script now also writes the version to `package-lock.json`, which had been left
   at v1.5.3.
+
+[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.0

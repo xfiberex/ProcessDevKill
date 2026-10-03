@@ -16,6 +16,10 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.10.0] — 2026-10-03
+
+Java, Deno y Bun, vigilados de fábrica, y las notas de cada versión también en inglés.
+
 ### Añadido
 - **Java, Deno y Bun se vigilan de fábrica**, cada uno con su icono, su filtro y su entrada en el
   menú de la bandeja. La fila de un Java dice su clase principal o su `.jar`, y la de Deno o Bun,
@@ -429,7 +433,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.9.1...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.0
 [1.9.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.9.1
 [1.9.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.9.0
 [1.8.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.8.3

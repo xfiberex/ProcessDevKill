@@ -37,7 +37,7 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
 
 - Lista **Node, Python, .NET, Java, Deno y Bun** —más los ejecutables que añadas— con CPU, RAM,
   tiempo activo y los puertos TCP en escucha de cada proceso. *(Java, Deno y Bun, desde la
-  v1.10.0, que aún no está publicada.)*
+  v1.10.0.)*
 - **Cada fila dice qué es**: debajo de `node.exe`, el script y la carpeta del proyecto
   —`vite · mi-web`—, para saber cuál de los trece `node.exe` es el tuyo.
 - Busca por nombre, script, carpeta, PID **o número de puerto**: escribe `3000` y te queda la fila
@@ -55,7 +55,7 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna, y pone u
   añadan *(desde la v1.8.1)*.
 - **Si usas un programa en Java que no es de desarrollo** —un juego, una aplicación de escritorio—,
   protégelo: Java se vigila siempre, y Nuke All, la bandeja, el atajo y el Auto-Kill cierran sin
-  mirar qué es cada fila *(desde la v1.10.0, aún sin publicar)*.
+  mirar qué es cada fila *(desde la v1.10.0)*.
 - **Menú contextual** en cada fila, con clic derecho o con teclado: copiar el PID, el nombre, el
   puerto o `http://localhost:PUERTO`, proteger el proceso y, al final, cerrarlo.
 - **Historial** de cierres con su origen —ventana, bandeja, atajo o Auto-Kill—, agrupado por acción.
@@ -340,7 +340,7 @@ Y la documentación, donde cada cosa vive en un solo sitio:
 
 ## Estado
 
-La versión actual es la **v1.9.1**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.10.0**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía. Lo que viene está en el [ROADMAP](ROADMAP.md).
 
 Lo que **no** hay, por si importa antes de instalarla: **firma de código** —de ahí el aviso de
