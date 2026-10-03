@@ -37,6 +37,8 @@ Java, Deno, and Bun, watched out of the box, and release notes in English too.
   in the installer. (T13-02)
 - The publishing script now also writes the version to `package-lock.json`, which had been left
   at v1.5.3.
+- The tests that drive the running app can now also be started on GitHub, by hand: the runner
+  handles them, in about 10 minutes. They still do not run on every push. (T13-03)
 
 [Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.0...HEAD
 [1.10.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.0

@@ -40,6 +40,8 @@ Java, Deno y Bun, vigilados de fábrica, y las notas de cada versión también e
   instalador. (T13-02)
 - El script de publicación escribe la versión también en `package-lock.json`, que se había quedado
   en la v1.5.3.
+- Las pruebas con la app en marcha se pueden lanzar también en GitHub, a mano: el runner las
+  aguanta, en unos 10 minutos. Siguen sin correr en cada push. (T13-03)
 
 ## [1.9.1] — 2026-10-02
 

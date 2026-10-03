@@ -113,7 +113,7 @@ que se puede hacer sin depender de otra persona.*
     no se puede explotar desde la app. Se quita cuando `braces` publique el arreglo. Pruebas
     (398), lint y `--comprobar`, en verde.
 
-- [ ] **[T13-03] Las pruebas en marcha, probadas en el runner**
+- [x] **[T13-03] Las pruebas en marcha, probadas en el runner**
   - **Ubicación:** `.github/workflows/ci.yml`, `tools/prueba-en-marcha.mjs`
   - **Qué hacer:** un job que solo se lanza a mano (`workflow_dispatch`) en `windows-latest`, que
     compila la copia `.envivo` y la conduce. Si aguanta, se decide si pasa a cada push; si no, se
@@ -121,12 +121,23 @@ que se puede hacer sin depender de otra persona.*
     sigue como está.
   - **Criterio de aceptación:** una ejecución en verde con su enlace, o el motivo exacto del fallo.
   - **Esfuerzo:** bajo a medio · **Depende de:** ninguna
-  - **Escrito el 2026-10-03, sin ejecutar.** `.github/workflows/en-marcha.yml`: un workflow
-    aparte, solo `workflow_dispatch`, con las mismas acciones fijadas por SHA que `ci.yml`. No se
-    puede lanzar hasta que esté en `main`. **Falta lo que pide la tarea**: subirlo, lanzarlo con
-    `gh workflow run en-marcha.yml` y anotar aquí el enlace de la ejecución o por qué falla. Lo
-    que puede fallar sin que sea la app: el runner sin escritorio, y la cuota de la API de GitHub
-    sin autenticar, que desde un runner se comparte.
+  - **Hecho el 2026-10-03: el runner lo aguanta.** `.github/workflows/en-marcha.yml`, un workflow
+    aparte, solo `workflow_dispatch`, con las mismas acciones fijadas por SHA que `ci.yml`. Dos
+    ejecuciones:
+    - [La primera](https://github.com/xfiberex/ProcessDevKill/actions/runs/37132087739), en rojo
+      a los 8 minutos: **22 comprobaciones bien y 2 con fallo**, las dos que consultan la API de
+      GitHub, con un 403. No es la app: la cuota sin autenticar se reparte entre lo que sale por
+      la misma IP. La ventana abre —el runner tiene escritorio y WebView2— y la compilación de
+      release tarda 6 minutos.
+    - [La segunda](https://github.com/xfiberex/ProcessDevKill/actions/runs/37132683422), **en
+      verde, las 24**, en 10 minutos y medio, de los que casi 8 son compilar.
+    Entre las dos, el guion aprendió que en el runner (`GITHUB_ACTIONS`) un 403 de GitHub deja el
+    paso «sin comprobar» en vez de en rojo; en el equipo de quien corta sigue siendo un fallo.
+    **Ese camino no se ha visto correr**: en la segunda ejecución GitHub contestó bien.
+  - **Lo que queda por decidir**, y no es de esta tarea: si pasa a cada push. Hoy se queda manual
+    y la excepción de CLAUDE.md sigue en pie. A favor de dejarlo así: son 10 minutos por push
+    para repetir lo que el corte ya hace, y con una caché que aún no se sabe si acorta la
+    compilación.
 
 - [ ] **[T13-04] Las notas de cada versión, también en inglés** (T12-36)
   - **Ubicación:** `CHANGELOG.md`, `src/lib/notas.ts`, `src/lib/notas.test.ts`, `release.ps1`
@@ -147,7 +158,8 @@ que se puede hacer sin depender de otra persona.*
     **Lo que falta, y por qué la casilla sigue sin marcar:** verlo en la ventana. Hace falta un
     release con notas en inglés y una copia más vieja que él, y eso solo pasa justo después de
     cortar la v1.10.0, con `node tools/prueba-en-marcha.mjs --sin-compilar`. El paso está escrito
-    en el guion y nunca ha corrido. Tampoco se ha hecho un `-DryRun` con las dos secciones.
+    en el guion y nunca ha corrido. El `-DryRun` de la v1.10.0 sí se hizo el 2026-10-03: pasa
+    entero y enseña las notas con las dos mitades, español, «English» y «Descarga».
 
 - [ ] **[T13-05] Una actualización de punta a punta, vista** (T12-02)
   - **Qué hacer:** con la v1.9.1 instalada, actualizar a la v1.10.0 desde la app: una vez normal y

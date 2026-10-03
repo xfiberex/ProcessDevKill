@@ -149,9 +149,10 @@ node tools/avisos-de-terceros.mjs --comprobar   # que THIRD-PARTY-NOTICES.txt es
   `--sin-compilar` reutiliza el binario cuando solo ha cambiado el guion.
 - **Es la excepción a «una comprobación nueva va en los dos sitios»**: las pruebas en marcha no
   están en la CI. Piden una compilación de release entera y un escritorio donde abrir la ventana;
-  mientras no se pruebe que el runner lo aguanta, viven solo en el corte. Para probarlo está
-  `.github/workflows/en-marcha.yml`, que solo se lanza a mano (`gh workflow run en-marcha.yml`) y
-  no bloquea nada (T13-03).
+  el runner lo aguanta —probado el 2026-10-03, 10 minutos por ejecución (T13-03)—, pero siguen
+  solo en el corte hasta que se decida otra cosa. Se pueden lanzar a mano en el runner con
+  `gh workflow run en-marcha.yml`, que no bloquea nada. Ahí, un 403 de la API de GitHub deja el
+  paso «sin comprobar»: es la cuota compartida del runner, no la app.
 
 - **La CI (`.github/workflows/ci.yml`) repite las comprobaciones de `release.ps1`** en cada push y
   PR, en `windows-latest`. Una comprobación nueva se añade **en los dos sitios**, o la CI dejará de
