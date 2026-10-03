@@ -210,6 +210,8 @@ pub fn run() {
             // precisamente uno de los que hay que poder leer despues.
             logging::iniciar(&dir);
             crate::avisar!("--- ProcessDevKill v{} arrancando ---", env!("CARGO_PKG_VERSION"));
+            #[cfg(feature = "envivo")]
+            logging::panico_de_prueba();
 
             let storage = Storage::new(dir);
             let settings = storage.load_settings();

@@ -15,6 +15,12 @@ edition = "2021"
 name = "processdevkill_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Solo para la copia que compila `tools/prueba-en-marcha.mjs`: deja provocar un pánico de verdad
+# para ver que el gancho lo anota en el log (T13-06). Los instaladores se compilan sin ella, así
+# que el binario que se publica no lleva ese código. Ver `logging::panico_de_prueba`.
+envivo = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

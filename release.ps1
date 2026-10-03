@@ -724,6 +724,11 @@ try {
                 if ((Invoke-Nativo cargo @('clippy','--all-targets','--quiet','--','-D','warnings')) -ne 0) {
                     Die "Clippy encontro avisos. Release abortado."
                 }
+                # Otra vez, con la feature de la copia de prueba (T13-06): sin ella, lo que hay
+                # detrás de `cfg(feature = "envivo")` no lo mira nadie hasta que falla al compilar.
+                if ((Invoke-Nativo cargo @('clippy','--all-targets','--features','envivo','--quiet','--','-D','warnings')) -ne 0) {
+                    Die "Clippy encontro avisos con la feature envivo. Release abortado."
+                }
                 Ok "Clippy limpio."
             }
 

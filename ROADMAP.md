@@ -37,8 +37,8 @@ que se puede hacer sin depender de otra persona.*
 > pendientes de [CONTEXT §5](CONTEXT.md). Lo que depende de terceros —la revisión legal y la
 > lectura del inglés por un nativo— se queda abajo, en «Lo que queda suelto».
 >
-> **Cortes:** T13-01 a T13-04 salieron en la **v1.10.0**, publicada el 2026-10-03. Quedan
-> T13-05, que ya se puede hacer —es actualizar a esa versión desde la app instalada—, y T13-06.
+> **Cortes:** T13-01 a T13-04 salieron en la **v1.10.0**, publicada el 2026-10-03. T13-05 y
+> T13-06, que solo añaden comprobaciones, van en la **v1.10.1**. Con ellas, las seis están hechas.
 >
 > Esfuerzo: **bajo** = una sesión corta; **medio** = una sesión larga o dos.
 
@@ -162,19 +162,51 @@ que se puede hacer sin depender de otra persona.*
     puede repetir justo después de un corte: recién compilada, la copia está al día y no hay
     notas que enseñar.
 
-- [ ] **[T13-05] Una actualización de punta a punta, vista** (T12-02)
+- [x] **[T13-05] Una actualización de punta a punta, vista** (T12-02)
   - **Qué hacer:** con la v1.9.1 instalada, actualizar a la v1.10.0 desde la app: una vez normal y
     otra con el instalador bloqueado o cambiado tras la descarga, que la app tiene que rechazar.
   - **Criterio de aceptación:** las dos vistas en el equipo del usuario, con lo que se vio escrito.
   - **Esfuerzo:** bajo · **Depende de:** el corte de la v1.10.0
+  - **Vistas las dos el 2026-10-03, cada una por su lado.**
+    - **La normal, en la app instalada del usuario.** La actualizó él desde Ajustes, y lo cuenta
+      el log de la app (`%APPDATA%\com.processdevkill.app\processdevkill.log`): la v1.9.1 arranca
+      a las 15:50:54 UTC y la v1.10.0 a las 15:51:16. **Veintidós segundos** entre abrir la vieja
+      y tener la nueva abierta, con la descarga, la verificación, la instalación en silencio y el
+      reinicio en medio.
+    - **La del instalador cambiado, en la copia de prueba** y no en la instalada: es un paso
+      nuevo del guion. La copia descarga y verifica el instalador real de la v1.10.0, el guion lo
+      reescribe en `%TEMP%` y pide instalarlo: Rust contesta «El instalador cambió después de
+      descargarlo y se ha borrado», el archivo ya no está y la app sigue abierta. Se cambia por
+      un texto y no por otro programa, para que un fallo de la guardia no pudiera ejecutar nada.
+    - **Lo que no se vio:** las dos a la vez —el instalador cambiado, en la app instalada y
+      elevada—, que es el caso exacto de T12-02. Tampoco quedó escrito si la app instalada
+      corría elevada al actualizarse. La guardia es el mismo código en las dos.
 
-- [ ] **[T13-06] Lo que no se ha visto en vivo: provocarlo o decir que no**
+- [x] **[T13-06] Lo que no se ha visto en vivo: provocarlo o decir que no**
   - **Qué hacer:** el gancho de pánico (T12-14), un PID reciclado (T12-09), una conexión lenta
     (T12-17) y el aviso de «protegido» cuando el guardado falla (T12-08) tienen sus pruebas y nunca
     se han visto en marcha. Para cada uno, provocarlo en la copia `.envivo` si es barato —el pánico
     lo es— o dejar escrito que se queda cubierto solo por sus pruebas.
   - **Criterio de aceptación:** los cuatro decididos, y los que se provoquen, en el guion.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-03: dos provocados y en el guion, dos que no se pueden.**
+    - **El pánico (T12-14), provocado.** La copia de prueba se compila con la *feature* `envivo`,
+      que trae `logging::panico_de_prueba`; con `PDK_ENVIVO_PANICO` al arrancar, un hilo propio
+      entra en pánico. El log de verdad queda con «PANICO en el hilo «pdk-envivo-panico»,
+      src\logging.rs:197: provocado por la prueba en marcha» y la app sigue en pie. Los
+      instaladores se compilan sin la *feature*: el binario publicado no lleva ese código.
+    - **«Protegido» con el guardado fallando (T12-08), provocado.** Una carpeta llamada
+      `settings.json.tmp` hace que Rust no pueda escribir. Clic derecho de verdad sobre la fila,
+      «Proteger»: sale «No se pudieron guardar los ajustes», no sale «protegido», y ni los
+      ajustes ni la lista lo dan por protegido.
+    - **El PID reciclado (T12-09), no.** Windows no deja pedir un PID, y sysinfo mantiene un
+      handle por proceso, así que no se reutiliza mientras la app lo mira. Lo que se puede
+      probar es lo que compara la guardia —la hora de arranque—, y eso ya lo hace su prueba con
+      dos procesos de verdad. Se queda ahí.
+    - **La conexión lenta (T12-17), no.** La descarga solo acepta `github.com`, así que no hay
+      servidor propio que la sirva despacio, y estrangular la red del equipo desde un guion pide
+      privilegios y herramientas que la prueba no debe exigir. Se queda en sus tres pruebas, a
+      escala de 1 s.
 
 ### Lo que queda suelto
 

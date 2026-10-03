@@ -67,7 +67,7 @@ identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_esp
   `notify`, `textos`, `services`, `service_control`, `elevation` y `update`. **Cuando `lib.rs` vuelva
   a pasar de ~450 líneas de código, se parte otra vez**: ya ha pasado cinco veces (Tier 4, Tier 7.6,
   Tier 10, Tier 11 y T12-16, que sacó a `lista.rs` el camino de la lista y del cierre). **Ahora
-  mismo van 302** (2026-10-01), medidas sin el `mod tests`, que es como cuenta esta regla.
+  mismo van 304** (2026-10-03), medidas sin el `mod tests`, que es como cuenta esta regla.
 - Los comandos que tienen lógica propia detrás **no** están en `commands.rs`: los de servicios van
   en `service_control.rs` junto a su guardia, los del actualizador en `update.rs` y los del log en
   `logging.rs`. Se registran con su ruta (`service_control::control_service`) y el nombre por IPC
@@ -147,6 +147,11 @@ node tools/avisos-de-terceros.mjs --comprobar   # que THIRD-PARTY-NOTICES.txt es
   él mismo lanza. **Una función nueva lleva su comprobación en ese guion**; lo que no se pueda
   provocar en vivo —un pánico, un PID reciclado, una versión más nueva que ofrecer— se dice.
   `--sin-compilar` reutiliza el binario cuando solo ha cambiado el guion.
+- **La copia de prueba se compila con la *feature* `envivo` de Cargo**, y es lo único que la
+  separa del binario que se publica (T13-06): trae `logging::panico_de_prueba`, que provoca un
+  pánico de verdad si además se arranca con `PDK_ENVIVO_PANICO`. Un disparador nuevo para algo que
+  no se pueda provocar desde fuera va detrás de esa misma *feature*, nunca en el binario de
+  release. Clippy se pasa también con ella: `cargo clippy --all-targets --features envivo`.
 - **Es la excepción a «una comprobación nueva va en los dos sitios»**: las pruebas en marcha no
   están en la CI. Piden una compilación de release entera y un escritorio donde abrir la ventana;
   el runner lo aguanta —probado el 2026-10-03, 10 minutos por ejecución (T13-03)—, pero siguen

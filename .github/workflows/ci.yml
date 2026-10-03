@@ -82,6 +82,13 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
 
+      # La copia de las pruebas en marcha se compila con esta feature (T13-06), y aquí esa copia
+      # no se compila: sin este paso, lo que hay detrás de `cfg(feature = "envivo")` no lo mira
+      # nadie hasta el corte.
+      - name: Clippy, con la feature de la copia de prueba
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --features envivo -- -D warnings
+
       # Después de clippy, que ya ha descargado los crates: el generador lee de cada uno su
       # archivo de licencia. Si falla, `THIRD-PARTY-NOTICES.txt` —que viaja en el instalador— no
       # es el de las dependencias de este commit: se regenera con el mismo guion, sin `--comprobar`.

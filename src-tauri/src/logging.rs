@@ -175,6 +175,28 @@ pub fn instalar_gancho_de_panico() {
     }));
 }
 
+/// Provoca un pánico de verdad en un hilo propio, si la prueba en marcha lo pide (T13-06).
+///
+/// El gancho de arriba tenía su prueba, pero nunca se había visto anotar un pánico **dentro de la
+/// app arrancada**, con el log de verdad. No hay forma honrada de provocar uno desde fuera, así que
+/// la copia de prueba trae este disparador. Dos llaves, las dos necesarias:
+///
+/// - la *feature* `envivo`, que solo pone `tools/prueba-en-marcha.mjs` al compilar su copia: en
+///   los instaladores esta función **no existe**;
+/// - y la variable `PDK_ENVIVO_PANICO` al arrancar, para que el resto de la prueba corra sin él.
+///
+/// En un hilo aparte y con nombre: es el caso que el gancho vino a cubrir —un hilo que muere y deja
+/// la app en pie—, y el nombre es lo que la prueba busca en la línea.
+#[cfg(feature = "envivo")]
+pub fn panico_de_prueba() {
+    if std::env::var_os("PDK_ENVIVO_PANICO").is_none() {
+        return;
+    }
+    let _ = std::thread::Builder::new()
+        .name("pdk-envivo-panico".into())
+        .spawn(|| panic!("provocado por la prueba en marcha"));
+}
+
 // ── Avisos que se repiten ────────────────────────────────────────────────────
 
 /// Deja pasar un aviso como mucho una vez cada cierto tiempo.

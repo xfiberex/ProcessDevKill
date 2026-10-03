@@ -295,6 +295,10 @@ function compilar(puertoCdp) {
       "--no-bundle",
       "--config",
       archivo,
+      // El disparador del pánico de prueba (`logging::panico_de_prueba`). Los instaladores se
+      // compilan sin esta feature: el binario publicado no lo lleva.
+      "--features",
+      "envivo",
     ],
     { cwd: RAIZ, stdio: "inherit", env: { ...process.env, CARGO_TARGET_DIR: TARGET } },
   );
@@ -329,6 +333,49 @@ async function entradaDelProcesoElevado() {
       exigir(codigo === esperado, `${que}: salió con ${codigo}, se esperaba ${esperado}`);
     }
     return `${casos.length} líneas de comandos, cada una con su código de salida`;
+  });
+}
+
+/**
+ * El gancho de pánico, con un pánico de verdad dentro de la app arrancada (T12-14, T13-06).
+ *
+ * Arranca la copia aparte, con `PDK_ENVIVO_PANICO`, y la cierra: el resto de la prueba corre en
+ * otro arranque, sin esa variable. El pánico es en un hilo propio, que es el caso que el gancho
+ * vino a cubrir: un hilo que muere —el poller— y deja la app en pie y la lista congelada sin que
+ * nada lo diga.
+ */
+async function panicoEnElLog() {
+  await paso("Un pánico en un hilo deja su línea en el log, y la app sigue en pie", async () => {
+    for (const dir of [DATOS, WEBVIEW]) fs.rmSync(dir, { recursive: true, force: true });
+    const app = lanzar(EXE, [], {
+      cwd: path.dirname(EXE),
+      env: { ...process.env, PDK_ENVIVO_PANICO: "1" },
+    });
+    try {
+      const log = path.join(DATOS, "processdevkill.log");
+      const linea = await esperar(
+        () => {
+          try {
+            return fs.readFileSync(log, "utf8").split(/\r?\n/).find((l) => l.includes("PANICO"));
+          } catch {
+            return null;
+          }
+        },
+        { ms: 30_000 },
+      );
+      exigir(linea, "el log no tiene ninguna línea de pánico: ¿se compiló con --features envivo?");
+      exigir(linea.includes("«pdk-envivo-panico»"), `la línea no nombra el hilo: ${linea}`);
+      exigir(linea.includes("provocado por la prueba en marcha"), `no trae el mensaje: ${linea}`);
+      exigir(/logging\.rs:\d+/.test(linea), `no dice dónde ocurrió: ${linea}`);
+      await dormir(1_000);
+      exigir(vivo(app), "el pánico de un hilo tumbó la app entera");
+      return linea.replace(/^\[[^\]]*\]\s*/, "");
+    } finally {
+      app.kill();
+      await esperar(() => !vivo(app), { ms: 5_000 });
+      // WebView2 tarda un momento en soltar su carpeta, y `main` la borra justo después.
+      await dormir(1_500);
+    }
   });
 }
 
@@ -706,6 +753,71 @@ async function protegidos(cdp) {
       servidor.hijo.kill();
     }
   });
+
+  // T12-08, visto en la ventana (T13-06): «protegido» solo se dice cuando de verdad se ha
+  // guardado. Es el único paso que usa el ratón de verdad —clic derecho sobre la fila y luego su
+  // menú—, porque lo que se prueba es lo que la ventana le dice a quien lo pulsa.
+  await paso("Si el guardado falla, la ventana no dice «protegido» y el proceso no lo queda", async () => {
+    const proyecto = "pdk-envivo-sin-guardar";
+    const servidor = await lanzarServidor(proyecto);
+    // Rust escribe en `settings.json.tmp` y luego renombra. Con una **carpeta** de ese nombre,
+    // escribir falla siempre, sin tocar permisos ni dejar un archivo a medias.
+    const estorbo = path.join(DATOS, "settings.json.tmp");
+    try {
+      if ((await cdp.js(`document.querySelector("main h2")?.textContent`)) !== "Procesos") {
+        await cdp.pulsar("Procesos", `document.querySelector("aside")`);
+      }
+      const casilla = `[aria-label="Seleccionar PID ${servidor.pid}"]`;
+      exigir(
+        await esperar(() => cdp.js(`Boolean(document.querySelector('${casilla}'))`)),
+        "la fila del proceso lanzado no aparece en la tabla",
+      );
+
+      fs.mkdirSync(estorbo);
+      const punto = await cdp.js(`(() => {
+        const fila = document.querySelector('${casilla}').closest("tr");
+        fila.scrollIntoView({ block: "center" });
+        const r = fila.getBoundingClientRect();
+        return { x: Math.round(r.left + r.width / 3), y: Math.round(r.top + r.height / 2) };
+      })()`);
+      for (const type of ["mousePressed", "mouseReleased"]) {
+        await cdp.enviar("Input.dispatchMouseEvent", { type, ...punto, button: "right", clickCount: 1 });
+      }
+      const pulsado = await esperar(() =>
+        cdp.js(`(() => {
+          const item = [...document.querySelectorAll('[role="menuitem"]')]
+            .find((e) => e.textContent.trim().startsWith("Proteger"));
+          if (!item) return null;
+          item.click();
+          return item.textContent.trim();
+        })()`),
+      );
+      exigir(pulsado, "el clic derecho sobre la fila no abrió un menú con «Proteger»");
+
+      const avisos = () =>
+        cdp.js(`[...document.querySelectorAll("[data-sonner-toast]")].map((e) => e.textContent)`);
+      const conError = await esperar(async () => {
+        const vistos = await avisos();
+        return vistos.some((a) => a.includes("No se pudo guardar")) && vistos;
+      });
+      exigir(conError, `no salió el aviso de que no se pudo guardar: ${JSON.stringify(await avisos())}`);
+      // El de éxito llegaba **antes** que el error: se mira después de haber visto el error.
+      await dormir(500);
+      const todos = await avisos();
+      exigir(!todos.some((a) => /protegido$/.test(a.trim())), `sale «protegido»: ${JSON.stringify(todos)}`);
+
+      const guardados = await cdp.invoke("get_settings");
+      exigir(!guardados.valor.protected.includes(proyecto), "la protección llegó a guardarse");
+      const lista = await cdp.invoke("get_processes");
+      exigir(!lista.valor.find((p) => p.pid === servidor.pid)?.protected, "la lista lo marca como protegido");
+      return `«${pulsado}» → ${conError.find((a) => a.includes("No se pudo guardar")).slice(0, 60)}…`;
+    } finally {
+      fs.rmSync(estorbo, { recursive: true, force: true });
+      servidor.hijo.kill();
+      // El puntero se quedó sobre la tabla, y eso congela el orden de las filas: se saca.
+      await cdp.enviar("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: 1 });
+    }
+  });
 }
 
 async function actualizador(cdp) {
@@ -829,6 +941,21 @@ async function actualizador(cdp) {
     return r.error;
   });
 
+  // T12-02, la mitad que faltaba ver (T13-05): el instalador **verificado**, cambiado entre la
+  // descarga y la instalación. Es lo que haría un programa sin privilegios mientras el usuario
+  // tarda en pulsar «Instalar». Se cambia por un texto y no por otro programa: si la guardia
+  // fallara, Windows no tendría nada que ejecutar. Va el último de los que usan la descarga.
+  await paso("Un instalador cambiado después de descargarlo no se instala, y se borra", async () => {
+    if (!descargado) throw new Omitido("no hay descarga que cambiar: el paso de la descarga no la dejó");
+    fs.writeFileSync(descargado, "esto ya no es el instalador que se verificó");
+    const r = await cdp.invoke("install_update", { path: descargado });
+    exigir(!r.ok, "install_update aceptó un instalador cambiado después de verificarlo");
+    exigir(/cambió después de descargarlo/.test(r.error), `se negó, pero por otro motivo: ${r.error}`);
+    exigir(!fs.existsSync(descargado), "se negó a instalarlo, pero el archivo cambiado sigue ahí");
+    // Que la app no se cerró para instalar lo dice el último paso: «La app sigue en marcha».
+    return r.error;
+  });
+
   await paso("La descarga de una dirección que no es de GitHub se rechaza antes de pedir nada", async () => {
     const r = await cdp.invoke("download_update", {
       release: {
@@ -868,8 +995,12 @@ async function main() {
     fs.writeFileSync(MARCA_PUERTO, String(puertoCdp));
   }
 
+  await panicoEnElLog();
+
   // La carpeta de datos de la copia, de cero, con unos ajustes que no se pueden leer.
-  for (const dir of [DATOS, WEBVIEW]) fs.rmSync(dir, { recursive: true, force: true });
+  for (const dir of [DATOS, WEBVIEW]) {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+  }
   fs.mkdirSync(DATOS, { recursive: true });
   fs.writeFileSync(path.join(DATOS, "settings.json"), AJUSTES_ILEGIBLES);
 
