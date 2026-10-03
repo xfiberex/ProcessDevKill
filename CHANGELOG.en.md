@@ -14,6 +14,16 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+## [1.10.1] — 2026-10-03
+
+Nothing changes in the app: three more checks before each version is published.
+
+### Internal
+- The tests that drive the running app now check three things that until now only had
+  separate tests: that an installer changed after it was downloaded is not installed and is
+  deleted, that an internal failure leaves its line in the log, and that “protected” is not
+  shown when the setting could not be saved. (T13-05, T13-06)
+
 ## [1.10.0] — 2026-10-03
 
 Java, Deno, and Bun, watched out of the box, and release notes in English too.
@@ -40,5 +50,6 @@ Java, Deno, and Bun, watched out of the box, and release notes in English too.
 - The tests that drive the running app can now also be started on GitHub, by hand: the runner
   handles them, in about 10 minutes. They still do not run on every push. (T13-03)
 
-[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.1
 [1.10.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.0

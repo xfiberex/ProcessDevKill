@@ -16,6 +16,16 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.10.1] — 2026-10-03
+
+Nada cambia en la app: tres comprobaciones más antes de publicar cada versión.
+
+### Interno
+- Las pruebas con la app en marcha comprueban tres cosas que hasta ahora solo tenían pruebas
+  sueltas: que un instalador cambiado después de descargarlo no se instala y se borra, que un
+  fallo interno deja su línea en el registro y que «protegido» no se dice si el ajuste no se
+  pudo guardar. (T13-05, T13-06)
+
 ## [1.10.0] — 2026-10-03
 
 Java, Deno y Bun, vigilados de fábrica, y las notas de cada versión también en inglés.
@@ -435,7 +445,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.0...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.1
 [1.10.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.0
 [1.9.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.9.1
 [1.9.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.9.0
