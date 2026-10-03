@@ -252,6 +252,7 @@ export default function App() {
           filter={lista.filter}
           onFilterChange={lista.setFilter}
           processes={lista.processes}
+          showAllFilters={settings.showAllFilters}
           refreshMs={settings.refreshMs}
           onRefreshMsChange={(ms) => saveSettings({ ...settings, refreshMs: ms })}
           usage={usage}

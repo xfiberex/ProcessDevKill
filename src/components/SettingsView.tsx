@@ -411,6 +411,28 @@ export function SettingsView({
 
             <section>
               <h4 className="font-heading text-sm font-semibold">
+                {t.ajustes.filtros.titulo}
+              </h4>
+              <div className="mt-3 flex items-start gap-3">
+                <Switch
+                  id="show-all-filters"
+                  checked={settings.showAllFilters}
+                  onCheckedChange={(checked) =>
+                    onChange({ ...settings, showAllFilters: checked })
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor="show-all-filters" className="cursor-pointer text-sm">
+                  <span>{t.ajustes.filtros.interruptor}</span>
+                  <span className="mt-1 block text-muted-foreground">
+                    <Marcado texto={t.ajustes.filtros.detalle} />
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <section>
+              <h4 className="font-heading text-sm font-semibold">
                 {t.ajustes.atajo.titulo}
               </h4>
               <div className="mt-3 flex items-start gap-3">

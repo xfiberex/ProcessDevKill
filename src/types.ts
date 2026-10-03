@@ -221,6 +221,8 @@ export type Settings = {
   runAsAdmin: boolean;
   /** Preguntar a GitHub por una versión nueva al arrancar. Encendido de fábrica (T12-31). */
   checkUpdatesOnStart: boolean;
+  /** Enseñar siempre todos los filtros de runtime, tengan procesos o no. Apagado de fábrica. */
+  showAllFilters: boolean;
 };
 
 /** Espejo de `MIN_AUTO_KILL_MB` en src-tauri/src/storage.rs. Rust lo impone; aqui

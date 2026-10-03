@@ -494,6 +494,79 @@ async function listaYCierre(cdp) {
   });
 }
 
+/** Deja la ventana en Procesos con los filtros de runtime desplegados, venga de donde venga. */
+async function irAProcesosConFiltros(cdp) {
+  const titulo = await cdp.js(`document.querySelector("main h2")?.textContent`);
+  if (titulo !== "Procesos") await cdp.pulsar("Procesos", `document.querySelector("aside")`);
+  // Ya en Procesos, el mismo botón pliega y despliega los filtros, y `listaYCierre` lo pulsa
+  // estando ahí: los deja plegados. Se despliegan si hace falta, mirando su `aria-expanded`.
+  const plegados = await esperar(() =>
+    cdp.js(`(() => {
+      const b = document.querySelector("aside button[aria-expanded]");
+      return b ? b.getAttribute("aria-expanded") : null;
+    })()`),
+  );
+  if (plegados === "false") await cdp.pulsar("Procesos", `document.querySelector("aside")`);
+}
+
+/**
+ * El ajuste «mostrar siempre todos los runtimes» (v1.10.1), pulsando su interruptor de verdad.
+ *
+ * Qué runtimes están vacíos depende del equipo —alguien puede tener un Python abierto—, así que
+ * se pregunta a Rust qué hay y se mira que, apagado, **esos** no salgan y, encendido, salgan los
+ * siete. Deja el ajuste como estaba: apagado.
+ */
+async function filtrosDelSidebar(cdp) {
+  const NOMBRES = { node: "Node.js", python: "Python", dotnet: ".NET", java: "Java", deno: "Deno", bun: "Bun", other: "Otros" };
+  const filtrosVistos = () =>
+    cdp.js(`[...document.querySelectorAll("#filtros-runtime button")].map((b) => b.textContent.trim())`);
+  const pulsarAjuste = async (encendido) => {
+    await cdp.pulsar("Ajustes", `document.querySelector("aside")`);
+    const interruptor = await esperar(() => cdp.js(`Boolean(document.getElementById("show-all-filters"))`));
+    exigir(interruptor, "Ajustes no tiene el interruptor de los filtros del sidebar");
+    await cdp.js(`document.getElementById("show-all-filters").click()`);
+    const guardado = await esperar(async () => {
+      const a = await cdp.invoke("get_settings");
+      return a.ok && a.valor.showAllFilters === encendido;
+    });
+    exigir(guardado, `el ajuste no se guardó como ${encendido}`);
+    await irAProcesosConFiltros(cdp);
+  };
+
+  await paso("Los filtros del sidebar se pueden enseñar todos, y volver a solo los que tienen procesos", async () => {
+    const lista = await cdp.invoke("get_processes");
+    exigir(lista.ok, lista.error);
+    const vacios = Object.keys(NOMBRES).filter((r) => !lista.valor.some((p) => p.runtime === r));
+    exigir(vacios.length > 0, "no hay ningún runtime vacío en este equipo: no se puede ver la diferencia");
+
+    await irAProcesosConFiltros(cdp);
+    const deFabrica = await filtrosVistos();
+    for (const r of vacios) {
+      exigir(!deFabrica.some((f) => f.startsWith(NOMBRES[r])), `de fábrica sale «${NOMBRES[r]}», que está vacío`);
+    }
+
+    await pulsarAjuste(true);
+    try {
+      const todos = await esperar(async () => {
+        const f = await filtrosVistos();
+        return Object.values(NOMBRES).every((n) => f.some((x) => x.startsWith(n))) && f;
+      });
+      exigir(todos, `encendido no salen los siete: ${JSON.stringify(await filtrosVistos())}`);
+      for (const r of vacios) {
+        exigir(todos.includes(`${NOMBRES[r]}0`), `«${NOMBRES[r]}» no sale con su recuento a cero: ${todos}`);
+      }
+    } finally {
+      await pulsarAjuste(false);
+    }
+    const alApagar = await esperar(async () => {
+      const f = await filtrosVistos();
+      return vacios.every((r) => !f.some((x) => x.startsWith(NOMBRES[r]))) && f;
+    });
+    exigir(alApagar, `apagado siguen saliendo los vacíos: ${JSON.stringify(await filtrosVistos())}`);
+    return `vacíos aquí: ${vacios.map((r) => NOMBRES[r]).join(", ")}; de ${deFabrica.length} filtros a ${1 + Object.keys(NOMBRES).length} y vuelta`;
+  });
+}
+
 /**
  * Java, Deno y Bun, vigilados de fábrica (T13-01): que salgan con su runtime, en su filtro del
  * sidebar, y que Kill los cierre.
@@ -532,17 +605,7 @@ async function runtimesNuevos(cdp) {
     });
 
     await paso("Cada uno tiene su filtro en el sidebar, y el filtro enseña su fila", async () => {
-      const titulo = await cdp.js(`document.querySelector("main h2")?.textContent`);
-      if (titulo !== "Procesos") await cdp.pulsar("Procesos", `document.querySelector("aside")`);
-      // Ya en Procesos, el mismo botón pliega y despliega los filtros, y `listaYCierre` lo pulsa
-      // estando ahí: los deja plegados. Se despliegan si hace falta, mirando su `aria-expanded`.
-      const plegados = await esperar(() =>
-        cdp.js(`(() => {
-          const b = document.querySelector("aside button[aria-expanded]");
-          return b ? b.getAttribute("aria-expanded") : null;
-        })()`),
-      );
-      if (plegados === "false") await cdp.pulsar("Procesos", `document.querySelector("aside")`);
+      await irAProcesosConFiltros(cdp);
       const filtros = { java: "Java", deno: "Deno", bun: "Bun" };
       for (const { runtime, pid } of lanzados) {
         const filtro = await esperar(() =>
@@ -1017,6 +1080,7 @@ async function main() {
     await protegidos(cdp);
     // Después de `vistasEIdioma`, que cuenta un solo cierre en el Historial: este añade tres.
     await runtimesNuevos(cdp);
+    await filtrosDelSidebar(cdp);
     await consultaDelArranque(cdp);
     await actualizador(cdp);
 

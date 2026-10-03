@@ -35,6 +35,8 @@ type SidebarProps = {
    * pulsar "Node" pondria los demas a cero.
    */
   processes: ProcessInfo[];
+  /** El ajuste: pintar los filtros de todos los runtimes, o solo los de los que tienen procesos. */
+  showAllFilters: boolean;
   refreshMs: number;
   onRefreshMsChange: (ms: number) => void;
   /** Ultima medida que empujo Rust, o `null` si todavia no ha llegado ninguna. */
@@ -51,6 +53,7 @@ export function Sidebar({
   filter,
   onFilterChange,
   processes,
+  showAllFilters,
   refreshMs,
   onRefreshMsChange,
   usage,
@@ -132,14 +135,16 @@ export function Sidebar({
               active={filter === "all"}
               onClick={() => onFilterChange("all")}
             />
-            {/* Solo los runtimes que tienen procesos, más el filtro activo aunque se quede a cero:
-                que desaparezca el botón que se acaba de pulsar dejaría sin forma de ver qué filtra.
-                Con los siete siempre (T13-01), el sidebar pedía ~660 px y a 680 —el alto de
-                fábrica— el aviso de administrador ya no cabía sin scroll (ver `AvisoSinAdmin`). Que
-                se vigilan los seis lo dicen el estado vacío y Ajustes; aquí se cuenta lo que hay. */}
+            {/* De fábrica, solo los runtimes que tienen procesos, más el filtro activo aunque se
+                quede a cero: que desaparezca el botón que se acaba de pulsar dejaría sin forma de
+                ver qué filtra. Con los siete siempre (T13-01), el sidebar pedía ~660 px y a 680
+                —el alto de fábrica— el aviso de administrador ya no cabía sin scroll (ver
+                `AvisoSinAdmin`). Quien prefiera verlos todos lo pide en Ajustes
+                (`showAllFilters`) y acepta ese scroll: es la forma de saber de un vistazo qué se
+                vigila. */}
             {(Object.keys(RUNTIME_COLORS) as Runtime[]).map((runtime) => {
               const count = processes.filter((p) => p.runtime === runtime).length;
-              if (count === 0 && filter !== runtime) return null;
+              if (!showAllFilters && count === 0 && filter !== runtime) return null;
               return (
                 <FilterButton
                   key={runtime}

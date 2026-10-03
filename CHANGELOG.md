@@ -18,7 +18,12 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [1.10.1] — 2026-10-03
 
-Nada cambia en la app: tres comprobaciones más antes de publicar cada versión.
+Los filtros del sidebar, a elegir, y tres comprobaciones más antes de publicar cada versión.
+
+### Añadido
+- **Los filtros del sidebar se pueden enseñar todos.** Desde la v1.10.0 solo salen los runtimes
+  que tienen algún proceso. Con el interruptor nuevo de Ajustes → General, «Mostrar siempre todos
+  los runtimes», salen siempre los siete, con su recuento a cero. Viene apagado. (T13-07)
 
 ### Interno
 - Las pruebas con la app en marcha comprueban tres cosas que hasta ahora solo tenían pruebas

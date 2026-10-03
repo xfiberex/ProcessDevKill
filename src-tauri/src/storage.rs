@@ -154,6 +154,14 @@ pub struct Settings {
     /// consulta al pulsar «Buscar actualizaciones». Lo aplica la ventana, que es quien lanza la
     /// comprobación del arranque (`App.tsx`); Rust no consulta nada por su cuenta.
     pub check_updates_on_start: bool,
+    /// Si el sidebar enseña siempre los filtros de todos los runtimes, tengan procesos o no.
+    ///
+    /// **Apagado de fábrica**, que es lo que hace la app desde la v1.10.0: con seis runtimes y
+    /// «Otros», pintarlos todos no cabía en la ventana de fábrica junto al aviso de administrador,
+    /// y solo salen los que tienen algún proceso. Quien prefiera verlos siempre —es como se sabe
+    /// de un vistazo qué se vigila— lo enciende, y acepta que esa lista haga scroll en una ventana
+    /// pequeña. Lo aplica la ventana (`Sidebar.tsx`); Rust solo lo guarda.
+    pub show_all_filters: bool,
 }
 
 impl Default for Settings {
@@ -188,6 +196,8 @@ impl Default for Settings {
             run_as_admin: false,
             // Encendido: es lo que había antes de que existiera el ajuste.
             check_updates_on_start: true,
+            // Apagado: ver el comentario del campo.
+            show_all_filters: false,
         }
     }
 }
@@ -640,6 +650,8 @@ mod tests {
             run_as_admin: true,
             // Apagado, por lo mismo al revés: el de fábrica es `true`.
             check_updates_on_start: false,
+            // Encendido, por lo mismo: el de fábrica es `false`.
+            show_all_filters: true,
         };
 
         storage.save_settings(&settings).unwrap();
@@ -767,6 +779,21 @@ mod tests {
 
         fs::write(storage.settings_file(), r#"{"checkUpdatesOnStart":false}"#).unwrap();
         assert!(!storage.load_settings().check_updates_on_start);
+    }
+
+    /// Quien actualiza desde la v1.10.0, que no tenía el campo, se queda con lo que ya veía: solo
+    /// los filtros de los runtimes con procesos. Y encenderlo viaja al disco con el nombre que lee
+    /// la ventana.
+    #[test]
+    fn mostrar_todos_los_filtros_viene_apagado() {
+        assert!(!Settings::default().show_all_filters);
+
+        let storage = temp_storage("sin-show-all-filters");
+        fs::write(storage.settings_file(), r#"{"customNames":[],"refreshMs":2000}"#).unwrap();
+        assert!(!storage.load_settings().show_all_filters);
+
+        fs::write(storage.settings_file(), r#"{"showAllFilters":true}"#).unwrap();
+        assert!(storage.load_settings().show_all_filters);
     }
 
     /// Quien actualiza con el atajo ya encendido lo conserva —su archivo trae `hotkeyEnabled`—,

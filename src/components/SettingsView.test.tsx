@@ -399,6 +399,29 @@ describe("procesos vigilados", () => {
   });
 });
 
+/** El ajuste de los filtros del sidebar (v1.10.1). Qué hace el sidebar con él lo prueba `App`. */
+describe("filtros del sidebar", () => {
+  const interruptor = () =>
+    screen.getByRole("switch", { name: /Mostrar siempre todos los runtimes/ });
+
+  it("viene apagado, y dice qué cambia", () => {
+    pintar();
+    expect(interruptor()).not.toBeChecked();
+    expect(screen.getByText(/solo salen los runtimes que tienen algún proceso/)).toBeInTheDocument();
+  });
+
+  it("se puede encender", async () => {
+    const { user, onChange } = pintar();
+    await user.click(interruptor());
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ showAllFilters: true }));
+  });
+
+  it("encendido, se enseña encendido", () => {
+    pintar({ showAllFilters: true });
+    expect(interruptor()).toBeChecked();
+  });
+});
+
 describe("actualizaciones", () => {
   it("el boton lanza la busqueda", async () => {
     const { user, updater } = pintar();

@@ -38,7 +38,8 @@ que se puede hacer sin depender de otra persona.*
 > lectura del inglés por un nativo— se queda abajo, en «Lo que queda suelto».
 >
 > **Cortes:** T13-01 a T13-04 salieron en la **v1.10.0**, publicada el 2026-10-03. T13-05 y
-> T13-06, que solo añaden comprobaciones, van en la **v1.10.1**. Con ellas, las seis están hechas.
+> T13-06, que solo añaden comprobaciones, y T13-07, pedida después, van en la **v1.10.1**. Con
+> ellas, las siete están hechas.
 >
 > Esfuerzo: **bajo** = una sesión corta; **medio** = una sesión larga o dos.
 
@@ -207,6 +208,17 @@ que se puede hacer sin depender de otra persona.*
       servidor propio que la sirva despacio, y estrangular la red del equipo desde un guion pide
       privilegios y herramientas que la prueba no debe exigir. Se queda en sus tres pruebas, a
       escala de 1 s.
+
+- [x] **[T13-07] Los filtros del sidebar, a elegir**
+  - **Qué hacer:** lo pidió el usuario el 2026-10-03, con la v1.10.0 ya instalada: poder elegir
+    entre ver solo los filtros de los runtimes con procesos —lo que trajo T13-01— o verlos todos.
+  - **Criterio de aceptación:** un ajuste que se guarda; apagado, lo de la v1.10.0; encendido, los
+    siete filtros con su recuento, también a cero. Visto en la ventana.
+  - **Hecho el 2026-10-03.** `showAllFilters` en `Settings`, apagado de fábrica, con su
+    interruptor en Ajustes → General. Probado en Rust (viene apagado, un archivo de la v1.10.0 sin
+    el campo se lee igual, y encendido viaja al disco), en la ventana (los siete con su cero, un
+    filtro vacío se puede pulsar, el interruptor guarda) y **en marcha**: el guion pulsa el
+    interruptor de verdad, ve salir los siete y volver a irse los vacíos al apagarlo.
 
 ### Lo que queda suelto
 

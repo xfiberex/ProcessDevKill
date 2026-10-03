@@ -214,6 +214,33 @@ describe("filtros por runtime del sidebar", () => {
     await user.click(screen.getByRole("button", { name: /^Todos/ }));
     expect(screen.queryByRole("button", { name: /^Bun/ })).not.toBeInTheDocument();
   });
+
+  /**
+   * El ajuste de la v1.10.1: quien prefiere ver siempre qué se vigila enciende «mostrar todos», y
+   * entonces salen los siete, los vacíos con su cero. `LISTA` solo tiene Node, Python y .NET.
+   */
+  it("con «mostrar todos» encendido salen los siete, los vacíos a cero", async () => {
+    const ajustes = { ...DEFAULT_TEST_SETTINGS, showAllFilters: true };
+    await montar(LISTA, { get_settings: ajustes, save_settings: ajustes });
+
+    for (const nombre of [/^Java/, /^Deno/, /^Bun/, /^Otros/]) {
+      const filtro = await screen.findByRole("button", { name: nombre });
+      expect(within(filtro).getByText("0")).toBeInTheDocument();
+    }
+    const node = screen.getByRole("button", { name: /^Node\.js/ });
+    expect(within(node).getByText("2")).toBeInTheDocument();
+  });
+
+  /** Un filtro vacío se puede pulsar, y la tabla dice que es cosa del filtro, no que no hay nada. */
+  it("y un filtro a cero se puede pulsar sin que la app dé la lista por vacía", async () => {
+    const ajustes = { ...DEFAULT_TEST_SETTINGS, showAllFilters: true };
+    const user = await montar(LISTA, { get_settings: ajustes, save_settings: ajustes });
+
+    await user.click(await screen.findByRole("button", { name: /^Deno/ }));
+
+    expect(screen.getByText("Ningún proceso coincide con el filtro.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Añadir procesos vigilados/ })).not.toBeInTheDocument();
+  });
 });
 
 /**

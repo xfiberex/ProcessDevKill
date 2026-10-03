@@ -582,6 +582,12 @@ export const es = {
       detalle:
         "Con esto activado, **el botón ✕** esconde la ventana y ProcessDevKill **sigue funcionando** en segundo plano: el Auto-Kill y el atajo global siguen vigilando. Para recuperarla, pulsa su icono en la bandeja; para salir del todo, **Salir** en el menú de ese icono." as Rico,
     },
+    filtros: {
+      titulo: "Filtros del sidebar",
+      interruptor: "Mostrar siempre todos los runtimes, tengan procesos o no",
+      detalle:
+        "Sin esto, bajo **Procesos** solo salen los runtimes que tienen algún proceso, más el que tengas pulsado. Activado, salen siempre los siete, con su recuento a cero: así se ve de un vistazo qué se vigila. En una ventana pequeña, esa lista puede necesitar desplazarse." as Rico,
+    },
     atajo: {
       titulo: "Atajo global",
       /** Va delante del `<kbd>`, que es estructura y se queda en el componente. */
@@ -1025,6 +1031,12 @@ export const en: Catalogo = {
       interruptor: "Leave it in the tray instead of quitting the app",
       detalle:
         "With this on, **the ✕ button** hides the window and ProcessDevKill **keeps running** in the background: Auto-Kill and the global shortcut stay active. To bring it back, click its tray icon; to quit completely, choose **Quit** from that icon's menu.",
+    },
+    filtros: {
+      titulo: "Sidebar filters",
+      interruptor: "Always show every runtime, with or without processes",
+      detalle:
+        "Without this, only the runtimes that have at least one process appear under **Processes**, plus the one you have selected. With it on, all seven are always shown, with a count of zero, so you can see at a glance what is being watched. In a small window, that list may need to scroll.",
     },
     atajo: {
       titulo: "Global shortcut",

@@ -16,7 +16,12 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [1.10.1] — 2026-10-03
 
-Nothing changes in the app: three more checks before each version is published.
+The sidebar filters, your choice, and three more checks before each version is published.
+
+### Added
+- **The sidebar filters can all be shown.** Since v1.10.0, only the runtimes that have at least
+  one process appear. With the new switch in Settings → General, “Always show every runtime”, all
+  seven are always shown, with a count of zero. It is off by default. (T13-07)
 
 ### Internal
 - The tests that drive the running app now check three things that until now only had

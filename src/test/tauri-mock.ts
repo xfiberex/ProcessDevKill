@@ -132,6 +132,7 @@ export const DEFAULT_TEST_SETTINGS: Settings = {
   customServices: [],
   runAsAdmin: false,
   checkUpdatesOnStart: true,
+  showAllFilters: false,
 };
 
 /** Un ServiceInfo completo con lo justo cambiado. Por defecto, uno corriendo y sin puerto. */

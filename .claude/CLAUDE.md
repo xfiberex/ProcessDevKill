@@ -100,7 +100,7 @@ identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_esp
 - **`App.tsx` une y pinta; lo que tiene estado propio vive en su hook** (`hooks/useSettings`,
   `useProcessList`, `useKills`, `useServices`, `useUpdater`). **Cuando vuelva a pasar de ~450
   líneas, se parte otra vez**, igual que `lib.rs`: ya ha pasado dos veces (Tier 7.6 y T12-15, que
-  lo encontró en 927). **Ahora mismo van 374** (2026-10-02). El diálogo de confirmación y los avisos
+  lo encontró en 927). **Ahora mismo van 375** (2026-10-03). El diálogo de confirmación y los avisos
   se quedan en `App`, porque los comparten todas las vistas; un hook que los necesite los recibe.
 - **Una vista nueva usa `ViewHeader` y `ViewBody`** (`components/ViewHeader.tsx`): cabecera fija
   con su `h2` y cuerpo con scroll. Si el cuerpo no tiene nada enfocable, `ViewBody` con `label`, o

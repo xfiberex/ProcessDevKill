@@ -32,6 +32,8 @@ const DEFAULT_SETTINGS: Settings = {
   runAsAdmin: false,
   // Encendido, como en Rust: es lo que la app hacía antes de que se pudiera apagar.
   checkUpdatesOnStart: true,
+  // Apagado, como en Rust: de fábrica solo salen los filtros de los runtimes con procesos.
+  showAllFilters: false,
 };
 
 /**
