@@ -54,7 +54,26 @@ const sinCompilar = process.argv.includes("--sin-compilar");
 // ── Salida ──────────────────────────────────────────────────────────────────
 
 const fallos = [];
+const omitidos = [];
 let hechos = 0;
+
+/** Lo que un paso lanza cuando no ha podido comprobar nada, y no por culpa de la app. */
+class Omitido extends Error {}
+
+/**
+ * En un runner de GitHub, un 403 de su API no es un fallo de la app: es la cuota sin autenticar,
+ * que se reparte entre todo lo que sale por la misma IP. Visto en la primera ejecución de
+ * `en-marcha.yml` (T13-03): 22 comprobaciones bien y las dos que consultan la API, con 403.
+ *
+ * **Solo en el runner** (`GITHUB_ACTIONS`). En el equipo de quien corta, un 403 sigue siendo un
+ * fallo: ahí la cuota es suya, y que GitHub se niegue es justo lo que hay que saber antes de
+ * publicar. La app no puede llevar un token para evitarlo, así que aquí tampoco se usa.
+ */
+function omitirSiEsLaCuota(error) {
+  if (process.env.GITHUB_ACTIONS && /\b403\b/.test(String(error))) {
+    throw new Omitido(`GitHub contestó 403 al runner (cuota compartida): ${error}`);
+  }
+}
 
 const info = (m) => console.log(`==> ${m}`);
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -71,6 +90,11 @@ async function paso(nombre, fn) {
     hechos++;
     console.log(`[OK] ${nombre}${detalle ? ` — ${detalle}` : ""}`);
   } catch (e) {
+    if (e instanceof Omitido) {
+      omitidos.push(nombre);
+      console.log(`[!] ${nombre}\n      sin comprobar: ${e.message}`);
+      return;
+    }
     fallos.push(nombre);
     console.log(`[X] ${nombre}\n      ${String(e?.message ?? e).split("\n").join("\n      ")}`);
   }
@@ -689,6 +713,7 @@ async function actualizador(cdp) {
 
   await paso("Buscar actualizaciones consulta GitHub sin error", async () => {
     const r = await cdp.invoke("check_update");
+    if (!r.ok) omitirSiEsLaCuota(r.error);
     exigir(r.ok, r.error);
     nueva = r.valor;
     return nueva ? `hay una versión más nueva: ${nueva.tag}` : "la app está al día";
@@ -764,6 +789,7 @@ async function actualizador(cdp) {
     const respuesta = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { "User-Agent": "ProcessDevKill-prueba-en-marcha" },
     });
+    if (!respuesta.ok) omitirSiEsLaCuota(respuesta.status);
     exigir(respuesta.ok, `la API de GitHub contestó ${respuesta.status}`);
     const publicado = await respuesta.json();
     const instalador = publicado.assets.find((a) => a.name.endsWith("_x64-setup.exe"));
@@ -895,6 +921,8 @@ console.log("");
 if (fallos.length > 0) {
   console.log(`[X] Pruebas en marcha: ${fallos.length} con fallo, ${hechos} bien.`);
   codigo = 1;
+} else if (omitidos.length > 0) {
+  console.log(`[OK] Pruebas en marcha: ${hechos} comprobaciones pasan y ${omitidos.length} quedan sin comprobar.`);
 } else {
   console.log(`[OK] Pruebas en marcha: las ${hechos} comprobaciones pasan.`);
 }
