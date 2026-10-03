@@ -50,8 +50,10 @@ antes de abrir el siguiente.
   (`undici`, `hono`, `brace-expansion`, `ip-address`, `fast-uri`, `js-yaml` y `vitest`) se
   fusionaron el 2026-10-02. Seguirá abriendo otros: cada uno se lee, se comprueba que solo toca
   dependencias de desarrollo —o se regeneran los avisos de terceros si no— y se fusiona con la
-  CI en verde. Queda una alerta abierta, la de `glib`: es un crate de Linux, no va en el binario
-  de Windows, y `cargo audit` la deja pasar como aviso.
+  CI en verde. La alerta de `glib` (#36) se descartó el 2026-10-03 como «código que no se usa»:
+  es un crate de Linux, no va en el binario de Windows, y su arreglo (0.20.0) no lo admite el
+  `gtk` 0.18 que trae Tauri. `cargo audit` la sigue enseñando como aviso. Se vuelve a mirar en la
+  próxima auditoría, o antes si la app saliera para Linux.
 - **El inglés no lo ha leído un hablante nativo** (T12-35), y desde la v1.10.0 hay más: las
   notas de cada versión, en `CHANGELOG.en.md` (T13-04).
 - **Seis avisos altos en las dependencias de desarrollo, todos el mismo** (T13-02): `braces`
