@@ -8,14 +8,15 @@ El estado y las decisiones viven en [CONTEXT.md](../CONTEXT.md), y lo que falta 
 explicado en CONTEXT §4 con su fecha y su motivo. Lo que cambió en cada versión, contado para quien
 usa la app, en [CHANGELOG.md](../CHANGELOG.md). Lo cerrado vive entero en `docs/`: los Tiers 1 a 11
 en [docs/TIERS-1-11.md](../docs/TIERS-1-11.md), el Tier 12 en [docs/TIER-12.md](../docs/TIER-12.md),
-la auditoría del 2026-08-18 en [docs/REVISION-2026-08-18.md](../docs/REVISION-2026-08-18.md) y la
-historia sesión a sesión en [docs/BITACORA.md](../docs/BITACORA.md). Ninguno de los cuatro hace
-falta salvo para reconstruir cómo se llegó a algo.
+el Tier 13 en [docs/TIER-13.md](../docs/TIER-13.md), la auditoría del 2026-08-18 en
+[docs/REVISION-2026-08-18.md](../docs/REVISION-2026-08-18.md) y la historia sesión a sesión en
+[docs/BITACORA.md](../docs/BITACORA.md). Ninguno de los cinco hace falta salvo para reconstruir
+cómo se llegó a algo.
 
 **Al cerrar un Tier, su detalle sale del ROADMAP a `docs/`** y en el ROADMAP queda una línea en «Lo
 hecho». Mientras algo es accionable su sitio es el ROADMAP; cerrado, es historia. Así se hizo con la
-bitácora (2026-07-27), la revisión (2026-08-23), los Tiers 1 a 11 (2026-09-30) y el Tier 12
-(2026-10-02). **Lo que un Tier deja dicho y sin hacer no se va con él**: se queda en el ROADMAP,
+bitácora (2026-07-27), la revisión (2026-08-23), los Tiers 1 a 11 (2026-09-30), el Tier 12
+(2026-10-02) y el Tier 13 (2026-10-03). **Lo que un Tier deja dicho y sin hacer no se va con él**: se queda en el ROADMAP,
 en «Lo que queda suelto».
 
 **Este archivo es la fuente única de las convenciones.** Hasta el 2026-07-27 también estaban en

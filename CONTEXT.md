@@ -47,7 +47,14 @@ auto-actualización. Para la v1.9.1, `cbf36770…`. Desde T12-24 lo hace el prop
 terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
 existe.
 
-**No hay ningún Tier abierto.** El **[Tier 12 — Re-auditoría completa](docs/TIER-12.md)** se cerró
+**No hay ningún Tier abierto.** El **[Tier 13](docs/TIER-13.md)** se cerró el 2026-10-03 con la
+v1.10.1: siete tareas en dos versiones. Trajo Java, Deno y Bun vigilados de fábrica, las notas de
+cada versión también en inglés y el ajuste para enseñar siempre todos los filtros del sidebar, y
+vio en marcha parte de lo que el Tier 12 solo había probado en las suites: el pánico en el log, el
+instalador cambiado tras la descarga y el aviso de «protegido» con el guardado fallando. Las
+pruebas con la app en marcha son ahora 28, y el runner de GitHub las aguanta.
+
+Antes, el **[Tier 12 — Re-auditoría completa](docs/TIER-12.md)** se cerró
 el 2026-10-02 con la v1.9.1: 39 tareas en cinco versiones, de la v1.8.1 a la v1.9.1. Ningún hallazgo
 era crítico ni alto, y los nueve medios se cerraron antes que los bajos. Corrigió además las cuatro
 tareas de antes que se habían dado por cerradas sin estarlo del todo —T3-09, T2-02, T3-19 y la D4
@@ -131,8 +138,9 @@ verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/
 - **La auto-actualización de punta a punta**, el 2026-08-18: de la v1.3.1 a la v1.3.2 desde Ajustes,
   en silencio, sin asistente ni desinstalador y con la app volviendo a abrirse sola. Cierra la cadena
   entera —consulta, assets, descarga, hash, ejecución y reapertura— y los flags `/S /UPDATE /R` del
-  Tier 9. **El bloqueo del instalador del Tier 12 (T12-02) todavía no ha pasado por una
-  actualización real**: llegará con el próximo release.
+  Tier 9. **El bloqueo del instalador del Tier 12 (T12-02) pasó por una actualización
+  real el 2026-10-03**, de la v1.9.1 a la v1.10.0: 22 segundos entre un arranque y el otro, según
+  el log de la app instalada (T13-05).
 - **Servicios y administrador:** arrancar y detener con el UAC de verdad; la ventana respondiendo
   mientras tanto (T12-06, 1-2 ms frente a 45 s sin la corrección); y el modo administrador de la
   v1.7.0, probado a mano por el usuario, incluido cerrar el UAC sin aprobarlo.
@@ -324,6 +332,7 @@ verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/
 | 2026-10-02 | **Java, Deno y Bun se vigilan de fábrica; Java también** | Lo decidió el usuario al abrir el Tier 13, y cierra la pendiente de §5. La duda era Java: `java` y `javaw` también ejecutan programas que no son de desarrollo. Pesa más que cada fila diga qué proceso es —el script o la clase, desde el Tier 11—, y lo que no sea de desarrollo se protege. Lo que no cubre: las vías que cierran sin mirar la fila (Nuke All, la bandeja, el atajo, el Auto-Kill). Por eso el README lo dice y la prueba negativa de T13-01 es la de un `java` protegido |
 | 2026-10-02 | **El sidebar solo pinta los filtros de los runtimes que tienen procesos** | T13-01. Con siete filtros fijos (seis runtimes y «Otros»), el sidebar pedía unos 660 px, y a 680 —el alto de fábrica— el aviso de administrador ya no cabía sin scroll. Lo normal son dos o tres runtimes vivos a la vez. El filtro activo se queda aunque llegue a cero: si desapareciera el botón recién pulsado, nada diría qué está filtrando la tabla. Lo que se pierde es ver de un vistazo qué se vigila; lo dicen el estado vacío y Ajustes. El coste es un filtro que aparece y desaparece con su runtime, y se prefirió a una navegación con scroll en el caso normal |
 | 2026-10-03 | **…y es un ajuste: `showAllFilters`, apagado de fábrica** | T13-07, al día siguiente y a petición del usuario, que al ver la v1.10.0 preguntó dónde estaban los demás filtros. Lo de arriba sigue siendo lo de fábrica, por el mismo motivo; quien prefiera ver siempre los siete lo enciende en Ajustes → General y acepta el scroll de la navegación en una ventana pequeña, que el propio ajuste avisa. Lo guarda Rust y lo aplica la ventana |
+| 2026-10-03 | **El Tier 13 sale del ROADMAP a `docs/TIER-13.md`** | La regla de siempre, aplicada el mismo día que se cerró. Lo que dejó dicho y sin hacer se queda en el ROADMAP, en «Lo que queda suelto», junto a lo del Tier 12: el aviso de `braces` sin arreglo publicado, la decisión de si las pruebas en marcha pasan a cada push, y lo que sigue sin verse en vivo |
 | 2026-10-03 | **Las notas en inglés viven en `CHANGELOG.en.md`, y viajan en el mismo release bajo el título «English»** | T13-04. Un archivo aparte y no un bloque inglés dentro de cada versión de `CHANGELOG.md`: ese archivo se lee de corrido y en español. Y un solo cuerpo de release con las dos mitades, no dos releases ni un asset aparte: la app ya descarga ese cuerpo, y partirlo por un título es lo mismo que ya hacía con «Descarga». Sin sección inglesa el corte aborta, porque el fallo —notas en español para quien tiene la app en inglés— solo se vería con el release fuera. Empieza en la v1.10.0: las anteriores no se traducen, y la app las enseña en español. La tabla de descarga del final sigue solo en español |
 | 2026-10-03 | **Las pruebas en marcha se prueban en el runner con un workflow aparte y manual** | T13-03. `en-marcha.yml`, solo `workflow_dispatch`, y no un job más de `ci.yml`: hasta saber si pasa de forma fiable no puede poner en rojo un push, y lanzarlo no debe arrastrar la CI entera. Qué se haga después —dejarlo manual, pasarlo a cada push o quitarlo— se decide con ejecuciones en la mano |
 

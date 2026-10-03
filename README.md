@@ -335,7 +335,7 @@ Y la documentación, donde cada cosa vive en un solo sitio:
 | [ROADMAP.md](ROADMAP.md) | ¿Qué falta por hacer? |
 | [CONTEXT.md](CONTEXT.md) | ¿En qué estado está, y por qué se decidió así? |
 | [.claude/CLAUDE.md](.claude/CLAUDE.md) | ¿Cómo se trabaja en este repositorio? |
-| [docs/TIERS-1-11.md](docs/TIERS-1-11.md), [docs/TIER-12.md](docs/TIER-12.md) y [docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md) | ¿Qué se hizo ya, y qué enseñó? |
+| [docs/TIERS-1-11.md](docs/TIERS-1-11.md), [docs/TIER-12.md](docs/TIER-12.md), [docs/TIER-13.md](docs/TIER-13.md) y [docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md) | ¿Qué se hizo ya, y qué enseñó? |
 | [docs/BITACORA.md](docs/BITACORA.md) | ¿Cómo se llegó hasta aquí, sesión a sesión? |
 
 ## Estado
