@@ -8,6 +8,33 @@
 
 ---
 
+### 2026-10-03 — Auditoría de diseño UI/UX: sale el Tier 14
+
+Pedida por el usuario después de cerrar el Tier 13, que no dejó entradas aquí: lo que se hizo en
+esas sesiones está en [TIER-13.md](TIER-13.md).
+
+- **La evidencia se sacó antes de opinar.** Un guion sobre la copia de prueba: 186 capturas —cinco
+  tamaños de ventana, los dos temas, los dos idiomas, zoom al 125, 150 y 200 %, `forced-colors`
+  emulado, el foco de cada control— y 26 archivos de medidas. Solo cerró procesos lanzados por él,
+  y antes de abrir un «Nuke filtrados» comprobó que todo lo visible era suyo.
+- **Lo que una captura por CDP no enseña**, y hubo que ir a buscar con `PrintWindow`: la barra de
+  título, que se queda en el tema de Windows y no en el de la app, y el menú contextual del
+  WebView («Atrás · Actualizar · Guardar como · Imprimir»), que sale con un clic derecho fuera de
+  una fila. Se encontró contando las ventanas del proceso antes y después del clic.
+- **Una falsa alarma, descartada midiendo.** El guion creyó tres veces que el desplegable del
+  arranque no se cerraba con Escape. Se cerraba, en menos de 100 ms: Base UI deja la lista montada
+  con tamaño cero, y lo que se miraba era si seguía en el DOM. Abierta es «con tamaño».
+- **Los cuatro auditores no llegaron a nada.** Se lanzaron en paralelo —flujos, visual,
+  accesibilidad y contenido— y se cortaron a la vez por el límite de uso de la sesión, sin haber
+  escrito ni una línea. La auditoría la terminó la sesión principal, sola: el Tier lo dice arriba,
+  y por eso cada tarea lleva lo medido.
+- **F5 quedó sin ver.** Enviado como mensaje a la ventana no recargó, y eso no prueba nada: hay
+  que pulsarlo de verdad, con la ventana delante. Va dicho en T14-02.
+- **El Tier 14**: 30 tareas en ocho fases. Una alta —con un tema de contraste de Windows los
+  interruptores no dicen si están encendidos: pulgar, pista y fondo salen a 1:1—, trece medias y
+  dieciséis bajas. Seis reabren o precisan decisiones de CONTEXT §4.
+- De paso: CONTEXT §3 seguía diciendo que la publicada era la v1.9.1; es la v1.10.1.
+
 ### 2026-10-02 (5) — Los PR de Dependabot y el `package-lock.json`
 
 Las dos cosas sueltas que el usuario pidió cerrar después del Tier 12.

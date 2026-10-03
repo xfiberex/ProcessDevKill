@@ -39,15 +39,23 @@
 
 ## 3. Estado actual
 
-**Publicada: la v1.9.1** (2026-10-02). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
+**Publicada: la v1.10.1** (2026-10-03). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
 lo que está en `main` sin publicar, en su sección «Sin publicar». Cada release se comprueba igual
 tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `tag_name` correcto y
 **el instalador descargado coincide con su `.sha256`**, que es la cadena entera que recorre la
-auto-actualización. Para la v1.9.1, `cbf36770…`. Desde T12-24 lo hace el propio `release.ps1` al
+auto-actualización. Para la v1.10.1, `e4f89dba…`. Desde T12-24 lo hace el propio `release.ps1` al
 terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
 existe.
 
-**No hay ningún Tier abierto.** El **[Tier 13](docs/TIER-13.md)** se cerró el 2026-10-03 con la
+**Abierto: el [Tier 14 — Auditoría de diseño UI/UX](ROADMAP.md)**, desde el 2026-10-03: 30 tareas
+en ocho fases, una de severidad alta, trece medias y dieciséis bajas, y ninguna empezada. Sale de
+una auditoría con la app en marcha —186 capturas y 26 archivos de medidas— que miró lo que el
+Tier 11 no había mirado: el marco de la ventana, los tamaños fuera del de fábrica, el zoom por
+encima del 125 %, los temas de contraste de Windows y adónde va el foco. **Es una sola pasada, sin
+segunda opinión**: los cuatro auditores que iban a repartirse el análisis se cortaron por el límite
+de uso de la sesión, y cada tarea lleva lo medido para poder discutirla.
+
+Antes, el **[Tier 13](docs/TIER-13.md)** se cerró el 2026-10-03 con la
 v1.10.1: siete tareas en dos versiones. Trajo Java, Deno y Bun vigilados de fábrica, las notas de
 cada versión también en inglés y el ajuste para enseñar siempre todos los filtros del sidebar, y
 vio en marcha parte de lo que el Tier 12 solo había probado en las suites: el pánico en el log, el
@@ -335,6 +343,7 @@ verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/
 | 2026-10-03 | **El Tier 13 sale del ROADMAP a `docs/TIER-13.md`** | La regla de siempre, aplicada el mismo día que se cerró. Lo que dejó dicho y sin hacer se queda en el ROADMAP, en «Lo que queda suelto», junto a lo del Tier 12: el aviso de `braces` sin arreglo publicado, la decisión de si las pruebas en marcha pasan a cada push, y lo que sigue sin verse en vivo |
 | 2026-10-03 | **Las notas en inglés viven en `CHANGELOG.en.md`, y viajan en el mismo release bajo el título «English»** | T13-04. Un archivo aparte y no un bloque inglés dentro de cada versión de `CHANGELOG.md`: ese archivo se lee de corrido y en español. Y un solo cuerpo de release con las dos mitades, no dos releases ni un asset aparte: la app ya descarga ese cuerpo, y partirlo por un título es lo mismo que ya hacía con «Descarga». Sin sección inglesa el corte aborta, porque el fallo —notas en español para quien tiene la app en inglés— solo se vería con el release fuera. Empieza en la v1.10.0: las anteriores no se traducen, y la app las enseña en español. La tabla de descarga del final sigue solo en español |
 | 2026-10-03 | **Las pruebas en marcha se prueban en el runner con un workflow aparte y manual** | T13-03. `en-marcha.yml`, solo `workflow_dispatch`, y no un job más de `ci.yml`: hasta saber si pasa de forma fiable no puede poner en rojo un push, y lanzarlo no debe arrastrar la CI entera. Qué se haga después —dejarlo manual, pasarlo a cada push o quitarlo— se decide con ejecuciones en la mano |
+| 2026-10-03 | **Segunda auditoría de UX/UI: sale el Tier 14, de una sola pasada** | Pedida por el usuario para «mejorar el diseño UI/UX para este tipo de proyecto». Se hizo con la copia de prueba conducida por CDP —186 capturas y 26 archivos de medidas—, cerrando solo procesos lanzados por el guion y sin encender nada que cierre procesos solo. Lo nuevo frente al Tier 11: la ventana entera con `PrintWindow` (la barra de título y el menú propio del WebView no salen en una captura por CDP), `forced-colors` emulado, cinco tamaños de ventana, tres niveles de zoom y teclado de verdad para ver adónde va el foco. Los cuatro auditores que iban a repartirse el análisis se cortaron por el límite de uso de la sesión sin devolver nada, así que **no hay segunda opinión**: por eso cada tarea lleva lo medido. **No decide nada todavía**: seis tareas reabren o precisan filas de esta tabla —`"center": true` (2026-07-24), las paradas de tabulación de la fila (2026-07-27), el aviso fijo de administrador (2026-09-24), el scroll horizontal con zoom (2026-09-25), las notas del release tal cual (2026-10-01) y los filtros del sidebar (2026-10-02 y 03)—, y la decisión nueva se anota aquí cuando se haga cada una |
 
 ## 5. Decisiones pendientes
 
@@ -344,6 +353,12 @@ decidida: no la habrá (§4, 2026-08-18).
 
 - [ ] Ampliar el catálogo de servicios de fábrica según lo que aparezca en equipos reales. Hoy son
       siete familias; lo que falte se puede añadir a mano en Ajustes, así que no bloquea a nadie.
+- [ ] **Tier 14, T14-14:** si Supr sobre una fila cierra sin preguntar, como Kill, o pide una
+      segunda pulsación, como el atajo global.
+- [ ] **Tier 14, T14-27:** si con la app en español los decimales van con coma («0,0 %»), o se
+      quedan con punto por costumbre de quien programa.
+- [ ] **Tier 14, las seis que reabren decisiones** (T14-04, T14-14, T14-16, T14-17, T14-26 y
+      T14-28): cada una se adopta o se descarta al llegar a ella, y se anota en §4.
 
 ## 6. Cómo retomar el proyecto en otro equipo
 
