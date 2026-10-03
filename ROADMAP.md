@@ -37,9 +37,8 @@ que se puede hacer sin depender de otra persona.*
 > pendientes de [CONTEXT §5](CONTEXT.md). Lo que depende de terceros —la revisión legal y la
 > lectura del inglés por un nativo— se queda abajo, en «Lo que queda suelto».
 >
-> **Plan de cortes:** T13-01 a T13-04 en una tanda, que se corta como **v1.10.0** (los runtimes
-> nuevos son función nueva). T13-05 se hace con ese corte, porque es la versión a la que se
-> actualiza. T13-06, después.
+> **Cortes:** T13-01 a T13-04 salieron en la **v1.10.0**, publicada el 2026-10-03. Quedan
+> T13-05, que ya se puede hacer —es actualizar a esa versión desde la app instalada—, y T13-06.
 >
 > Esfuerzo: **bajo** = una sesión corta; **medio** = una sesión larga o dos.
 
@@ -139,7 +138,7 @@ que se puede hacer sin depender de otra persona.*
     para repetir lo que el corte ya hace, y con una caché que aún no se sabe si acorta la
     compilación.
 
-- [ ] **[T13-04] Las notas de cada versión, también en inglés** (T12-36)
+- [x] **[T13-04] Las notas de cada versión, también en inglés** (T12-36)
   - **Ubicación:** `CHANGELOG.md`, `src/lib/notas.ts`, `src/lib/notas.test.ts`, `release.ps1`
   - **Qué hacer:** quien tiene la app en inglés lee las notas de la actualización en español. Cada
     versión lleva su texto en inglés y la app elige según su idioma. El título «Descarga» donde la
@@ -155,11 +154,13 @@ que se puede hacer sin depender de otra persona.*
     reales de la v1.8.0, la atadura del título con `release.ps1`, que la ventana usa el idioma, y
     que los dos CHANGELOG tienen la misma forma. La función de `release.ps1` se ejecutó suelta
     sobre una copia con la sección ya titulada: saca las dos mitades y da vacío para la v1.9.1.
-    **Lo que falta, y por qué la casilla sigue sin marcar:** verlo en la ventana. Hace falta un
-    release con notas en inglés y una copia más vieja que él, y eso solo pasa justo después de
-    cortar la v1.10.0, con `node tools/prueba-en-marcha.mjs --sin-compilar`. El paso está escrito
-    en el guion y nunca ha corrido. El `-DryRun` de la v1.10.0 sí se hizo el 2026-10-03: pasa
-    entero y enseña las notas con las dos mitades, español, «English» y «Descarga».
+  - **Visto en vivo el 2026-10-03, con la v1.10.0 recién publicada.** La copia de prueba, que
+    se compiló antes de subir la versión y era por tanto una v1.9.1 con este código, encontró la
+    v1.10.0 y enseñó sus notas en Ajustes: en español, «Añadido · Cambiado · Interno»; con la app
+    en inglés, «Added · Changed · Internal», sin un título de la otra mitad ni la tabla de
+    descarga (`node tools/prueba-en-marcha.mjs --sin-compilar`, 25 comprobaciones). Solo se
+    puede repetir justo después de un corte: recién compilada, la copia está al día y no hay
+    notas que enseñar.
 
 - [ ] **[T13-05] Una actualización de punta a punta, vista** (T12-02)
   - **Qué hacer:** con la v1.9.1 instalada, actualizar a la v1.10.0 desde la app: una vez normal y
