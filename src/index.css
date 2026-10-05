@@ -274,6 +274,7 @@ body {
      El `*` es por los recuentos y los iconos, que traen su propio color. */
   [role="radio"][aria-checked="true"],
   aside [aria-current="page"],
+  aside [aria-current="true"],
   aside [aria-pressed="true"] {
     /* Sin esto el navegador pinta detrás de cada texto una placa del color del fondo de la
        ventana, para asegurar que se lee, y sobre `Highlight` lo que hace es taparlo: el rótulo
@@ -286,6 +287,7 @@ body {
   }
   [role="radio"][aria-checked="true"] *,
   aside [aria-current="page"] *,
+  aside [aria-current="true"] *,
   aside [aria-pressed="true"] * {
     color: HighlightText !important;
   }
@@ -330,6 +332,10 @@ body {
   /* La marca de «Ajustes» cuando hay versión nueva (T14-12): es un punto de color y nada más. */
   [data-slot="marca"] {
     background-color: Highlight !important;
+  }
+  /* Dentro de lo elegido el fondo ya es `Highlight`: el punto se perdería sobre su mismo color. */
+  aside [aria-current] [data-slot="marca"] {
+    background-color: HighlightText !important;
   }
 }
 

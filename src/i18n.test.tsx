@@ -174,7 +174,6 @@ describe("el catálogo de idiomas", () => {
       // «Manual» se escribe igual en los dos idiomas, y es la palabra que usa el propio Windows.
       "servicios.arranques.manual": "misma palabra en los dos idiomas",
       "ajustes.grupos.general": "misma palabra en los dos idiomas",
-      "sidebar.subtitulo": "ya estaba en ingles",
       "cabecera.nukeAll": "ya estaba en ingles",
       "tabla.kill": "ya estaba en ingles",
     };

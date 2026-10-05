@@ -858,6 +858,7 @@ describe("cuando Rust rechaza", () => {
   it("los ajustes vuelven a su valor anterior si no se pudieron guardar", async () => {
     const user = await montar();
     await user.click(screen.getByRole("button", { name: "Ajustes" }));
+    await user.click(screen.getByRole("button", { name: "Automatismos" }));
 
     const interruptor = await screen.findByRole("switch", {
       name: /Cerrar solos los procesos que se pasen de RAM/,
@@ -1389,6 +1390,7 @@ describe("comprobación de actualizaciones al arrancar", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "Ajustes" }));
+    await user.click(screen.getByRole("button", { name: "Actualizaciones" }));
     // Con Ajustes pintado y el interruptor apagado, los ajustes ya están leídos: si la consulta
     // fuera a salir, ya habría salido.
     expect(
@@ -1437,6 +1439,7 @@ describe("comprobación de actualizaciones al arrancar", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "Ajustes" }));
+    await user.click(screen.getByRole("button", { name: "Actualizaciones" }));
     const interruptor = await screen.findByRole("switch", {
       name: /Buscar actualizaciones al arrancar/,
     });
@@ -1588,5 +1591,101 @@ describe("el clic derecho y las teclas del navegador", () => {
     // Lo que no es del navegador pasa: escribir una «p» o una «r» no se cancela.
     expect(cancelado(document.body, tecla("p"))).toBe(false);
     expect(cancelado(document.body, tecla("r"))).toBe(false);
+  });
+});
+
+/**
+ * T14-24: Ajustes, partido en secciones que cuelgan de su botón en el sidebar.
+ *
+ * Era una sola página de 2.724 px. Lo que se mira aquí es que cada sección enseña lo suyo y nada
+ * más; cuánto mide cada una lo mide `tools/auditoria-ui.mjs`.
+ */
+describe("las secciones de Ajustes", () => {
+  const SECCIONES = ["General", "Sistema", "Vigilancia", "Automatismos", "Actualizaciones", "Acerca de"];
+  const lista = () => document.getElementById("secciones-ajustes");
+  const seccion = (nombre: string) => within(lista()!).getByRole("button", { name: nombre });
+  /** Los títulos de grupo que hay pintados en la vista. */
+  const grupos = () => screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+
+  it("fuera de Ajustes no se ven; dentro, las seis, con «General» elegida", async () => {
+    const user = await montar();
+    expect(lista()).toBeNull();
+    const ajustes = screen.getByRole("button", { name: "Ajustes" });
+    expect(ajustes).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(ajustes);
+
+    expect(ajustes).toHaveAttribute("aria-expanded", "true");
+    expect(ajustes).toHaveAttribute("aria-controls", "secciones-ajustes");
+    expect(within(lista()!).getAllByRole("button").map((b) => b.textContent)).toEqual(SECCIONES);
+    expect(seccion("General")).toHaveAttribute("aria-current", "true");
+    expect(grupos()).toEqual(["General"]);
+  });
+
+  it("cada sección enseña su grupo y solo ese", async () => {
+    const user = await montar();
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+
+    for (const nombre of SECCIONES) {
+      await user.click(seccion(nombre));
+
+      expect(grupos(), nombre).toEqual([nombre]);
+      expect(seccion(nombre)).toHaveAttribute("aria-current", "true");
+      expect(
+        within(lista()!).getAllByRole("button").filter((b) => b.hasAttribute("aria-current")),
+      ).toHaveLength(1);
+    }
+  });
+
+  it("lo de una sección no está en otra", async () => {
+    const user = await montar();
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+
+    // En General está el idioma, y no el Auto-Kill…
+    expect(screen.getByRole("radio", { name: "English" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Cerrar solos los procesos/ })).toBeNull();
+
+    // …que está en Automatismos, donde no está el idioma.
+    await user.click(seccion("Automatismos"));
+    expect(screen.getByRole("switch", { name: /Cerrar solos los procesos/ })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "English" })).toBeNull();
+  });
+
+  it("al volver a Ajustes se está en la sección donde se dejó", async () => {
+    const user = await montar();
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+    await user.click(seccion("Vigilancia"));
+
+    await user.click(screen.getByRole("button", { name: "Historial" }));
+    expect(lista()).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+
+    expect(grupos()).toEqual(["Vigilancia"]);
+  });
+
+  it("lo escrito a medias en un campo sigue ahí al pasar por otra sección", async () => {
+    const user = await montar();
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+    await user.click(seccion("Vigilancia"));
+    const campo = () => screen.getByPlaceholderText("nombre del ejecutable");
+    await user.type(campo(), "mi-proceso");
+
+    await user.click(seccion("General"));
+    await user.click(seccion("Vigilancia"));
+
+    expect(campo()).toHaveValue("mi-proceso");
+  });
+
+  it("el aviso de administrador lleva a Sistema, con el foco en su apartado", async () => {
+    const user = await montar(LISTA, { get_elevation: false });
+    await user.click(screen.getByRole("button", { name: "Ajustes" }));
+    await user.click(seccion("Acerca de"));
+    await user.click(screen.getByRole("button", { name: /^Procesos/ }));
+
+    await user.click(await screen.findByRole("button", { name: /Sin modo administrador/ }));
+
+    expect(grupos()).toEqual(["Sistema"]);
+    expect(seccion("Sistema")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("heading", { level: 4, name: /administrador/i })).toHaveFocus();
   });
 });

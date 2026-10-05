@@ -48,12 +48,13 @@ terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobr
 existe.
 
 **Abierto: el [Tier 14 — Auditoría de diseño UI/UX](ROADMAP.md)**, desde el 2026-10-03: 30 tareas
-en ocho fases, una de severidad alta, trece medias y dieciséis bajas. **Hechas 12 a 2026-10-05**: el
+en ocho fases, una de severidad alta, trece medias y dieciséis bajas. **Hechas 14 a 2026-10-05**: el
 guion que repite las medidas (T14-01) y los temas de contraste (T14-22, la única alta, y T14-23),
 publicados en la v1.10.2; y seis de las medias —el menú y las teclas del navegador, el aviso de
 versión nueva, los avisos de error, el sidebar, el buscador con zoom y la tabla de Servicios
 (T14-02, 12, 15, 16, 18 y 20)—, en la v1.10.3; y tres de la tabla de procesos —los puertos en
-una línea, el foco tras un cierre y las columnas con zoom (T14-06, 13 y 17)—, en la v1.10.4. **Desde el 2026-10-05 cada tanda termina en un
+una línea, el foco tras un cierre y las columnas con zoom (T14-06, 13 y 17)—, en la v1.10.4; y Ajustes partido en
+secciones, con el subtítulo del sidebar traducido (T14-24 y 27), en la v1.10.5. **Desde el 2026-10-05 cada tanda termina en un
 corte.** Sale de
 una auditoría con la app en marcha —186 capturas y 26 archivos de medidas— que miró lo que el
 Tier 11 no había mirado: el marco de la ventana, los tamaños fuera del de fábrica, el zoom por
@@ -361,6 +362,9 @@ verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/
 | 2026-10-05 | **Con zoom, la tabla de procesos suelta columnas antes de hacer scroll, y Kill va pegado a la derecha** | T14-17. **Precisa la decisión del 2026-09-25 (Tier 11, E)**, que resolvió el zoom con un ancho mínimo de 620 px y scroll horizontal: lo que quedaba detrás del scroll era Kill. Ahora se van «Activo» (por debajo de 660 px de cuerpo) y «PID» (por debajo de 572), que pasan a la primera línea del menú de la fila, y el mínimo baja a 468. El scroll horizontal sigue existiendo al 150 % y al 200 %, con Kill fijo. Se pregunta al contenedor y no a la ventana. El coste: la celda pegada lleva el fondo de la vista, no el resaltado de la fila |
 | 2026-10-05 | **Un proceso enseña un puerto y cuántos más tiene** | T14-06. Una etiqueta por puerto cabía de una en una y la fila de seis puertos medía el triple. Se enseña el primero —el más bajo, que es por el que ordena la columna— y «+5»; el resto queda en el `title`, en «Copiar puertos» y en texto oculto para el lector. No se ensanchó la columna: el nombre no podía bajar de 150 px en la ventana mínima |
 | 2026-10-05 | **El foco tras un cierre lo devuelve la tabla, y solo si se ha perdido** | T14-13. La tabla sabe qué fila ocupa el sitio de la que sale; `App` solo le da adónde ir si no queda ninguna. Se guía por `killing`, que solo llenan los cierres pedidos desde la ventana: la bandeja, el atajo y el Auto-Kill no mueven nada. Mira un cuarto de segundo después y solo actúa si el foco está en `body`, en un botón apagado o en una fila que sale: el diálogo de un lote devuelve el foco a su botón antes de que ese botón desaparezca, y mirar antes era ver un foco que aún no se había perdido |
+| 2026-10-05 | **Ajustes son seis secciones, cada una con su botón bajo «Ajustes» en el sidebar** | T14-24, con la propuesta del usuario en vez de la de la tarea, que era una fila de saltos sobre la misma página de 2.724 px: partirla quita el scroll en vez de ayudar a recorrerlo. **Precisa la decisión del Tier 11 (D2)**, que ordenó Ajustes en cinco grupos dentro de una página: los grupos siguen, ahora como secciones, y son seis porque «General» sola seguía pidiendo scroll; el atajo global y el administrador pasan a «Sistema». La sección elegida vive en `App`, porque la cambian el sidebar y los avisos. `SettingsView` sin `seccion` pinta todas, que es como la montan sus pruebas. En la ventana mínima tres secciones siguen con algo de scroll: se dice en la tarea |
+| 2026-10-05 | **Los decimales van con punto en los dos idiomas** | T14-27, decisión del usuario: «0.0%» y «2.0 GB» también en español, por costumbre de quien programa. Las fechas sí siguen al idioma (T12-39). De la tarea quedó el subtítulo del sidebar, que estaba en inglés en los dos |
+| 2026-10-05 | **Supr preguntará antes de cerrar** | T14-14, decisión del usuario, antes de empezar la tarea: la tecla pasa por una confirmación; el botón Kill de la fila sigue cerrando sin preguntar |
 
 ## 5. Decisiones pendientes
 

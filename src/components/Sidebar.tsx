@@ -11,6 +11,8 @@ import { REFRESH_INTERVALS, RUNTIME_COLORS } from "../types";
 import type { ProcessInfo, Runtime, SystemUsage } from "../types";
 import { useT } from "../i18n";
 import { RUNTIME_ICONS } from "../icons";
+import { SECCIONES_DE_AJUSTES } from "./SettingsView";
+import type { SeccionDeAjustes } from "./SettingsView";
 import { UsageMeter } from "./UsageMeter";
 import { Segmented } from "./Segmented";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,26 @@ export type Filter = Runtime | "all";
 
 /** Id de la lista de filtros, para que `aria-controls` apunte a algo real. */
 const FILTROS_ID = "filtros-runtime";
+/** Y el de las secciones que cuelgan de «Ajustes» (T14-24). */
+const SECCIONES_ID = "secciones-ajustes";
+
+/**
+ * Lo que comparten las dos listas que cuelgan de una vista: los filtros y las secciones.
+ *
+ * La guía vertical es lo que hace que se lean como hijas de su vista y no como otra lista suelta.
+ * Son lo único de la `nav` que cede —los botones llevan `shrink-0`—, y hacen scroll ellas (T14-16).
+ * El relleno de la derecha y el de arriba y abajo son para el anillo de foco, que el scroll
+ * recortaría.
+ */
+const LISTA_COLGADA =
+  "ml-3.75 flex flex-col gap-0.5 overflow-y-auto border-l border-sidebar-border py-0.5 pr-0.5 pl-2";
+
+/**
+ * Cede hasta tres botones —26 px cada uno— y no más: al 200 % de zoom la lista se quedaba en una
+ * rendija de 4 px. Por debajo de eso, la que hace scroll es la `nav` entera, que es lo que pasaba
+ * antes de T14-16.
+ */
+const altoMinimo = (botones: number) => Math.min(botones, 3) * 26 + 4;
 
 type SidebarProps = {
   view: View;
@@ -47,6 +69,9 @@ type SidebarProps = {
   onVerAdmin: () => void;
   /** Hay una versión esperando en Ajustes: «Ajustes» lleva una marca mientras dure (T14-12). */
   hayVersionNueva?: boolean;
+  /** La sección de Ajustes que se está viendo, y cómo cambiarla (T14-24). */
+  seccion: SeccionDeAjustes;
+  onSeccionChange: (seccion: SeccionDeAjustes) => void;
 };
 
 export function Sidebar({
@@ -62,6 +87,8 @@ export function Sidebar({
   elevated,
   onVerAdmin,
   hayVersionNueva = false,
+  seccion,
+  onSeccionChange,
 }: SidebarProps) {
   const t = useT();
 
@@ -147,15 +174,9 @@ export function Sidebar({
         {desplegado && (
           <div
             id={FILTROS_ID}
-            // La guia vertical es lo que hace que se lean como hijos de "Procesos"
-            // y no como otra lista suelta.
-            // El único hijo de la `nav` que cede: los botones llevan `shrink-0`. El relleno de la
-            // derecha y el de arriba y abajo son para el anillo de foco, que el scroll recortaría.
-            className="ml-3.75 flex flex-col gap-0.5 overflow-y-auto border-l border-sidebar-border py-0.5 pr-0.5 pl-2"
-            // Cede hasta tres filtros —26 px cada uno, «Todos» incluido— y no más: al 200 % de
-            // zoom se quedaba en una rendija de 4 px. Por debajo de eso, la que hace scroll es la
-            // `nav` entera, que es lo que pasaba antes de T14-16.
-            style={{ minHeight: Math.min(filtros.length + 1, 3) * 26 + 4 }}
+            className={LISTA_COLGADA}
+            // «Todos» también cuenta.
+            style={{ minHeight: altoMinimo(filtros.length + 1) }}
           >
             <FilterButton
               label={t.sidebar.todos}
@@ -197,13 +218,54 @@ export function Sidebar({
           active={view === "settings"}
           onClick={() => onViewChange("settings")}
           marca={hayVersionNueva ? t.sidebar.hayVersionNueva : undefined}
+          // Siempre desplegado mientras se está en Ajustes: no se pliega, porque sin sus secciones
+          // a la vista no habría forma de pasar de una a otra.
+          expandido={view === "settings"}
+          controla={SECCIONES_ID}
         />
+
+        {/* Las secciones de Ajustes, cada una con su botón (T14-24): la vista medía 2.724 px en
+            una sola página. `aria-current="true"` y no `"page"`: la página es Ajustes, que ya lo
+            lleva; esto dice cuál de sus partes se está viendo. */}
+        {view === "settings" && (
+          <div
+            id={SECCIONES_ID}
+            className={LISTA_COLGADA}
+            style={{ minHeight: altoMinimo(SECCIONES_DE_AJUSTES.length) }}
+          >
+            {SECCIONES_DE_AJUSTES.map((s) => (
+              <Button
+                key={s}
+                size="xs"
+                variant={seccion === s ? "secondary" : "ghost"}
+                aria-current={seccion === s ? "true" : undefined}
+                onClick={() => onSeccionChange(s)}
+                className={`relative justify-start gap-2 px-2 ${seccion === s ? MARCA_ACTIVA : ""}`}
+              >
+                {seccion === s && <BarraActiva />}
+                <span className="flex-1 truncate text-left">{rotuloDeSeccion(t, s)}</span>
+                {s === "actualizaciones" && hayVersionNueva && (
+                  <span
+                    aria-hidden
+                    data-slot="marca"
+                    className="size-2 shrink-0 rounded-full bg-primary"
+                  />
+                )}
+              </Button>
+            ))}
+          </div>
+        )}
       </nav>
 
       {/* Abajo del todo, pegado al auto-refresco: los dos hablan del pulso de la
           app, y el medidor depende de que ese pulso este encendido. */}
       <div className="mt-auto shrink-0">
-        {elevated === false && <AvisoSinAdmin onClick={onVerAdmin} />}
+        {/* En Ajustes, solo el título: la explicación entera está a un clic, en «Sistema», y con
+            sus dos líneas las seis secciones no cabían sin scroll en la ventana de fábrica
+            (medido: «Acerca de» quedaba detrás). */}
+        {elevated === false && (
+          <AvisoSinAdmin onClick={onVerAdmin} soloTitulo={view === "settings"} />
+        )}
         <UsageMeter usage={usage} pausado={refreshMs === 0} />
       </div>
 
@@ -224,6 +286,24 @@ export function Sidebar({
   );
 }
 
+/** El nombre de cada sección: el mismo que lleva de título dentro de Ajustes. */
+function rotuloDeSeccion(t: ReturnType<typeof useT>, seccion: SeccionDeAjustes): string {
+  switch (seccion) {
+    case "general":
+      return t.ajustes.grupos.general;
+    case "sistema":
+      return t.ajustes.grupos.sistema;
+    case "vigilancia":
+      return t.ajustes.grupos.vigilancia;
+    case "automatismos":
+      return t.ajustes.grupos.automatismos;
+    case "actualizaciones":
+      return t.ajustes.actualizaciones.titulo;
+    case "acercaDe":
+      return t.ajustes.acercaDe.titulo;
+  }
+}
+
 /**
  * El aviso de que la app corre sin permisos de administrador.
  *
@@ -239,7 +319,7 @@ export function Sidebar({
  * (Tier 11, C3) y lo que no puede quedar fuera es el auto-refresco. El aviso sigue en Ajustes.
  * La primera versión, con el icono sangrando el texto, medía 116 px y hacía scroll a 680: medido.
  */
-function AvisoSinAdmin({ onClick }: { onClick: () => void }) {
+function AvisoSinAdmin({ onClick, soloTitulo }: { onClick: () => void; soloTitulo: boolean }) {
   const t = useT();
   const a = t.sidebar.sinAdmin;
 
@@ -257,7 +337,9 @@ function AvisoSinAdmin({ onClick }: { onClick: () => void }) {
           />
           {a.titulo}
         </span>
-        <span className="mt-0.5 block text-muted-foreground [@media(max-height:679px)]:sr-only">
+        <span
+          className={`mt-0.5 block text-muted-foreground [@media(max-height:679px)]:sr-only ${soloTitulo ? "sr-only" : ""}`}
+        >
           {a.detalle}
         </span>
         <span className="sr-only">{a.destino}</span>

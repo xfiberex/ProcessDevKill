@@ -601,7 +601,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
 
 ### Fase G — Ajustes y contenido
 
-- [ ] **[T14-24] Ajustes son 2.724 px de scroll sin forma de saltar a un grupo**
+- [x] **[T14-24] Ajustes son 2.724 px de scroll sin forma de saltar a un grupo**
   - **Severidad:** media · **Tipo:** mejora
   - **Ubicación:** `src/components/SettingsView.tsx:324-336` y `Grupo`
   - **Lo medido:** la vista mide 2.724 px y a 1000×680 se ven 623: cuatro pantallas y media. Los
@@ -623,6 +623,28 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     administrador y el de versión nueva (`irA`); y si un grupo solo sigue pasando del alto de la
     ventana mínima.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-10-05, con la propuesta del usuario y no con la fila de saltos.** Ajustes son
+    seis secciones —General, Sistema, Vigilancia, Automatismos, Actualizaciones y Acerca de—, cada
+    una con su botón colgando de «Ajustes» en el sidebar, y la vista pinta solo la elegida.
+    - **Son seis y no los cinco grupos que había:** partida en cinco, «General» sola medía
+      1.065 px y seguía con scroll en la ventana de fábrica, que era lo que se venía a quitar. El
+      atajo global y los permisos de administrador salieron a «Sistema».
+    - **Medido** (`auditoria-ui.mjs`): a 1000×680, las seis miden 623 px con 623 a la vista:
+      ninguna pide scroll, y su lista cabe entera en el sidebar (158 px de 158). axe sin
+      violaciones en las seis. El contraste con `forced-colors` se midió sección a sección.
+    - **En vivo** (35 comprobaciones, con la copia una versión por detrás): el aviso de versión
+      nueva lleva a «Actualizaciones», con «Descargar e instalar» a 515 px de 680 y el foco en el
+      título; los pasos que buscan un ajuste entran antes en su sección. Seis pruebas de
+      componente: cada sección enseña lo suyo y solo eso, se vuelve a la que se dejó, y lo escrito
+      a medias en un campo sigue ahí al pasar por otra.
+    - **Lo que no queda resuelto: la ventana mínima.** A 900×480, General, Sistema y Vigilancia
+      piden 577, 561 y 532 px con 423 a la vista, y la lista de secciones del sidebar hace scroll
+      (139 px de 158): «Acerca de» queda detrás. Las otras tres caben.
+    - **De paso:** dentro de Ajustes el aviso de «sin modo administrador» se queda en su título.
+      Con sus dos líneas, las seis secciones no cabían en el sidebar ni en la ventana de fábrica.
+    - El criterio de la tarea hablaba de la fila de saltos —que cupiera en la ventana mínima, que
+      la marca siguiera al desplazarse—: ya no aplica. Lo que sí: es un `nav`, cada sección está a
+      un clic, y axe sigue en cero.
 
 - [ ] **[T14-25] Ocho textos de ayuda de Ajustes pasan de 200 caracteres**
   - **Severidad:** baja · **Tipo:** mejora
@@ -651,7 +673,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Reabre:** precisa CONTEXT §4 del 2026-10-01 (T12-23 y T12-36): la app sigue leyendo las notas
     del release, pero ya no tal cual.
 
-- [ ] **[T14-27] Las cifras van con punto decimal también en español**
+- [x] **[T14-27] Las cifras van con punto decimal también en español**
   - **Severidad:** baja · **Tipo:** mejora
   - **Ubicación:** `src/lib/format.ts`, `src/components/ProcessTable.tsx:303`,
     `src/components/UsageMeter.tsx`, `src/i18n.tsx:136`
@@ -667,6 +689,9 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Criterio de aceptación:** con la app en español, la tabla, el medidor y los avisos escriben
     los decimales igual entre sí; en inglés, como hoy. Pruebas de `format.ts` en los dos idiomas.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-05, reducida al subtítulo** por la decisión de arriba: en español dice
+    «Gestor de procesos». Los decimales se quedan con punto en los dos idiomas. Sale de la lista
+    de entradas que `i18n.test.tsx` deja coincidir con el inglés. Visto en las capturas.
 
 - [ ] **[T14-28] El aviso de «sin modo administrador» no se puede apartar**
   - **Severidad:** baja · **Tipo:** mejora

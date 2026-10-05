@@ -19,8 +19,8 @@ import { ProcessTable } from "./components/ProcessTable";
 import { ProcessesHeader } from "./components/ProcessesHeader";
 import { HistoryView } from "./components/HistoryView";
 import { ServicesView } from "./components/ServicesView";
-import { SettingsView } from "./components/SettingsView";
-import type { DestinoDeAjustes } from "./components/SettingsView";
+import { SECCION_DE, SettingsView } from "./components/SettingsView";
+import type { DestinoDeAjustes, SeccionDeAjustes } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
 import type { View } from "./components/Sidebar";
 import { ConfirmDialog } from "./components/ConfirmDialog";
@@ -51,6 +51,18 @@ export default function App() {
    * sidebar y el de versión nueva, que dejaba «Descargar e instalar» a tres pantallas (T14-12).
    */
   const [irA, setIrA] = useState<DestinoDeAjustes | null>(null);
+  /**
+   * La sección de Ajustes que se ve (T14-24). Vive aquí porque la eligen el sidebar y los avisos,
+   * y la pinta `SettingsView`. Se conserva al cambiar de vista: volver a Ajustes deja donde se
+   * estaba.
+   */
+  const [seccion, setSeccion] = useState<SeccionDeAjustes>("general");
+  /** Lleva a Ajustes, a la sección de un aviso y con el foco en su título. */
+  function irAAjustes(destino: DestinoDeAjustes) {
+    setIrA(destino);
+    setSeccion(SECCION_DE[destino]);
+    setView("settings");
+  }
   const buscadorRef = useRef<HTMLInputElement>(null);
   /** Pide enfocar el buscador en cuanto esté pintado: puede que haya que cambiar de vista antes. */
   const [enfocarBuscador, setEnfocarBuscador] = useState(false);
@@ -162,10 +174,7 @@ export default function App() {
         description: t.avisos.hayVersionComo,
         action: {
           label: t.avisos.irAAjustes,
-          onClick: () => {
-            setIrA("actualizaciones");
-            setView("settings");
-          },
+          onClick: () => irAAjustes("actualizaciones"),
         },
         duration: 12_000,
       });
@@ -260,11 +269,10 @@ export default function App() {
           onRefreshMsChange={(ms) => saveSettings({ ...settings, refreshMs: ms })}
           usage={usage}
           elevated={elevated}
-          onVerAdmin={() => {
-            setIrA("admin");
-            setView("settings");
-          }}
+          onVerAdmin={() => irAAjustes("admin")}
           hayVersionNueva={updater.state.fase === "disponible"}
+          seccion={seccion}
+          onSeccionChange={setSeccion}
         />
 
         {/* `relative` por la barra de la selección, que flota abajo sin empujar las filas. */}
@@ -302,6 +310,7 @@ export default function App() {
                 onRestartAsAdmin={restartAsAdmin}
                 irA={irA}
                 onIdo={() => setIrA(null)}
+                seccion={seccion}
               />
             )}
 

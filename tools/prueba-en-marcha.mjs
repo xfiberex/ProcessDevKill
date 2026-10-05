@@ -288,6 +288,33 @@ async function listaYCierre(cdp) {
 }
 
 /** Deja la ventana en Procesos con los filtros de runtime desplegados, venga de donde venga. */
+/**
+ * Lleva a una sección de Ajustes (T14-24).
+ *
+ * Las secciones cuelgan de «Ajustes» en el sidebar y cada una pinta solo lo suyo: un paso que
+ * busca un ajuste tiene que entrar antes en su sección. **Por posición y no por nombre**, porque
+ * dos pasos pasan por aquí con la app en inglés.
+ */
+const SECCION = { general: 0, sistema: 1, vigilancia: 2, automatismos: 3, actualizaciones: 4, acercaDe: 5 };
+async function irAAjustes(cdp, seccion = "general") {
+  const llego = await esperar(() =>
+    cdp.js(`(() => {
+      const lista = document.getElementById("secciones-ajustes");
+      if (!lista) {
+        // Fuera de Ajustes la lista no existe: «Ajustes» es la última de las cuatro vistas.
+        const vistas = document.querySelectorAll("aside nav > button");
+        vistas[vistas.length - 1]?.click();
+        return false;
+      }
+      const boton = lista.children[${SECCION[seccion]}];
+      if (boton?.getAttribute("aria-current") === "true") return true;
+      boton?.click();
+      return false;
+    })()`),
+  );
+  exigir(llego, `no se llegó a la sección «${seccion}» de Ajustes`);
+}
+
 async function irAProcesosConFiltros(cdp) {
   const titulo = await cdp.js(`document.querySelector("main h2")?.textContent`);
   if (titulo !== "Procesos") await cdp.pulsar("Procesos", `document.querySelector("aside")`);
@@ -314,7 +341,7 @@ async function filtrosDelSidebar(cdp) {
   const filtrosVistos = () =>
     cdp.js(`[...document.querySelectorAll("#filtros-runtime button")].map((b) => b.textContent.trim())`);
   const pulsarAjuste = async (encendido) => {
-    await cdp.pulsar("Ajustes", `document.querySelector("aside")`);
+    await irAAjustes(cdp);
     const interruptor = await esperar(() => cdp.js(`Boolean(document.getElementById("show-all-filters"))`));
     exigir(interruptor, "Ajustes no tiene el interruptor de los filtros del sidebar");
     await cdp.js(`document.getElementById("show-all-filters").click()`);
@@ -456,7 +483,7 @@ async function vistasEIdioma(cdp) {
   });
 
   await paso("Cambiar de idioma cambia la ventana entera, y se guarda", async () => {
-    await cdp.pulsar("Ajustes", `document.querySelector("aside") ?? document`);
+    await irAAjustes(cdp);
     await esperar(() => cdp.js(`document.querySelector("main h2")?.textContent === "Ajustes"`));
 
     await cdp.pulsar("English", `document.querySelector("main")`);
@@ -550,7 +577,7 @@ async function consultaDelArranque(cdp) {
     exigir(apagada === 0, `con el ajuste apagado la ventana consultó ${apagada} vez o veces`);
 
     // Y el botón sigue buscando: apagar el arranque no apaga el actualizador.
-    await cdp.pulsar("Ajustes", `document.querySelector("aside") ?? document`);
+    await irAAjustes(cdp, "actualizaciones");
     const interruptor = await esperar(() =>
       cdp.js(`(() => {
         const rotulo = document.querySelector('label[for="check-updates"]');
@@ -885,7 +912,7 @@ async function avisosDeError(cdp) {
   await paso("Un aviso de error se queda hasta que se cierra, y su botón tiene nombre", async () => {
     const estorbo = path.join(DATOS, "settings.json.tmp");
     try {
-      await cdp.pulsar("Ajustes", `document.querySelector("aside")`);
+      await irAAjustes(cdp);
       exigir(
         await esperar(() => cdp.js(`Boolean(document.getElementById("show-all-filters"))`)),
         "Ajustes no tiene el interruptor de los filtros del sidebar",
@@ -1120,7 +1147,7 @@ async function actualizador(cdp) {
     });
 
     await paso("Ajustes enseña las novedades de la versión nueva, sin marcas de Markdown", async () => {
-      await cdp.pulsar("Ajustes", `document.querySelector("aside") ?? document`);
+      await irAAjustes(cdp, "actualizaciones");
       await esperar(() => cdp.js(`document.querySelector("main h2")?.textContent === "Ajustes"`));
       await cdp.pulsar("Buscar actualizaciones", `document.querySelector("main")`);
 
@@ -1155,8 +1182,11 @@ async function actualizador(cdp) {
       if (!/^#{1,6}\s+English\s*$/m.test(nueva.notes ?? "")) {
         return `${notas.titulos.join(" · ")} — ${notas.elementos} elementos; sin notas en inglés`;
       }
+      // El idioma está en General y las notas en Actualizaciones: ida y vuelta.
+      await irAAjustes(cdp);
       await cdp.pulsar("English", `document.querySelector("main")`);
       try {
+        await irAAjustes(cdp, "actualizaciones");
         const enIngles = await esperar(() =>
           cdp.js(`(() => {
             const caja = document.querySelector('[role="region"][aria-label="What\\'s new in this version"]');
@@ -1173,6 +1203,7 @@ async function actualizador(cdp) {
         return `${notas.titulos.join(" · ")} — en inglés: ${enIngles.titulos.join(" · ")}`;
       } finally {
         // Pase lo que pase, la app vuelve al español: los pasos de detrás buscan sus textos.
+        await irAAjustes(cdp);
         await cdp.pulsar("Español", `document.querySelector("main")`);
         await esperar(() => cdp.js(`document.documentElement.lang === "es"`));
       }

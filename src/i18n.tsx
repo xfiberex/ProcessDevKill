@@ -133,7 +133,7 @@ export const es = {
   } satisfies Record<SortKey, string>,
 
   sidebar: {
-    subtitulo: "Process Manager",
+    subtitulo: "Gestor de procesos",
     procesos: "Procesos",
     todos: "Todos",
     servicios: "Servicios",
@@ -488,6 +488,8 @@ export const es = {
     /** Los grupos de Ajustes (Tier 11, D2): diez secciones seguidas se leían como una lista. */
     grupos: {
       general: "General",
+      /** El atajo global y los permisos de administrador: lo que la app le pide a Windows. */
+      sistema: "Sistema",
       vigilancia: "Vigilancia",
       automatismos: "Automatismos",
     },
@@ -952,6 +954,7 @@ export const en: Catalogo = {
   ajustes: {
     grupos: {
       general: "General",
+      sistema: "System",
       vigilancia: "Watching",
       automatismos: "Automation",
     },

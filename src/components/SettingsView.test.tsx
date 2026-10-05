@@ -826,7 +826,7 @@ describe("los grupos de Ajustes", () => {
 
     expect(
       screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
-    ).toEqual(["General", "Vigilancia", "Automatismos", "Actualizaciones", "Acerca de"]);
+    ).toEqual(["General", "Sistema", "Vigilancia", "Automatismos", "Actualizaciones", "Acerca de"]);
   });
 
   it("el idioma sigue siendo lo primero, y cada seccion va en su grupo", () => {

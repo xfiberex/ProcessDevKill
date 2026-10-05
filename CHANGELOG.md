@@ -16,6 +16,22 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.10.5] — 2026-10-05
+
+Ajustes, partido en secciones: ya no es una página de cuatro pantallas.
+
+### Cambiado
+- **Ajustes se divide en seis secciones**, cada una con su botón bajo «Ajustes» en el sidebar:
+  General, Sistema, Vigilancia, Automatismos, Actualizaciones y Acerca de. Antes era una sola
+  página larga, y para llegar a «Actualizaciones» había que desplazarse cuatro pantallas. Con la
+  ventana en su tamaño de fábrica, ninguna sección necesita scroll. El atajo global y los permisos
+  de administrador pasan a «Sistema». Los avisos de versión nueva y de administrador llevan a su
+  sección, y al volver a Ajustes se abre la última que se estaba viendo. (T14-24)
+
+### Corregido
+- Con la app en español, el subtítulo del sidebar ya no dice «Process Manager»: dice «Gestor de
+  procesos». (T14-27)
+
 ## [1.10.4] — 2026-10-05
 
 La tabla de procesos: filas del mismo alto, Kill siempre a la vista con zoom y el foco en su sitio
@@ -513,7 +529,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.4...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.5...HEAD
+[1.10.5]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.5
 [1.10.4]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.4
 [1.10.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.3
 [1.10.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.2

@@ -53,6 +53,37 @@ type SettingsViewProps = {
    */
   irA?: DestinoDeAjustes | null;
   onIdo?: () => void;
+  /**
+   * La sección que se pinta (T14-24). `App` pasa siempre una, la que está elegida en el sidebar.
+   * **Sin ella se pintan todas**, una detrás de otra, que es como era la vista hasta la v1.10.4 y
+   * como la montan sus pruebas: lo que comprueban es cada ajuste, no en qué sección vive.
+   */
+  seccion?: SeccionDeAjustes;
+};
+
+/**
+ * Las secciones de Ajustes, en el orden en que salen bajo «Ajustes» en el sidebar (T14-24).
+ *
+ * Eran cinco grupos en una sola página de 2.724 px —cuatro pantallas y media en la ventana de
+ * fábrica—, y para llegar a «Actualizaciones» había que arrastrar la barra o tabular por 38
+ * paradas. La tarea proponía una fila de saltos sobre esa misma página; **el usuario propuso
+ * partirla** (2026-10-05), y así no hay scroll que recorrer. Cada sección es una vista corta, con
+ * su botón colgando de «Ajustes» como los filtros cuelgan de «Procesos».
+ */
+export const SECCIONES_DE_AJUSTES = [
+  "general",
+  "sistema",
+  "vigilancia",
+  "automatismos",
+  "actualizaciones",
+  "acercaDe",
+] as const;
+export type SeccionDeAjustes = (typeof SECCIONES_DE_AJUSTES)[number];
+
+/** En qué sección vive cada destino de un aviso: quien manda a uno elige también su sección. */
+export const SECCION_DE: Record<DestinoDeAjustes, SeccionDeAjustes> = {
+  admin: "sistema",
+  actualizaciones: "actualizaciones",
 };
 
 /** Las secciones de Ajustes a las que lleva un aviso. */
@@ -75,8 +106,20 @@ export function SettingsView({
   onRestartAsAdmin,
   irA = null,
   onIdo,
+  seccion,
 }: SettingsViewProps) {
   const t = useT();
+  const ve = (cual: SeccionDeAjustes) => seccion === undefined || seccion === cual;
+  const cuerpoRef = useRef<HTMLDivElement>(null);
+
+  // Al cambiar de sección, arriba del todo: el cuerpo es el mismo elemento y conservaría el
+  // scroll de la anterior. No cuando se llega por un aviso, que lleva a su título (ver abajo).
+  useEffect(() => {
+    const cuerpo = cuerpoRef.current?.parentElement;
+    if (cuerpo && !irA) cuerpo.scrollTop = 0;
+    // `irA` no es el disparador: solo dice si este cambio de sección viene de un aviso.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seccion]);
   const adminRef = useRef<HTMLHeadingElement>(null);
   const actualizacionesRef = useRef<HTMLHeadingElement>(null);
 
@@ -328,10 +371,11 @@ export function SettingsView({
     <>
       <ViewHeader title={t.sidebar.ajustes} />
       <ViewBody>
-        <div className="max-w-2xl space-y-10 px-5 py-6">
+        <div ref={cuerpoRef} className="max-w-2xl space-y-10 px-5 py-6">
           {/* Tier 11, D2: diez secciones seguidas, en 1.697 px y con «Acerca de» en medio,
               se leían como una lista sin orden. En grupos: lo general, lo que se vigila, lo
               que actúa solo, las actualizaciones y, al final, «Acerca de». */}
+          {ve("general") && (
           <Grupo titulo={t.ajustes.grupos.general}>
             {/* El idioma va **el primero de todos**: quien abra la app y no entienda la mitad tiene que
                 tropezarse con el selector sin buscarlo, y por eso el titulo va en los dos idiomas a la
@@ -435,7 +479,14 @@ export function SettingsView({
                 </label>
               </div>
             </section>
+          </Grupo>
+          )}
 
+          {/* Salió de «General» al partir la vista en secciones (T14-24): con el atajo y el
+              administrador dentro, General sola medía 1.065 px y seguía pidiendo scroll en la
+              ventana de fábrica, que es lo que la partición venía a quitar. */}
+          {ve("sistema") && (
+          <Grupo titulo={t.ajustes.grupos.sistema}>
             <section>
               <h4 className="font-heading text-sm font-semibold">
                 {t.ajustes.atajo.titulo}
@@ -551,7 +602,9 @@ export function SettingsView({
               </div>
             </section>
           </Grupo>
+          )}
 
+          {ve("vigilancia") && (
           <Grupo titulo={t.ajustes.grupos.vigilancia}>
             <section>
               <h4 className="font-heading text-sm font-semibold">
@@ -708,7 +761,9 @@ export function SettingsView({
               )}
             </section>
           </Grupo>
+          )}
 
+          {ve("automatismos") && (
           <Grupo titulo={t.ajustes.grupos.automatismos}>
             <section>
               <h4 className="font-heading text-sm font-semibold">
@@ -812,7 +867,9 @@ export function SettingsView({
               </div>
             </section>
           </Grupo>
+          )}
 
+          {ve("actualizaciones") && (
           <Grupo titulo={t.ajustes.actualizaciones.titulo} tituloRef={actualizacionesRef}>
             <div>
               <p className="text-sm text-muted-foreground">
@@ -837,7 +894,9 @@ export function SettingsView({
               <Actualizaciones updater={updater} />
             </div>
           </Grupo>
+          )}
 
+          {ve("acercaDe") && (
           <Grupo titulo={t.ajustes.acercaDe.titulo}>
             <div>
               <p className="text-sm text-muted-foreground">
@@ -898,6 +957,7 @@ export function SettingsView({
               )}
             </div>
           </Grupo>
+          )}
         </div>
       </ViewBody>
     </>

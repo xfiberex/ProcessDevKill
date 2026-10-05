@@ -679,11 +679,17 @@ async function faseContraste(cdp, propios) {
     const interruptores = [];
     const elegidos = [];
     const cuerpo = `document.querySelector("main .overflow-y-auto")`;
-    const alto = await cdp.js(`${cuerpo}.scrollHeight`);
-    for (let y = 0; y < alto; y += 500) {
+    // Sección a sección (T14-24): los interruptores están repartidos, y el que viene encendido
+    // de fábrica —el atajo global— ya no está en la primera.
+    const cuantas = await cdp.js(`document.getElementById("secciones-ajustes")?.children.length ?? 1`);
+    for (let n = 0; n < cuantas; n++) {
+     await cdp.js(`document.getElementById("secciones-ajustes")?.children[${n}]?.click()`);
+     await dormir(300);
+     const alto = await cdp.js(`${cuerpo}.scrollHeight`);
+     for (let y = 0; y < alto; y += 500) {
       await cdp.js(`${cuerpo}.scrollTop = ${y}`);
       await dormir(250);
-      const png = leerPng(await capturar(cdp, `contraste-ajustes-${tema}-en-${String(y).padStart(4, "0")}`));
+      const png = leerPng(await capturar(cdp, `contraste-ajustes-${tema}-${n}-en-${String(y).padStart(4, "0")}`));
       for (const s of await puntosDe(cdp, `main [role="switch"]`)) {
         const [x, t, w, h] = s.caja;
         const pulgarA = s.pulgar[0] < x + w / 2 ? "izquierda" : "derecha";
@@ -705,7 +711,10 @@ async function faseContraste(cdp, propios) {
         const [x, t, , h] = r.caja;
         elegidos.push({ nombre: r.nombre, elegido: r.encendido === "true", fondo: hex(png.en(x + 4, t + h / 2)), peso: r.peso });
       }
+     }
     }
+    await cdp.js(`document.getElementById("secciones-ajustes")?.children[0]?.click()`);
+    await dormir(300);
     const unicos = (lista) => [...new Map(lista.map((i) => [i.nombre, i])).values()];
     const sw = unicos(interruptores);
     const on = sw.find((s) => s.encendido);
@@ -871,6 +880,49 @@ async function faseMedidas(cdp, propios) {
     );
     await buscar(cdp, "");
   }
+
+  // T14-24: cuánto mide cada sección de Ajustes frente a lo que se ve, y si alguna pide scroll.
+  const secciones = {};
+  for (const tamano of [FABRICA, [900, 480]]) {
+    await ventana(cdp, tamano);
+    await irA(cdp, "ajustes");
+    const cuantas = await cdp.js(`document.getElementById("secciones-ajustes")?.children.length ?? 0`);
+    const lineas = [];
+    for (let i = 0; i < cuantas; i++) {
+      await cdp.js(`document.getElementById("secciones-ajustes").children[${i}].click()`);
+      await dormir(350);
+      const m = await cdp.js(`(() => {
+        const cuerpo = document.querySelector("main h3").closest("div").parentElement;
+        const nav = document.querySelector("aside nav");
+        const marco = nav.getBoundingClientRect();
+        return {
+          nombre: document.querySelector("main h3").textContent,
+          grupos: document.querySelectorAll("main h3").length,
+          pide: cuerpo.scrollHeight,
+          ve: cuerpo.clientHeight,
+          paradas: document.querySelectorAll('main button, main input, main [role="switch"], main [role="radio"], main [role="combobox"], main a[href], main summary').length,
+          vistasEnteras: [...nav.querySelectorAll(":scope > button")].filter((b) => {
+            const r = b.getBoundingClientRect();
+            return r.top >= marco.top - 0.5 && r.bottom <= Math.min(marco.bottom, innerHeight) + 0.5;
+          }).length,
+          laNavegacionHaceScroll: nav.scrollHeight > nav.clientHeight + 1,
+          // La lista de secciones del sidebar: lo que se ve de ella y lo que pide.
+          lista: [document.getElementById("secciones-ajustes").clientHeight, document.getElementById("secciones-ajustes").scrollHeight],
+        };
+      })()`);
+      m.axe = (await pasarAxe(cdp)).violaciones.map((v) => v.regla);
+      secciones[`${tamano.join("x")}-${m.nombre}`] = m;
+      lineas.push(`${m.nombre} ${m.pide}/${m.ve}${m.pide > m.ve + 1 ? " (scroll)" : ""}${m.axe.length ? ` AXE: ${m.axe.join(",")}` : ""}${m.vistasEnteras < 4 ? " FALTAN VISTAS" : ""}`);
+      await capturar(cdp, `ajustes-${tamano.join("x")}-${i}-${m.nombre.toLowerCase().replace(/\s+/g, "-")}`);
+    }
+    const lista = Object.values(secciones).at(-1).lista;
+    resumen.push(
+      `medidas (secciones de Ajustes, ${tamano.join("x")}): ${lineas.join(" · ")}; ` +
+        `su lista en el sidebar, ${lista[0]} px de ${lista[1]}${lista[1] > lista[0] + 1 ? " (scroll)" : ""}`,
+    );
+    await cdp.js(`document.getElementById("secciones-ajustes")?.children[0]?.click()`);
+  }
+  medir("ajustes-secciones", secciones);
 
   // T14-16: los siete filtros a la vista, en la ventana de fábrica y en la mínima.
   await ajustar(cdp, { showAllFilters: true });

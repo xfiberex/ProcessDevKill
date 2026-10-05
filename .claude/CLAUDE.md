@@ -101,8 +101,13 @@ identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_esp
 - **`App.tsx` une y pinta; lo que tiene estado propio vive en su hook** (`hooks/useSettings`,
   `useProcessList`, `useKills`, `useServices`, `useUpdater`). **Cuando vuelva a pasar de ~450
   líneas, se parte otra vez**, igual que `lib.rs`: ya ha pasado dos veces (Tier 7.6 y T12-15, que
-  lo encontró en 927). **Ahora mismo van 379** (2026-10-05). El diálogo de confirmación y los avisos
+  lo encontró en 927). **Ahora mismo van 390** (2026-10-05). El diálogo de confirmación y los avisos
   se quedan en `App`, porque los comparten todas las vistas; un hook que los necesite los recibe.
+- **Un ajuste nuevo va en una de las seis secciones de Ajustes** (`SECCIONES_DE_AJUSTES`, T14-24),
+  y la sección tiene que seguir cabiendo sin scroll en la ventana de fábrica: se mide con
+  `auditoria-ui.mjs --fases medidas`. Si no cabe, se parte la sección, como se hizo con «General»
+  y «Sistema». `SettingsView` sin `seccion` las pinta todas: es para sus pruebas, `App` pasa
+  siempre una. Un guion que busca un ajuste entra antes en su sección (`irAAjustes`).
 - **Una vista nueva usa `ViewHeader` y `ViewBody`** (`components/ViewHeader.tsx`): cabecera fija
   con su `h2` y cuerpo con scroll. Si el cuerpo no tiene nada enfocable, `ViewBody` con `label`, o
   con teclado no se puede desplazar (Tier 11, D1).

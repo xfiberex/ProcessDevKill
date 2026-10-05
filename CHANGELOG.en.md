@@ -14,6 +14,22 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+## [1.10.5] — 2026-10-05
+
+Settings, split into sections: it is no longer a page four screens long.
+
+### Changed
+- **Settings is divided into six sections**, each with its own button under “Settings” in the
+  sidebar: General, System, Watching, Automation, Updates, and About. It used to be one long page,
+  and getting to “Updates” meant scrolling through four screens. With the window at its default
+  size, no section needs scrolling. The global shortcut and administrator rights move to
+  “System.” The new-version and administrator notifications take you to their section, and
+  coming back to Settings opens the last one you were looking at. (T14-24)
+
+### Fixed
+- With the app in Spanish, the sidebar subtitle no longer says “Process Manager”: it says
+  “Gestor de procesos.” (T14-27)
+
 ## [1.10.4] — 2026-10-05
 
 The process table: rows of the same height, Kill always in view when zoomed, and the focus where
@@ -119,7 +135,8 @@ Java, Deno, and Bun, watched out of the box, and release notes in English too.
 - The tests that drive the running app can now also be started on GitHub, by hand: the runner
   handles them, in about 10 minutes. They still do not run on every push. (T13-03)
 
-[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.4...HEAD
+[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.5...HEAD
+[1.10.5]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.5
 [1.10.4]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.4
 [1.10.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.3
 [1.10.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.2
