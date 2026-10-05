@@ -355,6 +355,7 @@ export default function App() {
                   onToggle={lista.toggle}
                   onToggleAll={lista.toggleAll}
                   onKill={(pid) => killMany([pid])}
+                  onAskKill={(p) => askNuke([p.pid], t.confirmar.ambitoUno(p.name, p.pid), 0)}
                   onCopy={copyToClipboard}
                   onProtect={protegerFila}
                   onFreezeChange={lista.alCongelar}

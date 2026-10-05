@@ -14,6 +14,21 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+## [1.10.6] — 2026-10-05
+
+The process table, with the keyboard: arrow keys to move and Delete to close.
+
+### Added
+- **The process table works with the keyboard like a Windows list.** The arrow keys, Home, and End
+  move the active row, Space selects it, and **Delete closes the process, asking first**. On a
+  protected row, Delete does nothing. The Kill button still closes without asking. While you move
+  through it with the keyboard, the rows stay where they are. (T14-14)
+
+### Changed
+- **Tab enters the table only once**, on the active row, instead of stopping at the checkbox and
+  the Kill button of every row: one pass through the Processes view goes from 74 stops to 24.
+  After closing a process, the focus moves to the next row. (T14-14)
+
 ## [1.10.5] — 2026-10-05
 
 Settings, split into sections: it is no longer a page four screens long.
@@ -135,7 +150,8 @@ Java, Deno, and Bun, watched out of the box, and release notes in English too.
 - The tests that drive the running app can now also be started on GitHub, by hand: the runner
   handles them, in about 10 minutes. They still do not run on every push. (T13-03)
 
-[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.5...HEAD
+[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.6...HEAD
+[1.10.6]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.6
 [1.10.5]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.5
 [1.10.4]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.4
 [1.10.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.3

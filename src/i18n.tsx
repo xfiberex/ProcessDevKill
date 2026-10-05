@@ -249,6 +249,22 @@ export const es = {
     /** Lo que se nombra en el toast «Copiado: …» al copiar los puertos de una fila. */
     quePuertos: (lista: number[]): string =>
       lista.length === 1 ? `puerto ${lista[0]}` : `puertos ${puertos(lista)}`,
+    /**
+     * Cómo se anuncia una fila al llegar a ella con las flechas (T14-14): lo que la identifica y
+     * nada más. Sin esto el lector leía la fila entera, con «Seleccionar PID» y «Kill» dentro.
+     */
+    filaLabel: (nombre: string, detalle: string, lista: number[], pid: number, protegido: boolean) =>
+      [
+        nombre,
+        detalle,
+        lista.length === 0 ? "sin puerto" : lista.length === 1 ? `puerto ${lista[0]}` : `puertos ${puertos(lista)}`,
+        `PID ${pid}`,
+        protegido ? "protegido" : "",
+      ]
+        .filter(Boolean)
+        .join(", "),
+    /** Las teclas de la tabla, para el lector de pantalla: van detrás de su título. */
+    teclas: "Flechas para moverse por las filas, Espacio para marcar y Supr para cerrar.",
     /** El `title` de la celda de puertos cuando hay más de los que se ven (T14-06). */
     todosLosPuertos: (lista: number[]) => `Puertos ${puertos(lista)}`,
     /**
@@ -433,6 +449,8 @@ export const es = {
       n === 1 ? "Cerrar proceso" : "Cerrar procesos",
     ambitoSeleccionados: (n: number): string =>
       n === 1 ? "el proceso seleccionado" : `los ${n} procesos seleccionados`,
+    /** El proceso de una fila, cuando se cierra con Supr (T14-14). */
+    ambitoUno: (nombre: string, pid: number) => `${nombre} (PID ${pid})`,
     ambitoTodos: "todos los procesos de desarrollo activos",
     ambitoFiltrados: "todos los procesos de la lista filtrada",
     /** Se añade al mensaje cuando el lote deja fuera a alguno: que no parezca que se olvidó. */
@@ -774,6 +792,17 @@ export const en: Catalogo = {
     copiarNombre: "Copy name",
     copiarPuertos: (n) => (n === 1 ? "Copy port" : "Copy ports"),
     copiarUrl: (url) => `Copy ${url}`,
+    filaLabel: (nombre, detalle, lista, pid, protegido) =>
+      [
+        nombre,
+        detalle,
+        lista.length === 0 ? "no port" : lista.length === 1 ? `port ${lista[0]}` : `ports ${puertos(lista)}`,
+        `PID ${pid}`,
+        protegido ? "protected" : "",
+      ]
+        .filter(Boolean)
+        .join(", "),
+    teclas: "Arrow keys to move through the rows, Space to select, and Delete to close.",
     todosLosPuertos: (lista) => `Ports ${puertos(lista)}`,
     ficha: (pid, activo) => `PID ${pid} · up ${activo}`,
     quePuertos: (lista) =>
@@ -908,6 +937,7 @@ export const en: Catalogo = {
     cerrarBoton: (n) => (n === 1 ? "Close process" : "Close processes"),
     ambitoSeleccionados: (n) =>
       n === 1 ? "the selected process" : `the ${n} selected processes`,
+    ambitoUno: (nombre, pid) => `${nombre} (PID ${pid})`,
     ambitoTodos: "every active development process",
     ambitoFiltrados: "every process in the filtered list",
     protegidosFuera: (n) =>

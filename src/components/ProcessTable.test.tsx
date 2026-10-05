@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ProcessTable } from "./ProcessTable";
@@ -21,6 +21,7 @@ function pintar(processes: ProcessInfo[], extra: Partial<Parameters<typeof Proce
     onCopy: vi.fn(),
     onProtect: vi.fn(),
     onFreezeChange: vi.fn(),
+    onAskKill: vi.fn(),
     ...extra,
   };
   // Se devuelve tambien lo que da `render` (sobre todo `unmount`) para que nadie
@@ -495,42 +496,42 @@ describe("el foco tras un cierre", () => {
     return { cerrar, unmount, rerender, props };
   }
 
-  it("va al Kill de la fila que ocupa el sitio de la que salió", async () => {
+  // Desde T14-14 la parada de la tabla es la fila: el foco vuelve a ella, no a su Kill.
+  it("va a la fila que ocupa el sitio de la que salió", async () => {
+    const { cerrar } = montar(TRES);
+    fila(82).focus();
+
+    cerrar([82]);
+
+    await waitFor(() => expect(fila(83)).toHaveFocus());
+  });
+
+  it("también si el foco estaba en su Kill, que es donde lo deja un clic", async () => {
     const { cerrar } = montar(TRES);
     kill(82).focus();
 
     cerrar([82]);
 
-    await waitFor(() => expect(kill(83)).toHaveFocus());
+    await waitFor(() => expect(fila(83)).toHaveFocus());
   });
 
-  it("si era la última, va al Kill de la anterior", async () => {
+  it("si era la última, va a la anterior", async () => {
     const { cerrar } = montar(TRES);
-    kill(83).focus();
+    fila(83).focus();
 
     cerrar([83]);
 
-    await waitFor(() => expect(kill(82)).toHaveFocus());
+    await waitFor(() => expect(fila(82)).toHaveFocus());
   });
 
-  it("si la fila que queda está protegida, va a su casilla", async () => {
-    const lista = [proceso({ pid: 84 }), proceso({ pid: 85, protected: true })];
-    const { cerrar } = montar(lista);
-    kill(84).focus();
-
-    cerrar([84]);
-
-    await waitFor(() => expect(casilla(85)).toHaveFocus());
-  });
-
-  it("tras un lote, va a la casilla de la primera fila que queda", async () => {
+  it("tras un lote, va a la primera fila que queda", async () => {
     const { cerrar } = montar(TRES);
     // Como lo deja el diálogo al cerrarse: sin dueño.
     (document.activeElement as HTMLElement | null)?.blur();
 
     cerrar([81, 82]);
 
-    await waitFor(() => expect(casilla(83)).toHaveFocus());
+    await waitFor(() => expect(fila(83)).toHaveFocus());
   });
 
   it("sin filas, lo pide al buscador", async () => {
@@ -606,5 +607,129 @@ describe("la tabla cuando no cabe", () => {
     await screen.findByRole("menu");
 
     expect(screen.getByText("PID 91 · activo 1h 2m")).toBeInTheDocument();
+  });
+});
+
+/**
+ * T14-14: la tabla es una sola parada de tabulador, y dentro se anda con las flechas.
+ *
+ * Con 26 procesos, una vuelta de tabulador por la vista eran 74 paradas. Las del sidebar y la
+ * cabecera siguen; de las filas queda una.
+ */
+describe("la tabla con el teclado", () => {
+  const TRES = [
+    proceso({ pid: 101, name: "node.exe", script: "server.js", project: "tienda", ports: [3000] }),
+    proceso({ pid: 102, name: "python.exe", runtime: "python", ports: [] }),
+    proceso({ pid: 103, name: "bun.exe", runtime: "bun", ports: [4000, 4001], protected: true }),
+  ];
+
+  it("solo una fila entra en el tabulador, y ni las casillas ni los Kill", () => {
+    pintar(TRES);
+
+    expect(fila(101)).toHaveAttribute("tabindex", "0");
+    expect(fila(102)).toHaveAttribute("tabindex", "-1");
+    expect(fila(103)).toHaveAttribute("tabindex", "-1");
+    for (const pid of [101, 102, 103]) {
+      expect(screen.getByLabelText(`Seleccionar PID ${pid}`)).toHaveAttribute("tabindex", "-1");
+      expect(within(fila(pid)).getByRole("button", { name: /^Kill/ })).toHaveAttribute("tabindex", "-1");
+    }
+    // Las de la cabecera siguen siendo paradas: ordenar y marcar todas.
+    expect(screen.getByLabelText("Seleccionar todos")).not.toHaveAttribute("tabindex", "-1");
+  });
+
+  it("las flechas, Inicio y Fin mueven la fila activa", async () => {
+    const user = userEvent.setup();
+    pintar(TRES);
+    fila(101).focus();
+
+    await user.keyboard("{ArrowDown}");
+    expect(fila(102)).toHaveFocus();
+    expect(fila(102)).toHaveAttribute("tabindex", "0");
+    expect(fila(101)).toHaveAttribute("tabindex", "-1");
+
+    await user.keyboard("{End}");
+    expect(fila(103)).toHaveFocus();
+    // En el extremo, la flecha no saca el foco de la tabla.
+    await user.keyboard("{ArrowDown}");
+    expect(fila(103)).toHaveFocus();
+
+    await user.keyboard("{ArrowUp}");
+    expect(fila(102)).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(fila(101)).toHaveFocus();
+  });
+
+  it("Espacio marca la casilla de la fila", async () => {
+    const user = userEvent.setup();
+    const { onToggle } = pintar(TRES);
+    fila(102).focus();
+
+    await user.keyboard(" ");
+
+    expect(onToggle).toHaveBeenCalledExactlyOnceWith(102);
+  });
+
+  it("Supr pide el cierre con confirmación, y no cierra por su cuenta", async () => {
+    const user = userEvent.setup();
+    const { onAskKill, onKill } = pintar(TRES);
+    fila(101).focus();
+
+    await user.keyboard("{Delete}");
+
+    expect(onAskKill).toHaveBeenCalledExactlyOnceWith(TRES[0]);
+    expect(onKill).not.toHaveBeenCalled();
+  });
+
+  /** El criterio negativo: lo que Supr no debe cerrar. */
+  it("Supr no hace nada sobre una fila protegida ni sobre una que ya se está cerrando", async () => {
+    const user = userEvent.setup();
+    const { onAskKill, onKill } = pintar(TRES, { killing: new Set([102]) });
+
+    fila(103).focus();
+    await user.keyboard("{Delete}");
+    fila(102).focus();
+    await user.keyboard("{Delete}");
+
+    expect(onAskKill).not.toHaveBeenCalled();
+    expect(onKill).not.toHaveBeenCalled();
+  });
+
+  it("las demás teclas no hacen nada: ni Intro ni Retroceso cierran", async () => {
+    const user = userEvent.setup();
+    const { onAskKill, onKill, onToggle } = pintar(TRES);
+    fila(101).focus();
+
+    await user.keyboard("{Enter}{Backspace}{Escape}x");
+
+    expect(onAskKill).not.toHaveBeenCalled();
+    expect(onKill).not.toHaveBeenCalled();
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it("cada fila se anuncia con lo que la identifica: nombre, script, carpeta y puertos", () => {
+    pintar(TRES);
+
+    expect(fila(101)).toHaveAccessibleName("node.exe, server.js · tienda, puerto 3000, PID 101");
+    expect(fila(102)).toHaveAccessibleName("python.exe, sin puerto, PID 102");
+    expect(fila(103)).toHaveAccessibleName("bun.exe, puertos 4000, 4001, PID 103, protegido");
+  });
+
+  it("la tabla dice sus teclas a quien no las ve", () => {
+    pintar(TRES);
+
+    expect(screen.getByRole("table")).toHaveAccessibleDescription(
+      "Flechas para moverse por las filas, Espacio para marcar y Supr para cerrar.",
+    );
+  });
+
+  it("si la fila activa desaparece, la parada pasa a la primera", () => {
+    const { rerender, ...props } = pintar(TRES);
+    act(() => fila(102).focus());
+    expect(fila(102)).toHaveAttribute("tabindex", "0");
+
+    rerender(<ProcessTable {...props} processes={[TRES[0], TRES[2]]} />);
+
+    expect(fila(101)).toHaveAttribute("tabindex", "0");
+    expect(fila(103)).toHaveAttribute("tabindex", "-1");
   });
 });

@@ -16,6 +16,21 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.10.6] — 2026-10-05
+
+La tabla de procesos, con el teclado: flechas para moverse y Supr para cerrar.
+
+### Añadido
+- **La tabla de procesos se maneja con el teclado como una lista de Windows.** Las flechas, Inicio
+  y Fin mueven la fila activa, Espacio marca su casilla y **Supr cierra el proceso, preguntando
+  antes**. Sobre una fila protegida, Supr no hace nada. El botón Kill sigue cerrando sin preguntar.
+  Mientras se recorre con el teclado, las filas no cambian de sitio. (T14-14)
+
+### Cambiado
+- **El tabulador entra en la tabla una sola vez**, a la fila activa, en vez de pararse en la
+  casilla y en el Kill de cada fila: una vuelta por la vista de Procesos pasa de 74 paradas a 24.
+  Tras cerrar un proceso, el foco va a la fila siguiente. (T14-14)
+
 ## [1.10.5] — 2026-10-05
 
 Ajustes, partido en secciones: ya no es una página de cuatro pantallas.
@@ -529,7 +544,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.5...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.6...HEAD
+[1.10.6]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.6
 [1.10.5]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.5
 [1.10.4]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.4
 [1.10.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.3

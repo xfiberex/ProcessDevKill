@@ -142,6 +142,11 @@ identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_esp
   columnas secundarias** (T14-17): lo que no puede quedar detrás del scroll es la acción de la
   fila, que va pegada a la derecha. Una columna se esconde entera —su `col`, su `th` y su `td`
   con la misma clase—, y lo que decía pasa al menú de la fila.
+- **La tabla de procesos es una sola parada de tabulador** (T14-14): la fila activa lleva
+  `tabindex="0"` y las demás, `-1`, y dentro se anda con las flechas. **Un control nuevo dentro de
+  una fila va con `tabIndex={-1}`** y, si hace algo que el ratón puede hacer, con su tecla desde la
+  fila (`alPulsarEnFila`): si no, la vuelta de tabulador vuelve a crecer con cada proceso. Una
+  tecla que cierra, pregunta.
 - **Lo que hace desaparecer el elemento que tiene el foco lo devuelve a algún sitio** (T14-13):
   la fila siguiente, la primera que quede o el buscador; nunca `body`. Solo si el foco se ha
   perdido de verdad, y nunca por algo que no pidió la ventana.

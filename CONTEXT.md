@@ -48,13 +48,14 @@ terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobr
 existe.
 
 **Abierto: el [Tier 14 — Auditoría de diseño UI/UX](ROADMAP.md)**, desde el 2026-10-03: 30 tareas
-en ocho fases, una de severidad alta, trece medias y dieciséis bajas. **Hechas 14 a 2026-10-05**: el
+en ocho fases, una de severidad alta, trece medias y dieciséis bajas. **Hechas 15 a 2026-10-05**: el
 guion que repite las medidas (T14-01) y los temas de contraste (T14-22, la única alta, y T14-23),
 publicados en la v1.10.2; y seis de las medias —el menú y las teclas del navegador, el aviso de
 versión nueva, los avisos de error, el sidebar, el buscador con zoom y la tabla de Servicios
 (T14-02, 12, 15, 16, 18 y 20)—, en la v1.10.3; y tres de la tabla de procesos —los puertos en
 una línea, el foco tras un cierre y las columnas con zoom (T14-06, 13 y 17)—, en la v1.10.4; y Ajustes partido en
-secciones, con el subtítulo del sidebar traducido (T14-24 y 27), en la v1.10.5. **Desde el 2026-10-05 cada tanda termina en un
+secciones, con el subtítulo del sidebar traducido (T14-24 y 27), en la v1.10.5; y la tabla con el teclado
+(T14-14), en la v1.10.6. **Desde el 2026-10-05 cada tanda termina en un
 corte.** Sale de
 una auditoría con la app en marcha —186 capturas y 26 archivos de medidas— que miró lo que el
 Tier 11 no había mirado: el marco de la ventana, los tamaños fuera del de fábrica, el zoom por
@@ -365,6 +366,7 @@ verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/
 | 2026-10-05 | **Ajustes son seis secciones, cada una con su botón bajo «Ajustes» en el sidebar** | T14-24, con la propuesta del usuario en vez de la de la tarea, que era una fila de saltos sobre la misma página de 2.724 px: partirla quita el scroll en vez de ayudar a recorrerlo. **Precisa la decisión del Tier 11 (D2)**, que ordenó Ajustes en cinco grupos dentro de una página: los grupos siguen, ahora como secciones, y son seis porque «General» sola seguía pidiendo scroll; el atajo global y el administrador pasan a «Sistema». La sección elegida vive en `App`, porque la cambian el sidebar y los avisos. `SettingsView` sin `seccion` pinta todas, que es como la montan sus pruebas. En la ventana mínima tres secciones siguen con algo de scroll: se dice en la tarea |
 | 2026-10-05 | **Los decimales van con punto en los dos idiomas** | T14-27, decisión del usuario: «0.0%» y «2.0 GB» también en español, por costumbre de quien programa. Las fechas sí siguen al idioma (T12-39). De la tarea quedó el subtítulo del sidebar, que estaba en inglés en los dos |
 | 2026-10-05 | **Supr preguntará antes de cerrar** | T14-14, decisión del usuario, antes de empezar la tarea: la tecla pasa por una confirmación; el botón Kill de la fila sigue cerrando sin preguntar |
+| 2026-10-05 | **La tabla de procesos es una sola parada de tabulador, con la fila como elemento enfocable** | T14-14. **Revisa la decisión del 2026-07-27**, que descartó el `tabIndex` en la fila «por las veinte paradas que añadiría»: con el foco itinerante no añade ninguna y quita las dos que cada fila tenía (de 74 paradas a 24). Sigue siendo una `table` con sus filas, no un `grid`: lo que cambia es dónde para el foco. Las casillas y los Kill salen del tabulador y siguen para el ratón; desde la fila, Espacio y Supr. **Supr pregunta y Kill no**, por decisión del usuario. Con foco de teclado dentro, el orden se congela igual que con el puntero encima. El foco tras un cierre (T14-13) va ahora a la fila |
 
 ## 5. Decisiones pendientes
 

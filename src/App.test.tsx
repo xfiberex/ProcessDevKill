@@ -1689,3 +1689,50 @@ describe("las secciones de Ajustes", () => {
     expect(screen.getByRole("heading", { level: 4, name: /administrador/i })).toHaveFocus();
   });
 });
+
+/**
+ * T14-14: Supr sobre una fila pregunta antes de cerrar.
+ *
+ * Lo decidió el usuario el 2026-10-05. El botón Kill sigue cerrando sin preguntar; la tecla, no.
+ */
+describe("Supr sobre una fila", () => {
+  const cierres = () => invoke.mock.calls.filter((c) => c[0] === "kill_processes");
+  const fila = (pid: number) => screen.getByLabelText(`Seleccionar PID ${pid}`).closest("tr")!;
+
+  it("abre la confirmación con el nombre y el PID, y no cierra hasta que se confirma", async () => {
+    const user = await montar();
+    act(() => fila(100).focus());
+
+    await user.keyboard("{Delete}");
+
+    const dialogo = await screen.findByRole("alertdialog");
+    expect(dialogo).toHaveTextContent("Cerrar 1 proceso");
+    expect(dialogo).toHaveTextContent("node.exe (PID 100)");
+    expect(cierres()).toHaveLength(0);
+
+    await user.click(within(dialogo).getByRole("button", { name: "Cerrar proceso" }));
+
+    await waitFor(() => expect(cierres()).toHaveLength(1));
+    expect(cierres()[0][1]).toEqual({ pids: [100] });
+  });
+
+  it("cancelar no cierra nada", async () => {
+    const user = await montar();
+    act(() => fila(100).focus());
+
+    await user.keyboard("{Delete}");
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancelar" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(cierres()).toHaveLength(0);
+  });
+
+  it("el botón Kill sigue cerrando sin preguntar", async () => {
+    const user = await montar();
+
+    await user.click(screen.getByRole("button", { name: "Kill node.exe, PID 100" }));
+
+    await waitFor(() => expect(cierres()).toHaveLength(1));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+});

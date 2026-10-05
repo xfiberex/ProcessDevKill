@@ -367,7 +367,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
       deja el foco en el botón que desaparece. No se ve —no hay anillo de foco tras un clic—, y el
       siguiente Tab sale de la fila siguiente y no del principio.
 
-- [ ] **[T14-14] La tabla son dos paradas de tabulador por fila, y las flechas no hacen nada**
+- [x] **[T14-14] La tabla son dos paradas de tabulador por fila, y las flechas no hacen nada**
   - **Severidad:** media · **Tipo:** mejora
   - **Ubicación:** `src/components/ProcessTable.tsx`
   - **Lo medido:** con 26 procesos, una vuelta de tabulador por Procesos son **74 paradas**: 13 del
@@ -387,6 +387,28 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Esfuerzo:** alto · **Depende de:** T14-13
   - **Reabre:** CONTEXT §4 del 2026-07-27, que descartó el `tabIndex` en la fila «por las veinte
     paradas de tabulación que añadiría». Esto no añade: quita las dos que cada fila ya tiene.
+  - **Hecho el 2026-10-05.** La fila es la parada: una sola con `tabindex="0"` —la última que tuvo
+    el foco, o la primera— y las casillas y los Kill fuera del tabulador, aunque siguen ahí para el
+    ratón. Flechas, Inicio y Fin mueven el foco; Espacio marca; Supr abre la confirmación de un
+    cierre con el nombre y el PID, y sobre una fila protegida o que ya se cierra no hace nada.
+    - **Medido:** una vuelta de tabulador por Procesos son **24 paradas** (eran 74 con 26
+      procesos): las 13 del sidebar, las 10 de la cabecera y los encabezados, y una de la tabla.
+      axe sin violaciones en las 16 pasadas y al 200 %.
+    - **En vivo, con teclas de verdad** sobre cinco servidores del guion: Flecha abajo, Fin e
+      Inicio mueven la fila activa; Supr abre la confirmación, Escape la cancela sin cerrar e
+      Intro cierra, con el foco en la fila que ocupa su sitio; sobre la protegida, Supr no abre
+      nada; dos filas marcadas con Espacio se cierran en lote y el foco va a la primera que
+      queda; y un cierre desde fuera de la ventana no lo mueve. Doce pruebas de componente.
+    - **Cambia lo de T14-13:** tras un cierre el foco va a la fila, no a su Kill ni a su casilla,
+      que ya no son paradas.
+    - **Mientras el foco de teclado está en la tabla, el orden se congela**, como con el puntero
+      encima: sin eso, la fila de debajo cambiaba entre una flecha y la siguiente.
+    - **Lo que no se probó:** un lector de pantalla de verdad. Lo comprobado es el nombre
+      accesible de cada fila —«node.exe, server.js · tienda, puerto 3000, PID 101»— y que la tabla
+      describe sus teclas. Tampoco Mayús+F10 con teclas reales: el menú se abre con el evento
+      `contextmenu`, que ahora sale de la fila enfocada.
+    - **De paso, un fallo del paso de F5 del guion:** comparaba el filtro con su recuento
+      («Node.js21»), y fallaba si el usuario abría o cerraba un Node en ese instante.
 
 - [x] **[T14-15] Un aviso de error dura cuatro segundos y no se puede cerrar ni releer**
   - **Severidad:** media · **Tipo:** problema

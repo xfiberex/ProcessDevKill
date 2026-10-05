@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowDownIcon,
@@ -31,6 +32,9 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 
+/** Id del texto que dice las teclas de la tabla, para su `aria-describedby`. */
+const TECLAS_ID = "tabla-teclas";
+
 /**
  * La columna de Kill cuando la tabla hace scroll horizontal (T14-17): pegada a la derecha, con
  * fondo propio —si no, las columnas que pasan por debajo se verían a través— y una línea que la
@@ -59,6 +63,12 @@ type ProcessTableProps = {
   onToggle: (pid: number) => void;
   onToggleAll: () => void;
   onKill: (pid: number) => void;
+  /**
+   * Supr sobre una fila (T14-14): pide el cierre **con confirmación**. Lo decidió el usuario el
+   * 2026-10-05: el botón Kill cierra sin preguntar porque hay que apuntarle; una tecla se pulsa
+   * sin mirar.
+   */
+  onAskKill: (proceso: ProcessInfo) => void;
   onCopy: (text: string, what: string) => void;
   /** Proteger (`true`) o dejar de proteger una fila desde su menú. */
   onProtect: (proceso: ProcessInfo, proteger: boolean) => void;
@@ -98,6 +108,7 @@ export function ProcessTable({
   onToggle,
   onToggleAll,
   onKill,
+  onAskKill,
   onCopy,
   onProtect,
   onFreezeChange,
@@ -110,9 +121,9 @@ export function ProcessTable({
    * Devolver el foco tras un cierre (T14-13).
    *
    * Medido: con el foco en un Kill e Intro, la fila salía en 558 ms y el foco quedaba en `body`;
-   * volver a la primera fila eran más de veinte tabuladores. Ahora va al Kill de la fila que ocupa
-   * el sitio de la que salió —o al de la anterior, si era la última—; tras un lote, a la casilla
-   * de la primera que quede; y sin filas, al buscador.
+   * volver a la primera fila eran más de veinte tabuladores. Ahora va a la fila que ocupa el sitio
+   * de la que salió —o a la anterior, si era la última—; tras un lote, a la primera que quede; y
+   * sin filas, al buscador.
    *
    * **Solo tras un cierre pedido desde la ventana**, que es lo único que llena `killing`: uno de
    * la bandeja, del atajo global o del Auto-Kill no pasa por aquí y no mueve nada. Y solo si el
@@ -150,15 +161,9 @@ export function ProcessTable({
     // botón desaparece con la selección. Mirar antes sería ver un foco que aún no se ha perdido.
     const espera = window.setTimeout(() => {
       if (!focoPerdido()) return;
-      const fila = (pid: number) => tablaRef.current?.querySelector(`tr[data-pid="${pid}"]`);
-      const casilla = (pid: number) => fila(pid)?.querySelector<HTMLElement>('[role="checkbox"]');
-      if (pendiente.lote) {
-        casilla(primero.pid)?.focus();
-        return;
-      }
-      const kill = fila(destino.pid)?.querySelector<HTMLButtonElement>("button[data-kill]");
-      // Una fila protegida tiene el Kill apagado: ahí el foco va a su casilla.
-      (kill && !kill.disabled ? kill : casilla(destino.pid))?.focus();
+      // A la fila, que es la parada de la tabla desde T14-14; antes iba a su Kill o a su casilla.
+      const a = pendiente.lote ? primero : destino;
+      tablaRef.current?.querySelector<HTMLElement>(`tr[data-pid="${a.pid}"]`)?.focus();
     }, 250);
     return () => window.clearTimeout(espera);
   }, [processes, killing]);
@@ -179,7 +184,58 @@ export function ProcessTable({
   // tabla— el puntero sale del `<tbody>`, y el orden tiene que seguir quieto mientras el menú viva.
   const [encima, setEncima] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const congelar = encima || menuAbierto;
+  // Y un tercero desde T14-14: mientras se recorre con el teclado. Sin esto la fila de debajo
+  // cambiaba entre una flecha y la siguiente, con cada refresco. Solo con foco **de teclado**
+  // (`:focus-visible`): un clic también deja el foco dentro, y no por eso se quiere la lista quieta.
+  const [conTeclado, setConTeclado] = useState(false);
+  const congelar = encima || menuAbierto || conTeclado;
+
+  /**
+   * **La tabla es una sola parada de tabulador** (T14-14), como la lista del Administrador de
+   * tareas. Medido: con 26 procesos, una vuelta de tabulador por la vista eran 74 paradas, 51 de
+   * ellas las casillas y los Kill de las filas. Ahora se entra a la fila activa y se sigue con las
+   * flechas; la casilla y el Kill salen del tabulador, y siguen ahí para el ratón.
+   *
+   * La fila activa es la última que tuvo el foco, o la primera si esa ya no está. Revisa la
+   * decisión del 2026-07-27, que descartó el `tabIndex` en la fila «por las veinte paradas que
+   * añadiría»: esto no añade, quita las dos que cada fila ya tenía.
+   */
+  const [activa, setActiva] = useState<number | null>(null);
+  const pidActivo = processes.some((p) => p.pid === activa) ? activa : (processes[0]?.pid ?? null);
+
+  function alPulsarEnFila(e: KeyboardEvent<HTMLTableRowElement>, p: ProcessInfo) {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const enLaFila = e.target === e.currentTarget;
+
+    if (e.key === "Delete") {
+      e.preventDefault();
+      // Protegida, nada: es lo mismo que hace su Kill, que está apagado.
+      if (!p.protected && !killing.has(p.pid)) onAskKill(p);
+      return;
+    }
+    // Solo con el foco en la fila: en la casilla, Espacio ya la marca por su cuenta.
+    if (e.key === " " && enLaFila) {
+      e.preventDefault();
+      onToggle(p.pid);
+      return;
+    }
+
+    const filas = [...(tablaRef.current?.querySelectorAll<HTMLElement>("tbody tr[data-pid]") ?? [])]
+      // La que está saliendo sigue pintada mientras dura su animación.
+      .filter((f) => !f.hasAttribute("data-saliendo"));
+    const donde = filas.indexOf(e.currentTarget);
+    const destino = {
+      ArrowDown: filas[donde + 1],
+      ArrowUp: filas[donde - 1],
+      Home: filas[0],
+      End: filas[filas.length - 1],
+    }[e.key];
+    if (e.key in { ArrowDown: 1, ArrowUp: 1, Home: 1, End: 1 }) {
+      // También en los extremos: sin esto la flecha desplazaba la vista entera.
+      e.preventDefault();
+      destino?.focus();
+    }
+  }
   useEffect(() => {
     onFreezeChange(congelar);
   }, [congelar, onFreezeChange]);
@@ -209,7 +265,11 @@ export function ProcessTable({
     // «Activo»; por debajo de 572, también «PID». Los dos siguen en el menú de la fila. Con las dos
     // fuera las fijas suman 368, y el mínimo son esas más 100 para el nombre: si ni así cabe —el
     // 150 % y el 200 %—, hay scroll horizontal y **Kill se queda pegado a la derecha**.
-    <table ref={tablaRef} className="w-full min-w-117 table-fixed text-sm">
+    <table
+      ref={tablaRef}
+      className="w-full min-w-117 table-fixed text-sm"
+      aria-describedby={TECLAS_ID}
+    >
       {/* Sin esto la tabla se anuncia como "tabla, 8 columnas" y nada mas. `sr-only` porque el
           titulo ya esta a la vista en la cabecera: es informacion que le falta al lector de
           pantalla, no a la ventana. */}
@@ -243,6 +303,12 @@ export function ProcessTable({
               lector de pantalla diga "Puerto: 3000" al recorrer celdas, en vez de
               leer numeros sueltos sin saber de que son. */}
           <th scope="col" className="py-2 pl-5">
+            {/* Las teclas de la tabla, para quien no las ve: su descripción (`aria-describedby`).
+                Aquí dentro porque una tabla no admite un párrafo suelto, y fuera de ella obligaría
+                a envolverla. */}
+            <span id={TECLAS_ID} className="sr-only">
+              {t.tabla.teclas}
+            </span>
             <Checkbox
               checked={allSelected}
               onCheckedChange={onToggleAll}
@@ -284,6 +350,10 @@ export function ProcessTable({
       <tbody
         onPointerEnter={() => setEncima(true)}
         onPointerLeave={() => setEncima(false)}
+        onFocus={(e) => setConTeclado(e.target.matches(":focus-visible"))}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setConTeclado(false);
+        }}
       >
         <AnimatePresence initial={false}>
           {processes.map((p) => {
@@ -328,9 +398,16 @@ export function ProcessTable({
                       // `group/fila` es para el Kill, que se tiñe con la fila (D5).
                       data-selected={seleccionada ? "" : undefined}
                       data-pid={p.pid}
+                      tabIndex={p.pid === pidActivo ? 0 : -1}
+                      aria-label={t.tabla.filaLabel(p.name, detalle, p.ports, p.pid, p.protected)}
+                      aria-keyshortcuts="Delete"
+                      onFocus={() => setActiva(p.pid)}
+                      onKeyDown={(e: KeyboardEvent<HTMLTableRowElement>) => alPulsarEnFila(e, p)}
                       // Para `focoPerdido`: Motion deja la fila pintada mientras sale.
                       data-saliendo={isKilling ? "" : undefined}
-                      className={`group/fila border-t border-border data-popup-open:bg-muted/60 ${
+                      // `scroll-m`: al llegar con las flechas, la fila no se queda debajo de la
+                      // cabecera pegada ni de la barra de la selección, que flota abajo.
+                      className={`group/fila scroll-mt-10 scroll-mb-20 border-t border-border outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-popup-open:bg-muted/60 ${
                         seleccionada
                           ? "bg-muted hover:bg-muted"
                           : p.zombie
@@ -352,6 +429,8 @@ export function ProcessTable({
                       checked={seleccionada}
                       onCheckedChange={() => onToggle(p.pid)}
                       aria-label={t.tabla.seleccionarPid(p.pid)}
+                      // Fuera del tabulador (T14-14): desde la fila, Espacio la marca.
+                      tabIndex={-1}
                     />
                   </td>
 
@@ -483,6 +562,8 @@ export function ProcessTable({
                       // justo la etiqueta que no se puede fallar.
                       aria-label={t.tabla.killLabel(p.name, p.pid)}
                       data-kill
+                      // Fuera del tabulador (T14-14): desde la fila, Supr pide el cierre.
+                      tabIndex={-1}
                     >
                       {t.tabla.kill}
                     </Button>

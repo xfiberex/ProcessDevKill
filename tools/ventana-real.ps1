@@ -75,6 +75,10 @@ public static class PdkVentana {
         return pids.Contains(pid);
     }
 
+    // Las flechas, Inicio, Fin, RePag, AvPag, Insert y Supr son teclas extendidas: sin la marca,
+    // Windows las toma por las del teclado numerico, que con BloqNum escriben cifras.
+    static uint Extendida(byte vk) { return (vk >= 0x21 && vk <= 0x28) || vk == 0x2D || vk == 0x2E ? 1u : 0u; }
+
     // Devuelve "" si pulso, o el motivo por el que no.
     public static string Pulsar(IntPtr hwnd, HashSet<uint> pids, byte[] teclas) {
         IntPtr antes = GetForegroundWindow();
@@ -96,13 +100,13 @@ public static class PdkVentana {
         try {
             foreach (byte vk in teclas) {
                 if (!EsDeLaCopia(pids)) return "la ventana de la copia dejo de estar delante";
-                keybd_event(vk, 0, 0, UIntPtr.Zero);
+                keybd_event(vk, 0, Extendida(vk), UIntPtr.Zero);
                 pulsadas++;
                 Thread.Sleep(30);
             }
         } finally {
             // Se sueltan siempre, y en orden inverso: una tecla que se queda pulsada es de todos.
-            for (int i = pulsadas - 1; i >= 0; i--) keybd_event(teclas[i], 0, 2, UIntPtr.Zero);
+            for (int i = pulsadas - 1; i >= 0; i--) keybd_event(teclas[i], 0, 2 | Extendida(teclas[i]), UIntPtr.Zero);
         }
         return "";
     }
