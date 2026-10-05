@@ -14,6 +14,11 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+## [1.10.2] — 2026-10-05
+
+The app under a Windows contrast theme: it shows again what is on, what is selected, and where the
+focus is.
+
 ### Fixed
 - **With a Windows contrast theme, the app was readable but did not show what state anything was
   in.** The switches in Settings looked empty whether they were on or off — including the ones
@@ -68,6 +73,7 @@ Java, Deno, and Bun, watched out of the box, and release notes in English too.
 - The tests that drive the running app can now also be started on GitHub, by hand: the runner
   handles them, in about 10 minutes. They still do not run on every push. (T13-03)
 
-[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.1...HEAD
+[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.2...HEAD
+[1.10.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.2
 [1.10.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.1
 [1.10.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.0

@@ -248,6 +248,10 @@ node tools/auditoria-ui.mjs       # capturas y medidas de la interfaz; no compru
 
 `.\release.ps1 -Version X.Y.Z` hace el corte entero. Antes, `-DryRun`.
 
+**Cada tanda de tareas termina en un corte** (2026-10-05, lo pidió el usuario): lo que se arregla no
+espera en «Sin publicar» a que se junte con otra cosa. Publicar no se deshace, así que el corte de
+verdad se confirma con él cada vez; el dry run, no.
+
 **El corte termina comprobando lo publicado** (T12-24): los 4 assets, el `tag_name` de la API que
 consulta la app y el instalador descargado contra su `.sha256` y contra el compilado. Si falla, el
 release ya está fuera: se corrige o se despublica. `-VerifyOnly` repite solo esa comprobación.

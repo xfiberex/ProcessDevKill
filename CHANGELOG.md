@@ -16,6 +16,11 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.10.2] — 2026-10-05
+
+La app, con un tema de contraste de Windows: vuelve a decir qué está encendido, qué está elegido y
+dónde está el foco.
+
 ### Corregido
 - **Con un tema de contraste de Windows, la app se podía leer pero no decía en qué estado estaba
   cada cosa.** Los interruptores de Ajustes salían vacíos, encendidos o no —también el del
@@ -463,7 +468,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.1...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.2...HEAD
+[1.10.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.2
 [1.10.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.1
 [1.10.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.0
 [1.9.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.9.1
