@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { toast } from "sonner";
+import { toast } from "@/lib/avisos";
 import { CATALOGOS } from "../i18n";
 import { claveProteccion, entradasQueLoProtegen } from "../lib/protect";
 import type { ProcessInfo, Settings } from "../types";

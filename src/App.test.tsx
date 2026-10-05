@@ -1447,3 +1447,146 @@ describe("comprobación de actualizaciones al arrancar", () => {
     expect(consultas()).toBe(0);
   });
 });
+
+/**
+ * T14-12: el aviso de versión nueva lleva a «Actualizaciones», y «Ajustes» queda marcado.
+ *
+ * El aviso dura 12 s. Antes, su botón dejaba al principio de Ajustes —«Descargar e instalar»
+ * quedaba a más de 2.000 px— y, pasado el aviso, nada decía que había una versión esperando.
+ */
+describe("el aviso de versión nueva", () => {
+  const VERSION = {
+    tag: "v9.9.9",
+    version: "9.9.9",
+    notes: "",
+    htmlUrl: "",
+    assetUrl: "",
+    assetName: "",
+    assetSize: 0,
+    sha256Url: "",
+  };
+
+  it("lleva al grupo de Actualizaciones, con el foco en su título", async () => {
+    const user = await montar(LISTA, { check_update: VERSION });
+
+    const aviso = await screen.findByText("ProcessDevKill v9.9.9 disponible");
+    await user.click(within(aviso.closest("li")!).getByRole("button", { name: "Ajustes" }));
+
+    const titulo = await screen.findByRole("heading", { level: 3, name: "Actualizaciones" });
+    expect(titulo).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Descargar e instalar" })).toBeInTheDocument();
+  });
+
+  it("deja una marca en «Ajustes» que sigue ahí al cambiar de vista", async () => {
+    const user = await montar(LISTA, { check_update: VERSION });
+
+    const ajustes = await screen.findByRole("button", {
+      name: "Ajustes, hay una versión nueva",
+    });
+    await user.click(screen.getByRole("button", { name: "Historial" }));
+    expect(ajustes).toHaveAccessibleName("Ajustes, hay una versión nueva");
+  });
+
+  it("sin versión nueva, «Ajustes» no lleva marca", async () => {
+    await montar();
+
+    await waitFor(() =>
+      expect(invoke.mock.calls.some((c) => c[0] === "check_update")).toBe(true),
+    );
+    expect(screen.getByRole("button", { name: /^Ajustes/ })).toHaveAccessibleName("Ajustes");
+  });
+});
+
+/**
+ * T14-02: lo que la ventana le quita al navegador que lleva dentro.
+ *
+ * jsdom no tiene menú de contexto ni recarga: aquí solo se ve si el evento se cancela y qué se
+ * pide a Rust. Que no se abra el menú de WebView2 ni se recargue la ventana, con el ratón y las
+ * teclas de verdad, lo mira `tools/prueba-en-marcha.mjs`.
+ */
+describe("el clic derecho y las teclas del navegador", () => {
+  /** Lanza el evento y dice si alguien lo canceló. */
+  const cancelado = (destino: Element, evento: Event) => !destino.dispatchEvent(evento);
+  const clicDerecho = () => new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+  const tecla = (key: string, extra: KeyboardEventInit = {}) =>
+    new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...extra });
+  const pedidas = () => invoke.mock.calls.filter((c) => c[0] === "get_processes").length;
+
+  it("el clic derecho se cancela fuera de un campo de texto, y dentro no", async () => {
+    await montar();
+
+    expect(cancelado(screen.getByRole("heading", { name: "ProcessDevKill" }), clicDerecho())).toBe(
+      true,
+    );
+    expect(cancelado(screen.getByRole("heading", { name: "Procesos" }), clicDerecho())).toBe(true);
+    expect(cancelado(document.body, clicDerecho())).toBe(true);
+    // Una casilla también es un `input`, pero no hay nada que pegar en ella.
+    expect(cancelado(screen.getByLabelText("Seleccionar PID 100"), clicDerecho())).toBe(true);
+
+    expect(cancelado(screen.getByRole("textbox", { name: "Buscar procesos" }), clicDerecho())).toBe(
+      false,
+    );
+  });
+
+  it("F5 y Ctrl+R refrescan la lista sin perder la búsqueda", async () => {
+    const user = await montar();
+    const buscador = screen.getByRole("textbox", { name: "Buscar procesos" });
+    await user.type(buscador, "python");
+    const antes = pedidas();
+
+    await act(async () => {
+      expect(cancelado(document.body, tecla("F5"))).toBe(true);
+    });
+    await waitFor(() => expect(pedidas()).toBe(antes + 1));
+
+    await act(async () => {
+      expect(cancelado(document.body, tecla("r", { ctrlKey: true }))).toBe(true);
+    });
+    await waitFor(() => expect(pedidas()).toBe(antes + 2));
+
+    expect(buscador).toHaveValue("python");
+  });
+
+  it("una tecla mantenida no pide la lista en cada repetición", async () => {
+    await montar();
+    const antes = pedidas();
+
+    await act(async () => {
+      expect(cancelado(document.body, tecla("F5", { repeat: true }))).toBe(true);
+    });
+    expect(pedidas()).toBe(antes);
+  });
+
+  it("en Servicios, F5 relee los servicios", async () => {
+    const user = await montar(LISTA, {
+      get_services: [servicio({ name: "MySQL80" })],
+      get_service_changes: [],
+    });
+    await user.click(screen.getByRole("button", { name: "Servicios" }));
+    await screen.findByText("MySQL80");
+    const leidos = () => invoke.mock.calls.filter((c) => c[0] === "get_services").length;
+    const antes = leidos();
+
+    await act(async () => {
+      document.body.dispatchEvent(tecla("F5"));
+    });
+    await waitFor(() => expect(leidos()).toBe(antes + 1));
+  });
+
+  it("imprimir, buscar siguiente, el cursor de texto y el código fuente no hacen nada", async () => {
+    await montar();
+
+    for (const [key, extra] of [
+      ["p", { ctrlKey: true }],
+      ["g", { ctrlKey: true }],
+      ["u", { ctrlKey: true }],
+      ["F3", {}],
+      ["F7", {}],
+    ] as const) {
+      expect(cancelado(document.body, tecla(key, extra)), key).toBe(true);
+    }
+    // Lo que no es del navegador pasa: escribir una «p» o una «r» no se cancela.
+    expect(cancelado(document.body, tecla("p"))).toBe(false);
+    expect(cancelado(document.body, tecla("r"))).toBe(false);
+  });
+});

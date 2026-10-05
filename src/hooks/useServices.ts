@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { toast } from "sonner";
+import { toast } from "@/lib/avisos";
 import type { Catalogo } from "../i18n";
 import type { ConfirmRequest } from "../components/ConfirmDialog";
 import { SETTABLE_START_TYPES } from "../types";

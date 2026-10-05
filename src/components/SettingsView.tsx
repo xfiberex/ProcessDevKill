@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { resolveResource } from "@tauri-apps/api/path";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { toast } from "sonner";
+import { toast } from "@/lib/avisos";
 import {
   ExternalLinkIcon,
   FileTextIcon,
@@ -47,13 +47,16 @@ type SettingsViewProps = {
   elevated?: boolean | null;
   onRestartAsAdmin?: () => void;
   /**
-   * Se llega desde el aviso del sidebar: hay que ir a la sección de administrador y no dejar al
-   * usuario arriba del todo buscando por qué se le trajo aquí. `onIdoAAdmin` lo apaga, para que
-   * volver a Ajustes más tarde no salte otra vez a la sección.
+   * Se llega desde un aviso —el de administrador del sidebar, o el de versión nueva (T14-12)—: hay
+   * que ir a la sección que lo explica y no dejar al usuario arriba del todo buscando por qué se le
+   * trajo aquí. `onIdo` lo apaga, para que volver a Ajustes más tarde no salte otra vez.
    */
-  irAAdmin?: boolean;
-  onIdoAAdmin?: () => void;
+  irA?: DestinoDeAjustes | null;
+  onIdo?: () => void;
 };
+
+/** Las secciones de Ajustes a las que lleva un aviso. */
+export type DestinoDeAjustes = "admin" | "actualizaciones";
 
 const THEME_ICONS: Record<Theme, typeof SunIcon> = {
   system: MonitorIcon,
@@ -70,20 +73,22 @@ export function SettingsView({
   updater,
   elevated = null,
   onRestartAsAdmin,
-  irAAdmin = false,
-  onIdoAAdmin,
+  irA = null,
+  onIdo,
 }: SettingsViewProps) {
   const t = useT();
   const adminRef = useRef<HTMLHeadingElement>(null);
+  const actualizacionesRef = useRef<HTMLHeadingElement>(null);
 
   // El foco va al título, y no solo el scroll: con teclado o lector de pantalla, lo siguiente que
   // se lee es la sección que explica el aviso, no el selector de idioma.
   useEffect(() => {
-    if (!irAAdmin) return;
-    adminRef.current?.scrollIntoView({ block: "start" });
-    adminRef.current?.focus();
-    onIdoAAdmin?.();
-  }, [irAAdmin, onIdoAAdmin]);
+    if (!irA) return;
+    const titulo = (irA === "admin" ? adminRef : actualizacionesRef).current;
+    titulo?.scrollIntoView({ block: "start" });
+    titulo?.focus();
+    onIdo?.();
+  }, [irA, onIdo]);
   const [draft, setDraft] = useState("");
   /** El último nombre crítico que se intentó añadir, para el aviso bajo el campo. */
   const [critico, setCritico] = useState<string | null>(null);
@@ -808,7 +813,7 @@ export function SettingsView({
             </section>
           </Grupo>
 
-          <Grupo titulo={t.ajustes.actualizaciones.titulo}>
+          <Grupo titulo={t.ajustes.actualizaciones.titulo} tituloRef={actualizacionesRef}>
             <div>
               <p className="text-sm text-muted-foreground">
                 <Marcado texto={t.ajustes.actualizaciones.descripcion} />
@@ -905,10 +910,23 @@ export function SettingsView({
  * El rótulo es un `h3` entre el `h2` de la vista y los `h4` de cada sección: quien salta por
  * encabezados con un lector de pantalla recorre primero los grupos y luego entra en uno.
  */
-function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
+function Grupo({
+  titulo,
+  children,
+  tituloRef,
+}: {
+  titulo: string;
+  children: ReactNode;
+  /** Solo para el grupo al que lleva un aviso: el título recibe el foco (ver `irA`). */
+  tituloRef?: RefObject<HTMLHeadingElement | null>;
+}) {
   return (
     <section className="space-y-6">
-      <h3 className="border-b border-border pb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+      <h3
+        ref={tituloRef}
+        tabIndex={tituloRef ? -1 : undefined}
+        className="scroll-mt-6 border-b border-border pb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase outline-none"
+      >
         {titulo}
       </h3>
       {children}

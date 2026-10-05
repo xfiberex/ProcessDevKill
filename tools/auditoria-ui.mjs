@@ -413,6 +413,79 @@ function medirPagina(cdp) {
             .slice(0, 12)
         : [],
       navegacion: [...document.querySelectorAll("aside nav button, aside button")].filter(visible).map((b) => ({ nombre: nombre(b), ...caja(b) })).slice(0, 20),
+      // El desplegable de «Arranque» (T14-20): si el rótulo más largo cabe en lo que el control
+      // deja para el texto. En el equipo puede no haber ningún servicio con ese arranque.
+      arranque: (() => {
+        const control = document.querySelector('main td [data-slot="select-trigger"]');
+        if (!control) return null;
+        const e = getComputedStyle(control);
+        const lienzo = document.createElement("canvas").getContext("2d");
+        lienzo.font = "500 " + e.fontSize + " " + e.fontFamily;
+        const flecha = control.querySelector("svg")?.getBoundingClientRect().width ?? 0;
+        return {
+          pide: Math.round(lienzo.measureText("Automático (retrasado)").width * 10) / 10,
+          deja: Math.round((control.clientWidth - parseFloat(e.paddingLeft) - parseFloat(e.paddingRight) - parseFloat(e.columnGap || "0") - flecha) * 10) / 10,
+        };
+      })(),
+      cabecera: (() => {
+        const cabecera = document.querySelector("main header");
+        const campo = cabecera?.querySelector("input");
+        const pista = cabecera?.querySelector("kbd");
+        const titulo = cabecera?.querySelector("h2");
+        if (!cabecera) return null;
+        const pisa = (a, b) => {
+          if (!a || !b || !visible(a) || !visible(b)) return false;
+          const x = a.getBoundingClientRect(), y = b.getBoundingClientRect();
+          return x.left < y.right - 1 && y.left < x.right - 1 && x.top < y.bottom - 1 && y.top < x.bottom - 1;
+        };
+        return {
+          alto: caja(cabecera).alto,
+          // El buscador con zoom (T14-18): cuánto mide, si enseña la pista y si pisa el título.
+          buscador: campo ? caja(campo).ancho : null,
+          pista: Boolean(pista && visible(pista)),
+          buscadorPisaElTitulo: pisa(campo, titulo),
+          // El texto de ejemplo, medido: si pide más de lo que el campo deja, la pista lo taparía.
+          ejemploCabe: campo
+            ? (() => {
+                const lienzo = document.createElement("canvas").getContext("2d");
+                const e = getComputedStyle(campo);
+                lienzo.font = e.fontWeight + " " + e.fontSize + " " + e.fontFamily;
+                const pide = lienzo.measureText(campo.placeholder).width;
+                const deja = campo.clientWidth - parseFloat(e.paddingLeft) - parseFloat(e.paddingRight);
+                return { pide: Math.round(pide), deja: Math.round(deja) };
+              })()
+            : null,
+        };
+      })(),
+    };
+  })()`);
+}
+
+/**
+ * El sidebar con los siete filtros a la vista (T14-16): qué vistas se ven enteras y qué hace scroll.
+ *
+ * El guion corre sin elevar, así que el aviso de administrador está: es el caso apretado.
+ */
+function medirSidebar(cdp) {
+  return cdp.js(`(() => {
+    const nav = document.querySelector("aside nav");
+    const marco = nav.getBoundingClientRect();
+    const filtros = document.getElementById("filtros-runtime");
+    const aviso = [...document.querySelectorAll("aside button")].find((b) => /administrador/i.test(b.textContent));
+    return {
+      ventana: [innerWidth, innerHeight],
+      vistas: [...nav.children].filter((e) => e.tagName === "BUTTON").map((b) => {
+        const r = b.getBoundingClientRect();
+        return {
+          nombre: b.textContent.trim().replace(/\\d+$/, ""),
+          entera: r.height > 0 && r.top >= marco.top - 0.5 && r.bottom <= Math.min(marco.bottom, innerHeight) + 0.5,
+        };
+      }),
+      laNavegacionHaceScroll: nav.scrollHeight > nav.clientHeight + 1,
+      filtros: filtros
+        ? { cuantos: filtros.children.length, ve: filtros.clientHeight, pide: filtros.scrollHeight }
+        : null,
+      avisoDeAdministrador: Boolean(aviso && aviso.getBoundingClientRect().height > 0),
     };
   })()`);
 }
@@ -751,12 +824,40 @@ async function faseMedidas(cdp) {
     if (zoom === 200) pagina.axe = { procesos: (await irA(cdp, "procesos"), await pasarAxe(cdp)) };
     medir(`pagina-${nombre}`, pagina);
     const p = pagina.procesos;
+    const sv = pagina.servicios;
+    resumen.push(
+      `medidas (${nombre}): cabecera de Procesos de ${p.cabecera.alto} px, buscador de ${p.cabecera.buscador} px` +
+        `${p.cabecera.pista ? ", con la pista" : ", sin la pista"}` +
+        `${p.cabecera.buscadorPisaElTitulo ? ", PISA EL TÍTULO" : ""}` +
+        `; el ejemplo pide ${p.cabecera.ejemploCabe.pide} y tiene ${p.cabecera.ejemploCabe.deja}` +
+        `; Servicios, columna del nombre de ${sv.columnas[0]?.ancho ?? "?"} px, ${sv.recortes.length} textos recortados` +
+        (sv.arranque ? `, «Automático (retrasado)» pide ${sv.arranque.pide} y tiene ${sv.arranque.deja}` : ""),
+    );
     resumen.push(
       `medidas (${nombre}): Procesos, filas de ${p.filas.altos.join(" y ")} px, ${p.filas.enLaVentana} a la vista; ` +
         `columna «${p.columnas[1]?.nombre ?? "?"}» de ${p.columnas[1]?.ancho ?? "?"} px` +
         (p.fueraPorLaDerecha.length > 0 ? `; fuera por la derecha: ${p.fueraPorLaDerecha.slice(0, 3).join(", ")}` : ""),
     );
   }
+
+  // T14-16: los siete filtros a la vista, en la ventana de fábrica y en la mínima.
+  await ajustar(cdp, { showAllFilters: true });
+  const sidebar = {};
+  for (const tamano of [FABRICA, [900, 480]]) {
+    await ventana(cdp, tamano);
+    await irA(cdp, "procesos");
+    const m = await medirSidebar(cdp);
+    sidebar[tamano.join("x")] = m;
+    await capturar(cdp, `sidebar-siete-filtros-${tamano.join("x")}`);
+    resumen.push(
+      `medidas (sidebar, ${tamano.join("x")}): ${m.filtros.cuantos} filtros en ${m.filtros.ve} px de ${m.filtros.pide}; ` +
+        `vistas enteras: ${m.vistas.filter((v) => v.entera).length} de ${m.vistas.length}` +
+        `${m.laNavegacionHaceScroll ? "; LA NAVEGACIÓN HACE SCROLL" : ""}` +
+        `; aviso de administrador ${m.avisoDeAdministrador ? "a la vista" : "escondido"}`,
+    );
+  }
+  medir("sidebar-siete-filtros", sidebar);
+  await ajustar(cdp, { showAllFilters: false });
   await ventana(cdp, FABRICA);
 }
 

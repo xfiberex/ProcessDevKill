@@ -14,6 +14,36 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+## [1.10.3] — 2026-10-05
+
+The window stops behaving like a web page: no browser menu and no reloads. Plus five more fixes
+in notifications, the sidebar, zoom, and Services.
+
+### Fixed
+- **Right-clicking no longer opens the browser menu**, with “Back,” “Refresh,” and “Print” in
+  the Windows language. It still opens in the search box and in text fields, where you need it to
+  copy and paste, and each row keeps its own menu. **F5 and Ctrl+R refresh the list** instead of
+  reloading the window, which lost the search, the filter, the sort order, and the selection;
+  Ctrl+P, Ctrl+G, Ctrl+U, F3, and F7 no longer do anything. (T14-02)
+- **The new-version notification takes you to “Updates,”** with “Download and install” in view:
+  it used to leave you at the top of Settings, three screens away from the button. And “Settings”
+  carries a mark in the sidebar while a version is waiting. (T14-12)
+- **An error notification stays until you close it**, with its own button. It used to disappear
+  after four seconds, even when it carried a file path and the Windows error. Success
+  notifications still go away on their own. With the app in Spanish, the notification area is no
+  longer announced in English. (T14-15)
+- **“Settings” no longer ends up behind the sidebar scroll** when five or more runtimes have
+  processes: the four views are always visible, and what scrolls is the list of filters. (T14-16)
+- With zoom, the “Ctrl F” hint no longer covers the search box text, and when the header gets
+  narrow the search box moves to a second row instead of becoming unusable. (T14-18)
+- In Services, with a small window, the service name is readable in full — “postgresql-x64-17”
+  and not “postgre…” — the “Startup” column takes less room and the start or stop button shrinks
+  to its icon. (T14-20)
+
+### Internal
+- The tests that run the app press real keys and count the app's windows, to see what happens
+  outside the page. (T14-02)
+
 ## [1.10.2] — 2026-10-05
 
 The app under a Windows contrast theme: it shows again what is on, what is selected, and where the
@@ -73,7 +103,8 @@ Java, Deno, and Bun, watched out of the box, and release notes in English too.
 - The tests that drive the running app can now also be started on GitHub, by hand: the runner
   handles them, in about 10 minutes. They still do not run on every push. (T13-03)
 
-[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.2...HEAD
+[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.3...HEAD
+[1.10.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.3
 [1.10.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.2
 [1.10.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.1
 [1.10.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.0

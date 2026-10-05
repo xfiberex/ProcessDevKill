@@ -14,7 +14,7 @@ const toast = vi.hoisted(() => ({
   warning: vi.fn(),
   error: vi.fn(),
 }));
-vi.mock("sonner", () => ({ toast }));
+vi.mock("@/lib/avisos", () => ({ toast }));
 
 const MYSQL = servicio({ name: "MySQL80", startType: "manual" });
 

@@ -90,6 +90,41 @@ export function cerrarArbol(hijo) {
   if (r.status !== 0) hijo.kill();
 }
 
+// ── Lo que CDP no alcanza: las ventanas de Windows y las teclas de verdad ───
+
+function ventanaReal(hijo, accion, extra = []) {
+  const r = spawnSync(
+    "powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(RAIZ, "tools", "ventana-real.ps1"),
+      "-IdProceso", String(hijo.pid), "-Accion", accion, ...extra],
+    { windowsHide: true, encoding: "utf8" },
+  );
+  exigir(r.status === 0, `ventana-real.ps1 falló: ${r.stderr || r.stdout}`);
+  return JSON.parse(r.stdout.trim().split(/\r?\n/).pop());
+}
+
+/**
+ * Las ventanas visibles de la copia y de sus procesos de WebView2.
+ *
+ * El menú de clic derecho del navegador no está en el DOM: es una ventana de Windows aparte
+ * (`Chrome_WidgetWin_1`). Contarlas antes y después es la forma de saber si ha salido (T14-02).
+ */
+export const ventanasDe = (hijo) => ventanaReal(hijo, "ventanas");
+
+export const TECLA = { ESC: 0x1b, CTRL: 0x11, R: 0x52, F5: 0x74 };
+
+/**
+ * Pulsa una combinación con teclas de verdad (`keybd_event`), con la ventana de la copia delante.
+ *
+ * Un atajo del navegador —F5, Ctrl+R— no se dispara con `Input.dispatchKeyEvent` de CDP: ese evento
+ * entra ya dentro de la página. **Una tecla real va a quien tenga el foco**, así que el script
+ * comprueba antes de cada pulsación que la ventana de delante es la de la copia; si no lo es, no
+ * pulsa y esto devuelve `{ ok: false, motivo }`. Quien llama lo deja «sin comprobar», no lo
+ * reintenta: si Windows no cede el foco es que el usuario está escribiendo en otra cosa.
+ */
+export const teclasReales = (hijo, codigos) =>
+  ventanaReal(hijo, "teclas", ["-Teclas", codigos.join(",")]);
+
 /** Un puerto libre. Con `preferido`, ese si se puede; si está ocupado, el que dé el sistema. */
 export function puertoLibre(preferido = 0) {
   return new Promise((resolve, reject) => {

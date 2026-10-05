@@ -3,7 +3,7 @@ import { MotionConfig } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { toast } from "sonner";
+import { toast } from "@/lib/avisos";
 import { SYSTEM_USAGE } from "./types";
 import type { HistoryEntry, SystemUsage } from "./types";
 import { ThemeProvider } from "./theme";
@@ -13,12 +13,14 @@ import { useProcessList } from "./hooks/useProcessList";
 import { useServices } from "./hooks/useServices";
 import { useSettings } from "./hooks/useSettings";
 import { useUpdater } from "./hooks/useUpdater";
+import { useVentana } from "./hooks/useVentana";
 import { EmptyState } from "./components/EmptyState";
 import { ProcessTable } from "./components/ProcessTable";
 import { ProcessesHeader } from "./components/ProcessesHeader";
 import { HistoryView } from "./components/HistoryView";
 import { ServicesView } from "./components/ServicesView";
 import { SettingsView } from "./components/SettingsView";
+import type { DestinoDeAjustes } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
 import type { View } from "./components/Sidebar";
 import { ConfirmDialog } from "./components/ConfirmDialog";
@@ -44,8 +46,11 @@ export default function App() {
    * `false` explícito, para no enseñarlo de más en el instante que tarda Rust en contestar.
    */
   const [elevated, setElevated] = useState<boolean | null>(null);
-  /** El aviso del sidebar lleva a la sección de Ajustes que lo explica, no al principio. */
-  const [irAAdmin, setIrAAdmin] = useState(false);
+  /**
+   * Un aviso lleva a la sección de Ajustes que lo explica, no al principio: el de administrador del
+   * sidebar y el de versión nueva, que dejaba «Descargar e instalar» a tres pantallas (T14-12).
+   */
+  const [irA, setIrA] = useState<DestinoDeAjustes | null>(null);
   const buscadorRef = useRef<HTMLInputElement>(null);
   /** Pide enfocar el buscador en cuanto esté pintado: puede que haya que cambiar de vista antes. */
   const [enfocarBuscador, setEnfocarBuscador] = useState(false);
@@ -65,25 +70,6 @@ export default function App() {
   });
   const servicios = useServices(t, setConfirm);
   const updater = useUpdater();
-
-  /**
-   * Ctrl+F lleva al buscador desde cualquier vista (Tier 11, E).
-   *
-   * Hasta aquí había **12 paradas de tabulador** antes de llegar a él: todo el sidebar va delante en
-   * el documento. `preventDefault` también le quita a WebView2 su propia búsqueda en la página, que
-   * aquí no encontraría nada útil: la lista ya se filtra.
-   */
-  useEffect(() => {
-    function alPulsar(e: KeyboardEvent) {
-      if (e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        setView("processes");
-        setEnfocarBuscador(true);
-      }
-    }
-    window.addEventListener("keydown", alPulsar);
-    return () => window.removeEventListener("keydown", alPulsar);
-  }, []);
 
   useEffect(() => {
     if (!enfocarBuscador || view !== "processes") return;
@@ -139,6 +125,20 @@ export default function App() {
     if (view === "services") cargarServicios();
   }, [view, cargarServicios]);
 
+  // Ctrl+F lleva al buscador desde cualquier vista, y F5 refresca lo que se mira en vez de
+  // recargar la ventana: en Ajustes no hay nada que releer, y se queda con la lista.
+  useVentana({
+    onBuscar: () => {
+      setView("processes");
+      setEnfocarBuscador(true);
+    },
+    onRefrescar: () => {
+      if (view === "services") servicios.refresh();
+      else if (view === "history") loadHistory();
+      else lista.refresh();
+    },
+  });
+
   /**
    * Comprobacion de actualizaciones al arrancar, en silencio.
    *
@@ -162,7 +162,10 @@ export default function App() {
         description: t.avisos.hayVersionComo,
         action: {
           label: t.avisos.irAAjustes,
-          onClick: () => setView("settings"),
+          onClick: () => {
+            setIrA("actualizaciones");
+            setView("settings");
+          },
         },
         duration: 12_000,
       });
@@ -258,9 +261,10 @@ export default function App() {
           usage={usage}
           elevated={elevated}
           onVerAdmin={() => {
-            setIrAAdmin(true);
+            setIrA("admin");
             setView("settings");
           }}
+          hayVersionNueva={updater.state.fase === "disponible"}
         />
 
         {/* `relative` por la barra de la selección, que flota abajo sin empujar las filas. */}
@@ -296,8 +300,8 @@ export default function App() {
                 updater={updater}
                 elevated={elevated}
                 onRestartAsAdmin={restartAsAdmin}
-                irAAdmin={irAAdmin}
-                onIdoAAdmin={() => setIrAAdmin(false)}
+                irA={irA}
+                onIdo={() => setIrA(null)}
               />
             )}
 

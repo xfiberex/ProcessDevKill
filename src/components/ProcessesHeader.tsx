@@ -55,8 +55,13 @@ export function ProcessesHeader({
   const t = useT();
 
   return (
-    <ViewHeader title={t.sidebar.procesos}>
-      <div className="relative min-w-0 flex-1">
+    <ViewHeader title={t.sidebar.procesos} wrap>
+      {/* Con zoom (T14-18). Al 200 % la cabecera mide 292 px y el buscador se quedaba sin sitio
+          entre el título, el recuento, Refrescar y Nuke All: la pista «Ctrl F» caía sobre el
+          título y el campo no se podía usar. Por debajo de 520 px de cabecera baja a una segunda
+          fila, a todo el ancho. Sin zoom la cabecera mide 792 a lo ancho y 692 en la ventana
+          mínima: no cambia nada. */}
+      <div className="@container/buscador relative min-w-0 flex-1 @max-[519px]/cabecera:order-last @max-[519px]/cabecera:basis-full">
         <Input
           ref={buscadorRef}
           value={query}
@@ -73,14 +78,21 @@ export function ProcessesHeader({
           // accesible (WCAG 3.3.2): con texto dentro, el campo se anunciaba sin decir que es.
           aria-label={t.cabecera.buscarLabel}
           aria-keyshortcuts="Control+F"
-          className="pr-12"
+          // El sitio de la derecha es para la × (32 px) o para la pista (56): ver abajo.
+          className="pr-8 text-ellipsis placeholder:text-ellipsis @min-[440px]/buscador:pr-14"
         />
         {/* Vacío, la pista del atajo; con texto, la × para borrarlo (Tier 11, E). Ocupan el
-            mismo sitio porque nunca hacen falta a la vez. */}
+            mismo sitio porque nunca hacen falta a la vez.
+
+            **La pista solo sale si el campo da para ella y para el texto de ejemplo** (T14-18):
+            al 125 % quedaba encima de «…carpeta, PID». El texto de ejemplo pide 314 px —359 por
+            debajo de 768 de ventana, donde el campo sube a 16 px de letra— y la pista, 56: con
+            menos de 440 px de campo se esconde. Y el texto de ejemplo, si aun así no cabe, acaba
+            en puntos suspensivos. */}
         {query === "" ? (
           <kbd
             aria-hidden
-            className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-border px-1 font-mono text-xs text-muted-foreground"
+            className="pointer-events-none absolute top-1/2 right-2 hidden -translate-y-1/2 rounded border border-border px-1 font-mono text-xs text-muted-foreground @min-[440px]/buscador:block"
           >
             Ctrl F
           </kbd>

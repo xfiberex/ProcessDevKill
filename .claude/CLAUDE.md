@@ -101,7 +101,7 @@ identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_esp
 - **`App.tsx` une y pinta; lo que tiene estado propio vive en su hook** (`hooks/useSettings`,
   `useProcessList`, `useKills`, `useServices`, `useUpdater`). **Cuando vuelva a pasar de ~450
   líneas, se parte otra vez**, igual que `lib.rs`: ya ha pasado dos veces (Tier 7.6 y T12-15, que
-  lo encontró en 927). **Ahora mismo van 375** (2026-10-03). El diálogo de confirmación y los avisos
+  lo encontró en 927). **Ahora mismo van 379** (2026-10-05). El diálogo de confirmación y los avisos
   se quedan en `App`, porque los comparten todas las vistas; un hook que los necesite los recibe.
 - **Una vista nueva usa `ViewHeader` y `ViewBody`** (`components/ViewHeader.tsx`): cabecera fija
   con su `h2` y cuerpo con scroll. Si el cuerpo no tiene nada enfocable, `ViewBody` con `label`, o
@@ -116,6 +116,16 @@ identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_esp
   la app, y un estado que era «el fondo cambia» se queda mudo. Las reglas van todas ahí, con
   colores del sistema y agarradas a un `data-slot` o a un atributo ARIA; `forced-colors.test.ts`
   falla si el gancho desaparece. Se mira con `auditoria-ui.mjs --fases contraste`.
+- **`toast` se importa de `@/lib/avisos`, nunca de `sonner`** (T14-15): ahí se decide que un error
+  o una advertencia se quedan hasta que se cierran y que un éxito se va solo. Importado de la
+  librería, un error volvería a irse a los cuatro segundos; `avisos.test.ts` lo vigila.
+- **Una tecla o un gesto que el navegador trae de serie se atiende en `hooks/useVentana.ts`**
+  (T14-02): el menú de clic derecho, F5, Ctrl+R, Ctrl+P. La app corre en un WebView y todo eso
+  viene encendido. Antes de dar por bueno un atajo nuevo, mirar si el navegador ya lo usa.
+- **Un ancho que depende del sitio que hay se pregunta al contenedor, no a la ventana**
+  (`@container`, T14-18 y T14-20): con zoom, la ventana dice 1000 px y la vista tiene 459. La
+  clase se escribe entera cada vez —`@max-[759px]:hidden`—, porque Tailwind no ve una
+  interpolada.
 - **Una fecha se escribe en el idioma de la app, no en el de Windows** (T12-39): `localeDeFechas`
   en `lib/format.ts`. Un `toLocaleString()` sin argumento es el fallo que arregló.
 - **Lo que no puede actuar con los ajustes de fábrica espera a `cargados`** (`useSettings`). El
@@ -164,6 +174,15 @@ node tools/auditoria-ui.mjs       # capturas y medidas de la interfaz; no compru
   `hijo.kill()`: lo segundo deja a WebView2 cerrándose solo y, si la app llevaba dos segundos
   abierta, la carpeta de la copia no se puede borrar (`EPERM`, 2026-10-05). Los dos guiones usan
   la misma carpeta de datos: no se lanzan a la vez.
+- **Lo que pasa fuera de la página se mira con `ventanasDe` y `teclasReales`** (`envivo.mjs`,
+  T14-02): un menú del navegador es una ventana de Windows, y un atajo suyo no se dispara con un
+  evento de CDP. Las teclas reales van a quien tenga el foco, así que el script solo pulsa con la
+  ventana de la copia delante; si no puede, el paso queda «sin comprobar» y no se reintenta. **Un
+  paso así lleva su control**: algo que demuestre que la tecla o el clic llegan, o un «no pasó
+  nada» no prueba nada.
+- **Para probar antes del corte lo que necesita una versión más nueva** —el aviso de
+  actualización, las notas—, se baja a mano la versión de `src-tauri/Cargo.toml`, se lanza
+  `prueba-en-marcha.mjs` y se devuelve con `git checkout` junto a `Cargo.lock` (T14-12).
 - **Una medida de diseño se toma con `tools/auditoria-ui.mjs`**, no a ojo (T14-01): tamaños de
   ventana, zoom, orden de tabulación, `forced-colors`, axe, lo que se recorta y lo que mide cada
   fila. `--fases` elige cuáles. **No sustituye a `prueba-en-marcha.mjs` ni va en el corte**: aquel

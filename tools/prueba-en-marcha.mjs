@@ -41,6 +41,7 @@ import {
   Cdp,
   DATOS,
   EXE,
+  TECLA,
   TRABAJO,
   WEBVIEW,
   cerrarArbol,
@@ -53,6 +54,8 @@ import {
   lanzarServidor,
   limpiar,
   prepararBinario,
+  teclasReales,
+  ventanasDe,
   vivo,
 } from "./envivo.mjs";
 
@@ -673,6 +676,263 @@ async function protegidos(cdp) {
   });
 }
 
+/**
+ * T14-02: la ventana no se comporta como una página.
+ *
+ * Son las dos cosas del guion que no pasan por CDP, porque lo que se prueba vive fuera de la
+ * página: el menú de clic derecho del navegador es **una ventana de Windows**, y F5 es un atajo
+ * que el navegador atiende antes de que la página lo vea. Para lo primero se cuentan las ventanas
+ * de la copia; para lo segundo se pulsan teclas de verdad (`teclasReales`, que solo pulsa con la
+ * ventana de la copia delante).
+ */
+async function ventanaDeEscritorio(cdp, app) {
+  const clicDerecho = async (punto) => {
+    for (const type of ["mousePressed", "mouseReleased"]) {
+      await cdp.enviar("Input.dispatchMouseEvent", { type, ...punto, button: "right", clickCount: 1 });
+    }
+  };
+  const centroDe = (selector) =>
+    cdp.js(`(() => {
+      const e = ${selector};
+      if (!e) return null;
+      e.scrollIntoView({ block: "center" });
+      const r = e.getBoundingClientRect();
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+    })()`);
+  /** Las ventanas de la copia que no estaban en `antes`. El menú tarda un instante en pintarse. */
+  const nuevas = async (antes) => {
+    await dormir(700);
+    return ventanasDe(app).filter((v) => !antes.some((a) => a.hwnd === v.hwnd));
+  };
+  /** Cierra un menú del navegador que se haya quedado abierto, para no arrastrarlo al paso siguiente. */
+  const cerrarMenu = async (antes) => {
+    teclasReales(app, [TECLA.ESC]);
+    return (await nuevas(antes)).length === 0;
+  };
+  const irA = async (vista) => {
+    await cdp.pulsar(vista, `document.querySelector("aside")`);
+    await esperar(() => cdp.js(`document.querySelector("main h2")?.textContent === ${JSON.stringify(vista)}`));
+  };
+
+  await paso("El clic derecho no saca el menú del navegador, salvo en un campo de texto", async () => {
+    await irAProcesosConFiltros(cdp);
+    const antes = ventanasDe(app);
+    exigir(antes.length > 0, "la copia no tiene ninguna ventana visible");
+
+    const sitios = [
+      ["el sidebar", () => centroDe(`document.querySelector("aside h1")`)],
+      ["la cabecera", () => centroDe(`document.querySelector("main h2")`)],
+      [
+        "el cuerpo de Ajustes",
+        async () => {
+          await irA("Ajustes");
+          return centroDe(`document.querySelector("main p")`);
+        },
+      ],
+      [
+        "un diálogo",
+        async () => {
+          await irA("Historial");
+          await cdp.pulsar("Vaciar", `document.querySelector("main")`);
+          exigir(
+            await esperar(() => cdp.js(`Boolean(document.querySelector('[role="alertdialog"]'))`)),
+            "«Vaciar» no abrió el diálogo de confirmación",
+          );
+          return centroDe(`document.querySelector('[role="alertdialog"] h2')`);
+        },
+      ],
+    ];
+
+    try {
+      for (const [nombre, punto] of sitios) {
+        const donde = await punto();
+        exigir(donde, `no se encontró dónde pulsar en ${nombre}`);
+        await clicDerecho(donde);
+        const salidas = await nuevas(antes);
+        if (salidas.length > 0) await cerrarMenu(antes);
+        exigir(
+          salidas.length === 0,
+          `en ${nombre} salió una ventana: ${salidas.map((v) => `${v.clase} ${v.ancho}×${v.alto}`).join(", ")}`,
+        );
+      }
+    } finally {
+      // El diálogo se cierra sin confirmar: el historial de la copia se queda como estaba.
+      await cdp.js(`(() => {
+        const d = document.querySelector('[role="alertdialog"]');
+        [...(d?.querySelectorAll("button") ?? [])].find((b) => b.textContent.trim() === "Cancelar")?.click();
+      })()`);
+      await esperar(() => cdp.js(`!document.querySelector('[role="alertdialog"]')`));
+    }
+
+    // Y donde sí tiene que salir. Es también lo que da valor a lo de arriba: si aquí no se viera
+    // ninguna ventana nueva, esta forma de mirar no vería el menú en ningún sitio.
+    await irA("Procesos");
+    const buscador = await centroDe(`document.querySelector("main header input")`);
+    exigir(buscador, "la cabecera de Procesos no tiene buscador");
+    await clicDerecho(buscador);
+    const menu = await nuevas(antes);
+    const cerrado = menu.length === 0 || (await cerrarMenu(antes));
+    exigir(
+      menu.length > 0,
+      "en el buscador no salió ningún menú: o se cancela también ahí, o esta comprobación no lo ve",
+    );
+    return `cuatro sitios sin menú; en el buscador, ${menu[0].clase} ${menu[0].ancho}×${menu[0].alto}${cerrado ? "" : " (se quedó abierto)"}`;
+  });
+
+  await paso("F5 y Ctrl+R de verdad refrescan la lista, y no recargan la ventana", async () => {
+    const servidor = await lanzarServidor("pdk-envivo-f5");
+    const BUSQUEDA = "pdk-envivo-f5";
+    const lista = () => cdp.js(`document.querySelector("main h2")?.textContent === "Procesos"`).catch(() => false);
+    try {
+      await irAProcesosConFiltros(cdp);
+
+      // Primero, el control: con el oyente de la app tapado, F5 **tiene** que recargar. Si no lo
+      // hace, la tecla no está llegando al WebView y lo de después no probaría nada.
+      await cdp.js(`(() => {
+        window.__pdkMarca = true;
+        window.addEventListener("keydown", (e) => e.stopImmediatePropagation(), true);
+      })()`);
+      const control = teclasReales(app, [TECLA.F5]);
+      if (!control.ok) throw new Omitido(control.motivo);
+      const recargada = await esperar(() => cdp.js(`window.__pdkMarca !== true`).catch(() => false), { ms: 6_000 });
+      if (!recargada) {
+        throw new Omitido("ni con el oyente de la app tapado recarga F5: la tecla no llega al WebView");
+      }
+      exigir(await esperar(lista, { ms: 15_000 }), "la ventana no volvió a pintarse tras la recarga del control");
+      await irAProcesosConFiltros(cdp);
+
+      // Ahora, la app tal cual: una búsqueda y un filtro puestos, y una marca que una recarga borraría.
+      const casilla = `[aria-label="Seleccionar PID ${servidor.pid}"]`;
+      exigir(
+        await esperar(() => cdp.js(`Boolean(document.querySelector('${casilla}'))`)),
+        "la fila del proceso lanzado no aparece en la tabla",
+      );
+      await cdp.pulsar("Node.js", `document.getElementById("filtros-runtime")`);
+      await cdp.js(`(() => {
+        const campo = document.querySelector("main header input");
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(campo, ${JSON.stringify(BUSQUEDA)});
+        campo.dispatchEvent(new Event("input", { bubbles: true }));
+        campo.focus();
+        window.__pdkMarca = true;
+      })()`);
+      const estado = () =>
+        cdp.js(`({
+          marca: window.__pdkMarca === true,
+          busqueda: document.querySelector("main header input")?.value,
+          filtro: [...document.querySelectorAll('#filtros-runtime [aria-pressed="true"]')].map((b) => b.textContent.trim()).join(),
+          filas: document.querySelectorAll("main tbody tr").length,
+        })`);
+      const antes = await estado();
+      exigir(antes.busqueda === BUSQUEDA && antes.filtro.startsWith("Node.js"), `no se pudo preparar: ${JSON.stringify(antes)}`);
+
+      for (const [nombre, teclas] of [["F5", [TECLA.F5]], ["Ctrl+R", [TECLA.CTRL, TECLA.R]]]) {
+        const desde = cdp.comandos.length;
+        const pulsada = teclasReales(app, teclas);
+        if (!pulsada.ok) throw new Omitido(pulsada.motivo);
+        const pedida = await esperar(() => cdp.comandos.slice(desde).includes("get_processes"), { ms: 5_000 });
+        // Una recarga tarda más que el refresco: se le da tiempo a ocurrir antes de mirar la marca.
+        await dormir(1_500);
+        const despues = await estado().catch((e) => ({ error: String(e) }));
+        exigir(despues.marca, `${nombre} recargó la ventana: ${JSON.stringify(despues)}`);
+        exigir(pedida, `${nombre} no pidió la lista a Rust`);
+        exigir(
+          despues.busqueda === BUSQUEDA && despues.filtro === antes.filtro,
+          `${nombre} cambió la búsqueda o el filtro: ${JSON.stringify(despues)}`,
+        );
+      }
+      return `la búsqueda «${BUSQUEDA}» y el filtro ${antes.filtro.split(/\d/)[0]} siguen puestos; el control sí recargó`;
+    } finally {
+      servidor.hijo.kill();
+      // Pase lo que pase, la tabla vuelve a enseñarlo todo: los pasos de detrás buscan sus filas.
+      await esperar(lista, { ms: 15_000 });
+      await cdp
+        .js(`(() => {
+          const campo = document.querySelector("main header input");
+          if (campo) {
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(campo, "");
+            campo.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          [...document.querySelectorAll("#filtros-runtime button")].find((b) => b.textContent.trim().startsWith("Todos"))?.click();
+        })()`)
+        .catch(() => {});
+    }
+  });
+}
+
+/**
+ * T14-15: un aviso de error espera a que lo cierren; uno de éxito se va solo.
+ *
+ * El error se provoca como en `protegidos`: una carpeta donde Rust quiere escribir el archivo
+ * temporal de los ajustes. El de éxito es el cierre de un servidor del guion, con su botón Kill.
+ */
+async function avisosDeError(cdp) {
+  const avisos = () =>
+    cdp.js(`[...document.querySelectorAll("[data-sonner-toast]")].map((e) => ({
+      texto: e.textContent,
+      cerrar: e.querySelector("[data-close-button]")?.getAttribute("aria-label") ?? null,
+    }))`);
+  const conTexto = (texto) => async () => (await avisos()).find((a) => a.texto.includes(texto));
+
+  await paso("Un aviso de error se queda hasta que se cierra, y su botón tiene nombre", async () => {
+    const estorbo = path.join(DATOS, "settings.json.tmp");
+    try {
+      await cdp.pulsar("Ajustes", `document.querySelector("aside")`);
+      exigir(
+        await esperar(() => cdp.js(`Boolean(document.getElementById("show-all-filters"))`)),
+        "Ajustes no tiene el interruptor de los filtros del sidebar",
+      );
+      fs.mkdirSync(estorbo);
+      await cdp.js(`document.getElementById("show-all-filters").click()`);
+
+      const error = await esperar(conTexto("No se pudieron guardar los ajustes"));
+      exigir(error, `no salió el aviso del guardado fallido: ${JSON.stringify(await avisos())}`);
+      exigir(error.cerrar === "Cerrar aviso", `el botón de cerrar se llama «${error.cerrar}»`);
+      const region = await cdp.js(`document.querySelector("section[aria-label]")?.getAttribute("aria-label")`);
+      exigir(/^Avisos\b/.test(region ?? ""), `la región de los avisos se llama «${region}»`);
+
+      // Se iba a los 4,3 s. A los 15 tiene que seguir: es lo que dice el criterio de la tarea.
+      await dormir(15_000);
+      exigir(await conTexto("No se pudieron guardar los ajustes")(), "a los 15 s el aviso de error ya no está");
+
+      await cdp.js(`(() => {
+        const aviso = [...document.querySelectorAll("[data-sonner-toast]")]
+          .find((e) => e.textContent.includes("No se pudieron guardar los ajustes"));
+        aviso.querySelector("[data-close-button]").click();
+      })()`);
+      const cerrado = await esperar(async () => !(await conTexto("No se pudieron guardar los ajustes")()));
+      exigir(cerrado, "el aviso sigue ahí después de pulsar su botón de cerrar");
+
+      const guardados = await cdp.invoke("get_settings");
+      exigir(guardados.valor.showAllFilters === false, "el ajuste llegó a guardarse");
+      return `«${region}» · «${error.cerrar}» · sigue a los 15 s y se va con su botón`;
+    } finally {
+      fs.rmSync(estorbo, { recursive: true, force: true });
+    }
+  });
+
+  await paso("Un aviso de éxito se va solo", async () => {
+    const servidor = await lanzarServidor("pdk-envivo-aviso");
+    try {
+      await cdp.pulsar("Procesos", `document.querySelector("aside")`);
+      const boton = `button[aria-label^="Kill "][aria-label$=", PID ${servidor.pid}"]`;
+      exigir(
+        await esperar(() => cdp.js(`Boolean(document.querySelector('${boton}'))`)),
+        "la fila del proceso lanzado no aparece en la tabla",
+      );
+      // Kill sobre un proceso que lanzó este guion: es lo único que se cierra desde la ventana.
+      await cdp.js(`document.querySelector('${boton}').click()`);
+      const exito = await esperar(conTexto("cerrado"));
+      exigir(exito, `no salió el aviso del cierre: ${JSON.stringify(await avisos())}`);
+      const ido = await esperar(async () => !(await conTexto("cerrado")()), { ms: 10_000 });
+      exigir(ido, "a los 10 s el aviso de éxito sigue en la ventana");
+      return exito.texto.trim().slice(0, 60);
+    } finally {
+      servidor.hijo.kill();
+      await cdp.enviar("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: 1 });
+    }
+  });
+}
+
 async function actualizador(cdp) {
   let nueva = null;
 
@@ -688,6 +948,57 @@ async function actualizador(cdp) {
   // `--sin-compilar`: la versión de la copia sale de `Cargo.toml`, y recién compilada está al día.
   // Es la única ocasión de ver las notas de un release dentro de la ventana (T12-36).
   if (nueva) {
+    // T14-12. El aviso sale al arrancar, así que se recarga la ventana para verlo salir.
+    await paso("El aviso de versión nueva lleva a «Descargar e instalar», y «Ajustes» queda marcado", async () => {
+      const pedidos = await cdp.recargar();
+      exigir(
+        await esperar(() => pedidos().includes("check_update"), { ms: 15_000 }),
+        "al arrancar, la ventana no consultó si había versión nueva",
+      );
+      const aviso = await esperar(() =>
+        cdp.js(`(() => {
+          const aviso = [...document.querySelectorAll("[data-sonner-toast]")]
+            .find((e) => e.textContent.includes("disponible"));
+          const boton = aviso?.querySelector("[data-action]");
+          if (!boton) return null;
+          boton.click();
+          return aviso.textContent.trim();
+        })()`),
+      );
+      exigir(aviso, "no salió el aviso de versión nueva con su botón");
+
+      exigir(
+        await esperar(() => cdp.js(`document.querySelector("main h2")?.textContent === "Ajustes"`)),
+        "el botón del aviso no llevó a Ajustes",
+      );
+      await dormir(500);
+      const visto = await cdp.js(`(() => {
+        const boton = [...document.querySelectorAll("main button")]
+          .find((b) => b.textContent.trim().startsWith("Descargar e instalar"));
+        if (!boton) return null;
+        const r = boton.getBoundingClientRect();
+        return {
+          dentro: r.top >= 0 && r.bottom <= innerHeight,
+          arriba: Math.round(r.top),
+          alto: innerHeight,
+          foco: document.activeElement?.textContent ?? null,
+        };
+      })()`);
+      exigir(visto, "Ajustes no enseña «Descargar e instalar»");
+      exigir(visto.dentro, `«Descargar e instalar» queda fuera: a ${visto.arriba} px en una ventana de ${visto.alto}`);
+      exigir(visto.foco === "Actualizaciones", `el foco está en «${visto.foco}», no en el título del grupo`);
+
+      await cdp.pulsar("Historial", `document.querySelector("aside")`);
+      const marca = await cdp.js(`(() => {
+        const boton = [...document.querySelectorAll("aside nav > button")]
+          .find((b) => b.textContent.trim().startsWith("Ajustes"));
+        return { punto: Boolean(boton?.querySelector('[data-slot="marca"]')), nombre: boton?.textContent.trim() };
+      })()`);
+      exigir(marca.punto, "en otra vista, «Ajustes» no lleva la marca de versión nueva");
+      exigir(marca.nombre.includes("hay una versión nueva"), `el botón se lee «${marca.nombre}»`);
+      return `«Descargar e instalar» a ${visto.arriba} px de ${visto.alto}; el botón se lee «${marca.nombre}»`;
+    });
+
     await paso("Ajustes enseña las novedades de la versión nueva, sin marcas de Markdown", async () => {
       await cdp.pulsar("Ajustes", `document.querySelector("aside") ?? document`);
       await esperar(() => cdp.js(`document.querySelector("main h2")?.textContent === "Ajustes"`));
@@ -855,6 +1166,8 @@ async function main() {
     // Después de `vistasEIdioma`, que cuenta un solo cierre en el Historial: este añade tres.
     await runtimesNuevos(cdp);
     await filtrosDelSidebar(cdp);
+    await ventanaDeEscritorio(cdp, app);
+    await avisosDeError(cdp);
     await consultaDelArranque(cdp);
     await actualizador(cdp);
 

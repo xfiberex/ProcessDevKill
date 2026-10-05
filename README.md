@@ -303,6 +303,7 @@ comprueba**: corre sin secretos y no publica nada.
 | [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1) | Regenera las capturas de este README conduciendo por CDP una copia aparte de la app, sin tocar la instalada ni sus ajustes. |
 | [`tools/avisos-de-terceros.mjs`](tools/avisos-de-terceros.mjs) | Genera `THIRD-PARTY-NOTICES.txt` a partir de las dependencias que viajan en el instalador. Con `--comprobar`, dice si se quedó viejo. |
 | [`tools/auditoria-ui.mjs`](tools/auditoria-ui.mjs) | Recorre la app en marcha y deja capturas y medidas —tamaños, zoom, foco, contraste, axe— en una carpeta fuera del repositorio. No comprueba nada: mide. |
+| [`tools/ventana-real.ps1`](tools/ventana-real.ps1) | Lo que los guiones de arriba no alcanzan por CDP: las ventanas de Windows de la copia de prueba y las teclas de verdad. Solo pulsa con esa ventana delante. |
 | [`tools/prueba-en-marcha.mjs`](tools/prueba-en-marcha.mjs) | Arranca el binario de release y comprueba que lista, cierra, protege y descarga como dice. Lo lanza `release.ps1`. |
 | `npm run tauri icon app-icon.svg` | Regenera todos los tamaños de icono tras editar `app-icon.svg`. |
 
@@ -341,7 +342,7 @@ Y la documentación, donde cada cosa vive en un solo sitio:
 
 ## Estado
 
-La versión actual es la **v1.10.2**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
+La versión actual es la **v1.10.3**. La primera pública fue la **v1.1.1**: las anteriores se retiraron
 porque su mecanismo de actualización ya no existía. Lo que viene está en el [ROADMAP](ROADMAP.md).
 
 Lo que **no** hay, por si importa antes de instalarla: **firma de código** —de ahí el aviso de

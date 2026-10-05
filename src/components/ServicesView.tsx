@@ -147,7 +147,11 @@ export function ServicesView({
   return (
     <>
       {cabecera}
-      <ViewBody>
+      {/* `@container`: la tabla reparte sus columnas según el ancho de este cuerpo. «Estrecho» es
+          `@max-[759px]`: la ventana mínima (900 de ancho, 692 de cuerpo) y cualquiera con zoom; la
+          de fábrica, con 792, queda fuera. La clase va escrita entera cada vez y no en una
+          constante: Tailwind lee el archivo como texto y solo genera las que ve de una pieza. */}
+      <ViewBody className="@container">
 
         {/*
           La tabla va con `table-fixed` y anchos declarados, y no automática como las otras dos.
@@ -161,8 +165,14 @@ export function ServicesView({
           nombre** acababan fuera de pantalla, que es justo lo que identifica cada fila.
 
           Con los anchos declarados, lo que sobra se trunca —con los dos nombres en el `title`— y el
-          nombre corto, que es la clave, se ve siempre. Los cinco anchos fijos suman 540 px: al nombre
-          le quedan 152 en la ventana más pequeña y 252 en la de fábrica.
+          nombre corto, que es la clave, se ve siempre.
+
+          **El reparto se rehízo en T14-20.** Los cinco anchos fijos sumaban 568 px —el comentario
+          decía 540, se había quedado viejo— y en la ventana mínima al nombre le quedaban 124: con
+          el icono y el relleno, unos 70 de texto, «postgre…». Ahora «Arranque» mide lo que pide
+          «Automático (retrasado)» y no más, y por debajo de 760 px de cuerpo el botón de la acción
+          se queda en su icono. Suman 532 px a lo ancho y 476 en estrecho: al nombre
+          le quedan 260 en la ventana de fábrica y 216 en la mínima.
         */}
         {services.length === 0 ? (
           <div className="px-5 py-10 text-center">
@@ -176,24 +186,22 @@ export function ServicesView({
             </Button>
           </div>
         ) : (
-          // Con ancho mínimo por el zoom, como la de procesos: 540 px fijos más 120 para el nombre.
-        <table className="w-full min-w-165 table-fixed text-sm">
+          // Con ancho mínimo por el zoom, como la de procesos: 476 px fijos más 120 para el nombre.
+        <table className="w-full min-w-149 table-fixed text-sm">
             {/* Mismo motivo que en las otras dos tablas: sin `caption` no dice de qué es. */}
             <caption className="sr-only">{t.servicios.caption}</caption>
             <colgroup>
               {/* Sin ancho: el nombre se queda con lo que sobre, y es lo único que crece. */}
               <col />
               <col className="w-[100px]" />
-              {/* 200 sale de medirlo, no de estimarlo: «Automático (retrasado)» ocupa 128,5 px a
-                  `text-xs` con Geist, y con la flecha, el relleno, el borde y la celda se iba a
-                  195,5 con el `select` nativo, que **no** pone puntos suspensivos: cortaba la palabra
-                  a media letra. Desde el Tier 11 el control es el `Select` de Base UI (ver
-                  `Arranque`), que cabe con holgura en el mismo ancho; se deja en 200 para no mover
-                  la tabla que ya se habia ajustado en la v1.5.1. */}
-              <col className="w-[200px]" />
-              <col className="w-[76px]" />
-              <col className="w-[76px]" />
-              <col className="w-[116px]" />
+              {/* 184 sale de medirlo, no de estimarlo: «Automático (retrasado)» ocupa 128,5 px a
+                  `text-xs` con Geist, y con la flecha, el relleno y el borde del `Select` —que aquí
+                  van apretados, ver `Arranque`— son 164,5; más los 16 de la celda, 180,5. Eran 200
+                  desde la v1.5.1, cuando el control era un `select` nativo que pedía 195,5. */}
+              <col className="w-[184px]" />
+              <col className="w-[72px]" />
+              <col className="w-[68px]" />
+              <col className="w-[116px] @max-[759px]:w-[52px]" />
             </colgroup>
             <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
               <tr>
@@ -203,16 +211,16 @@ export function ServicesView({
                 <th scope="col" className="px-3 py-2 text-left font-medium">
                   {t.servicios.columnas.estado}
                 </th>
-                <th scope="col" className="px-3 py-2 text-left font-medium">
+                <th scope="col" className="px-2 py-2 text-left font-medium">
                   {t.servicios.columnas.arranque}
                 </th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">
+                <th scope="col" className="px-2 py-2 text-right font-medium">
                   {t.servicios.columnas.ram}
                 </th>
-                <th scope="col" className="px-3 py-2 text-left font-medium">
+                <th scope="col" className="px-2 py-2 text-left font-medium">
                   {t.servicios.columnas.puertos}
                 </th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">
+                <th scope="col" className="px-4 py-2 text-right font-medium @max-[759px]:px-2">
                   {/* El rótulo existe para el lector de pantalla; a la vista, una columna
                       de botones titulada «Acciones» solo repite lo que ya se ve. */}
                   <span className="sr-only">{t.servicios.columnas.acciones}</span>
@@ -361,7 +369,7 @@ function Fila({
         <Estado estado={s.state} t={t} />
       </td>
 
-      <td className="px-3 py-2">
+      <td className="px-2 py-2">
         <Arranque
           servicio={s}
           t={t}
@@ -370,7 +378,7 @@ function Fila({
         />
       </td>
 
-      <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
+      <td className="px-2 py-2 text-right whitespace-nowrap tabular-nums">
         {parado ? (
           <SinDato titulo={t.servicios.parado} />
         ) : s.memoryMb === null ? (
@@ -392,7 +400,7 @@ function Fila({
         )}
       </td>
 
-      <td className="px-3 py-2">
+      <td className="px-2 py-2">
         {parado ? (
           <SinDato titulo={t.servicios.parado} />
         ) : s.ports.length === 0 ? (
@@ -417,7 +425,7 @@ function Fila({
         )}
       </td>
 
-      <td className="px-4 py-2 text-right">
+      <td className="px-4 py-2 text-right @max-[759px]:px-2">
         <Accion
           servicio={s}
           t={t}
@@ -499,7 +507,8 @@ function Arranque({
         // El texto va a `foreground` **siempre**, también en Manual y Deshabilitado: pintarlos en
         // `muted` los hacía parecer deshabilitados sin estarlo. Lo que arranca solo se distingue
         // por el peso, que es jerarquía sin robarle contraste a lo demás.
-        className={`w-full rounded-md text-xs text-foreground ${arrancaSolo ? "font-medium" : ""}`}
+        // Relleno apretado (T14-20): es lo que deja la columna en 184 px y no en 200.
+        className={`w-full gap-1 rounded-md pr-1.5 pl-2 text-xs text-foreground ${arrancaSolo ? "font-medium" : ""}`}
       >
         <SelectValue />
       </SelectTrigger>
@@ -542,7 +551,7 @@ function Accion({
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
         <LoaderCircleIcon className="size-3.5 animate-spin" aria-hidden />
-        {a.trabajando}
+        <span className="@max-[759px]:sr-only">{a.trabajando}</span>
       </span>
     );
   }
@@ -557,10 +566,13 @@ function Accion({
       // El nombre accesible lleva el servicio dentro: si no, la tabla es una columna de
       // botones que se llaman todos igual.
       aria-label={corriendo ? a.detenerLabel(s.name) : a.arrancarLabel(s.name)}
+      title={corriendo ? a.detener : a.arrancar}
       onClick={() => onAction(s, corriendo ? "stop" : "start")}
     >
       {corriendo ? <SquareIcon className="text-destructive-text" /> : <PlayIcon />}
-      {corriendo ? a.detener : a.arrancar}
+      {/* En estrecho, solo el icono: el nombre accesible ya dice qué hace y a qué servicio, y el
+          `title` lo enseña al pasar el ratón. */}
+      <span className="@max-[759px]:hidden">{corriendo ? a.detener : a.arrancar}</span>
     </Button>
   );
 }

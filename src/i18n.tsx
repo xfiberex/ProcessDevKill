@@ -139,6 +139,8 @@ export const es = {
     servicios: "Servicios",
     historial: "Historial",
     ajustes: "Ajustes",
+    /** Lo que dice la marca de «Ajustes» mientras hay una versión esperando (T14-12). */
+    hayVersionNueva: "hay una versión nueva",
     autoRefresco: "Auto-refresco",
     /**
      * El aviso de que la app corre sin permisos de administrador, en el hueco bajo la navegación.
@@ -438,6 +440,9 @@ export const es = {
   },
 
   avisos: {
+    /** El nombre de la región de los avisos y el de su botón de cerrar (T14-15). */
+    region: "Avisos",
+    cerrar: "Cerrar aviso",
     ajustesNoGuardados: "No se pudieron guardar los ajustes",
     noSePudoCerrar: "No se pudo cerrar el proceso",
     /**
@@ -686,6 +691,7 @@ export const en: Catalogo = {
     servicios: "Services",
     historial: "History",
     ajustes: "Settings",
+    hayVersionNueva: "new version available",
     autoRefresco: "Auto-refresh",
     sinAdmin: {
       titulo: "Not running as admin",
@@ -904,6 +910,8 @@ export const en: Catalogo = {
   },
 
   avisos: {
+    region: "Notifications",
+    cerrar: "Close notification",
     ajustesNoGuardados: "Settings could not be saved",
     noSePudoCerrar: "The process could not be closed",
     quizaAdmin:

@@ -18,15 +18,26 @@ export function ViewHeader({
   title,
   description,
   children,
+  wrap = false,
 }: {
   title: string;
   description?: ReactNode;
   children?: ReactNode;
+  /**
+   * Deja que los hijos bajen a una segunda fila cuando no caben (T14-18). Solo lo pide Procesos,
+   * por su buscador. No va para todas: en Servicios la descripción es un párrafo, y con `wrap`
+   * pediría su ancho entero y mandaría las acciones abajo siempre.
+   */
+  wrap?: boolean;
 }) {
   return (
     // Alto mínimo el de Procesos, que lleva el buscador: sin él, Ajustes —solo el título— medía
     // 49 px y el borde de abajo saltaba 8 px al cambiar de vista.
-    <header className="flex min-h-14.25 shrink-0 items-center gap-3 border-b border-border px-5 py-3">
+    // `@container/cabecera`: un hijo puede preguntar por el ancho de la cabecera, que con zoom no
+    // es el de la ventana.
+    <header
+      className={`@container/cabecera flex min-h-14.25 shrink-0 items-center gap-x-3 gap-y-2 border-b border-border px-5 py-3 ${wrap ? "flex-wrap" : ""}`}
+    >
       <div className="min-w-0">
         <h2 className="font-heading text-base font-semibold whitespace-nowrap">{title}</h2>
         {description && (

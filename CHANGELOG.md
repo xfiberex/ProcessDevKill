@@ -16,6 +16,35 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.10.3] — 2026-10-05
+
+La ventana deja de comportarse como una página web: sin el menú del navegador y sin recargas. Y
+cinco arreglos más en los avisos, el sidebar, el zoom y Servicios.
+
+### Corregido
+- **El clic derecho ya no saca el menú del navegador**, con «Atrás», «Actualizar» e «Imprimir» en
+  el idioma de Windows. Sigue saliendo en el buscador y en los campos de texto, donde hace falta
+  para copiar y pegar, y el menú de cada fila es el de siempre. **F5 y Ctrl+R refrescan la lista**
+  en vez de recargar la ventana, que perdía la búsqueda, el filtro, el orden y la selección; Ctrl+P,
+  Ctrl+G, Ctrl+U, F3 y F7 ya no hacen nada. (T14-02)
+- **El aviso de versión nueva lleva a «Actualizaciones»**, con «Descargar e instalar» a la vista:
+  antes dejaba al principio de Ajustes, a tres pantallas del botón. Y «Ajustes» lleva una marca en
+  el sidebar mientras haya una versión esperando. (T14-12)
+- **Un aviso de error se queda hasta que lo cierras**, con su botón. Antes se iba a los cuatro
+  segundos, aunque trajera la ruta de un archivo y el error de Windows. Los de éxito siguen
+  yéndose solos. Con la app en español, la zona de los avisos ya no se anuncia en inglés. (T14-15)
+- **«Ajustes» ya no queda detrás del scroll del sidebar** cuando hay procesos de cinco runtimes o
+  más: las cuatro vistas se ven siempre, y lo que se desplaza es la lista de filtros. (T14-16)
+- Con zoom, la pista «Ctrl F» ya no tapa el texto del buscador, y cuando la cabecera se queda
+  estrecha el buscador baja a una segunda fila en vez de quedar inservible. (T14-18)
+- En Servicios, con la ventana pequeña, el nombre del servicio se lee entero —«postgresql-x64-17»
+  y no «postgre…»—: la columna de «Arranque» ocupa menos y el botón de arrancar o detener se queda
+  en su icono. (T14-20)
+
+### Interno
+- Las pruebas con la app en marcha pulsan teclas de verdad y cuentan las ventanas de la app, para
+  ver lo que pasa fuera de la página. (T14-02)
+
 ## [1.10.2] — 2026-10-05
 
 La app, con un tema de contraste de Windows: vuelve a decir qué está encendido, qué está elegido y
@@ -468,7 +497,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.2...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.3...HEAD
+[1.10.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.3
 [1.10.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.2
 [1.10.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.1
 [1.10.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.0

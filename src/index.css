@@ -326,6 +326,11 @@ body {
   [data-slot="estado"][data-estado="pending"] {
     background-color: GrayText !important;
   }
+
+  /* La marca de «Ajustes» cuando hay versión nueva (T14-12): es un punto de color y nada más. */
+  [data-slot="marca"] {
+    background-color: Highlight !important;
+  }
 }
 
 @layer base {

@@ -45,6 +45,8 @@ type SidebarProps = {
   elevated: boolean | null;
   /** Lleva a la sección de Ajustes que explica el aviso y deja reiniciar elevada. */
   onVerAdmin: () => void;
+  /** Hay una versión esperando en Ajustes: «Ajustes» lleva una marca mientras dure (T14-12). */
+  hayVersionNueva?: boolean;
 };
 
 export function Sidebar({
@@ -59,6 +61,7 @@ export function Sidebar({
   usage,
   elevated,
   onVerAdmin,
+  hayVersionNueva = false,
 }: SidebarProps) {
   const t = useT();
 
@@ -77,6 +80,19 @@ export function Sidebar({
   // cosas, y es lo que se anuncia en aria-expanded.
   const desplegado = view === "processes" && abierto;
 
+  // De fábrica, solo los runtimes que tienen procesos, más el filtro activo aunque se quede a
+  // cero: que desaparezca el botón que se acaba de pulsar dejaría sin forma de ver qué filtra. Con
+  // los siete siempre (T13-01), el sidebar pedía ~660 px y a 680 —el alto de fábrica— no cabía con
+  // el aviso de administrador (ver `AvisoSinAdmin`). Quien prefiera verlos todos lo pide en Ajustes
+  // (`showAllFilters`): es la forma de saber de un vistazo qué se vigila, y si no caben, la lista
+  // de filtros hace scroll.
+  const filtros = (Object.keys(RUNTIME_COLORS) as Runtime[])
+    .map((runtime) => ({
+      runtime,
+      count: processes.filter((p) => p.runtime === runtime).length,
+    }))
+    .filter(({ runtime, count }) => showAllFilters || count > 0 || filter === runtime);
+
   function pulsarProcesos() {
     // Desde otra vista, lo que se pide es ir a Procesos; el pliegue se respeta tal
     // como lo dejo el usuario. Ya estando ahi, el mismo boton pliega y despliega.
@@ -94,8 +110,8 @@ export function Sidebar({
         el medidor sin su título ni las cifras del equipo, que siguen en el `title` de cada métrica
         y para el lector de pantalla. Tier 11, C3: a 480 px, el alto mínimo que se promete, pedía
         582 con los filtros desplegados y el auto-refresco quedaba fuera **sin scroll que lo
-        alcanzara**. Compactado pide unos 480. Por si un idioma o un tamaño de letra lo pasa, la
-        navegación hace scroll: lo que no puede quedar fuera es el auto-refresco.
+        alcanzara**. Compactado pide unos 480. Lo que no puede quedar fuera es el auto-refresco, y
+        desde T14-16 tampoco las cuatro vistas: lo que cede es la lista de filtros (ver abajo).
       */}
       <div className="shrink-0 border-b border-sidebar-border px-4 py-4 short:py-3">
         <h1 className="font-heading text-sm font-semibold tracking-wide">
@@ -109,6 +125,12 @@ export function Sidebar({
       {/* En vertical, y no tres pestañas en fila: con 208 px de ancho no cabian
           sin recortarles el padding, y asi los filtros por runtime pasan a colgar
           de "Procesos" en vez de flotar debajo sin decir de que dependen. */}
+      {/* **Las cuatro vistas no hacen scroll nunca; lo hacen los filtros** (T14-16). Iban todos en
+          la misma lista con scroll, los filtros entre «Procesos» y las otras tres: con cinco
+          runtimes vivos —26 px cada filtro— la navegación pedía 332 px de 292, y «Ajustes» quedaba
+          detrás del scroll sin nada que lo dijera. Ahora la lista de filtros es lo único que
+          encoge. El `overflow-y-auto` de la `nav` se queda como último recurso, para un tamaño de
+          letra que no deje ni las cuatro vistas. */}
       <nav className="flex min-h-0 flex-col gap-0.5 overflow-y-auto p-2">
         <NavItem
           icon={ListIcon}
@@ -127,7 +149,13 @@ export function Sidebar({
             id={FILTROS_ID}
             // La guia vertical es lo que hace que se lean como hijos de "Procesos"
             // y no como otra lista suelta.
-            className="ml-3.75 flex flex-col gap-0.5 border-l border-sidebar-border pl-2"
+            // El único hijo de la `nav` que cede: los botones llevan `shrink-0`. El relleno de la
+            // derecha y el de arriba y abajo son para el anillo de foco, que el scroll recortaría.
+            className="ml-3.75 flex flex-col gap-0.5 overflow-y-auto border-l border-sidebar-border py-0.5 pr-0.5 pl-2"
+            // Cede hasta tres filtros —26 px cada uno, «Todos» incluido— y no más: al 200 % de
+            // zoom se quedaba en una rendija de 4 px. Por debajo de eso, la que hace scroll es la
+            // `nav` entera, que es lo que pasaba antes de T14-16.
+            style={{ minHeight: Math.min(filtros.length + 1, 3) * 26 + 4 }}
           >
             <FilterButton
               label={t.sidebar.todos}
@@ -135,27 +163,16 @@ export function Sidebar({
               active={filter === "all"}
               onClick={() => onFilterChange("all")}
             />
-            {/* De fábrica, solo los runtimes que tienen procesos, más el filtro activo aunque se
-                quede a cero: que desaparezca el botón que se acaba de pulsar dejaría sin forma de
-                ver qué filtra. Con los siete siempre (T13-01), el sidebar pedía ~660 px y a 680
-                —el alto de fábrica— el aviso de administrador ya no cabía sin scroll (ver
-                `AvisoSinAdmin`). Quien prefiera verlos todos lo pide en Ajustes
-                (`showAllFilters`) y acepta ese scroll: es la forma de saber de un vistazo qué se
-                vigila. */}
-            {(Object.keys(RUNTIME_COLORS) as Runtime[]).map((runtime) => {
-              const count = processes.filter((p) => p.runtime === runtime).length;
-              if (!showAllFilters && count === 0 && filter !== runtime) return null;
-              return (
-                <FilterButton
-                  key={runtime}
-                  label={t.runtimes[runtime]}
-                  runtime={runtime}
-                  count={count}
-                  active={filter === runtime}
-                  onClick={() => onFilterChange(runtime)}
-                />
-              );
-            })}
+            {filtros.map(({ runtime, count }) => (
+              <FilterButton
+                key={runtime}
+                label={t.runtimes[runtime]}
+                runtime={runtime}
+                count={count}
+                active={filter === runtime}
+                onClick={() => onFilterChange(runtime)}
+              />
+            ))}
           </div>
         )}
 
@@ -179,6 +196,7 @@ export function Sidebar({
           label={t.sidebar.ajustes}
           active={view === "settings"}
           onClick={() => onViewChange("settings")}
+          marca={hayVersionNueva ? t.sidebar.hayVersionNueva : undefined}
         />
       </nav>
 
@@ -284,6 +302,7 @@ function NavItem({
   count,
   expandido,
   controla,
+  marca,
 }: {
   icon: typeof ListIcon;
   label: string;
@@ -293,6 +312,12 @@ function NavItem({
   /** Solo lo pasa "Procesos", que ademas de navegar pliega sus filtros. */
   expandido?: boolean;
   controla?: string;
+  /**
+   * Solo «Ajustes», mientras hay una versión nueva (T14-12): el aviso del arranque dura 12 s y
+   * después nada decía que seguía esperando. El punto es para la vista; el texto, para el lector
+   * de pantalla, que lo lee como parte del nombre del botón.
+   */
+  marca?: string;
 }) {
   const esDesplegable = expandido !== undefined;
 
@@ -324,6 +349,16 @@ function NavItem({
       <span className="flex-1 truncate text-left">{label}</span>
       {count !== undefined && (
         <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
+      )}
+      {marca && (
+        <>
+          <span
+            aria-hidden
+            data-slot="marca"
+            className="size-2 shrink-0 rounded-full bg-primary"
+          />
+          <span className="sr-only">, {marca}</span>
+        </>
       )}
     </Button>
   );

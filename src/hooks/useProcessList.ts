@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { toast } from "sonner";
+import { toast } from "@/lib/avisos";
 import { DEFAULT_SORT, FIRST_DIR, freezeOrder, sortProcesses } from "../lib/sort";
 import type { SortKey } from "../lib/sort";
 import { PROCESSES_UPDATED } from "../types";

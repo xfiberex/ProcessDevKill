@@ -5,9 +5,11 @@ import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon
 // una libreria de Next: sale de los ajustes guardados en Rust (src/theme.tsx),
 // asi que se lee de ahi y next-themes sobra.
 import { useResolvedTheme } from "@/theme"
+import { useT } from "@/i18n"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const theme = useResolvedTheme()
+  const t = useT()
 
   return (
     <Sonner
@@ -38,10 +40,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }
+      // T14-15: la región se llamaba «Notifications» también con la app en español, y el botón de
+      // cerrar, «Close toast». Qué avisos llevan ese botón lo decide `lib/avisos.ts`.
+      containerAriaLabel={t.avisos.region}
       toastOptions={{
         classNames: {
           toast: "cn-toast",
         },
+        closeButtonAriaLabel: t.avisos.cerrar,
       }}
       {...props}
     />

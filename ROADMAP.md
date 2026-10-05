@@ -131,7 +131,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
 
 ### Fase B — Que se sienta una app de Windows
 
-- [ ] **[T14-02] El clic derecho fuera de una fila saca el menú del navegador**
+- [x] **[T14-02] El clic derecho fuera de una fila saca el menú del navegador**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/App.tsx:76-86` (el único `keydown` global), `src/main.tsx`,
     `tools/prueba-en-marcha.mjs`
@@ -152,6 +152,22 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     con la ventana de la app delante), F5 y Ctrl+R dejan la búsqueda y el filtro como estaban y
     piden `get_processes`. El paso queda en `prueba-en-marcha.mjs`.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-05.** `hooks/useVentana.ts`: el clic derecho se cancela en toda la ventana
+    salvo en un campo de texto, F5 y Ctrl+R (también con Mayús) refrescan **lo que se mira** —la
+    lista, los servicios o el historial— y Ctrl+P, Ctrl+G, Ctrl+U, F3 y F7 no hacen nada. El
+    Ctrl+F de `App.tsx` se fue al mismo hook.
+    - **En vivo, con ratón y teclas de verdad** (`prueba-en-marcha.mjs`, dos pasos): clic derecho
+      sobre el sidebar, la cabecera, el cuerpo de Ajustes y un diálogo, contando las ventanas del
+      proceso antes y después: ninguna nueva. En el buscador sí sale una (`Chrome_WidgetWin_1`,
+      401×400), que es además lo que acredita que esa forma de mirar ve el menú. F5 y Ctrl+R con
+      `keybd_event`: la búsqueda y el filtro siguen puestos, una marca en `window` sobrevive y se
+      pide `get_processes`. **Con su control**: con el oyente de la app tapado, el mismo F5
+      recarga la ventana, así que la tecla llega al navegador y es la app la que la para.
+    - Las teclas reales las pulsa `tools/ventana-real.ps1`, que **solo pulsa si la ventana de
+      delante es la de la copia** y lo vuelve a mirar antes de cada tecla; si Windows no cede el
+      foco, el paso queda «sin comprobar». Es lo que quedaba dicho en T14-01.
+    - **Lo que no se probó en vivo:** Ctrl+P, Ctrl+G, Ctrl+U, F3 y F7 con teclas reales; tienen
+      su prueba de componente (el evento se cancela) y pasan por el mismo oyente que F5.
 
 - [ ] **[T14-03] La barra de título no sigue al tema de la app**
   - **Severidad:** baja · **Tipo:** problema
@@ -288,7 +304,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     en vivo, el cierre de un servidor del guion sale en el Historial con su carpeta.
   - **Esfuerzo:** medio · **Depende de:** ninguna
 
-- [ ] **[T14-12] El aviso de versión nueva lleva al principio de Ajustes, a tres pantallas del botón**
+- [x] **[T14-12] El aviso de versión nueva lleva al principio de Ajustes, a tres pantallas del botón**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/App.tsx:155-180`, `src/components/Sidebar.tsx` (`NavItem`),
     `src/components/SettingsView.tsx`
@@ -303,6 +319,15 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     versión nueva—, pulsar el botón del aviso deja «Descargar e instalar» dentro de la ventana, y la
     marca de «Ajustes» sigue ahí al cambiar de vista. Prueba de componente de las dos cosas.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-05.** El botón del aviso lleva al grupo «Actualizaciones» con el foco en su
+    título, por el camino de `irAAdmin`, que pasa a ser `irA` con un destino. «Ajustes» lleva un
+    punto en el sidebar mientras el actualizador tenga una versión disponible, y el botón se lee
+    «Ajustes, hay una versión nueva»; con `forced-colors` el punto usa el color del sistema.
+    - **Visto en vivo sin esperar al corte**: la copia de prueba se compiló una vez con la
+      versión de `Cargo.toml` bajada a la 1.10.1, y encontró la v1.10.2. El aviso salió al
+      arrancar, su botón dejó «Descargar e instalar» a 515 px en una ventana de 680, con el foco
+      en «Actualizaciones», y la marca seguía en el Historial. El paso queda en el guion y se
+      repite solo cuando la copia va por detrás de lo publicado. Tres pruebas de componente.
 
 ### Fase D — Teclado y avisos
 
@@ -341,7 +366,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Reabre:** CONTEXT §4 del 2026-07-27, que descartó el `tabIndex` en la fila «por las veinte
     paradas de tabulación que añadiría». Esto no añade: quita las dos que cada fila ya tiene.
 
-- [ ] **[T14-15] Un aviso de error dura cuatro segundos y no se puede cerrar ni releer**
+- [x] **[T14-15] Un aviso de error dura cuatro segundos y no se puede cerrar ni releer**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/components/ui/sonner.tsx`, `src/hooks/useKills.ts`, `src/hooks/useSettings.ts`
   - **Lo medido:** el aviso de «No se pudieron guardar los ajustes» trae 150 caracteres —la ruta
@@ -355,10 +380,20 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     se va con su botón, que tiene nombre en los dos idiomas. El de éxito se va solo. La región se
     llama «Avisos» o «Notifications» según el idioma. WCAG 2.2.1.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-05.** `lib/avisos.ts` envuelve el `toast` de sonner: `error` y `warning`
+    salen sin caducidad y con botón de cerrar, `success` e `info` como antes. Todo el código
+    importa de ahí, y `avisos.test.ts` falla si alguien importa de `sonner`. La región y el botón
+    toman su nombre del catálogo.
+    - **En vivo** (dos pasos nuevos): con el guardado fallando, el aviso sigue a los 15 s, su
+      botón se llama «Cerrar aviso» y se va al pulsarlo; la región se anuncia «Avisos alt+T» —el
+      atajo lo añade sonner—. El de éxito, el cierre de un servidor del guion, se va solo antes
+      de 10 s.
+    - **Lo que no se hizo:** que un aviso cerrado se pueda releer después. El criterio no lo pide
+      y haría falta un sitio donde guardarlos; ahora no caduca, que es lo que impedía leerlo.
 
 ### Fase E — Tamaños de ventana y zoom
 
-- [ ] **[T14-16] Con cinco runtimes vivos, «Ajustes» queda detrás del scroll del sidebar**
+- [x] **[T14-16] Con cinco runtimes vivos, «Ajustes» queda detrás del scroll del sidebar**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/components/Sidebar.tsx:112-183`
   - **Lo medido:** los filtros van dentro de la misma lista con scroll que las cuatro vistas, entre
@@ -375,6 +410,14 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Esfuerzo:** bajo · **Depende de:** ninguna
   - **Reabre:** precisa CONTEXT §4 del 2026-10-02 y del 2026-10-03 (T13-01 y T13-07): esconder los
     filtros vacíos y avisar del scroll ya no hacen falta para proteger la navegación.
+  - **Hecho el 2026-10-05.** La lista de filtros es lo único que cede dentro de la `nav`: hace
+    scroll ella, y las cuatro vistas no. No baja de tres filtros de alto.
+    - **Medido** (`auditoria-ui.mjs`, con «mostrar siempre todos» y el aviso de administrador): a
+      1000×680, ocho filtros en 139 px de 210, las cuatro vistas enteras y el aviso a la vista; a
+      900×480, lo mismo con el aviso escondido, como ya hacía por debajo de 620 px de alto.
+    - **Al 200 % de zoom** (500×340) no caben ni las cuatro vistas con tres filtros: ahí la que
+      hace scroll vuelve a ser la `nav` entera. Es el caso que tenía antes cualquier ventana.
+    - La nota de T13-07 sale de «Lo que queda suelto».
 
 - [ ] **[T14-17] Con zoom, Kill se va detrás del scroll horizontal**
   - **Severidad:** media · **Tipo:** problema
@@ -393,7 +436,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Reabre:** precisa CONTEXT §4 del 2026-09-25 (Tier 11, E), que resolvió el zoom con un ancho
     mínimo y scroll horizontal.
 
-- [ ] **[T14-18] Con zoom, la pista «Ctrl F» pisa el texto del buscador**
+- [x] **[T14-18] Con zoom, la pista «Ctrl F» pisa el texto del buscador**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/components/ProcessesHeader.tsx:59-101`, `src/components/ViewHeader.tsx`
   - **Lo medido:** al 125 % el texto de ejemplo queda debajo de la pista: «…carpeta, PID» y encima
@@ -405,6 +448,16 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Criterio de aceptación:** en las capturas al 125, 150 y 200 % nada se pisa, y el buscador mide
     al menos 180 px en las tres. A 1000×680 sin zoom, la cabecera sigue midiendo 57 px. WCAG 1.4.4.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-05.** La cabecera es un contenedor (`@container/cabecera`): por debajo de
+    520 px el buscador baja a una segunda fila a todo el ancho. La pista «Ctrl F» solo sale con
+    440 px de campo o más, y el texto de ejemplo acaba en puntos suspensivos si no cabe.
+    - **Medido:** al 125 % el buscador mide 307 px, sin la pista, y el texto de ejemplo se
+      recorta (pide 314 y tiene 263); al 150 %, 419 px en su segunda fila, y cabe entero; al 200 %,
+      252 px, recortado. Nada se pisa en las tres capturas. A 1000×680 sin zoom la cabecera sigue
+      en 57 px y la pista sigue ahí. **A 900×480 la pista ya no sale**: el campo mide 407 px y el
+      umbral es uno solo para los dos tamaños de letra.
+    - **Un dato que no estaba en la tarea:** por debajo de 768 px de ventana el campo sube a
+      16 px de letra, y el texto de ejemplo pasa de pedir 314 px a 359.
 
 - [ ] **[T14-19] En una ventana ancha, el puerto queda a más de mil píxeles de su proceso**
   - **Severidad:** baja · **Tipo:** mejora
@@ -419,7 +472,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     560 px. A 1000×680 y a 900×480, nada cambia.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
 
-- [ ] **[T14-20] En la ventana mínima, el nombre de un servicio se queda en siete letras**
+- [x] **[T14-20] En la ventana mínima, el nombre de un servicio se queda en siete letras**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/components/ServicesView.tsx:180-197`
   - **Lo medido:** a 900×480 las cinco columnas fijas suman 568 px y al nombre le quedan 124; con el
@@ -434,6 +487,15 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     recortar. A 1000×680 no hay ningún nombre corto recortado de los nueve servicios del equipo de
     pruebas, salvo el de 26 caracteres.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-10-05.** «Arranque» baja de 200 a 184 px —el `Select` va con el relleno
+    apretado—, RAM y Puertos a 72 y 68, y por debajo de 760 px de cuerpo el botón de la acción se
+    queda en su icono, con su nombre accesible y un `title`. El comentario, al día.
+    - **Medido:** a 900×480 la columna del nombre mide 201 px (eran 124) y «postgresql-x64-17» se
+      lee entero; a 1000×680, 252 px y ningún nombre corto recortado, tampoco el de 26 caracteres.
+      «Automático (retrasado)» pide 128,5 px y el desplegable le deja 132 —medido sobre el control,
+      porque ningún servicio de este equipo arranca así—. 201 es con la barra de scroll de la
+      vista puesta: no sobra nada.
+    - Con zoom la tabla sigue en su ancho mínimo y con scroll horizontal: eso es T14-17.
 
 - [ ] **[T14-21] En el Historial, «hace 3 minutos» y «Auto-Kill» parten en dos líneas**
   - **Severidad:** baja · **Tipo:** problema
@@ -643,11 +705,6 @@ antes, y siguen aquí hasta que alguien las haga o las descarte.
   - la descripción de la fila de un Java, un Deno o un Bun **de verdad**: en marcha solo se
     han visto copias de `PING.EXE` con esos nombres (T13-01);
   - un PID reciclado y una conexión lenta, que no se pueden provocar (T13-06).
-- **Con «mostrar siempre todos los runtimes» encendido, la navegación del sidebar hace scroll**
-  en la ventana de fábrica cuando además sale el aviso de administrador (T13-07). Es lo que el
-  ajuste avisa, y por eso viene apagado; si molesta, lo que hay que repensar es el sidebar. **Lo
-  recoge T14-16**, que además lo encontró con los ajustes de fábrica: basta con cinco runtimes con
-  procesos.
 
 ---
 
