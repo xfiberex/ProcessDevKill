@@ -378,6 +378,8 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     mueven; Espacio marca la casilla; Supr hace lo mismo que el Kill de esa fila, y nada si está
     protegida; Mayús+F10 sigue abriendo el menú. **A decidir con el usuario:** si Supr cierra sin
     preguntar, como Kill, o pide una segunda pulsación.
+  - **Decidido el 2026-10-05:** Supr **pregunta** antes de cerrar. El botón Kill de la fila sigue
+    cerrando sin preguntar; la tecla, que se pulsa sin mirar, no.
   - **Criterio de aceptación:** una vuelta de tabulador por Procesos baja de 74 paradas a menos de
     30 con los mismos 26 procesos. Con teclas de verdad y procesos del guion: las flechas mueven la
     fila activa, Supr cierra la suya y no la protegida. El lector anuncia cada fila con su nombre, su
@@ -612,6 +614,14 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Criterio de aceptación:** desde arriba, cualquier grupo queda a un clic o a una tecla. La fila
     cabe en la ventana mínima en los dos idiomas, es un `nav` con nombre, y axe sigue en cero. Al
     desplazarse a mano, la marca sigue al grupo que se ve.
+  - **Propuesta del usuario (2026-10-05), a resolver al empezar la tarea:** en vez de una fila de
+    saltos sobre una sola página larga, **partir Ajustes en secciones**, cada una con su botón
+    colgando de «Ajustes» en el sidebar —como los filtros cuelgan de «Procesos»—, de modo que cada
+    sección sea una vista corta y no haga falta desplazarse. Cambia la tarea: ya no es saltar
+    dentro de 2.724 px, es que no existan. A mirar entonces: el sitio en el sidebar, que desde
+    T14-16 reparte el alto entre las vistas y los filtros; adónde llevan el aviso de
+    administrador y el de versión nueva (`irA`); y si un grupo solo sigue pasando del alto de la
+    ventana mínima.
   - **Esfuerzo:** medio · **Depende de:** ninguna
 
 - [ ] **[T14-25] Ocho textos de ayuda de Ajustes pasan de 200 caracteres**
@@ -652,6 +662,8 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     subtítulo traducido. **A decidir con el usuario:** si en español se quiere la coma, o se prefiere
     el punto por costumbre de quien programa; en ese caso se anota y la tarea se queda en el
     subtítulo.
+  - **Decidido el 2026-10-05:** se queda el **punto**, también en español. La tarea se reduce al
+    subtítulo del sidebar.
   - **Criterio de aceptación:** con la app en español, la tabla, el medidor y los avisos escriben
     los decimales igual entre sí; en inglés, como hoy. Pruebas de `format.ts` en los dos idiomas.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
