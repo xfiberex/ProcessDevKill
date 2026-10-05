@@ -596,7 +596,14 @@ function Estado({ estado, t }: { estado: ServiceState; t: Catalogo }) {
 
   return (
     <span className="flex items-center gap-1.5">
-      <span className={`size-2 shrink-0 rounded-full ${color}`} aria-hidden />
+      {/* `data-estado` es para `forced-colors`, donde el color no llega: corriendo va relleno y
+          parado, hueco (T14-23, ver `index.css`). */}
+      <span
+        data-slot="estado"
+        data-estado={estado}
+        className={`size-2 shrink-0 rounded-full ${color}`}
+        aria-hidden
+      />
       <span className={estado === "running" ? "" : "text-muted-foreground"}>
         {t.servicios.estados[estado]}
       </span>

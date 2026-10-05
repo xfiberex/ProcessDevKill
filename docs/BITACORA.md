@@ -8,6 +8,34 @@
 
 ---
 
+### 2026-10-05 — Tier 14: el guion de la auditoría y los temas de contraste
+
+El usuario volvió de trabajar en otro equipo. Primera tanda del Tier 14: T14-01, T14-22 y T14-23.
+
+- **Lo común, a `tools/envivo.mjs`.** Movido por líneas desde `prueba-en-marcha.mjs`, con
+  comprobaciones de que cada línea era la que se creía antes de cortar. ESLint dijo que no sobraba
+  ni faltaba ningún import.
+- **Las pruebas en marcha fallaban en este equipo, y no era por el cambio.** `EPERM` al borrar la
+  carpeta de WebView2 de la copia, dos veces seguidas. Se guardaron los cambios aparte y el guion
+  de `main` falló igual. A mano, la carpeta se borraba al primer intento: lo que cambiaba era
+  cuánto llevaba abierta la app. El paso del pánico la cierra a los dos segundos, con WebView2 a
+  medio arrancar. Arreglado cerrando el árbol de procesos; después, 28 de 28.
+- **`auditoria-ui.mjs`.** A la primera no arrancó: el `node` sin puertos del guion terminaba solo,
+  sin nada que lo mantuviera vivo. A la segunda, 185 capturas y las cifras de la auditoría.
+- **T14-22 costó tres pasadas, y cada una enseñó algo:**
+  - la primera midió dos interruptores en negro: quedaban debajo de la cabecera fija de la vista
+    y el píxel era el de la cabecera. Fallo del guion;
+  - la segunda enseñó lo elegido como un rectángulo negro sobre el color de selección: la placa
+    que el navegador pone detrás de cada texto. Fallo de las reglas;
+  - la tercera, bien. Las cifras del resumen eran correctas desde la segunda: lo que estaba mal
+    solo se veía **mirando la captura**.
+- **El foco con `forced-colors` no estaba en la auditoría.** Salió al pensar qué más es una
+  sombra. Se añadió a la fase de contraste del guion antes de arreglarlo.
+- `scrollIntoView` desde el guion desplazaba la ventana entera y cortaba la captura. La ventana
+  no tiene scroll para el usuario, pero sí por programa.
+- **Sin ver:** un tema de contraste de Windows de verdad. Cambiarlo afecta a todo el equipo.
+- 425 pruebas del frontend y 28 en marcha; ESLint y tipos limpios. Rust no se tocó.
+
 ### 2026-10-03 — Auditoría de diseño UI/UX: sale el Tier 14
 
 Pedida por el usuario después de cerrar el Tier 13, que no dejó entradas aquí: lo que se hizo en

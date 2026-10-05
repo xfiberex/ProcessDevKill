@@ -14,6 +14,19 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+### Fixed
+- **With a Windows contrast theme, the app was readable but did not show what state anything was
+  in.** The switches in Settings looked empty whether they were on or off — including the ones
+  for Auto-Kill and the global shortcut — the selected option for Language and Theme, the active
+  view, the active filter, and the selected row looked like all the others, and you could not see
+  where the keyboard focus was. All of that now uses the theme's colors. (T14-22)
+- With a contrast theme, the CPU and RAM bars and each service's status dot were not drawn.
+  (T14-23)
+
+### Internal
+- The design audit can be repeated: a script walks through the app and leaves the screenshots and
+  the measurements. (T14-01)
+
 ## [1.10.1] — 2026-10-03
 
 The sidebar filters, your choice, and three more checks before each version is published.

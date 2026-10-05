@@ -16,6 +16,19 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+### Corregido
+- **Con un tema de contraste de Windows, la app se podía leer pero no decía en qué estado estaba
+  cada cosa.** Los interruptores de Ajustes salían vacíos, encendidos o no —también el del
+  Auto-Kill y el del atajo global—; la opción elegida de Idioma y de Tema, la vista activa, el
+  filtro activo y la fila marcada no se distinguían de las demás; y no se veía dónde estaba el
+  foco del teclado. Ahora todo eso usa los colores del tema. (T14-22)
+- Con un tema de contraste, las barras de CPU y de RAM y el punto de estado de cada servicio no se
+  pintaban. (T14-23)
+
+### Interno
+- La auditoría de diseño se puede repetir: un guion recorre la app y deja las capturas y las
+  medidas. (T14-01)
+
 ## [1.10.1] — 2026-10-03
 
 Los filtros del sidebar, a elegir, y tres comprobaciones más antes de publicar cada versión.

@@ -264,6 +264,7 @@ function BarraActiva() {
   return (
     <span
       aria-hidden
+      data-slot="barra-activa"
       className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-foreground"
     />
   );

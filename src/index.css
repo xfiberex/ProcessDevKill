@@ -222,6 +222,112 @@ body {
   }
 }
 
+/* Los temas de contraste de Windows (Configuración → Accesibilidad → Temas de contraste) llegan al
+   WebView como `forced-colors: active`: el navegador tira los colores de la hoja de estilos y pone
+   los del sistema, y quita las sombras. Todo lo que aquí se decía **solo con un fondo** se quedaba
+   mudo (Tier 14, F; medido el 2026-10-03 sobre las capturas): el pulgar, la pista y el fondo de un
+   interruptor salían los tres del mismo color —1:1—, así que no se sabía si el Auto-Kill o el
+   atajo global estaban puestos; la opción elegida de Idioma y de Tema solo se distinguía por el
+   grosor de la letra; y la vista activa, el filtro activo y la fila marcada, por nada.
+
+   Las reglas van aquí juntas y no como variantes `forced-colors:` en cada componente por dos
+   motivos. Uno: los de `components/ui/` los genera shadcn, y cada regeneración se las llevaría.
+   Dos: tienen que ganar a las variantes `dark:`, que pesan más que una media query, y eso pide
+   `!important` en todas.
+
+   **Solo se usan colores del sistema** (`Highlight`, `Canvas`, `ButtonText`…): son los únicos
+   que el navegador respeta en este modo, y son los que el usuario eligió para ver. */
+@media (forced-colors: active) {
+  /* El foco. En toda la app es un `ring`, que es una sombra, y aquí las sombras no se pintan: sin
+     esto, con un tema de contraste no se ve dónde está el teclado. */
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Interruptores: encendido, la pista en `Highlight`; apagado, hueca. Y el pulgar a la vista en
+     los dos, que además cambia de lado. */
+  [data-slot="switch"] {
+    border-color: ButtonText !important;
+    background-color: Canvas !important;
+  }
+  [data-slot="switch"][data-checked] {
+    border-color: Highlight !important;
+    background-color: Highlight !important;
+  }
+  [data-slot="switch-thumb"] {
+    background-color: ButtonText !important;
+  }
+  [data-slot="switch"][data-checked] [data-slot="switch-thumb"] {
+    background-color: HighlightText !important;
+  }
+
+  /* Casillas: marcada, rellena. El borde solo no dice si lo está. */
+  [data-slot="checkbox"][data-checked] {
+    border-color: Highlight !important;
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+
+  /* Lo elegido de un grupo (Idioma, Tema, Auto-refresco), la vista activa y el filtro activo: con
+     el color de selección del sistema, que es como marca Windows lo elegido en sus propias listas.
+     El `*` es por los recuentos y los iconos, que traen su propio color. */
+  [role="radio"][aria-checked="true"],
+  aside [aria-current="page"],
+  aside [aria-pressed="true"] {
+    /* Sin esto el navegador pinta detrás de cada texto una placa del color del fondo de la
+       ventana, para asegurar que se lee, y sobre `Highlight` lo que hace es taparlo: el rótulo
+       de lo elegido salía como un rectángulo negro. Visto en la primera captura. Con `none` los
+       colores son los de aquí abajo, que siguen siendo del sistema. */
+    forced-color-adjust: none;
+    border-color: Highlight !important;
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+  [role="radio"][aria-checked="true"] *,
+  aside [aria-current="page"] *,
+  aside [aria-pressed="true"] * {
+    color: HighlightText !important;
+  }
+  [data-slot="barra-activa"] {
+    background-color: HighlightText !important;
+  }
+
+  /* La fila marcada, con un borde y no con un fondo: dentro lleva barras, etiquetas de puerto y
+     un botón, y repintarlos todos sobre `Highlight` es pedir que algo se quede sin verse. */
+  tr[data-selected] {
+    outline: 2px solid Highlight !important;
+    outline-offset: -2px !important;
+  }
+
+  /* Las barras de CPU y RAM, de la tabla y del medidor (T14-23): el carril con borde y el
+     relleno con el color de selección. El relleno trae su color en un `style`, y por eso el
+     `!important`. En el medidor hay dos rellenos: el del equipo, detrás y en gris. */
+  [data-slot="barra"] {
+    outline: 1px solid CanvasText !important;
+    background-color: Canvas !important;
+  }
+  [data-slot="barra-relleno"] {
+    background-color: Highlight !important;
+  }
+  [data-slot="barra-fondo"] {
+    background-color: GrayText !important;
+  }
+
+  /* El punto de estado de un servicio: corriendo, relleno; parado, hueco; cambiando, gris. El
+     texto de al lado lo dice igual, pero el punto es lo que se recorre de un vistazo. */
+  [data-slot="estado"] {
+    border: 1px solid CanvasText !important;
+    background-color: Canvas !important;
+  }
+  [data-slot="estado"][data-estado="running"] {
+    background-color: CanvasText !important;
+  }
+  [data-slot="estado"][data-estado="pending"] {
+    background-color: GrayText !important;
+  }
+}
+
 @layer base {
   * {
     /* Sin el `/50` de shadcn, por lo mismo que el anillo: ver `--ring`. */

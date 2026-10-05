@@ -33,8 +33,11 @@ export function UsageBar({ label, value, max, color, apagada = false }: UsageBar
       >
         {label}
       </span>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      {/* Los `data-slot` son para `forced-colors` (ver `index.css`): con un tema de contraste de
+          Windows el carril y el relleno salen del mismo color, y la barra desaparece (T14-23). */}
+      <div data-slot="barra" className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div
+          data-slot="barra-relleno"
           className="h-full rounded-full transition-[width] duration-300"
           style={{ width: `${percent}%`, backgroundColor: color }}
         />

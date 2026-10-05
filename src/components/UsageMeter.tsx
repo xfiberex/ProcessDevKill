@@ -127,14 +127,17 @@ function Metrica({
           y no aporta nada a un lector de pantalla, igual que la flecha de
           ordenacion de la tabla. */}
       <div
+        data-slot="barra"
         className="relative mt-1 h-1.5 overflow-hidden rounded-full bg-muted"
         aria-hidden
       >
         <div
+          data-slot="barra-fondo"
           className="absolute inset-y-0 left-0 rounded-full bg-muted-foreground/35 transition-[width] duration-300"
           style={{ width: `${ancho(equipoPct)}%` }}
         />
         <div
+          data-slot="barra-relleno"
           className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-300"
           style={{ width: `${ancho(devPct)}%` }}
         />

@@ -86,7 +86,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
 
 ### Fase A — La herramienta de medir
 
-- [ ] **[T14-01] El guion de la auditoría, en `tools/`, para poder repetir cada medida**
+- [x] **[T14-01] El guion de la auditoría, en `tools/`, para poder repetir cada medida**
   - **Severidad:** baja · **Tipo:** herramienta
   - **Ubicación:** `tools/` (nuevo `auditoria-ui.mjs`), `.claude/CLAUDE.md` («Pruebas»)
   - **Lo medido:** las 186 capturas y las medidas salieron de un guion que vive en la carpeta
@@ -103,6 +103,31 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     ningún proceso del usuario y borrando la carpeta de datos de la copia. CLAUDE.md dice cuándo se
     usa y que no sustituye a `prueba-en-marcha.mjs`. ESLint pasa sobre el archivo.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-10-05.** `tools/auditoria-ui.mjs`, con ocho fases elegibles por `--fases`:
+    `vistas`, `tamanos`, `zoom`, `estados`, `foco`, `contraste`, `medidas` y `ventana`. Lo que
+    comparte con `prueba-en-marcha.mjs` —la copia, la clase `Cdp`, los procesos propios— salió a
+    `tools/envivo.mjs`, movido tal cual; las 28 comprobaciones en marcha pasan igual después.
+    **Vuelve a escribirse, no se recuperó**: el guion de la auditoría se perdió con su sesión. Lo
+    que da confianza en que mide lo mismo es que **repite sus cifras**: una pasada entera, 2 min
+    10 s, dejó 185 capturas y 13 archivos de medidas, con la fila de seis puertos a 157 px frente
+    a 52,5, la columna «Proceso» a 1.177 px a 1920×1080, Kill fuera por la derecha al 125 %, los
+    interruptores a 1:1 con `forced-colors`, la barra de título en oscuro con la app en claro, 13
+    y 10 paradas de tabulador en el sidebar y la cabecera, y axe 4.13 con cero violaciones en 16
+    pasadas.
+    - **No cierra nada desde la app**: no pulsa Kill ni confirma ningún diálogo, y solo usa
+      Tabulador y Escape. Antes de abrir el diálogo de un lote compara los PID visibles con los
+      que lanzó; se vio abrirlo con ocho procesos, los ocho suyos, y cancelarlo. `ajustar` se
+      niega a cambiar otro ajuste que el tema, el idioma y los filtros del sidebar.
+    - Se niega a escribir dentro del repositorio; por defecto, una carpeta temporal.
+    - El color de cada estado se lee **de los píxeles de la captura**, no de los estilos: con
+      `forced-colors`, `getComputedStyle` dice lo que pide la hoja y no lo que se pinta. El lector
+      de PNG y el cálculo de contraste tienen seis pruebas.
+    - **Lo que no trae y la auditoría sí hizo:** contar las ventanas del proceso tras un clic
+      derecho (T14-02) y las teclas reales con `keybd_event`. Entran con las tareas que las piden.
+    - **De paso, un fallo de `prueba-en-marcha.mjs` que en este equipo salía siempre:** el paso
+      del pánico cerraba la app a los dos segundos de abrirla, con WebView2 a medio arrancar, y la
+      carpeta de la copia no se podía borrar (`EPERM`): la prueba entera caía en la preparación.
+      Ahora los guiones cierran la app con su árbol de procesos (`taskkill /T`).
 
 ### Fase B — Que se sienta una app de Windows
 
@@ -424,7 +449,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
 
 ### Fase F — Temas de contraste de Windows
 
-- [ ] **[T14-22] Con un tema de contraste no se sabe qué interruptor está encendido**
+- [x] **[T14-22] Con un tema de contraste no se sabe qué interruptor está encendido**
   - **Severidad:** alta · **Tipo:** problema
   - **Ubicación:** `src/components/ui/switch.tsx`, `src/components/Segmented.tsx`,
     `src/components/Sidebar.tsx` (`BarraActiva`), `src/components/ProcessTable.tsx` (la fila
@@ -445,8 +470,25 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     verdad (Configuración → Accesibilidad → Temas de contraste), o se dice que quedó sin ver.
     WCAG 1.4.11.
   - **Esfuerzo:** medio · **Depende de:** T14-01
+  - **Hecho el 2026-10-05**, con un bloque `@media (forced-colors: active)` en `index.css` y no
+    con variantes en cada componente: los de `ui/` los regenera shadcn, y las reglas tienen que
+    ganar a las variantes `dark:`. Solo colores del sistema. **Medido sobre las capturas, con la
+    emulación** (`auditoria-ui.mjs --fases contraste`), igual en los dos temas de la app:
+    - los ocho interruptores: encendido, pista en `Highlight` frente al negro del apagado,
+      **14,37:1**; el pulgar contra su pista, 14,37:1 encendido y 21:1 apagado. Eran 1:1;
+    - la opción elegida de Idioma, Tema y Auto-refresco, la vista activa y el filtro activo:
+      14,37:1 contra las demás;
+    - la fila marcada lleva un contorno, y la casilla marcada va rellena.
+  - **Dos cosas que la tarea no pedía y salieron al mirar las capturas:**
+    - **el foco no se veía.** En toda la app es un `ring`, que es una sombra, y con
+      `forced-colors` las sombras no se pintan. Ahora lleva contorno: en 8 de 8 paradas medidas;
+    - el rótulo de lo elegido salía como un rectángulo negro: el navegador pinta una placa detrás
+      de cada texto, y sobre `Highlight` lo tapa. Se arregló con `forced-color-adjust: none`.
+  - `src/forced-colors.test.ts` compara las reglas con el marcado: si un `data-slot` desaparece,
+    falla. **Quedó sin ver con un tema de contraste de Windows de verdad**: cambiarlo afecta a
+    todo el equipo del usuario, y el guion no lo toca. La emulación dio siempre la misma paleta.
 
-- [ ] **[T14-23] Con un tema de contraste desaparecen las barras de CPU y RAM**
+- [x] **[T14-23] Con un tema de contraste desaparecen las barras de CPU y RAM**
   - **Severidad:** baja · **Tipo:** problema
   - **Ubicación:** `src/components/UsageBar.tsx`, `src/components/UsageMeter.tsx`,
     `src/components/ServicesView.tsx` (`Estado`)
@@ -458,6 +500,11 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Criterio de aceptación:** en las capturas con `forced-colors`, las barras se ven y su relleno
     llega a 3:1 contra el carril.
   - **Esfuerzo:** bajo · **Depende de:** T14-22
+  - **Hecho el 2026-10-05**, en el mismo bloque. El carril lleva contorno y el relleno va en
+    `Highlight`: **14,37:1** contra el carril, medido en una barra a medio llenar de la tabla.
+    En el medidor, el relleno del equipo va detrás, en gris. El punto de estado de un servicio:
+    corriendo, relleno; parado, hueco. Visto en las capturas de Procesos y de Servicios. Con la
+    emulación, como T14-22.
 
 ### Fase G — Ajustes y contenido
 

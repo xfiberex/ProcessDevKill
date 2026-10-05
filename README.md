@@ -302,6 +302,7 @@ comprueba**: corre sin secretos y no publica nada.
 | [`release.ps1`](release.ps1) | Corta una versión entera: pruebas, versión en los tres sitios, build, `.sha256`, tag y GitHub Release. Admite `-DryRun`. |
 | [`tools/capture-screenshots.ps1`](tools/capture-screenshots.ps1) | Regenera las capturas de este README conduciendo por CDP una copia aparte de la app, sin tocar la instalada ni sus ajustes. |
 | [`tools/avisos-de-terceros.mjs`](tools/avisos-de-terceros.mjs) | Genera `THIRD-PARTY-NOTICES.txt` a partir de las dependencias que viajan en el instalador. Con `--comprobar`, dice si se quedó viejo. |
+| [`tools/auditoria-ui.mjs`](tools/auditoria-ui.mjs) | Recorre la app en marcha y deja capturas y medidas —tamaños, zoom, foco, contraste, axe— en una carpeta fuera del repositorio. No comprueba nada: mide. |
 | [`tools/prueba-en-marcha.mjs`](tools/prueba-en-marcha.mjs) | Arranca el binario de release y comprueba que lista, cierra, protege y descarga como dice. Lo lanza `release.ps1`. |
 | `npm run tauri icon app-icon.svg` | Regenera todos los tamaños de icono tras editar `app-icon.svg`. |
 

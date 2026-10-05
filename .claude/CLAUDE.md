@@ -111,6 +111,11 @@ identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_esp
 - **El inglés es en-US y tiene su propia puntuación** (T12-35): «license», coma antes del «and» que
   cierra una lista, incisos entre rayas con espacios y comillas tipográficas. Las reglas están
   escritas encima de `en` en `i18n.tsx`, y `i18n.test.tsx` las hace cumplir.
+- **Lo que se dice solo con un color de fondo necesita su regla en el bloque de `forced-colors`
+  de `index.css`** (T14-22): con un tema de contraste de Windows el navegador tira los colores de
+  la app, y un estado que era «el fondo cambia» se queda mudo. Las reglas van todas ahí, con
+  colores del sistema y agarradas a un `data-slot` o a un atributo ARIA; `forced-colors.test.ts`
+  falla si el gancho desaparece. Se mira con `auditoria-ui.mjs --fases contraste`.
 - **Una fecha se escribe en el idioma de la app, no en el de Windows** (T12-39): `localeDeFechas`
   en `lib/format.ts`. Un `toLocaleString()` sin argumento es el fallo que arregló.
 - **Lo que no puede actuar con los ajustes de fábrica espera a `cargados`** (`useSettings`). El
@@ -138,6 +143,7 @@ npm test                          # frontend: Vitest + Testing Library, en jsdom
 cd src-tauri && cargo test        # backend: lee procesos reales del equipo
 node tools/prueba-en-marcha.mjs   # el binario de release, arrancado y conducido
 node tools/avisos-de-terceros.mjs --comprobar   # que THIRD-PARTY-NOTICES.txt está al día
+node tools/auditoria-ui.mjs       # capturas y medidas de la interfaz; no comprueba, mide
 ```
 
 - **Toda tanda de cambios se prueba también con la app en marcha**, no solo en las suites: lo pidió
@@ -153,6 +159,17 @@ node tools/avisos-de-terceros.mjs --comprobar   # que THIRD-PARTY-NOTICES.txt es
   pánico de verdad si además se arranca con `PDK_ENVIVO_PANICO`. Un disparador nuevo para algo que
   no se pueda provocar desde fuera va detrás de esa misma *feature*, nunca en el binario de
   release. Clippy se pasa también con ella: `cargo clippy --all-targets --features envivo`.
+- **Lo que los guiones comparten para llegar a la app vive en `tools/envivo.mjs`**: la copia, la
+  clase `Cdp`, `lanzar` y `cerrarArbol`. Un guion cierra la copia con `cerrarArbol`, no con
+  `hijo.kill()`: lo segundo deja a WebView2 cerrándose solo y, si la app llevaba dos segundos
+  abierta, la carpeta de la copia no se puede borrar (`EPERM`, 2026-10-05). Los dos guiones usan
+  la misma carpeta de datos: no se lanzan a la vez.
+- **Una medida de diseño se toma con `tools/auditoria-ui.mjs`**, no a ojo (T14-01): tamaños de
+  ventana, zoom, orden de tabulación, `forced-colors`, axe, lo que se recorta y lo que mide cada
+  fila. `--fases` elige cuáles. **No sustituye a `prueba-en-marcha.mjs` ni va en el corte**: aquel
+  afirma y falla; este mide y enseña. No cierra nada desde la app, y escribe fuera del
+  repositorio, porque las capturas enseñan los procesos del equipo. El criterio de aceptación de
+  una tarea de interfaz se comprueba con él, y si hace falta una medida nueva, se le añade.
 - **Es la excepción a «una comprobación nueva va en los dos sitios»**: las pruebas en marcha no
   están en la CI. Piden una compilación de release entera y un escritorio donde abrir la ventana;
   el runner lo aguanta —probado el 2026-10-03, 10 minutos por ejecución (T13-03)—, pero siguen
