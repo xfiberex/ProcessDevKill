@@ -216,7 +216,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
 
 ### Fase C — Encontrar y cerrar sin dudar
 
-- [ ] **[T14-06] Un proceso con varios puertos triplica el alto de su fila**
+- [x] **[T14-06] Un proceso con varios puertos triplica el alto de su fila**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/components/ProcessTable.tsx:120-129` (anchos) y `:277-295` (la celda)
   - **Lo medido:** la columna Puerto mide 92 px y en ella cabe una etiqueta por línea. Con seis
@@ -229,6 +229,14 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     mide lo mismo que las demás (52,4 px); el nombre conserva al menos 150 px en la ventana mínima;
     buscar el sexto puerto encuentra la fila; el lector anuncia los seis.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-10-05.** La celda pinta el primer puerto y un «+5»; la lista entera va en el
+    `title`, en «Copiar puertos» y en un texto oculto para el lector de pantalla.
+    - **Medido** con el proceso de seis puertos del guion: su fila mide 52,5 px, como las demás
+      (eran 157); buscando el sexto puerto sale su fila; a la vista «61113 +5» y para el lector
+      «61113+5, 61114, 61115, 61116, 61117, 61118». El nombre sigue en 157 px en la ventana
+      mínima: la columna no se ensanchó, se le quitó relleno a la celda.
+    - **Lo que no se probó:** un lector de pantalla de verdad; lo que se comprueba es el texto
+      accesible de la celda. Tampoco un «+12» en pantalla: está calculado para caber, no visto.
 
 - [ ] **[T14-07] El diálogo de un lote no dice qué va a cerrar**
   - **Severidad:** media · **Tipo:** problema
@@ -331,7 +339,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
 
 ### Fase D — Teclado y avisos
 
-- [ ] **[T14-13] Tras un Kill con el teclado, el foco se pierde**
+- [x] **[T14-13] Tras un Kill con el teclado, el foco se pierde**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/components/ProcessTable.tsx`, `src/hooks/useKills.ts`, `src/App.tsx`
   - **Lo medido:** con el foco en el Kill de una fila e Intro, la fila sale en 558 ms y el foco
@@ -346,6 +354,18 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
     casilla o el buscador, nunca `body`. Un cierre desde fuera de la ventana no cambia el foco.
     WCAG 2.4.3.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-10-05.** La tabla recuerda en qué fila empezó un cierre pedido desde la
+    ventana y, cuando la fila sale, lleva el foco al Kill de la que ocupa su sitio —a su casilla si
+    está protegida—; tras un lote, a la casilla de la primera que queda; sin filas, al buscador.
+    **Solo si el foco se ha quedado sin dueño**: si ya está en otro sitio, no se toca.
+    - **En vivo, con Intro de verdad** sobre cuatro servidores del guion y el buscador puesto en
+      su carpeta, para que la tabla solo tenga filas suyas: tras Intro en un Kill, el foco está en
+      el Kill de la fila siguiente; tras confirmar un lote de dos, en la casilla de la que queda;
+      y al cerrar esa desde fuera de la ventana, la app no lo lleva a ningún sitio. Ocho pruebas
+      de componente, con los tres criterios negativos.
+    - **Va algo más lejos que la tarea:** actúa también tras un Kill con el ratón, porque el clic
+      deja el foco en el botón que desaparece. No se ve —no hay anillo de foco tras un clic—, y el
+      siguiente Tab sale de la fila siguiente y no del principio.
 
 - [ ] **[T14-14] La tabla son dos paradas de tabulador por fila, y las flechas no hacen nada**
   - **Severidad:** media · **Tipo:** mejora
@@ -419,7 +439,7 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
       hace scroll vuelve a ser la `nav` entera. Es el caso que tenía antes cualquier ventana.
     - La nota de T13-07 sale de «Lo que queda suelto».
 
-- [ ] **[T14-17] Con zoom, Kill se va detrás del scroll horizontal**
+- [x] **[T14-17] Con zoom, Kill se va detrás del scroll horizontal**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/components/ProcessTable.tsx:99-129`
   - **Lo medido:** al 125 % en la ventana de fábrica la tabla tiene 577 px y pide 620: sale scroll
@@ -435,6 +455,15 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Esfuerzo:** medio · **Depende de:** T14-06
   - **Reabre:** precisa CONTEXT §4 del 2026-09-25 (Tier 11, E), que resolvió el zoom con un ancho
     mínimo y scroll horizontal.
+  - **Hecho el 2026-10-05.** El cuerpo de la vista es un contenedor: por debajo de 660 px se va
+    «Activo», por debajo de 572 también «PID», y los dos están en la primera línea del menú de la
+    fila. El ancho mínimo baja de 620 a 468 px, y por debajo de 572 la columna de Kill va pegada a
+    la derecha.
+    - **Medido:** al 125 % no hay scroll horizontal y el nombre mide 145 px (eran 100, con Kill
+      cortado); al 150 % y al 200 % hay scroll, el nombre mide 100 px y Kill se ve entero. axe sin
+      violaciones al 200 %. A 900×480 y a 1000×680 sin zoom, las ocho columnas, como antes.
+    - **Lo que cuesta:** con Kill pegado, su celda lleva el fondo de la vista y no el de la fila,
+      así que el resaltado de la fila bajo el puntero o seleccionada no llega a ese trozo.
 
 - [x] **[T14-18] Con zoom, la pista «Ctrl F» pisa el texto del buscador**
   - **Severidad:** media · **Tipo:** problema

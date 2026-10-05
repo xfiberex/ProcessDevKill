@@ -111,7 +111,7 @@ function ventanaReal(hijo, accion, extra = []) {
  */
 export const ventanasDe = (hijo) => ventanaReal(hijo, "ventanas");
 
-export const TECLA = { ESC: 0x1b, CTRL: 0x11, R: 0x52, F5: 0x74 };
+export const TECLA = { INTRO: 0x0d, ESC: 0x1b, CTRL: 0x11, R: 0x52, F5: 0x74 };
 
 /**
  * Pulsa una combinación con teclas de verdad (`keybd_event`), con la ventana de la copia delante.

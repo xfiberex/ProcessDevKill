@@ -48,11 +48,12 @@ terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobr
 existe.
 
 **Abierto: el [Tier 14 — Auditoría de diseño UI/UX](ROADMAP.md)**, desde el 2026-10-03: 30 tareas
-en ocho fases, una de severidad alta, trece medias y dieciséis bajas. **Hechas 9 a 2026-10-05**: el
+en ocho fases, una de severidad alta, trece medias y dieciséis bajas. **Hechas 12 a 2026-10-05**: el
 guion que repite las medidas (T14-01) y los temas de contraste (T14-22, la única alta, y T14-23),
 publicados en la v1.10.2; y seis de las medias —el menú y las teclas del navegador, el aviso de
 versión nueva, los avisos de error, el sidebar, el buscador con zoom y la tabla de Servicios
-(T14-02, 12, 15, 16, 18 y 20)—, en la v1.10.3. **Desde el 2026-10-05 cada tanda termina en un
+(T14-02, 12, 15, 16, 18 y 20)—, en la v1.10.3; y tres de la tabla de procesos —los puertos en
+una línea, el foco tras un cierre y las columnas con zoom (T14-06, 13 y 17)—, en la v1.10.4. **Desde el 2026-10-05 cada tanda termina en un
 corte.** Sale de
 una auditoría con la app en marcha —186 capturas y 26 archivos de medidas— que miró lo que el
 Tier 11 no había mirado: el marco de la ventana, los tamaños fuera del de fábrica, el zoom por
@@ -357,6 +358,9 @@ verificación, con su fecha y lo que costó, está en [docs/TIERS-1-11.md](docs/
 | 2026-10-05 | **Los avisos pasan por `lib/avisos.ts`, y los de error no caducan** | T14-15. Sonner solo deja poner una duración para todos en el `Toaster`, así que el reparto por clase va en un envoltorio y el código deja de importar `toast` de la librería; una prueba lo vigila. Error y advertencia, sin caducidad y con botón; éxito e información, como antes. No se hizo un sitio donde releer un aviso cerrado: el problema medido era que no daba tiempo a leerlo |
 | 2026-10-05 | **La ventana le quita al WebView su menú y sus teclas, y eso se prueba con entrada de verdad** | T14-02. Un oyente en `window` (`useVentana`) cancela el clic derecho fuera de los campos de texto y convierte F5 y Ctrl+R en «refrescar lo que se mira». No se apaga el menú entero desde la configuración de WebView2: se iría también de los campos de texto, donde es el que trae copiar y pegar. En las pruebas en marcha, el menú se busca contando las ventanas del proceso —no está en el DOM— y las teclas se pulsan con `keybd_event`, **solo con la ventana de la copia delante**: una tecla real va a quien tenga el foco. Cada paso lleva su control, para que un «no pasó nada» no se lea como un acierto |
 | 2026-10-05 | **Para ver en vivo lo que pide una versión más nueva, la copia de prueba se compila una vez con la versión bajada** | T14-12. La copia solo encuentra una actualización justo después de un corte, y ahí un fallo ya está publicado. Bajando a mano la versión de `Cargo.toml` antes de `prueba-en-marcha.mjs` —y devolviéndola con `git checkout` después—, la copia ve la versión publicada como nueva y los pasos del aviso y de las notas corren antes de cortar. No se automatiza: toca un archivo que el corte también toca |
+| 2026-10-05 | **Con zoom, la tabla de procesos suelta columnas antes de hacer scroll, y Kill va pegado a la derecha** | T14-17. **Precisa la decisión del 2026-09-25 (Tier 11, E)**, que resolvió el zoom con un ancho mínimo de 620 px y scroll horizontal: lo que quedaba detrás del scroll era Kill. Ahora se van «Activo» (por debajo de 660 px de cuerpo) y «PID» (por debajo de 572), que pasan a la primera línea del menú de la fila, y el mínimo baja a 468. El scroll horizontal sigue existiendo al 150 % y al 200 %, con Kill fijo. Se pregunta al contenedor y no a la ventana. El coste: la celda pegada lleva el fondo de la vista, no el resaltado de la fila |
+| 2026-10-05 | **Un proceso enseña un puerto y cuántos más tiene** | T14-06. Una etiqueta por puerto cabía de una en una y la fila de seis puertos medía el triple. Se enseña el primero —el más bajo, que es por el que ordena la columna— y «+5»; el resto queda en el `title`, en «Copiar puertos» y en texto oculto para el lector. No se ensanchó la columna: el nombre no podía bajar de 150 px en la ventana mínima |
+| 2026-10-05 | **El foco tras un cierre lo devuelve la tabla, y solo si se ha perdido** | T14-13. La tabla sabe qué fila ocupa el sitio de la que sale; `App` solo le da adónde ir si no queda ninguna. Se guía por `killing`, que solo llenan los cierres pedidos desde la ventana: la bandeja, el atajo y el Auto-Kill no mueven nada. Mira un cuarto de segundo después y solo actúa si el foco está en `body`, en un botón apagado o en una fila que sale: el diálogo de un lote devuelve el foco a su botón antes de que ese botón desaparezca, y mirar antes era ver un foco que aún no se había perdido |
 
 ## 5. Decisiones pendientes
 

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ProcessTable } from "./ProcessTable";
@@ -35,11 +35,30 @@ function fila(pid: number) {
 }
 
 describe("columna de puertos", () => {
-  it("pinta una insignia por puerto", () => {
-    pintar([proceso({ pid: 10, ports: [3000, 8080] })]);
-    const f = fila(10);
-    expect(within(f).getByText("3000")).toBeInTheDocument();
-    expect(within(f).getByText("8080")).toBeInTheDocument();
+  it("con un puerto, pinta su insignia y nada más", () => {
+    pintar([proceso({ pid: 9, ports: [3000] })]);
+    const celda = within(fila(9)).getByText("3000").closest("td")!;
+
+    expect(celda).toHaveTextContent(/^3000$/);
+    expect(celda.querySelector("[title]")).toBeNull();
+  });
+
+  /**
+   * T14-06. Con una insignia por puerto, un proceso con seis triplicaba el alto de su fila. Ahora
+   * se ve el primero y cuántos más hay; el resto no se pierde, cambia de sitio.
+   */
+  it("con varios, pinta el primero y cuántos más hay, y deja la lista entera a mano", () => {
+    pintar([proceso({ pid: 10, ports: [3000, 3001, 3002, 3003, 3004, 3005] })]);
+    const celda = within(fila(10)).getByText("3000").closest("td")!;
+
+    // A la vista: dos piezas, una al lado de la otra.
+    expect(within(celda).getByText("+5")).toHaveAttribute("aria-hidden", "true");
+    expect(within(celda).queryByText("3005")).toBeNull();
+    // Para el puntero, la lista entera…
+    expect(within(celda).getByTitle("Puertos 3000, 3001, 3002, 3003, 3004, 3005")).toBeInTheDocument();
+    // …y para el lector de pantalla, los seis.
+    expect(celda).toHaveTextContent("3000+5, 3001, 3002, 3003, 3004, 3005");
+    expect(within(celda).getByText(", 3001, 3002, 3003, 3004, 3005")).toHaveClass("sr-only");
   });
 
   it("pinta un guion cuando el proceso no escucha en ninguno", () => {
@@ -452,5 +471,140 @@ describe("lo que se ve de cada fila", () => {
 
     expect(fila(69)).toHaveClass("select-text");
     expect(fila(69)).not.toHaveClass("select-none");
+  });
+});
+
+/**
+ * T14-13: adónde va el foco cuando sale la fila que lo tenía.
+ *
+ * La tabla no cierra nada: `App` le pasa en `killing` los PID que se están cerrando y después una
+ * lista sin ellos. Aquí se repite esa secuencia a mano, con `rerender`.
+ */
+describe("el foco tras un cierre", () => {
+  const TRES = [proceso({ pid: 81 }), proceso({ pid: 82 }), proceso({ pid: 83 })];
+  const kill = (pid: number) => screen.getByRole("button", { name: `Kill node.exe, PID ${pid}` });
+  const casilla = (pid: number) => screen.getByLabelText(`Seleccionar PID ${pid}`);
+
+  /** Pinta, enfoca, y devuelve cómo repetir lo que hace `App` mientras se cierra `pids`. */
+  function montar(lista: ProcessInfo[], extra: Partial<Parameters<typeof ProcessTable>[0]> = {}) {
+    const { rerender, unmount, ...props } = pintar(lista, extra);
+    const cerrar = (pids: number[], quedan = lista.filter((p) => !pids.includes(p.pid))) => {
+      rerender(<ProcessTable {...props} processes={lista} killing={new Set(pids)} />);
+      rerender(<ProcessTable {...props} processes={quedan} killing={new Set()} />);
+    };
+    return { cerrar, unmount, rerender, props };
+  }
+
+  it("va al Kill de la fila que ocupa el sitio de la que salió", async () => {
+    const { cerrar } = montar(TRES);
+    kill(82).focus();
+
+    cerrar([82]);
+
+    await waitFor(() => expect(kill(83)).toHaveFocus());
+  });
+
+  it("si era la última, va al Kill de la anterior", async () => {
+    const { cerrar } = montar(TRES);
+    kill(83).focus();
+
+    cerrar([83]);
+
+    await waitFor(() => expect(kill(82)).toHaveFocus());
+  });
+
+  it("si la fila que queda está protegida, va a su casilla", async () => {
+    const lista = [proceso({ pid: 84 }), proceso({ pid: 85, protected: true })];
+    const { cerrar } = montar(lista);
+    kill(84).focus();
+
+    cerrar([84]);
+
+    await waitFor(() => expect(casilla(85)).toHaveFocus());
+  });
+
+  it("tras un lote, va a la casilla de la primera fila que queda", async () => {
+    const { cerrar } = montar(TRES);
+    // Como lo deja el diálogo al cerrarse: sin dueño.
+    (document.activeElement as HTMLElement | null)?.blur();
+
+    cerrar([81, 82]);
+
+    await waitFor(() => expect(casilla(83)).toHaveFocus());
+  });
+
+  it("sin filas, lo pide al buscador", async () => {
+    const onSinFilas = vi.fn();
+    const { rerender, unmount, props } = montar([proceso({ pid: 86 })], { onSinFilas });
+    kill(86).focus();
+
+    rerender(<ProcessTable {...props} processes={[proceso({ pid: 86 })]} killing={new Set([86])} />);
+    // `App` deja de pintar la tabla cuando no queda ninguna fila.
+    unmount();
+
+    await waitFor(() => expect(onSinFilas).toHaveBeenCalledTimes(1));
+  });
+
+  it("no mueve el foco si el usuario ya lo llevó a otro sitio", async () => {
+    const { cerrar } = montar(TRES);
+    kill(82).focus();
+    casilla(81).focus();
+
+    cerrar([82]);
+
+    await new Promise((r) => setTimeout(r, 400));
+    expect(casilla(81)).toHaveFocus();
+  });
+
+  /** El criterio negativo: una fila que desaparece sin que la ventana lo pidiera. */
+  it("un cierre desde fuera de la ventana no mueve el foco", async () => {
+    const onSinFilas = vi.fn();
+    const { rerender, props } = montar(TRES, { onSinFilas });
+    expect(document.body).toHaveFocus();
+
+    // La bandeja, el atajo global o el Auto-Kill: la lista llega sin la fila y `killing` no cambia.
+    rerender(<ProcessTable {...props} processes={[TRES[0], TRES[2]]} />);
+
+    await new Promise((r) => setTimeout(r, 400));
+    expect(document.body).toHaveFocus();
+    expect(onSinFilas).not.toHaveBeenCalled();
+  });
+
+  it("si el cierre falla y la fila sigue, el foco no se mueve", async () => {
+    const { cerrar } = montar(TRES);
+    (document.activeElement as HTMLElement | null)?.blur();
+
+    cerrar([82], TRES);
+
+    await new Promise((r) => setTimeout(r, 400));
+    expect(document.body).toHaveFocus();
+  });
+});
+
+/** T14-17: lo que la tabla hace cuando no cabe. Los anchos de verdad los mide `auditoria-ui.mjs`. */
+describe("la tabla cuando no cabe", () => {
+  it("«Activo» y «PID» se esconden por ancho, y Kill se queda pegado a la derecha", () => {
+    pintar([proceso({ pid: 90 })]);
+    const celdas = within(fila(90)).getAllByRole("cell");
+
+    // Casilla, proceso, puerto, PID, CPU, RAM, activo y Kill.
+    expect(celdas).toHaveLength(8);
+    expect(celdas[3]).toHaveClass("@max-[571px]:hidden");
+    expect(celdas[6]).toHaveClass("@max-[659px]:hidden");
+    expect(celdas[7]).toHaveClass("@max-[571px]:sticky", "@max-[571px]:right-0");
+
+    // Los encabezados van con sus celdas: una columna a medias descoloca la tabla entera.
+    const cabeceras = screen.getAllByRole("columnheader");
+    expect(cabeceras[3]).toHaveClass("@max-[571px]:hidden");
+    expect(cabeceras[6]).toHaveClass("@max-[659px]:hidden");
+    expect(cabeceras[7]).toHaveClass("@max-[571px]:sticky");
+  });
+
+  it("el menú de la fila dice el PID y el tiempo activo, que pueden no tener columna", async () => {
+    pintar([proceso({ pid: 91, runTimeSecs: 3720 })]);
+    await userEvent.setup().pointer({ target: fila(91), keys: "[MouseRight]" });
+    await screen.findByRole("menu");
+
+    expect(screen.getByText("PID 91 · activo 1h 2m")).toBeInTheDocument();
   });
 });

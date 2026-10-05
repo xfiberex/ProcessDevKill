@@ -133,7 +133,13 @@ identificadores y siguen sin tildes (`el_catalogo_ingles_no_tiene_letras_del_esp
   actualizaciones del arranque salía antes de saber que el usuario la había apagado (T12-31).
 - **Una tabla con `table-fixed` lleva `min-w`**: la suma de sus columnas fijas más unos 100 px para la
   flexible. La ventana admite zoom, y sin mínimo la columna sin ancho —la del nombre, la que
-  identifica la fila— se queda en 0 px (Tier 11, E).
+  identifica la fila— se queda en 0 px (Tier 11, E). **Y antes de que haga scroll, suelta las
+  columnas secundarias** (T14-17): lo que no puede quedar detrás del scroll es la acción de la
+  fila, que va pegada a la derecha. Una columna se esconde entera —su `col`, su `th` y su `td`
+  con la misma clase—, y lo que decía pasa al menú de la fila.
+- **Lo que hace desaparecer el elemento que tiene el foco lo devuelve a algún sitio** (T14-13):
+  la fila siguiente, la primera que quede o el buscador; nunca `body`. Solo si el foco se ha
+  perdido de verdad, y nunca por algo que no pidió la ventana.
 - `src/types.ts` es el **espejo** de los tipos de Rust. Al cambiar un `struct` o una constante en
   `storage.rs`, hay que cambiarlo aquí — `src/types.test.ts` lee el fuente de Rust y falla si no.
 - Nada de `navigator.clipboard`: exige que el documento tenga el foco y falla justo cuando la

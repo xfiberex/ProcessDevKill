@@ -16,6 +16,22 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.10.4] — 2026-10-05
+
+La tabla de procesos: filas del mismo alto, Kill siempre a la vista con zoom y el foco en su sitio
+después de cerrar con el teclado.
+
+### Corregido
+- **Un proceso con varios puertos ya no triplica el alto de su fila.** Se ve el primero y cuántos
+  más hay («3000 +5»); la lista entera sale al pasar el puntero y en «Copiar puertos», y el
+  buscador sigue encontrando el proceso por cualquiera de ellos. (T14-06)
+- **Con zoom, Kill ya no se queda detrás del scroll.** Cuando la tabla no cabe se esconden primero
+  las columnas «Activo» y «PID» —los dos datos están en el menú de la fila—, y si aun así hay que
+  desplazarla, Kill se queda fijo a la derecha. (T14-17)
+- **Tras cerrar un proceso con el teclado, el foco ya no se pierde**: pasa al Kill de la fila
+  siguiente; tras cerrar varios a la vez, a la primera fila que queda; y si no queda ninguna, al
+  buscador. (T14-13)
+
 ## [1.10.3] — 2026-10-05
 
 La ventana deja de comportarse como una página web: sin el menú del navegador y sin recargas. Y
@@ -497,7 +513,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.3...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.4...HEAD
+[1.10.4]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.4
 [1.10.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.3
 [1.10.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.2
 [1.10.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.1

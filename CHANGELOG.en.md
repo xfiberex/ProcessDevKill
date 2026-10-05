@@ -14,6 +14,22 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+## [1.10.4] — 2026-10-05
+
+The process table: rows of the same height, Kill always in view when zoomed, and the focus where
+it belongs after closing with the keyboard.
+
+### Fixed
+- **A process with several ports no longer triples the height of its row.** You see the first one
+  and how many more there are (“3000 +5”); the full list shows on hover and in “Copy ports,” and
+  the search box still finds the process by any of them. (T14-06)
+- **With zoom, Kill no longer ends up behind the scroll.** When the table does not fit, the
+  “Uptime” and “PID” columns are hidden first — both are in the row menu — and if you still have
+  to scroll it, Kill stays fixed on the right. (T14-17)
+- **After closing a process with the keyboard, the focus is no longer lost**: it moves to Kill on
+  the next row; after closing several at once, to the first row left; and if none is left, to the
+  search box. (T14-13)
+
 ## [1.10.3] — 2026-10-05
 
 The window stops behaving like a web page: no browser menu and no reloads. Plus five more fixes
@@ -103,7 +119,8 @@ Java, Deno, and Bun, watched out of the box, and release notes in English too.
 - The tests that drive the running app can now also be started on GitHub, by hand: the runner
   handles them, in about 10 minutes. They still do not run on every push. (T13-03)
 
-[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.3...HEAD
+[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.4...HEAD
+[1.10.4]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.4
 [1.10.3]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.3
 [1.10.2]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.2
 [1.10.1]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.1

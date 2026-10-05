@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowDownIcon,
@@ -24,10 +24,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+
+/**
+ * La columna de Kill cuando la tabla hace scroll horizontal (T14-17): pegada a la derecha, con
+ * fondo propio —si no, las columnas que pasan por debajo se verían a través— y una línea que la
+ * separa. Solo por debajo de 572 px de cuerpo, que es cuando puede haber scroll; por encima la
+ * celda se queda como estaba, con el fondo de su fila.
+ */
+const KILL_PEGADO =
+  "@max-[571px]:sticky @max-[571px]:right-0 @max-[571px]:bg-background @max-[571px]:px-3 @max-[571px]:shadow-[inset_1px_0_0_var(--color-border)]";
 
 /**
  * Un núcleo, en porcentaje del equipo: el suelo de la escala de la barra de CPU (ver `maxCpu`).
@@ -56,7 +67,27 @@ type ProcessTableProps = {
    * abierto. El orden lo aplica App, que es quien ordena; ver `freezeOrder`.
    */
   onFreezeChange: (congelar: boolean) => void;
+  /**
+   * Adónde va el foco cuando un cierre deja la tabla sin filas: al buscador (T14-13). Lo pone
+   * `App`, que es quien lo tiene; con la tabla desmontada ya no hay fila a la que llevarlo.
+   */
+  onSinFilas?: () => void;
 };
+
+/**
+ * Si el foco se ha quedado sin dueño: en `body`, en un elemento que ya no está o en uno apagado.
+ *
+ * Es lo que pasa cuando sale la fila que lo tenía. Solo entonces se mueve: si el usuario ya lo
+ * llevó a otro sitio mientras el proceso se cerraba, ahí se queda.
+ */
+function focoPerdido(): boolean {
+  const activo = document.activeElement;
+  if (!activo || activo === document.body) return true;
+  if (!activo.isConnected) return true;
+  if (activo instanceof HTMLButtonElement && activo.disabled) return true;
+  // La fila que sale sigue pintada mientras dura su animación, con el foco dentro.
+  return activo.closest("tr[data-saliendo]") !== null;
+}
 
 export function ProcessTable({
   processes,
@@ -70,8 +101,79 @@ export function ProcessTable({
   onCopy,
   onProtect,
   onFreezeChange,
+  onSinFilas,
 }: ProcessTableProps) {
   const t = useT();
+  const tablaRef = useRef<HTMLTableElement>(null);
+
+  /**
+   * Devolver el foco tras un cierre (T14-13).
+   *
+   * Medido: con el foco en un Kill e Intro, la fila salía en 558 ms y el foco quedaba en `body`;
+   * volver a la primera fila eran más de veinte tabuladores. Ahora va al Kill de la fila que ocupa
+   * el sitio de la que salió —o al de la anterior, si era la última—; tras un lote, a la casilla
+   * de la primera que quede; y sin filas, al buscador.
+   *
+   * **Solo tras un cierre pedido desde la ventana**, que es lo único que llena `killing`: uno de
+   * la bandeja, del atajo global o del Auto-Kill no pasa por aquí y no mueve nada. Y solo si el
+   * foco se ha perdido de verdad (`focoPerdido`).
+   */
+  const cierre = useRef<{ pids: number[]; indice: number; lote: boolean } | null>(null);
+  const sinFilas = useRef(onSinFilas);
+  useEffect(() => {
+    sinFilas.current = onSinFilas;
+  });
+
+  useEffect(() => {
+    if (killing.size === 0) return;
+    const pids = [...killing];
+    cierre.current = {
+      pids,
+      indice: Math.max(0, processes.findIndex((p) => killing.has(p.pid))),
+      lote: pids.length > 1,
+    };
+    // Solo al empezar un cierre: `processes` cambia con cada refresco y no es el disparador.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [killing]);
+
+  useEffect(() => {
+    const pendiente = cierre.current;
+    if (!pendiente || killing.size > 0) return;
+    // Mientras alguno siga en la lista, o no se ha cerrado todavía o el cierre falló: se espera.
+    if (pendiente.pids.some((pid) => processes.some((p) => p.pid === pid))) return;
+    cierre.current = null;
+    if (processes.length === 0) return;
+
+    const destino = processes[Math.min(pendiente.indice, processes.length - 1)];
+    const primero = processes[0];
+    // Un momento después: el diálogo de un lote devuelve el foco a su botón al cerrarse, y ese
+    // botón desaparece con la selección. Mirar antes sería ver un foco que aún no se ha perdido.
+    const espera = window.setTimeout(() => {
+      if (!focoPerdido()) return;
+      const fila = (pid: number) => tablaRef.current?.querySelector(`tr[data-pid="${pid}"]`);
+      const casilla = (pid: number) => fila(pid)?.querySelector<HTMLElement>('[role="checkbox"]');
+      if (pendiente.lote) {
+        casilla(primero.pid)?.focus();
+        return;
+      }
+      const kill = fila(destino.pid)?.querySelector<HTMLButtonElement>("button[data-kill]");
+      // Una fila protegida tiene el Kill apagado: ahí el foco va a su casilla.
+      (kill && !kill.disabled ? kill : casilla(destino.pid))?.focus();
+    }, 250);
+    return () => window.clearTimeout(espera);
+  }, [processes, killing]);
+
+  // Sin filas la tabla se desmonta —`App` pinta el estado vacío—, y el efecto de arriba ya no
+  // corre: el foco se lleva al buscador desde aquí, al salir.
+  useEffect(
+    () => () => {
+      if (!cierre.current) return;
+      window.setTimeout(() => {
+        if (focoPerdido()) sinFilas.current?.();
+      }, 250);
+    },
+    [],
+  );
 
   // Dos motivos para congelar, por separado: al pasar al menú —que va en un portal, fuera de la
   // tabla— el puntero sale del `<tbody>`, y el orden tiene que seguir quieto mientras el menú viva.
@@ -96,10 +198,18 @@ export function ProcessTable({
     processes.length > 0 && processes.every((p) => selected.has(p.pid));
 
   return (
-    // `min-w-155` (620 px): las columnas fijas suman 520, y con zoom (Tier 11, E; Ctrl y +) el hueco
-    // de la tabla baja de eso. Sin mínimo, `table-fixed` le quitaba el sitio al nombre —0 px al 125 %
-    // en la ventana mínima, medido—, que es lo que identifica la fila. Con él, scroll horizontal.
-    <table className="w-full min-w-155 table-fixed text-sm">
+    // Con zoom (Ctrl y +) el hueco de la tabla baja de lo que piden sus columnas fijas, 520 px, y
+    // sin mínimo `table-fixed` le quitaba el sitio al nombre —0 px al 125 % en la ventana mínima,
+    // medido—, que es lo que identifica la fila. El Tier 11 (E) lo resolvió con un ancho mínimo de
+    // 620 px y scroll horizontal, y lo que quedaba detrás del scroll era Kill: la acción para la
+    // que se abre la app (T14-17).
+    //
+    // **Ahora, antes de recortar el nombre o esconder Kill, se van las columnas secundarias**,
+    // según el ancho del cuerpo de la vista (`@container`, en `App.tsx`): por debajo de 660 px,
+    // «Activo»; por debajo de 572, también «PID». Los dos siguen en el menú de la fila. Con las dos
+    // fuera las fijas suman 368, y el mínimo son esas más 100 para el nombre: si ni así cabe —el
+    // 150 % y el 200 %—, hay scroll horizontal y **Kill se queda pegado a la derecha**.
+    <table ref={tablaRef} className="w-full min-w-117 table-fixed text-sm">
       {/* Sin esto la tabla se anuncia como "tabla, 8 columnas" y nada mas. `sr-only` porque el
           titulo ya esta a la vista en la cabecera: es informacion que le falta al lector de
           pantalla, no a la ventana. */}
@@ -121,10 +231,10 @@ export function ProcessTable({
         <col className="w-9" />
         <col />
         <col className="w-23" />
-        <col className="w-16" />
+        <col className="w-16 @max-[571px]:hidden" />
         <col className="w-19" />
         <col className="w-22" />
-        <col className="w-22" />
+        <col className="w-22 @max-[659px]:hidden" />
         <col className="w-19" />
       </colgroup>
       <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
@@ -141,7 +251,14 @@ export function ProcessTable({
           </th>
           <SortableHeader sortKey="name" sort={sort} onSort={onSort} t={t} junto />
           <SortableHeader sortKey="port" sort={sort} onSort={onSort} t={t} />
-          <SortableHeader sortKey="pid" sort={sort} onSort={onSort} t={t} align="right" />
+          <SortableHeader
+            sortKey="pid"
+            sort={sort}
+            onSort={onSort}
+            t={t}
+            align="right"
+            className="@max-[571px]:hidden"
+          />
           <SortableHeader sortKey="cpu" sort={sort} onSort={onSort} t={t} align="right" />
           <SortableHeader
             sortKey="memoryMb"
@@ -156,8 +273,9 @@ export function ProcessTable({
             onSort={onSort}
             t={t}
             align="right"
+            className="@max-[659px]:hidden"
           />
-          <th scope="col" className="px-5 py-2">
+          <th scope="col" className={`px-5 py-2 ${KILL_PEGADO}`}>
             <span className="sr-only">{t.tabla.acciones}</span>
           </th>
         </tr>
@@ -209,6 +327,9 @@ export function ProcessTable({
                       // la casilla sola, de 16 px en el borde, no se veía qué filas iban a caer.
                       // `group/fila` es para el Kill, que se tiñe con la fila (D5).
                       data-selected={seleccionada ? "" : undefined}
+                      data-pid={p.pid}
+                      // Para `focoPerdido`: Motion deja la fila pintada mientras sale.
+                      data-saliendo={isKilling ? "" : undefined}
                       className={`group/fila border-t border-border data-popup-open:bg-muted/60 ${
                         seleccionada
                           ? "bg-muted hover:bg-muted"
@@ -274,27 +395,43 @@ export function ProcessTable({
                     </span>
                   </td>
 
-                  <td className="px-3 py-2">
+                  {/* `pr-1` y no `px-3`: la columna mide 92 px, y el primer puerto con su «+12»
+                      pide 76. El encabezado sigue alineado por la izquierda. */}
+                  <td className="py-2 pr-1 pl-3">
                     {p.ports.length === 0 ? (
                       // Sin el /50: al 50 % de opacidad el guion se queda en ~2:1 de
                       // contraste, por debajo del minimo. Es poca informacion, pero
                       // es informacion.
                       <span className="text-xs text-muted-foreground">—</span>
                     ) : (
-                      <span className="flex flex-wrap gap-1">
-                        {p.ports.map((port) => (
-                          <span
-                            key={port}
-                            className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums"
-                          >
-                            {port}
-                          </span>
-                        ))}
+                      // **Una sola línea** (T14-06): el primer puerto y cuántos más hay. Con una
+                      // etiqueta por puerto cabía una por línea, y un proceso con seis medía
+                      // 156,7 px de alto frente a 52,4: una fila se llevaba el sitio de tres. La
+                      // lista entera queda en el `title`, en «Copiar puertos» del menú y, para el
+                      // lector de pantalla, en el texto oculto. El buscador mira todos.
+                      <span
+                        className="flex items-center gap-0.5"
+                        title={p.ports.length > 1 ? t.tabla.todosLosPuertos(p.ports) : undefined}
+                      >
+                        <span className="rounded bg-muted px-1 py-0.5 font-mono text-xs font-semibold tabular-nums">
+                          {p.ports[0]}
+                        </span>
+                        {p.ports.length > 1 && (
+                          <>
+                            <span
+                              aria-hidden
+                              className="rounded px-1 py-0.5 font-mono text-xs text-muted-foreground tabular-nums"
+                            >
+                              +{p.ports.length - 1}
+                            </span>
+                            <span className="sr-only">, {p.ports.slice(1).join(", ")}</span>
+                          </>
+                        )}
                       </span>
                     )}
                   </td>
 
-                  <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                  <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground @max-[571px]:hidden">
                     {p.pid}
                   </td>
 
@@ -319,11 +456,11 @@ export function ProcessTable({
                     />
                   </td>
 
-                  <td className="px-3 py-2 text-right text-muted-foreground tabular-nums">
+                  <td className="px-3 py-2 text-right text-muted-foreground tabular-nums @max-[659px]:hidden">
                     {formatUptime(p.runTimeSecs)}
                   </td>
 
-                  <td className="px-5 py-2 text-right">
+                  <td className={`px-5 py-2 text-right ${KILL_PEGADO}`}>
                     {/* Neutro, y rojo solo con la fila bajo el puntero o con el foco dentro (Tier 11,
                         D5). Un botón rojo por fila eran veinte manchas rojas compitiendo con los
                         puertos, que son lo que se viene a mirar; el rojo lleno queda para Nuke All.
@@ -345,6 +482,7 @@ export function ProcessTable({
                       // se nombraba bien; para el boton que cierra un proceso es
                       // justo la etiqueta que no se puede fallar.
                       aria-label={t.tabla.killLabel(p.name, p.pid)}
+                      data-kill
                     >
                       {t.tabla.kill}
                     </Button>
@@ -355,6 +493,12 @@ export function ProcessTable({
                     abierto por teclado, la primera flecha caía en «Matar proceso», que cierra sin
                     diálogo, y con el ratón era la entrada que quedaba justo bajo el cursor. */}
                 <ContextMenuContent>
+                  {/* El PID y el tiempo activo, que con zoom se quedan sin columna (T14-17). */}
+                  <ContextMenuGroup>
+                    <ContextMenuLabel>
+                      {t.tabla.ficha(p.pid, formatUptime(p.runTimeSecs))}
+                    </ContextMenuLabel>
+                  </ContextMenuGroup>
                   <ContextMenuItem
                     onClick={() => onCopy(String(p.pid), `PID ${p.pid}`)}
                   >
@@ -435,6 +579,7 @@ function SortableHeader({
   t,
   align = "left",
   junto,
+  className = "",
 }: {
   sortKey: SortKey;
   sort: Sort;
@@ -452,6 +597,8 @@ function SortableHeader({
    * queda donde estaba y el botón empieza 8 px más allá, fuera del círculo.
    */
   junto?: boolean;
+  /** Para las columnas que se esconden cuando no caben (T14-17). */
+  className?: string;
 }) {
   const activa = sort.key === sortKey;
   const ascendente = sort.dir === "asc";
@@ -463,7 +610,7 @@ function SortableHeader({
       aria-sort={activa ? (ascendente ? "ascending" : "descending") : "none"}
       className={`py-0 font-medium ${align === "right" ? "text-right" : "text-left"} ${
         junto ? "pl-2" : ""
-      }`}
+      } ${className}`}
     >
       <button
         type="button"

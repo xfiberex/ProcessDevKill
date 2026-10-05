@@ -249,6 +249,13 @@ export const es = {
     /** Lo que se nombra en el toast «Copiado: …» al copiar los puertos de una fila. */
     quePuertos: (lista: number[]): string =>
       lista.length === 1 ? `puerto ${lista[0]}` : `puertos ${puertos(lista)}`,
+    /** El `title` de la celda de puertos cuando hay más de los que se ven (T14-06). */
+    todosLosPuertos: (lista: number[]) => `Puertos ${puertos(lista)}`,
+    /**
+     * La primera línea del menú de una fila (T14-17): el PID y el tiempo activo, que con zoom
+     * dejan de tener columna.
+     */
+    ficha: (pid: number, activo: string) => `PID ${pid} · activo ${activo}`,
   },
 
   servicios: {
@@ -765,6 +772,8 @@ export const en: Catalogo = {
     copiarNombre: "Copy name",
     copiarPuertos: (n) => (n === 1 ? "Copy port" : "Copy ports"),
     copiarUrl: (url) => `Copy ${url}`,
+    todosLosPuertos: (lista) => `Ports ${puertos(lista)}`,
+    ficha: (pid, activo) => `PID ${pid} · up ${activo}`,
     quePuertos: (lista) =>
       lista.length === 1 ? `port ${lista[0]}` : `ports ${puertos(lista)}`,
   },

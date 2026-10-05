@@ -328,7 +328,8 @@ export default function App() {
               // selección y los avisos, que abajo a la derecha caen **sobre la columna Kill**
               // (medido: 356×54 px a 24 del borde)— tapaba la última fila, y sin ese hueco no
               // había forma de subirla por encima.
-              <ViewBody className="pb-20">
+              // `@container`: la tabla decide qué columnas caben por el ancho de este cuerpo.
+              <ViewBody className="@container pb-20">
               {lista.ordenados.length === 0 ? (
                 <EmptyState
                   sinProcesos={lista.processes.length === 0}
@@ -348,6 +349,7 @@ export default function App() {
                   onCopy={copyToClipboard}
                   onProtect={protegerFila}
                   onFreezeChange={lista.alCongelar}
+                  onSinFilas={() => buscadorRef.current?.focus()}
                 />
               )}
               </ViewBody>

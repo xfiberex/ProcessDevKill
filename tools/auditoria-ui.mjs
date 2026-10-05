@@ -788,7 +788,7 @@ async function faseContraste(cdp, propios) {
 
 const colorDe = (h) => (h ? [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)) : null);
 
-async function faseMedidas(cdp) {
+async function faseMedidas(cdp, propios) {
   // axe, donde lo pasó la auditoría: las cuatro vistas, los dos temas y los dos idiomas.
   await ventana(cdp, FABRICA);
   const axe = {};
@@ -836,8 +836,40 @@ async function faseMedidas(cdp) {
     resumen.push(
       `medidas (${nombre}): Procesos, filas de ${p.filas.altos.join(" y ")} px, ${p.filas.enLaVentana} a la vista; ` +
         `columna «${p.columnas[1]?.nombre ?? "?"}» de ${p.columnas[1]?.ancho ?? "?"} px` +
-        (p.fueraPorLaDerecha.length > 0 ? `; fuera por la derecha: ${p.fueraPorLaDerecha.slice(0, 3).join(", ")}` : ""),
+        `; columnas: ${p.columnas.map((c) => c.nombre).filter(Boolean).join(" · ")}` +
+        `; scroll horizontal: ${p.scroll.some((s) => s.pide[0] > s.ve[0] + 1) ? "sí" : "no"}` +
+        (p.fueraPorLaDerecha.length > 0 ? `; fuera por la derecha: ${p.fueraPorLaDerecha.slice(0, 3).join(", ")}` : "") +
+        (pagina.axe ? `; axe al 200 %: ${pagina.axe.procesos.violaciones.map((v) => v.regla).join(", ") || "sin violaciones"}` : ""),
     );
+  }
+
+  // T14-06: el proceso de seis puertos se encuentra por el último, y su fila mide como las demás.
+  await ventana(cdp, FABRICA);
+  await irA(cdp, "procesos");
+  const seis = propios.find((p) => p.puertos?.length === 6);
+  if (seis) {
+    await buscar(cdp, String(seis.puertos[5]));
+    await dormir(400);
+    const hallado = await cdp.js(`(() => {
+      const filas = [...document.querySelectorAll("main tbody tr[data-pid]")];
+      const suya = filas.find((f) => Number(f.dataset.pid) === ${seis.pid});
+      const celda = suya?.children[2];
+      return {
+        filas: filas.length,
+        suya: Boolean(suya),
+        alto: suya ? Math.round(suya.getBoundingClientRect().height * 10) / 10 : null,
+        aLaVista: celda ? [...celda.querySelectorAll("span:not(.sr-only)")].filter((e) => e.children.length === 0).map((e) => e.textContent) : [],
+        paraElLector: celda?.textContent ?? null,
+        titulo: celda?.querySelector("[title]")?.title ?? null,
+      };
+    })()`);
+    await capturar(cdp, "puertos-seis-buscado-por-el-sexto");
+    medir("puertos-seis", hallado);
+    resumen.push(
+      `medidas (seis puertos): buscando el sexto (${seis.puertos[5]}) ${hallado.suya ? "sale su fila" : "NO SALE SU FILA"}, ` +
+        `de ${hallado.alto} px; a la vista «${hallado.aLaVista.join(" ")}»; para el lector «${hallado.paraElLector}»`,
+    );
+    await buscar(cdp, "");
   }
 
   // T14-16: los siete filtros a la vista, en la ventana de fábrica y en la mínima.

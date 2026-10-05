@@ -933,6 +933,117 @@ async function avisosDeError(cdp) {
   });
 }
 
+/**
+ * T14-13: adónde va el foco cuando sale la fila que lo tenía, con Intro de verdad.
+ *
+ * Cuatro servidores del guion y el buscador puesto en su carpeta común, para que en la tabla solo
+ * haya filas suyas: es lo que deja pulsar Kill y confirmar un lote sin poder tocar nada más. Antes
+ * de cada Intro se mira que el foco está donde se cree; `teclasReales` mira además que la ventana
+ * de delante es la de la copia.
+ */
+async function focoTrasCierre(cdp, app) {
+  const COMUN = "pdk-envivo-foco";
+  const activo = () =>
+    cdp.js(`(() => {
+      const a = document.activeElement;
+      if (!a || a === document.body) return "body";
+      return a.getAttribute("aria-label") || a.textContent.trim().slice(0, 40) || a.tagName;
+    })()`);
+  const filas = () =>
+    cdp.js(`[...document.querySelectorAll("main tbody tr[data-pid]")].map((f) => Number(f.dataset.pid))`);
+  const intro = () => {
+    const r = teclasReales(app, [TECLA.INTRO]);
+    if (!r.ok) throw new Omitido(r.motivo);
+  };
+
+  await paso("Tras un Kill o un lote con el teclado, el foco no se pierde; un cierre desde fuera no lo mueve", async () => {
+    const servidores = [];
+    for (const letra of ["a", "b", "c", "d"]) servidores.push(await lanzarServidor(`${COMUN}-${letra}`));
+    const propios = servidores.map((s) => s.pid);
+    try {
+      await irAProcesosConFiltros(cdp);
+      await cdp.js(`(() => {
+        const campo = document.querySelector("main header input");
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(campo, ${JSON.stringify(COMUN)});
+        campo.dispatchEvent(new Event("input", { bubbles: true }));
+      })()`);
+      const solas = await esperar(async () => {
+        const vistas = await filas();
+        return vistas.length === 4 && vistas.every((pid) => propios.includes(pid)) && vistas;
+      });
+      exigir(solas, `con la búsqueda puesta la tabla no enseña solo las cuatro filas del guion: ${await filas()}`);
+      // El puntero fuera de la tabla: encima congela el orden, y aquí importa cuál es la siguiente.
+      await cdp.enviar("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: 1 });
+
+      // 1. Intro en el Kill de la primera fila: el foco pasa al Kill de la que ocupa su sitio.
+      const [primera, segunda] = solas;
+      await cdp.js(`document.querySelector('tr[data-pid="${primera}"] button[data-kill]').focus()`);
+      exigir((await activo()).endsWith(`PID ${primera}`), `el foco no está en el Kill del guion: ${await activo()}`);
+      intro();
+      exigir(await esperar(async () => !(await filas()).includes(primera)), "Intro sobre Kill no cerró el proceso");
+      const trasKill = await esperar(async () => {
+        const a = await activo();
+        return a !== "body" && !a.endsWith(`PID ${primera}`) && a;
+      }, { ms: 4_000 });
+      exigir(trasKill, `tras el Kill el foco quedó en «${await activo()}»`);
+      exigir(trasKill === `Kill node.exe, PID ${segunda}`, `el foco fue a «${trasKill}», no al Kill de la fila siguiente (${segunda})`);
+
+      // 2. Un lote de dos, confirmado con Intro: el foco va a la casilla de la fila que queda.
+      const quedan = await filas();
+      exigir(quedan.length === 3 && quedan.every((pid) => propios.includes(pid)), `filas inesperadas: ${quedan}`);
+      const [uno, dos, ultima] = quedan;
+      for (const pid of [uno, dos]) await cdp.js(`document.querySelector('[aria-label="Seleccionar PID ${pid}"]').click()`);
+      await cdp.js(`document.querySelector('[aria-label="Cerrar los 2 procesos seleccionados"]').click()`);
+      const dialogo = await esperar(() =>
+        cdp.js(`(() => {
+          const d = document.querySelector('[role="alertdialog"]');
+          return d ? { texto: d.textContent, foco: document.activeElement?.textContent.trim() } : null;
+        })()`),
+      );
+      exigir(dialogo, "«Cerrar» no abrió el diálogo de confirmación del lote");
+      exigir(/\b2\b/.test(dialogo.texto), `el diálogo no habla de 2 procesos: ${dialogo.texto.slice(0, 120)}`);
+      exigir(dialogo.foco && dialogo.foco !== "Cancelar", `el foco del diálogo está en «${dialogo.foco}»`);
+      intro();
+      exigir(
+        await esperar(async () => {
+          const vistas = await filas();
+          return vistas.length === 1 && vistas[0] === ultima;
+        }),
+        `tras confirmar el lote quedan ${await filas()}`,
+      );
+      const trasLote = await esperar(async () => {
+        const a = await activo();
+        return a.startsWith("Seleccionar PID") && a;
+      }, { ms: 4_000 });
+      exigir(trasLote === `Seleccionar PID ${ultima}`, `tras el lote el foco quedó en «${await activo()}»`);
+
+      // 3. El criterio negativo: la última se cierra desde fuera, y el foco no se mueve de donde está.
+      servidores.find((s) => s.pid === ultima).hijo.kill();
+      exigir(await esperar(async () => (await filas()).length === 0), "la fila cerrada desde fuera sigue en la tabla");
+      await dormir(600);
+      const trasFuera = await activo();
+      exigir(
+        !/buscar/i.test(trasFuera),
+        `un cierre desde fuera de la ventana movió el foco al buscador: «${trasFuera}»`,
+      );
+      return `Kill → «${trasKill}»; lote → «${trasLote}»; desde fuera, el foco sigue en «${trasFuera}»`;
+    } finally {
+      for (const s of servidores) s.hijo.kill();
+      await cdp
+        .js(`(() => {
+          [...(document.querySelector('[role="alertdialog"]')?.querySelectorAll("button") ?? [])]
+            .find((b) => b.textContent.trim() === "Cancelar")?.click();
+          const campo = document.querySelector("main header input");
+          if (campo) {
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(campo, "");
+            campo.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        })()`)
+        .catch(() => {});
+    }
+  });
+}
+
 async function actualizador(cdp) {
   let nueva = null;
 
@@ -1168,6 +1279,7 @@ async function main() {
     await filtrosDelSidebar(cdp);
     await ventanaDeEscritorio(cdp, app);
     await avisosDeError(cdp);
+    await focoTrasCierre(cdp, app);
     await consultaDelArranque(cdp);
     await actualizador(cdp);
 
