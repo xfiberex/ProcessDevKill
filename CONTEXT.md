@@ -39,11 +39,11 @@
 
 ## 3. Estado actual
 
-**Publicada: la v1.10.3** (2026-10-05). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
+**Publicada: la v1.10.4** (2026-10-05). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
 lo que está en `main` sin publicar, en su sección «Sin publicar». Cada release se comprueba igual
 tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `tag_name` correcto y
 **el instalador descargado coincide con su `.sha256`**, que es la cadena entera que recorre la
-auto-actualización. Para la v1.10.3, `2c3b7c98…`. Desde T12-24 lo hace el propio `release.ps1` al
+auto-actualización. Para la v1.10.4, `eedbe7f6…`. Desde T12-24 lo hace el propio `release.ps1` al
 terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
 existe.
 
