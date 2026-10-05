@@ -769,8 +769,17 @@ async function ventanaDeEscritorio(cdp, app) {
     await irA("Procesos");
     const buscador = await centroDe(`document.querySelector("main header input")`);
     exigir(buscador, "la cabecera de Procesos no tiene buscador");
-    await clicDerecho(buscador);
-    const menu = await nuevas(antes);
+    // Se le da tiempo y un segundo intento: es una ventana que abre el navegador, y con el equipo
+    // cargado —el corte acaba de compilar— ha tardado más que los 700 ms de `nuevas` (visto el
+    // 2026-10-05: un fallo en cinco pasadas, sin que nada hubiera cambiado).
+    let menu = [];
+    for (let intento = 0; intento < 2 && menu.length === 0; intento++) {
+      await clicDerecho(buscador);
+      menu = (await esperar(async () => {
+        const salidas = await nuevas(antes);
+        return salidas.length > 0 && salidas;
+      }, { ms: 5_000 })) || [];
+    }
     const cerrado = menu.length === 0 || (await cerrarMenu(antes));
     exigir(
       menu.length > 0,
