@@ -39,18 +39,18 @@
 
 ## 3. Estado actual
 
-**Publicada: la v1.10.1** (2026-10-03). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
+**Publicada: la v1.10.2** (2026-10-05). Lo que trajo cada versión, en el [CHANGELOG](CHANGELOG.md);
 lo que está en `main` sin publicar, en su sección «Sin publicar». Cada release se comprueba igual
 tras publicarlo: los 4 assets están, la API que consulta la app devuelve el `tag_name` correcto y
 **el instalador descargado coincide con su `.sha256`**, que es la cadena entera que recorre la
-auto-actualización. Para la v1.10.1, `e4f89dba…`. Desde T12-24 lo hace el propio `release.ps1` al
+auto-actualización. Para la v1.10.2, `f8cdb42e…`. Desde T12-24 lo hace el propio `release.ps1` al
 terminar el corte —la v1.8.2 fue la primera—, y `-VerifyOnly` lo repite sobre un release que ya
 existe.
 
 **Abierto: el [Tier 14 — Auditoría de diseño UI/UX](ROADMAP.md)**, desde el 2026-10-03: 30 tareas
 en ocho fases, una de severidad alta, trece medias y dieciséis bajas. **Hechas 3 a 2026-10-05**: el
 guion que repite las medidas (T14-01) y los temas de contraste (T14-22, la única alta, y T14-23),
-en `main` sin publicar. Sale de
+publicados en la v1.10.2. Sale de
 una auditoría con la app en marcha —186 capturas y 26 archivos de medidas— que miró lo que el
 Tier 11 no había mirado: el marco de la ventana, los tamaños fuera del de fábrica, el zoom por
 encima del 125 %, los temas de contraste de Windows y adónde va el foco. **Es una sola pasada, sin
