@@ -760,8 +760,8 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
 
 ### Lo que queda suelto
 
-Cosas que los Tiers 12 y 13 dejaron dichas y sin hacer. No son del Tier 14: son lo que quedó de
-antes, y siguen aquí hasta que alguien las haga o las descarte.
+Cosas que los Tiers 12 y 13 dejaron dichas y sin hacer, y lo que ha ido saliendo de la CI y de
+Dependabot después. No son del Tier 14, y siguen aquí hasta que alguien las haga o las descarte.
 
 - **La revisión legal de `THIRD-PARTY-NOTICES.txt` no se ha hecho** (T12-30). El archivo
   reproduce lo que se podía reproducir y dice lo que no. Por dónde empezaría: el cargador de
@@ -775,14 +775,24 @@ antes, y siguen aquí hasta que alguien las haga o las descarte.
   CI en verde. La alerta de `glib` (#36) se descartó el 2026-10-03 como «código que no se usa»:
   es un crate de Linux, no va en el binario de Windows, y su arreglo (0.20.0) no lo admite el
   `gtk` 0.18 que trae Tauri. `cargo audit` la sigue enseñando como aviso. Se vuelve a mirar en la
-  próxima auditoría, o antes si la app saliera para Linux.
+  próxima auditoría, o antes si la app saliera para Linux. El 2026-10-26 se fusionaron otros
+  siete (#8 a #14), tras un rebase para que recogieran el `Cargo.lock` arreglado. **Cuando
+  Dependabot falla en «Dependabot Updates» sin abrir PR**, suele ser una dependencia transitiva
+  que su padre fija a versión exacta: pasó con `@vitest/mocker`, que solo se arregló subiendo
+  `vitest`.
 - **El inglés no lo ha leído un hablante nativo** (T12-35), y desde la v1.10.0 hay más: las
   notas de cada versión, en `CHANGELOG.en.md` (T13-04).
-- **Seis avisos altos en las dependencias de desarrollo, todos el mismo** (T13-02): `braces`
-  ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)) no tiene versión
-  arreglada, y llega por `shadcn`. No viaja en el instalador y solo corre cuando quien desarrolla
-  lanza el CLI de `shadcn`. Se quita cuando `braces` publique el arreglo; hasta entonces sale
-  en el resumen de cada ejecución de la CI.
+- **Un aviso alto en las dependencias de desarrollo: `zod` 3.25.76**
+  ([GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)), que llega por
+  `shadcn` y por `eslint-plugin-react-hooks`. El arreglo (`zod` ≥ 4.6.6) pide `shadcn` 4.22, que
+  rompe compatibilidad con el 3.8 que usamos: subirlo es una tarea, no un `npm audit fix`, y hay
+  que mirar antes qué cambia en `shadcn add` y en los dos retoques obligatorios (Tier 11, B1). No
+  viaja en el instalador y solo corre con el CLI de `shadcn` o con ESLint. El de `braces` que
+  había aquí (T13-02) ya no lo da `npm audit` a 2026-10-26.
+- **Las acciones de la CI corren en Node 20, que GitHub da por obsoleto.** `actions/checkout` y
+  `actions/setup-node` están fijadas a la v4.4.0 y el runner las fuerza a Node 24 con un aviso;
+  por ahora no falla. Se suben a una versión con Node 24, fijadas por SHA con la versión en un
+  comentario (T12-26), en `ci.yml` y en `en-marcha.yml`, y se pasa la CI.
 - **Las pruebas con la app en marcha siguen fuera de la CI de cada push** (T13-03). El runner
   las aguanta, en unos 10 minutos, y se pueden lanzar a mano con `gh workflow run
   en-marcha.yml`. Falta decidir si compensa pasarlas a cada push. Y un camino del guion no ha
