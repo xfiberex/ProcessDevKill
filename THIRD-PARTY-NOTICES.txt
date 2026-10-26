@@ -69,7 +69,7 @@ ALCANCE HONESTO
     Herramientas de compilación cuyo CSS sí se distribuye dentro de la app,
     aunque ellas no viajen en el instalador:
 
-    shadcn       3.8.3  MIT
+    shadcn       3.8.5  MIT
     tailwindcss  4.3.3  MIT
 
     La tipografía Geist (@fontsource-variable/geist) va embebida en la app. Su
@@ -12496,7 +12496,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ===============================================================================
-Lo trae shadcn 3.8.3 (LICENSE.md)
+Lo trae shadcn 3.8.5 (LICENSE.md)
 ===============================================================================
 
 MIT License
