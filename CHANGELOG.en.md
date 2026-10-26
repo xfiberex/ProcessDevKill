@@ -14,6 +14,11 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+### Security
+- The connection the app uses to check for and download updates now runs on a version of rustls
+  with the October fixes — among them, it no longer accepts intermediate certificates that had
+  been distrusted (RUSTSEC-2026-0346 to 0349, 0382, and 0383).
+
 ## [1.10.6] — 2026-10-05
 
 The process table, with the keyboard: arrow keys to move and Delete to close.

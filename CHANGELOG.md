@@ -16,6 +16,11 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+### Seguridad
+- La conexión con la que la app busca y descarga actualizaciones usa una versión de rustls con
+  los arreglos de octubre: entre ellos, que ya no da por buenos certificados intermedios que se
+  habían retirado de la confianza (RUSTSEC-2026-0346 a 0349, 0382 y 0383).
+
 ## [1.10.6] — 2026-10-05
 
 La tabla de procesos, con el teclado: flechas para moverse y Supr para cerrar.
