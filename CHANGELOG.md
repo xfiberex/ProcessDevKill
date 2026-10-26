@@ -16,6 +16,10 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.10.7] — 2026-10-26
+
+Arreglos de seguridad en la conexión del actualizador.
+
 ### Seguridad
 - La conexión con la que la app busca y descarga actualizaciones usa una versión de rustls con
   los arreglos de octubre: entre ellos, que ya no da por buenos certificados intermedios que se
@@ -549,7 +553,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.6...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.7...HEAD
+[1.10.7]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.7
 [1.10.6]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.6
 [1.10.5]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.5
 [1.10.4]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.4
