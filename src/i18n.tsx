@@ -173,6 +173,8 @@ export const es = {
     buscarLabel: "Buscar procesos",
     enLaLista: (n: number): string =>
       n === 1 ? "1 proceso en la lista" : `${n} procesos en la lista`,
+    /** El recuento a la vista, solo con la lista filtrada (T14-35). */
+    deTotal: (n: number, total: number) => `${n} de ${total}`,
     refrescar: "Refrescar",
     /** El `title` del Refrescar en icono, cuando la lista ya se refresca sola (Tier 11, E). */
     refrescarTitulo: (cada: string): string =>
@@ -748,6 +750,7 @@ export const en: Catalogo = {
     buscarPlaceholder: "Search by name, script, folder, PID, or port…",
     buscarLabel: "Search processes",
     enLaLista: (n) => (n === 1 ? "1 process listed" : `${n} processes listed`),
+    deTotal: (n, total) => `${n} of ${total}`,
     refrescar: "Refresh",
     refrescarTitulo: (cada) => `Refresh now. The list already refreshes on its own every ${cada}.`,
     borrarBusqueda: "Clear search",

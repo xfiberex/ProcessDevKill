@@ -1143,6 +1143,20 @@ describe("nombres accesibles de la cabecera", () => {
     expect(await screen.findByText("1 proceso en la lista")).toBeInTheDocument();
   });
 
+  /** T14-35: suelto, el número repetía el «Todos» del sidebar; filtrado, dice de cuántos. */
+  it("el recuento solo se ve con la lista filtrada, y como «N de total»", async () => {
+    const user = await montar();
+    // Lo visible es lo que va `aria-hidden`; la frase de al lado es para el lector.
+    const aLaVista = () =>
+      screen.getByText(/en la lista$/).closest("[aria-live]")!.querySelector("[aria-hidden]");
+
+    expect(aLaVista()).toBeNull();
+
+    await user.type(buscador(), "node");
+
+    expect(aLaVista()).toHaveTextContent("2 de 4");
+  });
+
   it("la tabla de procesos se anuncia con nombre", async () => {
     await montar();
 

@@ -34,8 +34,15 @@ export function UsageBar({ label, value, max, color, apagada = false }: UsageBar
         {label}
       </span>
       {/* Los `data-slot` son para `forced-colors` (ver `index.css`): con un tema de contraste de
-          Windows el carril y el relleno salen del mismo color, y la barra desaparece (T14-23). */}
-      <div data-slot="barra" className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          Windows el carril y el relleno salen del mismo color, y la barra desaparece (T14-23).
+
+          Apagada, el carril no se ve (T14-35): en reposo, dieciocho carriles vacíos bajo
+          dieciocho «0.0%» eran ruido. `invisible` y no quitarlo, para que la cifra no suba y baje
+          cada vez que la CPU cruza el umbral. */}
+      <div
+        data-slot="barra"
+        className={`h-1.5 w-full overflow-hidden rounded-full bg-muted ${apagada ? "invisible" : ""}`}
+      >
         <div
           data-slot="barra-relleno"
           className="h-full rounded-full transition-[width] duration-300"

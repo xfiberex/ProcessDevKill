@@ -26,6 +26,10 @@ are tasks from the [ROADMAP](ROADMAP.md).
 - **With the window maximized, the port stays next to its process**: the name column no longer
   stretches to the edge, and the space left over stays blank on the right. At 1920 px there were
   more than a thousand empty pixels between the two. (T14-19)
+- **A calmer Processes view at rest**: a process with no CPU shows its “0.0%” without the empty
+  bar underneath; the number next to the search box only appears when the list is filtered, and
+  says out of how many (“3 of 17”); and “Close process”, in the row menu, has a circled X instead of
+  a skull. (T14-35)
 
 ### Fixed
 - **With the keyboard, you can see which row of the table you are on**: it gets its outline and

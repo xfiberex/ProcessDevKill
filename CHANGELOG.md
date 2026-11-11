@@ -28,6 +28,10 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 - **Con la ventana maximizada, el puerto queda junto a su proceso**: la columna del nombre ya no
   se estira hasta el borde, y el sitio que sobra queda en blanco a la derecha. A 1920 px había más
   de mil píxeles vacíos entre los dos. (T14-19)
+- **La vista de Procesos, más tranquila en reposo**: un proceso sin CPU enseña su «0.0%» sin la
+  barra vacía debajo; el número junto al buscador solo sale con la lista filtrada, y dice de cuántos
+  («3 de 17»); y «Cerrar proceso», en el menú de la fila, lleva un círculo con una equis en vez de
+  una calavera. (T14-35)
 
 ### Corregido
 - **Con el teclado, la fila de la tabla en la que estás se ve**: lleva su contorno y se ilumina

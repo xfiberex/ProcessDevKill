@@ -23,6 +23,8 @@ type ProcessesHeaderProps = {
   onQueryChange: (query: string) => void;
   /** Cuántos procesos se ven, tras el filtro y la búsqueda. */
   visibles: number;
+  /** Cuántos hay sin filtrar: el «de 17» de «3 de 17». */
+  total: number;
   /** De los visibles, cuántos caerían con Nuke All: los protegidos no cuentan. */
   cerrables: number;
   /** Si lo que se ve es una parte de la lista. Cambia el rótulo de Nuke All. */
@@ -45,6 +47,7 @@ export function ProcessesHeader({
   query,
   onQueryChange,
   visibles,
+  total,
   cerrables,
   filtrada,
   haySeleccion,
@@ -129,12 +132,16 @@ export function ProcessesHeader({
           **La frase va en texto `sr-only`, no en un `aria-label`** (Tier 11, B6). Hasta
           entonces llevaba `aria-label` sobre un `<span>` sin rol, y eso no nombra nada:
           axe lo marcaba y los lectores lo ignoraban, así que se anunciaba «15» a secas. Se
-          lee la frase y el número visible queda oculto para no decirlo dos veces. */}
+          lee la frase y el número visible queda oculto para no decirlo dos veces.
+
+          **A la vista, solo con la lista filtrada, y como «3 de 17»** (T14-35). Suelto, el número
+          repetía el «Todos» del sidebar y no decía de qué era. Con un filtro o una búsqueda es
+          cuando dice algo que no está en otro sitio. La región viva sigue ahí siempre. */}
       <span
         className="shrink-0 text-sm text-muted-foreground tabular-nums"
         aria-live="polite"
       >
-        <span aria-hidden>{visibles}</span>
+        {filtrada && <span aria-hidden>{t.cabecera.deTotal(visibles, total)}</span>}
         <span className="sr-only">{t.cabecera.enLaLista(visibles)}</span>
       </span>
 

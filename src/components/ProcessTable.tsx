@@ -5,11 +5,11 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   ChevronsUpDownIcon,
+  CircleXIcon,
   CopyIcon,
   GhostIcon,
   LockIcon,
   LockOpenIcon,
-  SkullIcon,
 } from "lucide-react";
 import { RUNTIME_ICONS } from "../icons";
 import { RUNTIME_COLORS } from "../types";
@@ -647,7 +647,10 @@ export function ProcessTable({
                     disabled={p.protected}
                     onClick={() => onKill(p.pid)}
                   >
-                    <SkullIcon />
+                    {/* Un círculo con una equis y no la calavera de antes (T14-35): la calavera es
+                        la estética «hacker» que `DESIGN.md` rechaza, sobre la única entrada que ya
+                        va en rojo. */}
+                    <CircleXIcon />
                     {t.tabla.cerrarProceso}
                   </ContextMenuItem>
                 </ContextMenuContent>

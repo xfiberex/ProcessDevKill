@@ -287,6 +287,7 @@ export default function App() {
               query={lista.query}
               onQueryChange={lista.setQuery}
               visibles={visible.length}
+              total={lista.processes.length}
               cerrables={cerrablesVisibles.length}
               filtrada={lista.filtrada}
               haySeleccion={selectedVisible.length > 0}
