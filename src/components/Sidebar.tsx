@@ -354,14 +354,20 @@ function AvisoSinAdmin({
   const a = t.sidebar.sinAdmin;
 
   // **Dos botones en un recuadro, y no uno dentro de otro** (T14-28): el aviso entero lleva a
-  // Ajustes, y la equis lo aparta. Un `<button>` no puede contener otro. La equis va encima, en la
-  // esquina, y el texto le deja sitio con `pr-7`; mide 24 px, el mínimo de WCAG 2.5.8.
+  // Ajustes, y la equis lo aparta. Un `<button>` no puede contener otro. Mide 24 px, el mínimo de
+  // WCAG 2.5.8.
+  //
+  // **La equis va abajo a la derecha, no arriba.** Arriba había que quitarle 28 px al título, y con
+  // Geist «Sin modo administrador» partía en dos líneas: el aviso crecía y la lista de filtros
+  // volvía a hacer scroll en la ventana de fábrica (medido en las capturas). La última línea del
+  // detalle es corta en los dos idiomas. Sin detalle a la vista —en Ajustes, o con poca altura— no
+  // sale: el interruptor está en «Sistema», a un clic.
   return (
     <div className="relative px-2 pb-2 [@media(max-height:619px)]:hidden">
       <button
         type="button"
         onClick={onClick}
-        className="block w-full cursor-pointer rounded-lg border border-amber-500/40 bg-amber-500/10 py-1.5 pr-7 pl-2 text-left text-xs transition-colors hover:bg-amber-500/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="block w-full cursor-pointer rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-left text-xs transition-colors hover:bg-amber-500/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <span className="flex items-center gap-1.5 font-medium">
           <ShieldAlertIcon
@@ -377,16 +383,18 @@ function AvisoSinAdmin({
         </span>
         <span className="sr-only">{a.destino}</span>
       </button>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        onClick={onOcultar}
-        aria-label={a.ocultar}
-        title={a.ocultarTitulo}
-        className="absolute top-0.5 right-2.5 text-muted-foreground hover:bg-amber-500/15"
-      >
-        <XIcon />
-      </Button>
+      {!soloTitulo && (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={onOcultar}
+          aria-label={a.ocultar}
+          title={a.ocultarTitulo}
+          className="absolute right-2.5 bottom-2.5 text-muted-foreground hover:bg-amber-500/15 [@media(max-height:679px)]:hidden"
+        >
+          <XIcon />
+        </Button>
+      )}
     </div>
   );
 }
