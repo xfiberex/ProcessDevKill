@@ -223,6 +223,8 @@ export type Settings = {
   checkUpdatesOnStart: boolean;
   /** Enseñar siempre todos los filtros de runtime, tengan procesos o no. Apagado de fábrica. */
   showAllFilters: boolean;
+  /** El aviso de «sin modo administrador» del sidebar, apartado por el usuario (T14-28). */
+  hideAdminNotice: boolean;
 };
 
 /** Espejo de `MIN_AUTO_KILL_MB` en src-tauri/src/storage.rs. Rust lo impone; aqui

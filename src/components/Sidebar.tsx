@@ -6,6 +6,7 @@ import {
   ServerIcon,
   SettingsIcon,
   ShieldAlertIcon,
+  XIcon,
 } from "lucide-react";
 import { REFRESH_INTERVALS, RUNTIME_COLORS } from "../types";
 import type { ProcessInfo, Runtime, SystemUsage } from "../types";
@@ -67,6 +68,10 @@ type SidebarProps = {
   elevated: boolean | null;
   /** Lleva a la sección de Ajustes que explica el aviso y deja reiniciar elevada. */
   onVerAdmin: () => void;
+  /** El usuario apartó el aviso (T14-28): no sale aunque la app corra sin elevar. */
+  avisoAdminOculto?: boolean;
+  /** La equis del aviso: lo aparta y lo recuerda. */
+  onOcultarAvisoAdmin?: () => void;
   /** Hay una versión esperando en Ajustes: «Ajustes» lleva una marca mientras dure (T14-12). */
   hayVersionNueva?: boolean;
   /** La sección de Ajustes que se está viendo, y cómo cambiarla (T14-24). */
@@ -86,6 +91,8 @@ export function Sidebar({
   usage,
   elevated,
   onVerAdmin,
+  avisoAdminOculto = false,
+  onOcultarAvisoAdmin,
   hayVersionNueva = false,
   seccion,
   onSeccionChange,
@@ -263,8 +270,22 @@ export function Sidebar({
         {/* En Ajustes, solo el título: la explicación entera está a un clic, en «Sistema», y con
             sus dos líneas las seis secciones no cabían sin scroll en la ventana de fábrica
             (medido: «Acerca de» quedaba detrás). */}
-        {elevated === false && (
-          <AvisoSinAdmin onClick={onVerAdmin} soloTitulo={view === "settings"} />
+        {elevated === false && !avisoAdminOculto && (
+          <AvisoSinAdmin
+            onClick={onVerAdmin}
+            onOcultar={() => {
+              onOcultarAvisoAdmin?.();
+              // El foco estaba en la equis, que desaparece con el aviso (T14-13): lo siguiente en
+              // el orden de tabulación es el auto-refresco. Tras pintar, porque hasta entonces el
+              // aviso sigue ahí.
+              requestAnimationFrame(() =>
+                document
+                  .querySelector<HTMLElement>('aside [role="radiogroup"] [aria-checked="true"]')
+                  ?.focus(),
+              );
+            }}
+            soloTitulo={view === "settings"}
+          />
         )}
         <UsageMeter usage={usage} pausado={refreshMs === 0} />
       </div>
@@ -319,16 +340,27 @@ function rotuloDeSeccion(t: ReturnType<typeof useT>, seccion: SeccionDeAjustes):
  * (Tier 11, C3) y lo que no puede quedar fuera es el auto-refresco. El aviso sigue en Ajustes.
  * La primera versión, con el icono sangrando el texto, medía 116 px y hacía scroll a 680: medido.
  */
-function AvisoSinAdmin({ onClick, soloTitulo }: { onClick: () => void; soloTitulo: boolean }) {
+function AvisoSinAdmin({
+  onClick,
+  onOcultar,
+  soloTitulo,
+}: {
+  onClick: () => void;
+  onOcultar: () => void;
+  soloTitulo: boolean;
+}) {
   const t = useT();
   const a = t.sidebar.sinAdmin;
 
+  // **Dos botones en un recuadro, y no uno dentro de otro** (T14-28): el aviso entero lleva a
+  // Ajustes, y la equis lo aparta. Un `<button>` no puede contener otro. La equis va encima, en la
+  // esquina, y el texto le deja sitio con `pr-7`; mide 24 px, el mínimo de WCAG 2.5.8.
   return (
-    <div className="px-2 pb-2 [@media(max-height:619px)]:hidden">
+    <div className="relative px-2 pb-2 [@media(max-height:619px)]:hidden">
       <button
         type="button"
         onClick={onClick}
-        className="block w-full cursor-pointer rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-left text-xs transition-colors hover:bg-amber-500/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="block w-full cursor-pointer rounded-lg border border-amber-500/40 bg-amber-500/10 py-1.5 pr-7 pl-2 text-left text-xs transition-colors hover:bg-amber-500/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <span className="flex items-center gap-1.5 font-medium">
           <ShieldAlertIcon
@@ -344,6 +376,16 @@ function AvisoSinAdmin({ onClick, soloTitulo }: { onClick: () => void; soloTitul
         </span>
         <span className="sr-only">{a.destino}</span>
       </button>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        onClick={onOcultar}
+        aria-label={a.ocultar}
+        title={a.ocultarTitulo}
+        className="absolute top-0.5 right-2.5 text-muted-foreground hover:bg-amber-500/15"
+      >
+        <XIcon />
+      </Button>
     </div>
   );
 }

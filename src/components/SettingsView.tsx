@@ -600,6 +600,24 @@ export function SettingsView({
                   </span>
                 </label>
               </div>
+              {/* Encendido = el aviso sale (T14-28). Se guarda al revés, `hideAdminNotice`, para
+                  que un `settings.json` de antes —sin el campo— siga enseñándolo. */}
+              <div className="mt-3 flex items-start gap-3">
+                <Switch
+                  id="admin-notice"
+                  checked={!settings.hideAdminNotice}
+                  onCheckedChange={(checked) =>
+                    onChange({ ...settings, hideAdminNotice: !checked })
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor="admin-notice" className="cursor-pointer text-sm">
+                  <span>{t.ajustes.administrador.avisoInterruptor}</span>
+                  <span className="mt-1 block text-muted-foreground">
+                    <Marcado texto={t.ajustes.administrador.avisoDetalle} />
+                  </span>
+                </label>
+              </div>
             </section>
           </Grupo>
           )}

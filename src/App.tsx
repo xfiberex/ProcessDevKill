@@ -271,6 +271,8 @@ export default function App() {
           usage={usage}
           elevated={elevated}
           onVerAdmin={() => irAAjustes("admin")}
+          avisoAdminOculto={settings.hideAdminNotice}
+          onOcultarAvisoAdmin={() => saveSettings({ ...settings, hideAdminNotice: true })}
           hayVersionNueva={updater.state.fase === "disponible"}
           seccion={seccion}
           onSeccionChange={setSeccion}

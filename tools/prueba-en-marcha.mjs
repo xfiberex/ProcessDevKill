@@ -542,6 +542,51 @@ async function vistasEIdioma(cdp) {
 }
 
 /**
+ * T14-28: el aviso de «sin modo administrador» se aparta con su equis, sigue apartado al recargar
+ * y vuelve desde Ajustes. La copia corre sin elevar, que es lo de fábrica; si corriera elevada no
+ * habría aviso que mirar, y el paso lo dice en vez de darse por bueno.
+ */
+async function avisoDeAdmin(cdp) {
+  await paso("El aviso de administrador se aparta con su equis, se recuerda y vuelve desde Ajustes", async () => {
+    const elevada = await cdp.invoke("get_elevation");
+    exigir(elevada.ok, elevada.error);
+    if (elevada.valor) throw new Omitido("la copia corre elevada: no hay aviso que apartar");
+    const ajustes = await cdp.invoke("get_settings");
+    exigir(ajustes.ok, ajustes.error);
+    const equis = `aside button[aria-label="Ocultar el aviso"]`;
+    const hayAviso = () => cdp.js(`Boolean(document.querySelector('${equis}'))`);
+    try {
+      await cdp.pulsar("Procesos", `document.querySelector("aside")`);
+      exigir(await esperar(hayAviso), "sin elevar, el aviso no sale en el sidebar");
+
+      await cdp.js(`document.querySelector('${equis}').click()`);
+      exigir(await esperar(async () => !(await hayAviso())), "la equis no apartó el aviso");
+      // `esperar` no atrapa: un archivo a medio escribir se lee como «todavía no».
+      const guardado = await esperar(() => {
+        try {
+          return JSON.parse(fs.readFileSync(path.join(DATOS, "settings.json"), "utf8")).hideAdminNotice === true;
+        } catch {
+          return false;
+        }
+      });
+      exigir(guardado, "apartar el aviso no llegó a settings.json");
+
+      await cdp.recargar();
+      exigir(await esperar(() => cdp.js(`Boolean(document.querySelector("main h2"))`)), "la ventana no volvió tras recargar");
+      await dormir(1_500);
+      exigir(!(await hayAviso()), "tras recargar, el aviso volvió a salir");
+
+      await irAAjustes(cdp, "sistema");
+      await cdp.js(`document.getElementById("admin-notice").click()`);
+      exigir(await esperar(hayAviso), "el interruptor de Ajustes no volvió a enseñar el aviso");
+      return "apartado, sigue apartado al recargar y vuelve desde Ajustes";
+    } finally {
+      await cdp.invoke("save_settings", { settings: { ...ajustes.valor, hideAdminNotice: ajustes.valor.hideAdminNotice } });
+    }
+  });
+}
+
+/**
  * La consulta a GitHub del arranque se puede apagar (T12-31).
  *
  * Quien lanza esa consulta es la ventana, al montarse, y Rust solo consulta dentro del comando
@@ -1406,6 +1451,7 @@ async function main() {
     await arranque(cdp);
     await listaYCierre(cdp);
     await vistasEIdioma(cdp);
+    await avisoDeAdmin(cdp);
     await protegidos(cdp);
     // Después de `vistasEIdioma`, que cuenta un solo cierre en el Historial: este añade tres.
     await runtimesNuevos(cdp);

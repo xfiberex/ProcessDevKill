@@ -778,6 +778,27 @@ describe("permisos de administrador", () => {
     expect(interruptor()).not.toBeChecked();
   });
 
+  /** T14-28: el interruptor dice «el aviso sale», y se guarda al revés, `hideAdminNotice`. */
+  it("el aviso del sidebar viene encendido, y apagarlo lo aparta", async () => {
+    const { user, onChange } = pintar();
+    const aviso = screen.getByRole("switch", { name: /Avisar en el sidebar/ });
+
+    expect(aviso).toBeChecked();
+    await user.click(aviso);
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ hideAdminNotice: true }));
+  });
+
+  it("con el aviso apartado, el interruptor lo vuelve a enseñar", async () => {
+    const { user, onChange } = pintar({ hideAdminNotice: true });
+    const aviso = screen.getByRole("switch", { name: /Avisar en el sidebar/ });
+
+    expect(aviso).not.toBeChecked();
+    await user.click(aviso);
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ hideAdminNotice: false }));
+  });
+
   it("se puede encender, y avisa de que Windows lo confirmara en cada arranque", async () => {
     const { user, onChange } = pintar();
 

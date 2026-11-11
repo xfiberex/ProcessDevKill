@@ -162,6 +162,14 @@ pub struct Settings {
     /// de un vistazo qué se vigila— lo enciende, y acepta que esa lista haga scroll en una ventana
     /// pequeña. Lo aplica la ventana (`Sidebar.tsx`); Rust solo lo guarda.
     pub show_all_filters: bool,
+    /// Si el usuario apartó el aviso de «sin modo administrador» del sidebar (T14-28).
+    ///
+    /// **Apagado de fábrica**: el aviso sale. Arrancar sin elevar es lo normal, y un aviso que no
+    /// se va nunca deja de leerse y ocupa el sitio de la navegación; quien ya lo leyó lo cierra y
+    /// no vuelve al reiniciar. Se vuelve a enseñar desde Ajustes. La explicación, el reinicio
+    /// elevado y la pista de un Kill que falla por permisos siguen donde estaban. Lo aplica la
+    /// ventana (`Sidebar.tsx`); Rust solo lo guarda.
+    pub hide_admin_notice: bool,
 }
 
 impl Default for Settings {
@@ -198,6 +206,8 @@ impl Default for Settings {
             check_updates_on_start: true,
             // Apagado: ver el comentario del campo.
             show_all_filters: false,
+            // Apagado: el aviso sale hasta que el usuario lo aparta.
+            hide_admin_notice: false,
         }
     }
 }
@@ -652,6 +662,8 @@ mod tests {
             check_updates_on_start: false,
             // Encendido, por lo mismo: el de fábrica es `false`.
             show_all_filters: true,
+            // Encendido, por lo mismo: el de fábrica es `false` (T14-28).
+            hide_admin_notice: true,
         };
 
         storage.save_settings(&settings).unwrap();

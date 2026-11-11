@@ -1274,6 +1274,37 @@ describe("el aviso de administrador", () => {
     expect(await screen.findByTitle(texto)).toBeInTheDocument();
   });
 
+  /** T14-28: un aviso que no se va nunca deja de leerse. La equis lo aparta y se recuerda. */
+  it("la equis lo aparta, lo guarda y deja el foco en el auto-refresco", async () => {
+    const user = await montar(LISTA, { get_elevation: false });
+    // Que Rust devuelva lo que se le guarda: el `montar` de siempre contesta con los de fábrica.
+    const anterior = invoke.getMockImplementation()!;
+    invoke.mockImplementation(async (cmd: string, args?: { settings?: unknown }) =>
+      cmd === "save_settings" ? args!.settings : anterior(cmd, args),
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Ocultar el aviso" }));
+
+    await waitFor(() => expect(aviso()).not.toBeInTheDocument());
+    expect(invoke).toHaveBeenCalledWith("save_settings", {
+      settings: expect.objectContaining({ hideAdminNotice: true }),
+    });
+    await waitFor(() =>
+      expect(document.activeElement).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(document.activeElement).toHaveAccessibleName("2s");
+  });
+
+  it("apartado, no sale al arrancar aunque la app corra sin elevar", async () => {
+    await montar(LISTA, {
+      get_elevation: false,
+      get_settings: { ...DEFAULT_TEST_SETTINGS, hideAdminNotice: true },
+    });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("get_elevation"));
+
+    expect(aviso()).not.toBeInTheDocument();
+  });
+
   it("lleva a su seccion de Ajustes, con el foco en el titulo", async () => {
     const user = await montar(LISTA, { get_elevation: false });
 

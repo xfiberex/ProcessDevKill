@@ -14,6 +14,11 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+### Added
+- **The “Not running as admin” notice in the sidebar can be hidden** with the X in its corner,
+  and it stays hidden after the app restarts. To see it again, go to *Settings → System → Show a
+  notice in the sidebar when running without rights*. (T14-28)
+
 ### Changed
 - **The process table now starts sorted by port**, lowest first, with the ones that listen on
   none at the end — the row holding port 3000 is there without searching for it. It used to start

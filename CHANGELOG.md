@@ -16,6 +16,11 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+### Añadido
+- **El aviso de «Sin modo administrador» del sidebar se puede ocultar** con la equis de su esquina,
+  y no vuelve al reiniciar la app. Para verlo otra vez, *Ajustes → Sistema → Avisar en el sidebar
+  cuando corre sin permisos*. (T14-28)
+
 ### Cambiado
 - **La tabla de procesos arranca ordenada por puerto**, de menor a mayor, con los que no escuchan
   en ninguno al final: la fila que tiene el 3000 se ve sin buscarla. Hasta ahora arrancaba por RAM;

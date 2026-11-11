@@ -154,6 +154,9 @@ export const es = {
       detalle: "No se ve la RAM de los servicios ni el detalle de algunos procesos.",
       /** Solo para el lector de pantalla: a la vista, que es un botón lo dice el cursor. */
       destino: "Ver en Ajustes",
+      /** La equis que lo aparta (T14-28), y su `title`, que dice cómo volver a verlo. */
+      ocultar: "Ocultar el aviso",
+      ocultarTitulo: "Ocultar el aviso. Se vuelve a enseñar en Ajustes, en «Sistema».",
     },
   },
 
@@ -615,6 +618,9 @@ export const es = {
       detalle:
         "Windows pedirá confirmación (**UAC**) cada vez que se abra la app. Si se cierra sin aprobarla, la app arranca igual, sin permisos. Se aplica desde el próximo arranque." as Rico,
       noSePudo: "No se pudo reiniciar como administrador",
+      /** El interruptor que vuelve a enseñar el aviso del sidebar, si se ocultó (T14-28). */
+      avisoInterruptor: "Avisar en el sidebar cuando corre sin permisos",
+      avisoDetalle: "El recuadro de encima del medidor. Se oculta con su propia equis." as Rico,
     },
     alCerrar: {
       titulo: "Al cerrar la ventana",
@@ -732,6 +738,8 @@ export const en: Catalogo = {
       titulo: "Not running as admin",
       detalle: "Service RAM and some process details are not visible.",
       destino: "View in Settings",
+      ocultar: "Hide the notice",
+      ocultarTitulo: "Hide the notice. You can bring it back in Settings, under “System”.",
     },
   },
 
@@ -1086,6 +1094,8 @@ export const en: Catalogo = {
       detalle:
         "Windows will ask for confirmation (**UAC**) every time the app opens. If you dismiss the prompt, the app still starts, without administrator rights. Takes effect the next time the app starts.",
       noSePudo: "Could not restart as administrator",
+      avisoInterruptor: "Show a notice in the sidebar when running without rights",
+      avisoDetalle: "The box above the usage meter. Hide it with its own X.",
     },
     alCerrar: {
       titulo: "When the window is closed",

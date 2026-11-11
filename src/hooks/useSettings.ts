@@ -34,6 +34,8 @@ const DEFAULT_SETTINGS: Settings = {
   checkUpdatesOnStart: true,
   // Apagado, como en Rust: de fábrica solo salen los filtros de los runtimes con procesos.
   showAllFilters: false,
+  // Apagado, como en Rust: el aviso de administrador sale hasta que el usuario lo aparta.
+  hideAdminNotice: false,
 };
 
 /**
