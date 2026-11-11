@@ -14,6 +14,13 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+### Changed
+- **The process table now starts sorted by port**, lowest first, with the ones that listen on
+  none at the end — the row holding port 3000 is there without searching for it. It used to start
+  by RAM; that order is still one click away, on the “RAM” header. (T14-33)
+- **From the search box, the Down arrow or Enter takes you to the first row** of the table,
+  instead of ten presses of Tab that went through Nuke All. (T14-33)
+
 ### Fixed
 - **With the keyboard, you can see which row of the table you are on**: it gets its outline and
   lights up as it does under the pointer. Until now the outline was never drawn, in the light or

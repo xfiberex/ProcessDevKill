@@ -151,6 +151,40 @@ describe("buscador", () => {
     ).toBeInTheDocument();
   });
 
+  it("arranca con las filas que tienen puerto delante, de menor a mayor (T14-33)", async () => {
+    await montar();
+
+    expect(filas().map((f) => f.getAttribute("aria-label"))).toEqual([
+      "Seleccionar PID 100",
+      "Seleccionar PID 300",
+      "Seleccionar PID 200",
+      "Seleccionar PID 400",
+    ]);
+  });
+
+  it("flecha abajo o Intro llevan del buscador a la primera fila (T14-33)", async () => {
+    const user = await montar();
+    const enFoco = () => document.activeElement?.getAttribute("data-pid");
+
+    await user.type(buscador(), "node");
+    await user.keyboard("{ArrowDown}");
+    expect(enFoco()).toBe("100");
+
+    await user.click(buscador());
+    await user.keyboard("{Enter}");
+    expect(enFoco()).toBe("100");
+  });
+
+  /** El criterio negativo: sin filas, la tecla no saca el foco del buscador ni lo pierde. */
+  it("sin filas, flecha abajo deja el foco en el buscador", async () => {
+    const user = await montar();
+
+    await user.type(buscador(), "no-existe");
+    await user.keyboard("{ArrowDown}");
+
+    expect(buscador()).toHaveFocus();
+  });
+
   it("dice que no hay procesos cuando de verdad no los hay", async () => {
     await montar([]);
     expect(
@@ -409,16 +443,18 @@ describe("procesos protegidos", () => {
  */
 describe("orden congelado", () => {
   it("no reordena con el puntero sobre la tabla y reordena al salir", async () => {
+    // Con el orden de fábrica, que es por puerto (T14-33): un servidor que se reinicia en otro
+    // puerto es lo que cambia el orden con la lista a la vista.
     const user = await montar([
-      proceso({ pid: 1, memoryMb: 900 }),
-      proceso({ pid: 2, memoryMb: 500 }),
+      proceso({ pid: 1, ports: [3000] }),
+      proceso({ pid: 2, ports: [5000] }),
     ]);
     const orden = () =>
       filas().map((f) => f.getAttribute("aria-label")!.replace("Seleccionar PID ", ""));
     expect(orden()).toEqual(["1", "2"]);
 
     await user.hover(screen.getByLabelText("Seleccionar PID 1"));
-    await emitir([proceso({ pid: 1, memoryMb: 100 }), proceso({ pid: 2, memoryMb: 2000 })]);
+    await emitir([proceso({ pid: 1, ports: [6000] }), proceso({ pid: 2, ports: [4000] })]);
     expect(orden()).toEqual(["1", "2"]);
 
     await user.unhover(screen.getByLabelText("Seleccionar PID 1"));

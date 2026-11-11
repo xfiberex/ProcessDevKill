@@ -16,6 +16,13 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+### Cambiado
+- **La tabla de procesos arranca ordenada por puerto**, de menor a mayor, con los que no escuchan
+  en ninguno al final: la fila que tiene el 3000 se ve sin buscarla. Hasta ahora arrancaba por RAM;
+  ese orden sigue a un clic, en la cabecera «RAM». (T14-33)
+- **Desde el buscador, la flecha abajo o Intro llevan a la primera fila** de la tabla, en vez de
+  diez pulsaciones de tabulador que pasaban por Nuke All. (T14-33)
+
 ### Corregido
 - **Con el teclado, la fila de la tabla en la que estás se ve**: lleva su contorno y se ilumina
   como bajo el puntero. Hasta ahora el contorno no se pintaba, en claro ni en oscuro, y la única

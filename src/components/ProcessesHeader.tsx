@@ -67,10 +67,21 @@ export function ProcessesHeader({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           // Escape borra lo escrito, como en el buscador del Explorador de Windows.
+          //
+          // Flecha abajo o Intro llevan a la primera fila (T14-33): sin esto, del buscador a la
+          // tabla había diez tabuladores, y el segundo caía en Nuke All. Se busca en el DOM y no
+          // en la lista porque «la primera» es la que se ve, ya ordenada y con el orden congelado
+          // si lo está, y eso solo lo sabe la tabla. Sin filas, la tecla no hace nada.
           onKeyDown={(e) => {
             if (e.key === "Escape" && query !== "") {
               e.preventDefault();
               onQueryChange("");
+            } else if (e.key === "ArrowDown" || e.key === "Enter") {
+              const primera = document.querySelector<HTMLElement>("main tbody tr[data-pid]");
+              if (primera) {
+                e.preventDefault();
+                primera.focus();
+              }
             }
           }}
           placeholder={t.cabecera.buscarPlaceholder}

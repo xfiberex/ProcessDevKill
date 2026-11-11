@@ -5,13 +5,14 @@ import { proceso } from "../test/tauri-mock";
 const pids = (lista: ReturnType<typeof sortProcesses>) => lista.map((p) => p.pid);
 
 describe("orden por defecto", () => {
-  it("es el mismo que manda Rust: RAM descendente", () => {
+  it("es por puerto: los que escuchan primero, de menor a mayor, y los demás al final (T14-33)", () => {
     const lista = [
-      proceso({ pid: 1, memoryMb: 100 }),
-      proceso({ pid: 2, memoryMb: 900 }),
-      proceso({ pid: 3, memoryMb: 500 }),
+      proceso({ pid: 1, ports: [], memoryMb: 900 }),
+      proceso({ pid: 2, ports: [8080], memoryMb: 100 }),
+      proceso({ pid: 3, ports: [5173, 3000], memoryMb: 500 }),
+      proceso({ pid: 4, ports: [], memoryMb: 50 }),
     ];
-    expect(pids(sortProcesses(lista, DEFAULT_SORT))).toEqual([2, 3, 1]);
+    expect(pids(sortProcesses(lista, DEFAULT_SORT))).toEqual([3, 2, 1, 4]);
   });
 
   it("no modifica la lista que recibe", () => {
@@ -110,7 +111,7 @@ describe("orden congelado", () => {
         proceso({ pid: 2, memoryMb: 500 }),
         proceso({ pid: 3, memoryMb: 2000 }),
       ],
-      DEFAULT_SORT,
+      { key: "memoryMb", dir: "desc" },
     );
     expect(pids(ahora)).toEqual([3, 1, 2]);
     expect(pids(freezeOrder(ahora, [1, 2, 3]))).toEqual([1, 2, 3]);

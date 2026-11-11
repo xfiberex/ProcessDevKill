@@ -1021,6 +1021,19 @@ async function tablaConTeclado(cdp, app) {
       exigir(solas, `con la búsqueda puesta la tabla no enseña solo las cinco filas del guion: ${await filas()}`);
       // El puntero fuera de la tabla: encima congela el orden, y aquí importa cuál es la siguiente.
       await cdp.enviar("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: 1 });
+
+      // T14-33: sin tocar nada, la tabla va por puerto, de menor a mayor. Ningún paso anterior
+      // pulsa una cabecera, así que este es el orden de fábrica.
+      const conPuertos = await cdp.invoke("get_processes");
+      exigir(conPuertos.ok, conPuertos.error);
+      const puerto = new Map(conPuertos.valor.map((p) => [p.pid, Math.min(...p.ports)]));
+      const deFabrica = await filas();
+      const porPuerto = [...deFabrica].sort((a, b) => puerto.get(a) - puerto.get(b));
+      exigir(
+        JSON.stringify(deFabrica) === JSON.stringify(porPuerto),
+        `sin tocar nada, la tabla no va por puerto: ${deFabrica} (por puerto sería ${porPuerto})`,
+      );
+
       // Y ordenada por PID: por RAM, cinco servidores iguales cambian de sitio entre refrescos
       // mientras el foco está en un diálogo, y «la fila siguiente» dejaría de ser la que se leyó.
       await cdp.pulsar("PID", `document.querySelector("main thead")`);
@@ -1037,6 +1050,12 @@ async function tablaConTeclado(cdp, app) {
 
       // 1. Las flechas mueven la fila activa.
       const [primera, segunda] = orden;
+
+      // T14-33: del buscador, una flecha abajo de verdad lleva a la primera fila.
+      await cdp.js(`document.querySelector("main header input").focus()`);
+      pulsar(TECLA.ABAJO);
+      exigir(await esperar(enFila(primera), { ms: 3_000 }), `desde el buscador, Flecha abajo dejó el foco en «${await activo()}»`);
+
       await cdp.js(`document.querySelector('tr[data-pid="${primera}"]').focus()`);
       exigir(await enFila(primera)(), `el foco no está en la primera fila: ${await activo()}`);
       pulsar(TECLA.ABAJO);
@@ -1132,11 +1151,12 @@ async function tablaConTeclado(cdp, app) {
       exigir(await esperar(async () => (await filas()).length === 1), "la fila cerrada desde fuera sigue en la tabla");
       await dormir(600);
       exigir(await enFila(resto[0])(), `un cierre desde fuera movió el foco a «${await activo()}»`);
-      return "flechas, Inicio y Fin, con la fila del foco a la vista; Supr pregunta, Escape cancela e Intro cierra; protegida, nada; lote con Espacio; el foco, siempre en una fila";
+      return "de fábrica por puerto; del buscador a la fila con Flecha abajo; flechas, Inicio y Fin, con la fila del foco a la vista; Supr pregunta, Escape cancela e Intro cierra; protegida, nada; lote con Espacio; el foco, siempre en una fila";
     } finally {
       for (const s of servidores) s.hijo.kill();
-      // El orden de fábrica, por RAM: los pasos de detrás no dependen de él, pero tampoco lo esperan cambiado.
-      await cdp.pulsar("RAM", `document.querySelector("main thead")`).catch(() => {});
+      // El orden de fábrica, por puerto (T14-33): los pasos de detrás no dependen de él, pero
+      // tampoco lo esperan cambiado. Desde el de PID, un clic en «Puerto» lo deja ascendente.
+      await cdp.pulsar("Puerto", `document.querySelector("main thead")`).catch(() => {});
       await cdp.invoke("save_settings", { settings: { ...ajustes.valor, protected: ajustes.valor.protected } });
       await cdp
         .js(`(() => {

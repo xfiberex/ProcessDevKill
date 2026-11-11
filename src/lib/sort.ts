@@ -12,8 +12,16 @@ export type SortKey = "name" | "port" | "pid" | "cpu" | "memoryMb" | "runTimeSec
 export type SortDir = "asc" | "desc";
 export type Sort = { key: SortKey; dir: SortDir };
 
-/** El orden con el que Rust manda la lista: RAM descendente. */
-export const DEFAULT_SORT: Sort = { key: "memoryMb", dir: "desc" };
+/**
+ * El orden con el que arranca la tabla: por puerto, de menor a mayor, y los que no escuchan en
+ * ninguno al final (T14-33).
+ *
+ * Hasta el 2026-11-11 era el que manda Rust, RAM descendente. Pero la app existe para contestar
+ * «¿quién tiene el puerto?», y por RAM la fila con puerto podía quedar en cualquier sitio: en la
+ * crítica de impeccable, 8.ª de 18. La captura del README ya ordenaba por puerto. Quien busca qué
+ * se come la máquina lo tiene a un clic, en «RAM».
+ */
+export const DEFAULT_SORT: Sort = { key: "port", dir: "asc" };
 
 /**
  * Direccion con la que se estrena cada columna al pulsarla por primera vez.
