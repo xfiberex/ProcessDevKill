@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
 
 /* El tema NO se decide con la media query de CSS: la clase `dark` la pone
    src/theme.tsx, que respeta la preferencia guardada en Ajustes (sistema, claro
@@ -28,7 +27,12 @@ body {
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
+  /* La letra de Windows 11, la del Administrador de tareas y la Configuración (T14-36, decisión
+     del usuario del 2026-11-11). Era Geist, embebida; medidas las dos en las cuatro vistas, a
+     1000×680, 900×480 y 150 %, Segoe recorta lo mismo o menos y las filas miden igual. «Text» es
+     el corte óptico para tamaños de texto, y los nuestros van de 12 a 16 px. En Windows 10, que
+     no la trae, cae en Segoe UI. */
+  --font-sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
 
   /* Color de cada runtime. Los valores viven en :root/.dark porque el verde que
      luce sobre un fondo casi negro se pierde sobre blanco, y al revés. */

@@ -222,7 +222,7 @@ export function SettingsView({
    *
    * Van como `resources` del bundle, asi que viajan dentro del instalador y no
    * solo en el repositorio: la GPL exige que la licencia acompane al binario, y
-   * la OFL-1.1 de la tipografia Geist, que su aviso viaje con la fuente.
+   * las licencias de los componentes de terceros, que sus avisos viajen con ellos.
    *
    * El de la licencia se empaqueta como `LICENSE.txt` aunque en el repositorio se
    * llame `LICENSE` (lo que espera GitHub): un archivo sin extension no tiene

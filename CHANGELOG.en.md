@@ -27,6 +27,8 @@ are tasks from the [ROADMAP](ROADMAP.md).
 - **F6 and Shift+F6 move between the sidebar, the view’s header, and the table.** (T14-37)
 - **Table headers use normal capitalization** (“Process,” “Port”), as Windows lists do, instead
   of all caps. (T14-36)
+- **The app uses the Windows 11 typeface, Segoe UI Variable** — the one in Task Manager and
+  Settings — instead of Geist. On Windows 10 it uses Segoe UI. (T14-36)
 
 ### Changed
 - **The process table now starts sorted by port**, lowest first, with the ones that listen on
@@ -46,6 +48,9 @@ are tasks from the [ROADMAP](ROADMAP.md).
   a skull. (T14-35)
 
 ### Fixed
+- **On recent Windows 11 Insider builds, the app showed no ports at all.** Windows reports the
+  state of connections in a way the app did not recognize, so it discarded every one of them. The
+  app now asks Windows directly for the list of listening ports.
 - **With the keyboard, you can see which row of the table you are on**: it gets its outline and
   lights up as it does under the pointer. Until now the outline was never drawn, in the light or
   dark theme, and the only clue was that the row’s Kill button turned red. (T14-31)

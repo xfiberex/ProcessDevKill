@@ -29,6 +29,8 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 - **F6 y Mayús+F6 saltan entre el sidebar, la cabecera de la vista y la tabla.** (T14-37)
 - **Las cabeceras de las tablas van en su caja normal** («Proceso», «Puerto»), como en las listas
   de Windows, y no en mayúsculas. (T14-36)
+- **La app usa la letra de Windows 11, Segoe UI Variable**, la del Administrador de tareas y la
+  Configuración, en vez de Geist. En Windows 10 usa Segoe UI. (T14-36)
 
 ### Cambiado
 - **La tabla de procesos arranca ordenada por puerto**, de menor a mayor, con los que no escuchan
@@ -48,6 +50,9 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
   una calavera. (T14-35)
 
 ### Corregido
+- **En las compilaciones recientes de Windows 11 Insider, la app no enseñaba ningún puerto.**
+  Windows informa del estado de las conexiones de una forma que la app no reconocía, y las
+  descartaba todas. Ahora le pide a Windows directamente la lista de los puertos en escucha.
 - **Con el teclado, la fila de la tabla en la que estás se ve**: lleva su contorno y se ilumina
   como bajo el puntero. Hasta ahora el contorno no se pintaba, en claro ni en oscuro, y la única
   pista era que el Kill de esa fila se ponía rojo. (T14-31)
