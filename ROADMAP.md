@@ -922,6 +922,16 @@ Dependabot después. No son del Tier 14, y siguen aquí hasta que alguien las ha
   las aguanta, en unos 10 minutos, y se pueden lanzar a mano con `gh workflow run
   en-marcha.yml`. Falta decidir si compensa pasarlas a cada push. Y un camino del guion no ha
   corrido nunca: el que deja «sin comprobar» un paso cuando GitHub contesta 403 al runner.
+- **En la compilación 10.0.26300 de Windows (Insider), la app no enseña ningún puerto** (visto el
+  2026-11-11, en el equipo de desarrollo). Windows da a los sockets TCP el estado `0`, que no es
+  ninguno de los de la tabla —hasta `Get-NetTCPConnection` falla al leerlo—; `listeners` lo
+  traduce como `Unknown`, y `ports.rs` solo cuenta los `Listen`. Con eso, ninguna fila lleva
+  puerto, `who_listens` (T14-34) no encuentra a nadie, fallan las dos pruebas de Rust de `ports` y
+  los pasos de `prueba-en-marcha.mjs` que necesitan un puerto. Es del sistema, no de la app, pero si
+  llega a una versión estable la app se queda sin su razón de ser. **Por dónde empezaría:** pedir
+  la tabla `TCP_TABLE_OWNER_PID_LISTENER` de `GetExtendedTcpTable`, que solo trae los sockets en
+  escucha y no depende del campo de estado; o ver si una versión más nueva de `listeners` ya lo
+  hace.
 - **Lo que sigue sin verse en vivo**, con sus pruebas pero sin haber pasado en la app:
   - un instalador cambiado tras la descarga **en la app instalada y elevada**, que es el caso
     exacto de T12-02; se vio en la copia de prueba, sin elevar (T13-05);

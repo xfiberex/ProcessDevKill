@@ -805,6 +805,15 @@ async function ventanaDeEscritorio(cdp, app) {
         "un diálogo",
         async () => {
           await irA("Historial");
+          // La vista pide el historial al entrar, y «Vaciar» sale cuando llega. Tras una recarga
+          // de la ventana (el paso del aviso de administrador, T14-28) el estado empieza vacío, y
+          // pulsar en cuanto sale el título era una carrera.
+          exigir(
+            await esperar(() =>
+              cdp.js(`[...document.querySelectorAll("main button")].some((b) => b.textContent.trim().startsWith("Vaciar"))`),
+            ),
+            "el Historial no llegó a enseñar «Vaciar»",
+          );
           await cdp.pulsar("Vaciar", `document.querySelector("main")`);
           exigir(
             await esperar(() => cdp.js(`Boolean(document.querySelector('[role="alertdialog"]'))`)),
