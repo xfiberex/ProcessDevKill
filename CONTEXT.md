@@ -10,6 +10,8 @@
 > |---|---|
 > | [README.md](README.md) | ¿Qué es y cómo la uso? (quien llega de fuera) |
 > | [CHANGELOG.md](CHANGELOG.md) | ¿Qué cambió en cada versión? (quien usa la app) |
+> | [PRODUCT.md](PRODUCT.md) | ¿Para quién es, y qué es obligatorio al diseñar? (lo que lee `impeccable`) |
+> | [DESIGN.md](DESIGN.md) | ¿Qué aspecto tiene, y con qué reglas? (el sistema visual, sacado del código) |
 > | **CONTEXT.md** | ¿En qué estado está, y por qué se decidió así? |
 > | [ROADMAP.md](ROADMAP.md) | ¿Qué falta por hacer? |
 > | [.claude/CLAUDE.md](.claude/CLAUDE.md) | ¿Cómo se trabaja aquí? (lo que lee el agente) |

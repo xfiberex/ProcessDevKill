@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T12:00:00Z",
+  "title": "Design System: ProcessDevKill",
+  "extensions": {
+    "colorMeta": {
+      "acero-claro": { "role": "neutral", "displayName": "Acero claro", "canonical": "oklch(0.995 0.002 265)", "tonalRamp": ["oklch(0.15 0.006 265)", "oklch(0.26 0.010 265)", "oklch(0.37 0.012 265)", "oklch(0.48 0.014 265)", "oklch(0.59 0.014 265)", "oklch(0.70 0.012 265)", "oklch(0.82 0.008 265)", "oklch(0.95 0.004 265)"] },
+      "acero-oscuro": { "role": "neutral", "displayName": "Acero oscuro", "canonical": "oklch(0.175 0.009 265)", "tonalRamp": ["oklch(0.15 0.006 265)", "oklch(0.26 0.010 265)", "oklch(0.37 0.012 265)", "oklch(0.48 0.014 265)", "oklch(0.59 0.014 265)", "oklch(0.70 0.012 265)", "oklch(0.82 0.008 265)", "oklch(0.95 0.004 265)"] },
+      "tinta-de-acero": { "role": "neutral", "displayName": "Tinta de acero", "canonical": "oklch(0.21 0.012 265)", "tonalRamp": ["oklch(0.15 0.006 265)", "oklch(0.26 0.010 265)", "oklch(0.37 0.012 265)", "oklch(0.48 0.014 265)", "oklch(0.59 0.014 265)", "oklch(0.70 0.012 265)", "oklch(0.82 0.008 265)", "oklch(0.95 0.004 265)"] },
+      "texto-secundario": { "role": "neutral", "displayName": "Texto secundario", "canonical": "oklch(0.52 0.014 265)", "tonalRamp": ["oklch(0.15 0.006 265)", "oklch(0.26 0.010 265)", "oklch(0.37 0.012 265)", "oklch(0.48 0.014 265)", "oklch(0.59 0.014 265)", "oklch(0.70 0.012 265)", "oklch(0.82 0.008 265)", "oklch(0.95 0.004 265)"] },
+      "borde-de-control": { "role": "neutral", "displayName": "Borde de control", "canonical": "oklch(0.62 0.012 265)", "tonalRamp": ["oklch(0.15 0.006 265)", "oklch(0.26 0.010 265)", "oklch(0.37 0.012 265)", "oklch(0.48 0.014 265)", "oklch(0.59 0.014 265)", "oklch(0.70 0.012 265)", "oklch(0.82 0.008 265)", "oklch(0.95 0.004 265)"] },
+      "anillo": { "role": "neutral", "displayName": "Anillo de foco", "canonical": "oklch(0.55 0.02 265)", "tonalRamp": ["oklch(0.15 0.008 265)", "oklch(0.26 0.014 265)", "oklch(0.37 0.018 265)", "oklch(0.48 0.020 265)", "oklch(0.59 0.020 265)", "oklch(0.70 0.018 265)", "oklch(0.82 0.012 265)", "oklch(0.95 0.005 265)"] },
+      "rojo-senal": { "role": "primary", "displayName": "Rojo señal", "canonical": "oklch(0.577 0.245 27.325)", "tonalRamp": ["oklch(0.15 0.05 27)", "oklch(0.26 0.10 27)", "oklch(0.37 0.15 27)", "oklch(0.48 0.19 27)", "oklch(0.59 0.22 27)", "oklch(0.70 0.16 27)", "oklch(0.82 0.09 27)", "oklch(0.95 0.03 27)"] },
+      "rojo-senal-texto": { "role": "primary", "displayName": "Rojo señal, texto", "canonical": "oklch(0.50 0.19 27)", "tonalRamp": ["oklch(0.15 0.05 27)", "oklch(0.26 0.10 27)", "oklch(0.37 0.15 27)", "oklch(0.48 0.19 27)", "oklch(0.59 0.22 27)", "oklch(0.70 0.16 27)", "oklch(0.82 0.09 27)", "oklch(0.95 0.03 27)"] },
+      "ambar-aviso": { "role": "tertiary", "displayName": "Ámbar aviso", "canonical": "oklch(0.769 0.188 70.08)", "tonalRamp": ["oklch(0.15 0.03 70)", "oklch(0.26 0.06 65)", "oklch(0.37 0.10 60)", "oklch(0.48 0.13 55)", "oklch(0.59 0.16 55)", "oklch(0.70 0.18 65)", "oklch(0.82 0.15 80)", "oklch(0.95 0.05 90)"] },
+      "runtime-node": { "role": "secondary", "displayName": "Node", "canonical": "#4a8b3a", "tonalRamp": ["oklch(0.15 0.03 140)", "oklch(0.26 0.06 140)", "oklch(0.37 0.09 140)", "oklch(0.48 0.11 140)", "oklch(0.59 0.13 140)", "oklch(0.70 0.14 140)", "oklch(0.82 0.10 140)", "oklch(0.95 0.04 140)"] },
+      "runtime-python": { "role": "secondary", "displayName": "Python", "canonical": "#2f6690", "tonalRamp": ["oklch(0.15 0.03 245)", "oklch(0.26 0.05 245)", "oklch(0.37 0.07 245)", "oklch(0.48 0.09 245)", "oklch(0.59 0.11 245)", "oklch(0.70 0.10 245)", "oklch(0.82 0.07 245)", "oklch(0.95 0.03 245)"] },
+      "runtime-dotnet": { "role": "secondary", "displayName": ".NET", "canonical": "#6f3cc4", "tonalRamp": ["oklch(0.15 0.05 295)", "oklch(0.26 0.10 295)", "oklch(0.37 0.14 295)", "oklch(0.48 0.18 295)", "oklch(0.59 0.18 295)", "oklch(0.70 0.14 295)", "oklch(0.82 0.08 295)", "oklch(0.95 0.03 295)"] },
+      "runtime-java": { "role": "secondary", "displayName": "Java", "canonical": "#c2410c", "tonalRamp": ["oklch(0.15 0.04 45)", "oklch(0.26 0.08 45)", "oklch(0.37 0.12 45)", "oklch(0.48 0.15 42)", "oklch(0.59 0.17 42)", "oklch(0.70 0.15 50)", "oklch(0.82 0.09 55)", "oklch(0.95 0.03 60)"] },
+      "runtime-deno": { "role": "secondary", "displayName": "Deno", "canonical": "#27272a", "tonalRamp": ["oklch(0.15 0.004 286)", "oklch(0.26 0.005 286)", "oklch(0.37 0.006 286)", "oklch(0.48 0.006 286)", "oklch(0.59 0.006 286)", "oklch(0.70 0.005 286)", "oklch(0.82 0.004 286)", "oklch(0.95 0.002 286)"] },
+      "runtime-bun": { "role": "secondary", "displayName": "Bun", "canonical": "#be185d", "tonalRamp": ["oklch(0.15 0.05 355)", "oklch(0.26 0.10 355)", "oklch(0.37 0.14 355)", "oklch(0.48 0.18 355)", "oklch(0.59 0.20 355)", "oklch(0.70 0.16 355)", "oklch(0.82 0.09 355)", "oklch(0.95 0.03 355)"] },
+      "runtime-otros": { "role": "secondary", "displayName": "Otros", "canonical": "#64748b", "tonalRamp": ["oklch(0.15 0.01 257)", "oklch(0.26 0.02 257)", "oklch(0.37 0.03 257)", "oklch(0.48 0.035 257)", "oklch(0.59 0.035 257)", "oklch(0.70 0.03 257)", "oklch(0.82 0.02 257)", "oklch(0.95 0.008 257)"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Titular de vista", "purpose": "El h2 de cada vista, en ViewHeader. Uno por vista." },
+      "title": { "displayName": "Título", "purpose": "El nombre de la app en el sidebar y lo elegido: la vista activa y la opción de un grupo segmentado." },
+      "body": { "displayName": "Cuerpo", "purpose": "La tabla, Ajustes, los diálogos y los menús." },
+      "body-strong": { "displayName": "Cuerpo fuerte", "purpose": "Botones y elementos del sidebar." },
+      "label": { "displayName": "Rótulo", "purpose": "El Kill de cada fila, la marca de Zombie y los botones pequeños." },
+      "overline": { "displayName": "Cabecera de columna", "purpose": "Las cabeceras de las tablas, en mayúsculas y en texto secundario." },
+      "caption": { "displayName": "Nota", "purpose": "La segunda línea de cada proceso (script · carpeta), las ayudas y las cifras del equipo." },
+      "mono": { "displayName": "Monoespaciada", "purpose": "El PID y los puertos que no son el primero: lo que se copia." },
+      "mono-strong": { "displayName": "Monoespaciada fuerte", "purpose": "El primer puerto de cada fila, sobre su etiqueta." }
+    },
+    "shadows": [
+      { "name": "flotante", "value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1), 0 0 0 1px color-mix(in oklch, var(--foreground) 10%, transparent)", "purpose": "Menús contextuales y desplegables: shadow-md con un anillo de 1 px." },
+      { "name": "flotante-alta", "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)", "purpose": "La barra de selección y los submenús: shadow-lg." },
+      { "name": "pulsado", "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1), 0 0 0 1px var(--control)", "purpose": "La opción elegida de un grupo segmentado: shadow-sm con ring-1 ring-control." },
+      { "name": "fila-marcada", "value": "inset 3px 0 0 var(--foreground)", "purpose": "La barra de acento de la fila marcada, en su primera celda. No es elevación: es una marca." }
+    ],
+    "motion": [
+      { "name": "fila-sale", "value": "180ms; opacity 1→0, x 0→-24px, velo rgba(220,38,38,0.25)", "purpose": "La fila de un proceso cerrado, con Motion. Se apaga con prefers-reduced-motion." },
+      { "name": "barra", "value": "width 300ms ease", "purpose": "Las barras de CPU y RAM de la tabla y del medidor, en cada refresco." },
+      { "name": "dialogo", "value": "100ms; fade-in + zoom-in-95", "purpose": "La entrada y la salida del diálogo de confirmación." },
+      { "name": "estado", "value": "color, background-color 150ms", "purpose": "Hover y foco de botones y controles (transition-colors de Tailwind)." }
+    ],
+    "breakpoints": [
+      { "name": "tabla-sin-pid", "value": "@container max 571px" },
+      { "name": "tabla-sin-tiempo", "value": "@container max 659px" },
+      { "name": "short", "value": "max-height 600px" },
+      { "name": "ventana-minima", "value": "900x480" },
+      { "name": "ventana-de-fabrica", "value": "1000x680" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Nuke All",
+      "kind": "button",
+      "refersTo": "button-nuke",
+      "description": "El único botón rojo lleno: cierra toda la lista visible, con confirmación.",
+      "html": "<button class=\"ds-btn-nuke\">Nuke All</button>",
+      "css": ".ds-btn-nuke { display: inline-flex; align-items: center; height: 32px; padding: 0 10px; border: 1px solid transparent; border-radius: 10px; background: var(--destructive, oklch(0.577 0.245 27.325)); color: var(--destructive-foreground, oklch(0.985 0.002 265)); font: 500 0.875rem/1.25rem 'Geist Variable', sans-serif; cursor: pointer; transition: background-color 150ms; } .ds-btn-nuke:hover { background: color-mix(in oklch, var(--destructive, oklch(0.577 0.245 27.325)) 90%, transparent); } .ds-btn-nuke:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring, oklch(0.55 0.02 265)); } .ds-btn-nuke:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Kill de la fila",
+      "kind": "button",
+      "refersTo": "button-kill",
+      "description": "Neutro en reposo; rojo solo con la fila bajo el puntero o con el foco dentro.",
+      "html": "<button class=\"ds-btn-kill\">Kill</button>",
+      "css": ".ds-btn-kill { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border: 1px solid var(--border, oklch(0.915 0.006 265)); border-radius: 8px; background: var(--background, oklch(0.995 0.002 265)); color: var(--muted-foreground, oklch(0.52 0.014 265)); font: 500 0.75rem/1rem 'Geist Variable', sans-serif; cursor: pointer; transition: color 150ms, background-color 150ms, border-color 150ms; } .ds-btn-kill:hover { border-color: color-mix(in oklch, var(--destructive, oklch(0.577 0.245 27.325)) 40%, transparent); background: color-mix(in oklch, var(--destructive, oklch(0.577 0.245 27.325)) 10%, transparent); color: var(--destructive-text, oklch(0.50 0.19 27)); } .ds-btn-kill:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring, oklch(0.55 0.02 265)); }"
+    },
+    {
+      "name": "Botón outline",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Refrescar con el auto-refresco apagado, Buscar actualizaciones y las acciones de un estado vacío.",
+      "html": "<button class=\"ds-btn-outline\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\"/><path d=\"M8 16H3v5\"/></svg>Refrescar</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border, oklch(0.915 0.006 265)); border-radius: 10px; background: var(--background, oklch(0.995 0.002 265)); color: var(--foreground, oklch(0.21 0.012 265)); font: 500 0.875rem/1.25rem 'Geist Variable', sans-serif; cursor: pointer; transition: background-color 150ms; } .ds-btn-outline:hover { background: var(--muted, oklch(0.965 0.004 265)); } .ds-btn-outline:focus-visible { outline: none; border-color: var(--ring, oklch(0.55 0.02 265)); box-shadow: 0 0 0 3px var(--ring, oklch(0.55 0.02 265)); } .ds-btn-outline:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Buscador",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "El campo de la cabecera de Procesos: busca por nombre, script, carpeta, PID o puerto.",
+      "html": "<label class=\"ds-search\"><input class=\"ds-search-input\" placeholder=\"Buscar por nombre, PID o puerto\"><kbd class=\"ds-search-kbd\">Ctrl F</kbd></label>",
+      "css": ".ds-search { position: relative; display: block; width: 320px; } .ds-search-input { box-sizing: border-box; width: 100%; height: 32px; padding: 4px 64px 4px 10px; border: 1px solid var(--control, oklch(0.62 0.012 265)); border-radius: 10px; background: transparent; color: var(--foreground, oklch(0.21 0.012 265)); font: 400 0.875rem/1.25rem 'Geist Variable', sans-serif; outline: none; transition: border-color 150ms; } .ds-search-input::placeholder { color: var(--muted-foreground, oklch(0.52 0.014 265)); } .ds-search-input:focus-visible { border-color: var(--ring, oklch(0.55 0.02 265)); box-shadow: 0 0 0 3px var(--ring, oklch(0.55 0.02 265)); } .ds-search-kbd { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); padding: 0 4px; border: 1px solid var(--border, oklch(0.915 0.006 265)); border-radius: 4px; color: var(--muted-foreground, oklch(0.52 0.014 265)); font: 400 0.75rem/1rem ui-monospace, Consolas, monospace; pointer-events: none; }"
+    },
+    {
+      "name": "Etiqueta de puerto",
+      "kind": "chip",
+      "refersTo": "chip-port",
+      "description": "El primer puerto de la fila, en su etiqueta; los siguientes, sin etiqueta y en texto secundario.",
+      "html": "<span class=\"ds-ports\"><span class=\"ds-port\">3000</span><span class=\"ds-port-more\">24678</span></span>",
+      "css": ".ds-ports { display: inline-flex; align-items: center; gap: 2px; } .ds-port { padding: 2px 4px; border-radius: 4px; background: var(--muted, oklch(0.965 0.004 265)); color: var(--foreground, oklch(0.21 0.012 265)); font: 600 0.75rem/1rem ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; } .ds-port-more { padding: 2px 4px; color: var(--muted-foreground, oklch(0.52 0.014 265)); font: 400 0.75rem/1rem ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Vista del sidebar",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Las cuatro vistas; la elegida, marcada por tres lados: fondo, peso y la barra de 3 px.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item ds-nav-item--active\" aria-current=\"page\"><span class=\"ds-nav-bar\"></span>Procesos</button><button class=\"ds-nav-item\">Servicios</button><button class=\"ds-nav-item\">Historial</button></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 2px; width: 192px; padding: 8px; background: var(--sidebar, oklch(0.975 0.004 265)); } .ds-nav-item { position: relative; display: flex; align-items: center; height: 32px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: var(--sidebar-foreground, oklch(0.21 0.012 265)); font: 500 0.875rem/1.25rem 'Geist Variable', sans-serif; text-align: left; cursor: pointer; transition: background-color 150ms; } .ds-nav-item:hover { background: var(--muted, oklch(0.965 0.004 265)); } .ds-nav-item:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring, oklch(0.55 0.02 265)); } .ds-nav-item--active { background: var(--secondary, oklch(0.965 0.004 265)); font-weight: 600; } .ds-nav-bar { position: absolute; top: 6px; bottom: 6px; left: 0; width: 3px; border-radius: 9999px; background: var(--foreground, oklch(0.21 0.012 265)); }"
+    },
+    {
+      "name": "Grupo segmentado",
+      "kind": "custom",
+      "refersTo": "segmented-active",
+      "description": "Tema, Idioma y Auto-refresco: un radiogroup con un solo tabulador y las flechas para elegir.",
+      "html": "<div class=\"ds-seg\" role=\"radiogroup\" aria-label=\"Tema\"><button class=\"ds-seg-item\" role=\"radio\" aria-checked=\"false\">Sistema</button><button class=\"ds-seg-item ds-seg-item--on\" role=\"radio\" aria-checked=\"true\">Claro</button><button class=\"ds-seg-item\" role=\"radio\" aria-checked=\"false\">Oscuro</button></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--muted, oklch(0.965 0.004 265)); } .ds-seg-item { height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground, oklch(0.52 0.014 265)); font: 500 0.875rem/1.25rem 'Geist Variable', sans-serif; cursor: pointer; transition: color 150ms; } .ds-seg-item:hover { color: var(--foreground, oklch(0.21 0.012 265)); } .ds-seg-item:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring, oklch(0.55 0.02 265)); } .ds-seg-item--on { background: var(--background, oklch(0.995 0.002 265)); color: var(--foreground, oklch(0.21 0.012 265)); font-weight: 600; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 0 0 1px var(--control, oklch(0.62 0.012 265)); }"
+    },
+    {
+      "name": "Fila de proceso",
+      "kind": "custom",
+      "refersTo": "chip-port",
+      "description": "La pieza que define la app: el proceso con su script y su carpeta, el puerto, el PID, CPU y RAM con su barra, y el Kill pegado a la derecha.",
+      "html": "<div class=\"ds-row\"><span class=\"ds-row-name\"><svg class=\"ds-row-icon\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M12 2 3 7v10l9 5 9-5V7z\"/></svg><span><span class=\"ds-row-title\">node.exe</span><span class=\"ds-row-sub\">vite · mi-web</span></span></span><span class=\"ds-row-port\">5173</span><span class=\"ds-row-pid\">18244</span><span class=\"ds-row-metric\"><span>2.1%</span><span class=\"ds-row-track\"><span class=\"ds-row-fill\" style=\"width:40%\"></span></span></span><button class=\"ds-row-kill\">Kill</button></div>",
+      "css": ".ds-row { display: grid; grid-template-columns: 1fr 64px 64px 76px 56px; align-items: center; gap: 12px; padding: 8px 20px; border-top: 1px solid var(--border, oklch(0.915 0.006 265)); color: var(--foreground, oklch(0.21 0.012 265)); font: 400 0.875rem/1.25rem 'Geist Variable', sans-serif; transition: background-color 150ms; } .ds-row:hover { background: color-mix(in oklch, var(--muted, oklch(0.965 0.004 265)) 60%, transparent); } .ds-row-name { display: flex; align-items: center; gap: 8px; min-width: 0; } .ds-row-icon { flex-shrink: 0; color: var(--runtime-node, #4a8b3a); } .ds-row-title { display: block; } .ds-row-sub { display: block; color: var(--muted-foreground, oklch(0.52 0.014 265)); font-size: 0.75rem; line-height: 1rem; } .ds-row-port { justify-self: start; padding: 2px 4px; border-radius: 4px; background: var(--muted, oklch(0.965 0.004 265)); font: 600 0.75rem/1rem ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; } .ds-row-pid { text-align: right; color: var(--muted-foreground, oklch(0.52 0.014 265)); font: 400 0.75rem/1rem ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; } .ds-row-metric { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-variant-numeric: tabular-nums; } .ds-row-track { display: block; width: 100%; height: 6px; overflow: hidden; border-radius: 9999px; background: var(--muted, oklch(0.965 0.004 265)); } .ds-row-fill { display: block; height: 100%; border-radius: 9999px; background: var(--runtime-node, #4a8b3a); transition: width 300ms; } .ds-row-kill { justify-self: end; height: 24px; padding: 0 8px; border: 1px solid var(--border, oklch(0.915 0.006 265)); border-radius: 8px; background: var(--background, oklch(0.995 0.002 265)); color: var(--muted-foreground, oklch(0.52 0.014 265)); font: 500 0.75rem/1rem 'Geist Variable', sans-serif; cursor: pointer; } .ds-row:hover .ds-row-kill { border-color: color-mix(in oklch, var(--destructive, oklch(0.577 0.245 27.325)) 40%, transparent); color: var(--destructive-text, oklch(0.50 0.19 27)); } .ds-row-kill:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring, oklch(0.55 0.02 265)); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "El panel de guardia",
+    "overview": "ProcessDevKill es un panel de guardia: quieto y discreto mientras todo va bien, y claro al primer vistazo cuando algo choca. Se usa de las dos formas por igual: abierto todo el día en un lateral, mirado de reojo, y abierto de golpe con un EADDRINUSE en la terminal de al lado. Lo primero pide que nada reclame atención sin motivo; lo segundo, que el puerto, el proyecto y el botón de cerrar se encuentren sin leer. El sistema resuelve las dos cosas con la misma herramienta: una superficie de grises de acero, casi sin color, sobre la que solo destaca lo que tiene un significado.\n\nLa densidad es la de una herramienta de Windows, no la de una página: texto a 14 px, filas de dos líneas (el proceso y, debajo, su script y su carpeta), una barra lateral fija de 208 px y cabeceras de vista de 57 px que no hacen scroll. El color está racionado. Los runtimes tienen el suyo, que identifica y no decora; el rojo es la señal de cierre y solo se llena en Nuke All; y el ámbar es un aviso, nunca una alarma. Todo lo que cambia cada dos segundos —CPU, RAM, puertos— va con cifras tabulares para que la columna no baile.\n\nLa app tiene que sentirse una aplicación de Windows, no una página web. Por eso se rechazan tres mundos vecinos, confirmados con el usuario: la web o el SaaS (tarjetas flotantes, degradados, cabeceras grandes, ilustraciones), la estética «hacker» (verde sobre negro, neón, todo en monoespaciada) y el antivirus alarmista (rojo y avisos por todas partes).",
+    "keyCharacteristics": [
+      "Neutros de acero en un único tono (265), con la croma casi a cero.",
+      "Un solo color de acción: el rojo de cierre, lleno solo en Nuke All.",
+      "Siete colores de runtime, ajustados por tema y medidos contra el fondo.",
+      "Plano, con bordes finos; solo lo que flota lleva sombra.",
+      "Geist para leer y monoespaciada solo para lo que se copia: PID y puertos.",
+      "Controles callados y precisos: neutros en reposo, con el foco siempre visible.",
+      "Claro, oscuro y temas de contraste de Windows, con reglas propias para cada uno."
+    ],
+    "rules": [
+      { "name": "The Single Signal Rule", "body": "El rojo lleno es Nuke All y la confirmación de un cierre, nada más. El Kill de cada fila es neutro y se tiñe de rojo solo con la fila bajo el puntero o con el foco dentro: veinte botones rojos competirían con los puertos, que son lo que se viene a mirar.", "section": "colors" },
+      { "name": "The Owned Color Rule", "body": "El color de un runtime solo aparece donde ese runtime está: su icono y sus barras. Nunca como fondo de una fila ni de una zona, ni como adorno.", "section": "colors" },
+      { "name": "The Measured Token Rule", "body": "Un color nuevo entra con su contraste medido —texto a 4,5:1, bordes y foco a 3:1— y el número escrito en el comentario de su token, como ya lo llevan --control, --ring y --destructive-text. Y con su regla en el bloque de forced-colors si dice algo solo con el fondo.", "section": "colors" },
+      { "name": "The Copyable Rule", "body": "La monoespaciada es para lo que se copia o se compara dígito a dígito: PID y puertos, y la tecla de un atajo (Ctrl F). Nada más; una app entera en monoespaciada es la estética «hacker» que se rechaza.", "section": "typography" },
+      { "name": "The Still Column Rule", "body": "Toda cifra que se refresca —CPU, RAM, tiempo activo, recuentos— lleva tabular-nums. La lista cambia cada dos segundos, y una columna que baila no se lee de reojo.", "section": "typography" },
+      { "name": "The Still Table Rule", "body": "Mientras el puntero o el teclado están en la tabla, las filas no cambian de sitio. Un proceso nuevo no empuja al que se iba a cerrar.", "section": "layout" },
+      { "name": "The Pinned Action Rule", "body": "La acción de la fila nunca queda detrás del scroll. Antes de que la tabla haga scroll lateral se sueltan columnas secundarias enteras, y lo que decían pasa al menú de la fila.", "section": "layout" },
+      { "name": "The Leaving Shadow Rule", "body": "Nada en reposo lleva sombra. Una sombra dice «esto está encima y se va a ir»; una tarjeta flotante en reposo es la web que se rechaza.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do separar zonas con un borde de 1 px en borde y un paso de tono, no con sombras ni con tarjetas.",
+      "Do dar a cada control su borde en borde-de-control (3,6:1 en claro) y su foco con el anillo opaco de 3 px; las reglas exactas, en .claude/CLAUDE.md.",
+      "Do escribir cada estado que hoy se diga solo con un fondo también en el bloque de forced-colors de index.css, con colores del sistema.",
+      "Do poner tabular-nums en toda cifra que se refresque, y monoespaciada solo en PID y puertos.",
+      "Do marcar lo elegido por al menos dos lados —fondo y peso, o fondo y barra—, nunca solo con el color.",
+      "Do empezar una vista nueva con ViewHeader (un h2 de 16 px y las acciones a la derecha) y ViewBody.",
+      "Do mirar primero qué hace el Administrador de tareas o la Configuración de Windows 11 ante la misma necesidad."
+    ],
+    "donts": [
+      "Don't usar tarjetas flotantes, degradados, cabeceras grandes, ilustraciones ni vidrio: es la web o el SaaS que la app rechaza.",
+      "Don't poner verde sobre negro, neón ni la app entera en monoespaciada: es la estética «hacker» que se rechaza.",
+      "Don't pintar de rojo cada Kill, ni poner banners rojos o ámbar para lo que no es un peligro: es el antivirus alarmista que se rechaza. El rojo lleno es Nuke All.",
+      "Don't usar el color de un runtime como fondo de una fila o de una zona.",
+      "Don't usar blanco puro como fondo de la ventana en el tema claro (acero-claro es 0,995).",
+      "Don't usar border-input ni el anillo de foco al 50 % que trae shadcn: no llegan a 3:1.",
+      "Don't dejar la acción de una fila detrás del scroll lateral."
+    ]
+  }
+}

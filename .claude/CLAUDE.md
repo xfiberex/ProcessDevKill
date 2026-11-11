@@ -6,7 +6,11 @@ su CPU, su RAM y **el puerto local que ocupa cada uno**, y permite cerrarlos. So
 El estado y las decisiones viven en [CONTEXT.md](../CONTEXT.md), y lo que falta por hacer en
 [ROADMAP.md](../ROADMAP.md). **Leer los dos antes de tocar nada**: casi todo lo que parece raro está
 explicado en CONTEXT §4 con su fecha y su motivo. Lo que cambió en cada versión, contado para quien
-usa la app, en [CHANGELOG.md](../CHANGELOG.md). Lo cerrado vive entero en `docs/`: los Tiers 1 a 11
+usa la app, en [CHANGELOG.md](../CHANGELOG.md). Para quién es la app, qué la hace distinta y qué es
+obligatorio en cualquier trabajo de diseño, en [PRODUCT.md](../PRODUCT.md), y el sistema visual
+tal como está en el código, en [DESIGN.md](../DESIGN.md): los dos los lee la skill `impeccable`
+antes de tocar la interfaz. Los valores mandan en `src/index.css`; si cambian, `DESIGN.md` se
+regenera con `/impeccable document`, no se corrige a mano por partes. Lo cerrado vive entero en `docs/`: los Tiers 1 a 11
 en [docs/TIERS-1-11.md](../docs/TIERS-1-11.md), el Tier 12 en [docs/TIER-12.md](../docs/TIER-12.md),
 el Tier 13 en [docs/TIER-13.md](../docs/TIER-13.md), la auditoría del 2026-08-18 en
 [docs/REVISION-2026-08-18.md](../docs/REVISION-2026-08-18.md) y la historia sesión a sesión en
