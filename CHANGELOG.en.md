@@ -21,6 +21,10 @@ are tasks from the [ROADMAP](ROADMAP.md).
 - **Searching for a port that no watched process holds now tells you who holds it**: “Port 3000
   is held by wslrelay.exe (PID 4120), which the app does not watch,” with a button to watch it. If
   a watched process that the filter leaves out holds it, it says so too. (T14-34)
+- **Clicking a row selects it**, as in Task Manager: Ctrl+click adds or removes another, and
+  Shift+click selects the range. Selecting never closes anything; each row still has its
+  checkbox. (T14-37)
+- **F6 and Shift+F6 move between the sidebar, the view’s header, and the table.** (T14-37)
 
 ### Changed
 - **The process table now starts sorted by port**, lowest first, with the ones that listen on

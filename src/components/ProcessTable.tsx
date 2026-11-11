@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowDownIcon,
@@ -62,6 +62,8 @@ type ProcessTableProps = {
   onSort: (key: SortKey) => void;
   onToggle: (pid: number) => void;
   onToggleAll: () => void;
+  /** Sustituye la selección: un clic en la fila, o Mayús+clic para un rango (T14-37). */
+  onSelect?: (pids: number[]) => void;
   onKill: (pid: number) => void;
   /**
    * Supr sobre una fila (T14-14): pide el cierre **con confirmación**. Lo decidió el usuario el
@@ -107,6 +109,7 @@ export function ProcessTable({
   onSort,
   onToggle,
   onToggleAll,
+  onSelect,
   onKill,
   onAskKill,
   onCopy,
@@ -202,6 +205,37 @@ export function ProcessTable({
    */
   const [activa, setActiva] = useState<number | null>(null);
   const pidActivo = processes.some((p) => p.pid === activa) ? activa : (processes[0]?.pid ?? null);
+
+  /** De dónde sale un rango con Mayús+clic: la última fila pulsada sin Mayús. */
+  const anclaRef = useRef<number | null>(null);
+
+  /**
+   * Un clic en la fila la selecciona, como en el Administrador de tareas o el Explorador (T14-37):
+   * solo ella; con Ctrl, se suma o se quita; con Mayús, el rango desde la última pulsada. **Nunca
+   * cierra nada**: es la selección, y cerrarla sigue pidiendo su botón o su confirmación.
+   *
+   * Los controles de la fila hacen lo suyo y no seleccionan: la casilla ya marca, el Kill cierra
+   * y el menú es del clic derecho. Y si el clic termina un arrastre para copiar texto, tampoco.
+   */
+  function alHacerClicEnFila(e: MouseEvent<HTMLTableRowElement>, p: ProcessInfo) {
+    if (!onSelect) return;
+    if ((e.target as HTMLElement).closest('button, [role="checkbox"], a, input')) return;
+
+    const orden = processes.map((x) => x.pid);
+    const ancla = anclaRef.current;
+    if (e.shiftKey && ancla !== null && orden.includes(ancla)) {
+      // Las filas dejan seleccionar texto (para copiar), y Mayús+clic lo extiende: se quita, que
+      // aquí lo que se pide es un rango de filas.
+      window.getSelection()?.removeAllRanges();
+      const [a, b] = [orden.indexOf(ancla), orden.indexOf(p.pid)].sort((x, y) => x - y);
+      onSelect(orden.slice(a, b + 1));
+      return;
+    }
+    if (window.getSelection()?.toString()) return;
+    anclaRef.current = p.pid;
+    if (e.ctrlKey || e.metaKey) onToggle(p.pid);
+    else onSelect([p.pid]);
+  }
 
   function alPulsarEnFila(e: KeyboardEvent<HTMLTableRowElement>, p: ProcessInfo) {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
@@ -410,6 +444,7 @@ export function ProcessTable({
                       aria-keyshortcuts="Delete"
                       onFocus={() => setActiva(p.pid)}
                       onKeyDown={(e: KeyboardEvent<HTMLTableRowElement>) => alPulsarEnFila(e, p)}
+                      onClick={(e: MouseEvent<HTMLTableRowElement>) => alHacerClicEnFila(e, p)}
                       // Para `focoPerdido`: Motion deja la fila pintada mientras sale.
                       data-saliendo={isKilling ? "" : undefined}
                       // `scroll-m`: al llegar con las flechas, la fila no se queda debajo de la

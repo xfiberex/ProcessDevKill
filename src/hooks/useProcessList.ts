@@ -129,6 +129,11 @@ export function useProcessList() {
     });
   }
 
+  /** Sustituye la selección entera: el clic en una fila y Mayús+clic (T14-37). */
+  function select(pids: number[]) {
+    setSelected(new Set(pids));
+  }
+
   function toggleAll() {
     const allSelected = visible.every((p) => selected.has(p.pid));
     setSelected(allSelected ? new Set() : new Set(visible.map((p) => p.pid)));
@@ -161,6 +166,7 @@ export function useProcessList() {
     cerrablesVisibles,
     toggle,
     toggleAll,
+    select,
     clearSelection,
   };
 }

@@ -45,6 +45,14 @@ export function useVentana(acciones: { onBuscar: () => void; onRefrescar: () => 
         if (!e.repeat) actuales.current.onRefrescar();
         return;
       }
+      // F6 y Mayús+F6 saltan entre zonas, como en el Explorador (T14-37): el sidebar, la cabecera
+      // de la vista y su cuerpo. En el navegador F6 lleva a la barra de direcciones, que aquí no
+      // hay, y sin esto no hacía nada.
+      if (tecla === "f6" && !e.ctrlKey) {
+        e.preventDefault();
+        saltarDeZona(e.shiftKey ? -1 : 1);
+        return;
+      }
       if (tecla === "f3" || tecla === "f7" || (e.ctrlKey && ["p", "g", "u"].includes(tecla))) {
         e.preventDefault();
       }
@@ -61,6 +69,55 @@ export function useVentana(acciones: { onBuscar: () => void; onRefrescar: () => 
       window.removeEventListener("contextmenu", alClicDerecho);
     };
   }, []);
+}
+
+/**
+ * Las zonas de F6, en orden, y lo primero que se busca en cada una: la vista elegida del sidebar,
+ * el buscador de la cabecera y la fila activa de la tabla. Si no lo hay —otra vista—, lo primero
+ * que se pueda enfocar; y si tampoco, la zona misma si entra en el tabulador (`ViewBody` con
+ * `label`). Las marca `data-zona`, que ponen `Sidebar`, `ViewHeader` y `ViewBody`.
+ */
+const ZONAS = [
+  { zona: "sidebar", preferido: '[aria-current="page"]' },
+  { zona: "cabecera", preferido: "input" },
+  { zona: "cuerpo", preferido: 'tr[tabindex="0"]' },
+];
+const ENFOCABLE =
+  'input:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [href], [tabindex="0"]';
+
+/** Lo primero visible de `dentro` que case con `selector`. `checkVisibility` deja fuera el Nuke All
+ *  escondido con `invisible`; jsdom no la tiene, y ahí todo cuenta como visible. */
+function primeroVisible(dentro: HTMLElement, selector: string): HTMLElement | null {
+  const candidatos = [...dentro.querySelectorAll<HTMLElement>(selector)];
+  return (
+    candidatos.find((el) =>
+      typeof el.checkVisibility === "function" ? el.checkVisibility({ visibilityProperty: true }) : true,
+    ) ?? null
+  );
+}
+
+/** Lleva el foco a la zona siguiente (`1`) o a la anterior (`-1`), saltando las que no tienen nada. */
+export function saltarDeZona(sentido: 1 | -1) {
+  const zonas = ZONAS.flatMap((z) => {
+    const el = document.querySelector<HTMLElement>(`[data-zona="${z.zona}"]`);
+    return el ? [{ ...z, el }] : [];
+  });
+  if (zonas.length === 0) return;
+
+  const actual = zonas.findIndex((z) => z.el.contains(document.activeElement));
+  // Sin foco en ninguna, F6 va a la primera y Mayús+F6 a la última.
+  const desde = actual === -1 ? (sentido === 1 ? -1 : 0) : actual;
+  for (let paso = 1; paso <= zonas.length; paso++) {
+    const z = zonas[(((desde + sentido * paso) % zonas.length) + zonas.length) % zonas.length];
+    const destino =
+      primeroVisible(z.el, z.preferido) ??
+      primeroVisible(z.el, ENFOCABLE) ??
+      (z.el.tabIndex === 0 ? z.el : null);
+    if (destino) {
+      destino.focus();
+      return;
+    }
+  }
 }
 
 /** Donde el menú del navegador sí hace falta: es el que trae cortar, copiar y pegar. */

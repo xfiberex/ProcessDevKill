@@ -138,7 +138,8 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex w-52 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+    // `data-zona`: una de las tres paradas de F6 (T14-37, `useVentana`).
+    <aside data-zona="sidebar" className="flex w-52 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       {/*
         En una ventana baja (`short:`, ≤ 600 px de alto) el sidebar se compacta: sin subtítulo, y
         el medidor sin su título ni las cifras del equipo, que siguen en el `title` de cada métrica

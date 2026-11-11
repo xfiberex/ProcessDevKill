@@ -1836,3 +1836,24 @@ describe("Supr sobre una fila", () => {
     expect(await screen.findByText("node.exe de mi-web cerrado")).toBeInTheDocument();
   });
 });
+
+/** T14-37: F6 salta entre el sidebar, la cabecera y la tabla, como en el Explorador. */
+describe("F6 entre zonas", () => {
+  it("recorre sidebar, buscador y fila activa, y Mayús+F6 vuelve", async () => {
+    const user = await montar();
+
+    await user.keyboard("{F6}");
+    expect(document.activeElement).toHaveAttribute("aria-current", "page");
+    expect(document.activeElement?.closest("aside")).not.toBeNull();
+
+    await user.keyboard("{F6}");
+    expect(buscador()).toHaveFocus();
+
+    await user.keyboard("{F6}");
+    expect(document.activeElement?.tagName).toBe("TR");
+    expect(document.activeElement).toHaveAttribute("tabindex", "0");
+
+    await user.keyboard("{Shift>}{F6}{/Shift}");
+    expect(buscador()).toHaveFocus();
+  });
+});

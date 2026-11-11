@@ -35,7 +35,9 @@ export function ViewHeader({
     // 49 px y el borde de abajo saltaba 8 px al cambiar de vista.
     // `@container/cabecera`: un hijo puede preguntar por el ancho de la cabecera, que con zoom no
     // es el de la ventana.
+    // `data-zona`: una de las tres paradas de F6 (T14-37, `useVentana`).
     <header
+      data-zona="cabecera"
       className={`@container/cabecera flex min-h-14.25 shrink-0 items-center gap-x-3 gap-y-2 border-b border-border px-5 py-3 ${wrap ? "flex-wrap" : ""}`}
     >
       <div className="min-w-0">
@@ -72,6 +74,7 @@ export function ViewBody({
 }) {
   return (
     <div
+      data-zona="cuerpo"
       className={`min-h-0 flex-1 overflow-y-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${className}`}
       {...(label ? { tabIndex: 0, role: "region", "aria-label": label } : {})}
     >

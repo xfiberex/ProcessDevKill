@@ -363,6 +363,7 @@ export default function App() {
                   onSort={lista.ordenarPor}
                   onToggle={lista.toggle}
                   onToggleAll={lista.toggleAll}
+                  onSelect={lista.select}
                   onKill={(pid) => killMany([pid])}
                   onAskKill={(p) => askNuke([p.pid], t.confirmar.ambitoUno(p.name, p.pid, p.project), 0)}
                   onCopy={copyToClipboard}

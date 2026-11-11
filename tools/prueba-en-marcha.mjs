@@ -1127,6 +1127,56 @@ async function tablaConTeclado(cdp, app) {
       pulsar(TECLA.INICIO);
       exigir(await esperar(enFila(primera), { ms: 3_000 }), `tras Inicio el foco está en «${await activo()}»`);
 
+      // T14-37: F6 salta de zona con una tecla de verdad. Desde la fila, la siguiente es el
+      // sidebar (la vista elegida); luego el buscador, y de vuelta a la fila activa.
+      const enZona = (expresion) => () => cdp.js(expresion);
+      pulsar(TECLA.F6);
+      exigir(
+        await esperar(enZona(`Boolean(document.activeElement?.closest('[data-zona="sidebar"]')) && document.activeElement.getAttribute("aria-current") === "page"`), { ms: 3_000 }),
+        `tras F6 desde la fila, el foco está en «${await activo()}»`,
+      );
+      pulsar(TECLA.F6);
+      exigir(
+        await esperar(enZona(`document.activeElement === document.querySelector("main header input")`), { ms: 3_000 }),
+        `tras el segundo F6, el foco está en «${await activo()}»`,
+      );
+      pulsar(TECLA.F6);
+      exigir(await esperar(enFila(primera), { ms: 3_000 }), `tras el tercer F6, el foco está en «${await activo()}»`);
+
+      // T14-37: un clic en la fila la marca sola; Ctrl+clic suma otra; Mayús+clic marca el rango
+      // desde la última pulsada sin Mayús. Ninguno cierra nada. Con el ratón por CDP: es la página
+      // la que atiende el clic, no el navegador.
+      const clicEnFila = async (pid, modifiers = 0) => {
+        const punto = await cdp.js(`(() => {
+          const c = document.querySelector('tr[data-pid="${pid}"] td:nth-child(2)').getBoundingClientRect();
+          return { x: c.left + 12, y: c.top + c.height / 2 };
+        })()`);
+        for (const type of ["mousePressed", "mouseReleased"]) {
+          await cdp.enviar("Input.dispatchMouseEvent", { type, ...punto, button: "left", clickCount: 1, modifiers });
+        }
+        await dormir(300);
+      };
+      const marcadasYa = () =>
+        cdp.js(`JSON.stringify([...document.querySelectorAll("main tbody tr[data-selected]")].map((f) => Number(f.dataset.pid)))`);
+      await clicEnFila(orden[1]);
+      exigir((await marcadasYa()) === JSON.stringify([orden[1]]), `un clic no marcó solo su fila: ${await marcadasYa()}`);
+      await clicEnFila(orden[3], 2);
+      exigir(
+        (await marcadasYa()) === JSON.stringify([orden[1], orden[3]]),
+        `Ctrl+clic no sumó la fila: ${await marcadasYa()}`,
+      );
+      await clicEnFila(orden[0], 8);
+      exigir(
+        (await marcadasYa()) === JSON.stringify(orden.slice(0, 4)),
+        `Mayús+clic no marcó el rango desde la última pulsada: ${await marcadasYa()}`,
+      );
+      exigir((await filas()).length === 5, "seleccionar con el ratón cerró algo");
+      // Como estaba: sin selección, con el puntero fuera y el foco en la primera fila.
+      await cdp.pulsar("Quitar selección");
+      exigir(await esperar(async () => (await marcadasYa()) === "[]"), "«Quitar selección» no quitó la selección");
+      await cdp.enviar("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: 1 });
+      await cdp.js(`document.querySelector('tr[data-pid="${primera}"]').focus()`);
+
       // 2. Supr pregunta. Cancelar no cierra nada; confirmar cierra esa fila, y el foco pasa a la
       //    que ocupa su sitio (T14-13).
       pulsar(TECLA.SUPR);
@@ -1196,7 +1246,7 @@ async function tablaConTeclado(cdp, app) {
       exigir(await esperar(async () => (await filas()).length === 1), "la fila cerrada desde fuera sigue en la tabla");
       await dormir(600);
       exigir(await enFila(resto[0])(), `un cierre desde fuera movió el foco a «${await activo()}»`);
-      return "de fábrica por puerto; del buscador a la fila con Flecha abajo; flechas, Inicio y Fin, con la fila del foco a la vista; Supr pregunta, Escape cancela e Intro cierra; protegida, nada; lote con Espacio; el foco, siempre en una fila";
+      return "de fábrica por puerto; del buscador a la fila con Flecha abajo; flechas, Inicio y Fin, con la fila del foco a la vista; F6 entre zonas; clic, Ctrl+clic y Mayús+clic seleccionan sin cerrar; Supr pregunta, Escape cancela e Intro cierra; protegida, nada; lote con Espacio; el foco, siempre en una fila";
     } finally {
       for (const s of servidores) s.hijo.kill();
       // El orden de fábrica, por puerto (T14-33): los pasos de detrás no dependen de él, pero

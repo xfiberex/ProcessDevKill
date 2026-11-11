@@ -112,7 +112,7 @@ function ventanaReal(hijo, accion, extra = []) {
 export const ventanasDe = (hijo) => ventanaReal(hijo, "ventanas");
 
 export const TECLA = {
-  INTRO: 0x0d, ESC: 0x1b, ESPACIO: 0x20, CTRL: 0x11, R: 0x52, F5: 0x74,
+  INTRO: 0x0d, ESC: 0x1b, ESPACIO: 0x20, CTRL: 0x11, MAYUS: 0x10, R: 0x52, F5: 0x74, F6: 0x75,
   FIN: 0x23, INICIO: 0x24, ARRIBA: 0x26, ABAJO: 0x28, SUPR: 0x2e,
 };
 

@@ -23,6 +23,10 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 - **Buscar un puerto que no tiene ningún proceso vigilado dice quién lo tiene**: «El puerto 3000 lo
   tiene wslrelay.exe (PID 4120), que la app no vigila», con un botón para vigilarlo. Si lo tiene un
   proceso vigilado que el filtro deja fuera, también lo dice. (T14-34)
+- **Un clic en una fila la selecciona**, como en el Administrador de tareas: Ctrl+clic suma o
+  quita otra, y Mayús+clic marca el rango. Seleccionar no cierra nada; la casilla de cada fila
+  sigue ahí. (T14-37)
+- **F6 y Mayús+F6 saltan entre el sidebar, la cabecera de la vista y la tabla.** (T14-37)
 
 ### Cambiado
 - **La tabla de procesos arranca ordenada por puerto**, de menor a mayor, con los que no escuchan

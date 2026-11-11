@@ -739,3 +739,51 @@ describe("la tabla con el teclado", () => {
     expect(fila(103)).toHaveAttribute("tabindex", "-1");
   });
 });
+
+/**
+ * T14-37: en el Administrador de tareas o en el Explorador, un clic en la fila la selecciona.
+ * Aquí no hacía nada. Lo que no puede hacer es cerrar: la selección se cierra con su botón.
+ */
+describe("seleccionar con un clic en la fila", () => {
+  const LISTA = [proceso({ pid: 201 }), proceso({ pid: 202 }), proceso({ pid: 203 }), proceso({ pid: 204 })];
+  const nombre = (pid: number) => within(fila(pid)).getAllByText("node.exe")[0];
+
+  it("un clic la selecciona sola; Ctrl+clic suma otra; Mayús+clic marca el rango", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const { onToggle } = pintar(LISTA, { onSelect });
+
+    await user.click(nombre(202));
+    expect(onSelect).toHaveBeenLastCalledWith([202]);
+
+    await user.keyboard("{Control>}");
+    await user.click(nombre(204));
+    await user.keyboard("{/Control}");
+    expect(onToggle).toHaveBeenLastCalledWith(204);
+
+    await user.keyboard("{Shift>}");
+    await user.click(nombre(201));
+    await user.keyboard("{/Shift}");
+    // El ancla es la última pulsada sin Mayús: la 204, por el Ctrl+clic.
+    expect(onSelect).toHaveBeenLastCalledWith([201, 202, 203, 204]);
+  });
+
+  /** El criterio negativo: ni el Kill ni la casilla seleccionan, y ningún clic en la fila cierra. */
+  it("el Kill y la casilla hacen lo suyo, y seleccionar nunca cierra", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const { onKill, onToggle, onAskKill } = pintar(LISTA, { onSelect });
+
+    await user.click(screen.getByLabelText("Seleccionar PID 203"));
+    expect(onToggle).toHaveBeenCalledExactlyOnceWith(203);
+
+    await user.click(screen.getByRole("button", { name: "Kill node.exe, PID 203" }));
+    expect(onKill).toHaveBeenCalledExactlyOnceWith(203);
+    expect(onSelect).not.toHaveBeenCalled();
+
+    await user.click(nombre(201));
+    await user.dblClick(nombre(201));
+    expect(onKill).toHaveBeenCalledTimes(1);
+    expect(onAskKill).not.toHaveBeenCalled();
+  });
+});
