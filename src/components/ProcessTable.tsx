@@ -265,9 +265,14 @@ export function ProcessTable({
     // «Activo»; por debajo de 572, también «PID». Los dos siguen en el menú de la fila. Con las dos
     // fuera las fijas suman 368, y el mínimo son esas más 100 para el nombre: si ni así cabe —el
     // 150 % y el 200 %—, hay scroll horizontal y **Kill se queda pegado a la derecha**.
+    //
+    // Y por arriba, `max-w-270`, 1080 px (T14-19): las columnas fijas suman 520 y el nombre, la única que crece,
+    // se queda en 560 como mucho. Sin tope, a 1920 medía 1.177 px y entre «node.exe» y su puerto
+    // había una franja vacía que el ojo cruzaba fila a fila. El sitio que sobra queda en blanco a la
+    // derecha, como en el Administrador de tareas. A 1000×680 y a 900×480 no llega al tope.
     <table
       ref={tablaRef}
-      className="w-full min-w-117 table-fixed text-sm"
+      className="w-full min-w-117 max-w-270 table-fixed text-sm"
       aria-describedby={TECLAS_ID}
     >
       {/* Sin esto la tabla se anuncia como "tabla, 8 columnas" y nada mas. `sr-only` porque el

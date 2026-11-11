@@ -25,6 +25,9 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 - **Debajo de cada proceso, la carpeta del proyecto va delante del script** (`mi-web · vite`): en
   una ventana estrecha o con zoom, lo que se recorta es el script y no lo que distingue la fila.
   La confirmación de Supr y el aviso de cierre también la nombran: «node.exe de mi-web». (T14-32)
+- **Con la ventana maximizada, el puerto queda junto a su proceso**: la columna del nombre ya no
+  se estira hasta el borde, y el sitio que sobra queda en blanco a la derecha. A 1920 px había más
+  de mil píxeles vacíos entre los dos. (T14-19)
 
 ### Corregido
 - **Con el teclado, la fila de la tabla en la que estás se ve**: lleva su contorno y se ilumina

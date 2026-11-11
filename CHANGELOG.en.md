@@ -23,6 +23,9 @@ are tasks from the [ROADMAP](ROADMAP.md).
 - **Under each process, the project folder now comes before the script** (`mi-web · vite`) — in a
   narrow window or with zoom, what gets cut is the script, not what tells the rows apart. The
   Delete confirmation and the closing notice name it too: “node.exe in mi-web”. (T14-32)
+- **With the window maximized, the port stays next to its process**: the name column no longer
+  stretches to the edge, and the space left over stays blank on the right. At 1920 px there were
+  more than a thousand empty pixels between the two. (T14-19)
 
 ### Fixed
 - **With the keyboard, you can see which row of the table you are on**: it gets its outline and
