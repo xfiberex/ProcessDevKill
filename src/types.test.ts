@@ -14,6 +14,7 @@ import {
 } from "./types";
 import type {
   Language,
+  PortOwner,
   ServiceFamily,
   ServiceInfo,
   ServiceOutcome,
@@ -73,6 +74,19 @@ describe("el contrato con Rust", () => {
    * llega `undefined` y la barra se pinta a cero **sin romper nada**. Un campo de
    * menos en el struct pasaria igual de callado. Por eso se comparan los nombres.
    */
+  it("mantiene los campos de PortOwner que serializa ports.rs (T14-34)", () => {
+    const rust = leerRust("ports.rs");
+    const bloque = rust.match(/pub struct PortOwner\s*\{([^}]+)\}/);
+    expect(bloque, "no se encontro el struct PortOwner").not.toBeNull();
+    const campos = [...bloque![1].matchAll(/^\s*pub (\w+):/gm)].map((m) =>
+      m[1].replace(/_(\w)/g, (_, letra: string) => letra.toUpperCase()),
+    );
+
+    const muestra: PortOwner = { pid: 0, name: "", watchable: false };
+
+    expect(campos.sort()).toEqual(Object.keys(muestra).sort());
+  });
+
   it("mantiene los campos de SystemUsage que serializa processes.rs", () => {
     const rust = leerRust("processes.rs");
     const bloque = rust.match(/pub struct SystemUsage\s*\{([^}]+)\}/);

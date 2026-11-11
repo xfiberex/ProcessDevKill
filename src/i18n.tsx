@@ -219,6 +219,15 @@ export const es = {
     sugerencia:
       "Node, Python, .NET, Java, Deno y Bun se vigilan siempre. Si trabajas con otros —`docker`, `go`, `php`—, añádelos en Ajustes." as Rico,
     boton: "Añadir procesos vigilados",
+    /**
+     * Una búsqueda de puerto sin filas, cuando alguien lo tiene (T14-34): un programa que no se
+     * vigila, o uno vigilado que el filtro de runtime deja fuera.
+     */
+    puertoNoVigilado: (puerto: number, nombre: string, pid: number) =>
+      `El puerto ${puerto} lo tiene ${nombre} (PID ${pid}), que la app no vigila.`,
+    puertoFueraDelFiltro: (puerto: number, nombre: string, pid: number) =>
+      `El puerto ${puerto} lo tiene ${nombre} (PID ${pid}), que el filtro deja fuera.`,
+    vigilar: (nombre: string) => `Vigilar ${nombre}`,
   },
 
   tabla: {
@@ -785,6 +794,11 @@ export const en: Catalogo = {
     sugerencia:
       "Node, Python, .NET, Java, Deno, and Bun are always watched. If you work with others — `docker`, `go`, `php` — add them in Settings.",
     boton: "Add watched processes",
+    puertoNoVigilado: (puerto, nombre, pid) =>
+      `Port ${puerto} is held by ${nombre} (PID ${pid}), which the app does not watch.`,
+    puertoFueraDelFiltro: (puerto, nombre, pid) =>
+      `Port ${puerto} is held by ${nombre} (PID ${pid}), which the filter leaves out.`,
+    vigilar: (nombre) => `Watch ${nombre}`,
   },
 
   tabla: {

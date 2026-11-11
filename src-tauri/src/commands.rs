@@ -21,7 +21,7 @@ use crate::storage::{
     HistoryEntry, KillSource, Settings, MIN_AUTO_KILL_MB, MIN_ZOMBIE_MINUTES,
 };
 use crate::lista::{emit_processes, kill_and_record, read_list, recordar_vistos};
-use crate::{hotkey, services, textos, tray, AppState};
+use crate::{hotkey, ports, services, textos, tray, AppState};
 
 #[tauri::command]
 pub fn get_processes(state: State<'_, AppState>) -> Result<Vec<ProcessInfo>, String> {
@@ -139,6 +139,18 @@ pub fn get_services(state: State<'_, AppState>) -> Result<Vec<services::ServiceI
         .map_err(|_| textos::de(state.language()).estado_corrupto.to_string())?;
 
     Ok(services::collect_services(&mut sys, &custom))
+}
+
+/// Quién escucha en un puerto, para el vacío de una búsqueda de puerto sin filas (T14-34).
+///
+/// No recibe un PID ni cierra nada: solo lee, como la lista. No hace falta la guardia de los
+/// runtimes vigilados, porque contestar con un proceso no vigilado es justo lo que se pide.
+#[tauri::command]
+pub fn who_listens(port: u16) -> Option<ports::PortOwner> {
+    if port == 0 {
+        return None;
+    }
+    ports::who_listens(port)
 }
 
 #[tauri::command]

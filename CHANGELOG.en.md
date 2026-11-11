@@ -18,6 +18,9 @@ are tasks from the [ROADMAP](ROADMAP.md).
 - **The “Not running as admin” notice in the sidebar can be hidden** with the X in its corner,
   and it stays hidden after the app restarts. To see it again, go to *Settings → System → Show a
   notice in the sidebar when running without rights*. (T14-28)
+- **Searching for a port that no watched process holds now tells you who holds it**: “Port 3000
+  is held by wslrelay.exe (PID 4120), which the app does not watch,” with a button to watch it. If
+  a watched process that the filter leaves out holds it, it says so too. (T14-34)
 
 ### Changed
 - **The process table now starts sorted by port**, lowest first, with the ones that listen on

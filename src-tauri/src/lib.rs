@@ -285,6 +285,7 @@ pub fn run() {
             service_control::get_service_changes,
             commands::get_history,
             commands::clear_history,
+            commands::who_listens,
             // Los del actualizador viven en `update`, junto a la logica en la que
             // delegan y a la guardia de rutas que protege a `install_update`.
             update::check_update,

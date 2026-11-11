@@ -348,6 +348,11 @@ export default function App() {
                   sinProcesos={lista.processes.length === 0}
                   onIrAAjustes={() => setView("settings")}
                   onQuitarFiltro={lista.quitarFiltro}
+                  query={lista.query}
+                  enLaLista={(pid) => lista.processes.some((p) => p.pid === pid)}
+                  onVigilar={(nombre) =>
+                    saveSettings({ ...settings, customNames: [...settings.customNames, nombre] })
+                  }
                 />
               ) : (
                 <ProcessTable

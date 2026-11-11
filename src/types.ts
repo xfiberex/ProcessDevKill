@@ -24,6 +24,16 @@ export type ProcessInfo = {
 };
 
 /** Espejo de `KillOutcome` en src-tauri/src/processes.rs. */
+/**
+ * Espejo de `PortOwner` en src-tauri/src/ports.rs: quién escucha en un puerto, vigilado o no
+ * (T14-34). `watchable` es si añadirlo a los vigilados lo haría salir en la lista.
+ */
+export type PortOwner = {
+  pid: number;
+  name: string;
+  watchable: boolean;
+};
+
 export type KillOutcome = {
   pid: number;
   killed: boolean;

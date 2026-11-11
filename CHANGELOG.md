@@ -20,6 +20,9 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 - **El aviso de «Sin modo administrador» del sidebar se puede ocultar** con la equis de su esquina,
   y no vuelve al reiniciar la app. Para verlo otra vez, *Ajustes → Sistema → Avisar en el sidebar
   cuando corre sin permisos*. (T14-28)
+- **Buscar un puerto que no tiene ningún proceso vigilado dice quién lo tiene**: «El puerto 3000 lo
+  tiene wslrelay.exe (PID 4120), que la app no vigila», con un botón para vigilarlo. Si lo tiene un
+  proceso vigilado que el filtro deja fuera, también lo dice. (T14-34)
 
 ### Cambiado
 - **La tabla de procesos arranca ordenada por puerto**, de menor a mayor, con los que no escuchan
