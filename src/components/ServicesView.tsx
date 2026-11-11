@@ -203,7 +203,7 @@ export function ServicesView({
               <col className="w-[68px]" />
               <col className="w-[116px] @max-[759px]:w-[52px]" />
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
+            <thead className="sticky top-0 z-10 bg-background text-xs text-muted-foreground">
               <tr>
                 <th scope="col" className="px-4 py-2 text-left font-medium">
                   {t.servicios.columnas.servicio}

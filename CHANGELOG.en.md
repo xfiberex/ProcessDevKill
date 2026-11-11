@@ -25,6 +25,8 @@ are tasks from the [ROADMAP](ROADMAP.md).
   Shift+click selects the range. Selecting never closes anything; each row still has its
   checkbox. (T14-37)
 - **F6 and Shift+F6 move between the sidebar, the view’s header, and the table.** (T14-37)
+- **Table headers use normal capitalization** (“Process,” “Port”), as Windows lists do, instead
+  of all caps. (T14-36)
 
 ### Changed
 - **The process table now starts sorted by port**, lowest first, with the ones that listen on

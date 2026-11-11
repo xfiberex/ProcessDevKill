@@ -27,6 +27,8 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
   quita otra, y Mayús+clic marca el rango. Seleccionar no cierra nada; la casilla de cada fila
   sigue ahí. (T14-37)
 - **F6 y Mayús+F6 saltan entre el sidebar, la cabecera de la vista y la tabla.** (T14-37)
+- **Las cabeceras de las tablas van en su caja normal** («Proceso», «Puerto»), como en las listas
+  de Windows, y no en mayúsculas. (T14-36)
 
 ### Cambiado
 - **La tabla de procesos arranca ordenada por puerto**, de menor a mayor, con los que no escuchan

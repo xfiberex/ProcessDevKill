@@ -336,7 +336,7 @@ export function ProcessTable({
         <col className="w-22 @max-[659px]:hidden" />
         <col className="w-19" />
       </colgroup>
-      <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
+      <thead className="sticky top-0 z-10 bg-background text-xs text-muted-foreground">
         <tr>
           {/* scope="col": en una tabla de ocho columnas es lo que hace que un
               lector de pantalla diga "Puerto: 3000" al recorrer celdas, en vez de
@@ -755,7 +755,7 @@ function SortableHeader({
         // (Tier 11, C2): a la derecha, su hueco —invisible mientras la columna no ordena— dejaba el
         // rótulo 18 px a la izquierda de sus cifras. `flex-row-reverse` con `justify-start` la
         // pone delante y pega el rótulo al borde derecho, al mismo relleno que las celdas.
-        className={`group flex w-full cursor-pointer items-center justify-start gap-1 pr-3 ${junto ? "pl-1" : "pl-3"} py-2 tracking-wide uppercase transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${
+        className={`group flex w-full cursor-pointer items-center justify-start gap-1 pr-3 ${junto ? "pl-1" : "pl-3"} py-2 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${
           align === "right" ? "flex-row-reverse" : ""
         } ${activa ? "text-foreground" : ""}`}
       >

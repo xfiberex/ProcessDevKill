@@ -77,7 +77,7 @@ export function HistoryView({ entries, onClear }: HistoryViewProps) {
         <table className="w-full text-sm">
           {/* Mismo motivo que en ProcessTable: sin `caption` la tabla no dice de que es. */}
           <caption className="sr-only">{t.historial.caption}</caption>
-          <thead className="sticky top-0 z-10 bg-background text-xs tracking-wide text-muted-foreground uppercase">
+          <thead className="sticky top-0 z-10 bg-background text-xs text-muted-foreground">
             <tr>
               <th scope="col" className="px-5 py-2 text-left font-medium">
                 {t.historial.cuando}
