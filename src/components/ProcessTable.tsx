@@ -407,12 +407,19 @@ export function ProcessTable({
                       data-saliendo={isKilling ? "" : undefined}
                       // `scroll-m`: al llegar con las flechas, la fila no se queda debajo de la
                       // cabecera pegada ni de la barra de la selección, que flota abajo.
-                      className={`group/fila scroll-mt-10 scroll-mb-20 border-t border-border outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-popup-open:bg-muted/60 ${
+                      //
+                      // `focus-visible:outline-solid` no sobra (T14-31): en Tailwind v4,
+                      // `outline-none` pone `--tw-outline-style: none` y `outline-2` escribe
+                      // `outline-style: var(--tw-outline-style)`, así que sin él el contorno no se
+                      // pintaba nunca y la fila con el foco no se distinguía. `outline-none` se
+                      // queda para que un clic no saque el contorno del navegador. Y el fondo del
+                      // puntero también con el foco, salvo en la marcada, que ya lleva el suyo.
+                      className={`group/fila scroll-mt-10 scroll-mb-20 border-t border-border outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring data-popup-open:bg-muted/60 ${
                         seleccionada
                           ? "bg-muted hover:bg-muted"
                           : p.zombie
-                            ? "bg-amber-500/8 hover:bg-amber-500/15"
-                            : "hover:bg-muted/60"
+                            ? "bg-amber-500/8 hover:bg-amber-500/15 focus-visible:bg-amber-500/15"
+                            : "hover:bg-muted/60 focus-visible:bg-muted/60"
                       }`}
                     />
                   }

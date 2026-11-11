@@ -1041,6 +1041,23 @@ async function tablaConTeclado(cdp, app) {
       exigir(await enFila(primera)(), `el foco no está en la primera fila: ${await activo()}`);
       pulsar(TECLA.ABAJO);
       exigir(await esperar(enFila(segunda), { ms: 3_000 }), `tras Flecha abajo el foco está en «${await activo()}»`);
+
+      // T14-31: la fila con el foco se ve. `outline-none` con `focus-visible:outline-2` deja
+      // `outline-style: none` en Tailwind v4, y axe no lo mira: se lee el estilo calculado, con el
+      // puntero fuera de la tabla para que el fondo no sea el del hover.
+      const marca = await cdp.js(`(() => {
+        const f = document.querySelector('tr[data-pid="${segunda}"]');
+        const otra = document.querySelector('tr[data-pid="${orden[2]}"]');
+        const s = getComputedStyle(f);
+        return { visible: f.matches(":focus-visible"), estilo: s.outlineStyle, ancho: s.outlineWidth,
+                 fondo: s.backgroundColor, fondoOtra: getComputedStyle(otra).backgroundColor };
+      })()`);
+      exigir(
+        marca.visible && marca.estilo === "solid" && parseFloat(marca.ancho) >= 2,
+        `la fila con el foco no lleva contorno: ${JSON.stringify(marca)}`,
+      );
+      exigir(marca.fondo !== marca.fondoOtra, `la fila con el foco tiene el fondo de las demás: ${JSON.stringify(marca)}`);
+
       pulsar(TECLA.FIN);
       exigir(await esperar(enFila(orden[4]), { ms: 3_000 }), `tras Fin el foco está en «${await activo()}»`);
       pulsar(TECLA.INICIO);
@@ -1115,7 +1132,7 @@ async function tablaConTeclado(cdp, app) {
       exigir(await esperar(async () => (await filas()).length === 1), "la fila cerrada desde fuera sigue en la tabla");
       await dormir(600);
       exigir(await enFila(resto[0])(), `un cierre desde fuera movió el foco a «${await activo()}»`);
-      return "flechas, Inicio y Fin; Supr pregunta, Escape cancela e Intro cierra; protegida, nada; lote con Espacio; el foco, siempre en una fila";
+      return "flechas, Inicio y Fin, con la fila del foco a la vista; Supr pregunta, Escape cancela e Intro cierra; protegida, nada; lote con Espacio; el foco, siempre en una fila";
     } finally {
       for (const s of servidores) s.hijo.kill();
       // El orden de fábrica, por RAM: los pasos de detrás no dependen de él, pero tampoco lo esperan cambiado.

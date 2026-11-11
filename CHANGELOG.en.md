@@ -14,6 +14,11 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+### Fixed
+- **With the keyboard, you can see which row of the table you are on**: it gets its outline and
+  lights up as it does under the pointer. Until now the outline was never drawn, in the light or
+  dark theme, and the only clue was that the row’s Kill button turned red. (T14-31)
+
 ## [1.10.7] — 2026-10-26
 
 Security fixes in the updater’s connection.

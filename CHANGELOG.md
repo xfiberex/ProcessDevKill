@@ -16,6 +16,11 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+### Corregido
+- **Con el teclado, la fila de la tabla en la que estás se ve**: lleva su contorno y se ilumina
+  como bajo el puntero. Hasta ahora el contorno no se pintaba, en claro ni en oscuro, y la única
+  pista era que el Kill de esa fila se ponía rojo. (T14-31)
+
 ## [1.10.7] — 2026-10-26
 
 Arreglos de seguridad en la conexión del actualizador.
