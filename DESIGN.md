@@ -409,8 +409,9 @@ Callados y precisos: neutros en reposo, con el foco siempre visible.
 - **Shape:** esquinas a 10 px; 32 px de alto (24 px el pequeño, 28 px el de un grupo segmentado).
 - **Primary** (`acero-profundo` con texto claro): escaso a propósito. «Descargar e instalar» en
   Ajustes y el botón que confirma un diálogo que no cierra nada.
-- **Outline** (fondo de la ventana, borde de control): Refrescar con el auto-refresco apagado, y la
-  acción de un estado vacío.
+- **Outline** (fondo de la ventana; borde en `borde` en claro, 1,26:1, y en `borde-de-control` en
+  oscuro): Refrescar con el auto-refresco apagado, Buscar actualizaciones y la acción de un estado
+  vacío. Al ser un botón con texto, WCAG no le pide borde a 3:1; el de shadcn se dejó así.
 - **Ghost:** los iconos de la cabecera —Refrescar con el auto-refresco puesto, borrar la
   búsqueda— y los elementos del sidebar. Al pasar el puntero, `acero-atenuado`.
 - **Nuke All** (rojo señal lleno, texto claro): el único botón rojo lleno. Con un filtro o una

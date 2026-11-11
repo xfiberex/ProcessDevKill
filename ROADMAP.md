@@ -60,9 +60,16 @@ resuelva sin leer de más, y que con teclado, con zoom o con un tema de contrast
 > sesión, sin devolver nada. Lo que hay aquí salió de quien condujo la app, mirando las capturas y
 > midiendo. Por eso cada tarea dice **lo medido** y lo que no se vio: para poder discutirla.
 >
-> ⚠️ **Seis tareas reabren o precisan decisiones de [CONTEXT §4](CONTEXT.md)**, y lo dicen en su
-> línea «Reabre»: T14-04, T14-14, T14-16, T14-17, T14-26 y T14-28. Si se adoptan, la decisión nueva
-> va allí con su fecha.
+> **La segunda opinión llegó el 2026-11-11**, con `/impeccable critique` sobre la vista de
+> Procesos de la v1.10.7: dos evaluadores separados, uno de diseño y otro con el detector de la
+> skill, uno detrás de otro sobre la copia de prueba. **27/40**, «aceptable». El detector salió
+> limpio; lo que encontró la revisión es la fase I. Un límite: la copia corrió dentro del sandbox
+> de la sesión y ninguna fila enseñó puerto, así que lo del puerto se juzgó por el código y las
+> capturas del README.
+>
+> ⚠️ **Siete tareas reabren o precisan decisiones de [CONTEXT §4](CONTEXT.md)**, y lo dicen en su
+> línea «Reabre»: T14-04, T14-14, T14-16, T14-17, T14-26, T14-28 y T14-36. Si se adoptan, la
+> decisión nueva va allí con su fecha.
 >
 > Esfuerzo: **bajo** = una sesión corta; **medio** = una sesión larga o dos; **alto** = varias.
 
@@ -76,13 +83,17 @@ resuelva sin leer de más, y que con teclado, con zoom o con un tema de contrast
 | F | Temas de contraste de Windows | 2 | 1 | 0 | 1 | 1 medio, 1 bajo |
 | G | Ajustes y contenido | 5 | 0 | 1 | 4 | 1 medio, 4 bajos |
 | H | Ideas del género | 2 | 0 | 0 | 2 | 2 medios |
-| | **Total** | **30** | **1** | **13** | **16** | |
+| I | La segunda opinión (2026-11-11) | 7 | 1 | 4 | 2 | 1 alto, 3 medios, 3 bajos |
+| | **Total** | **37** | **2** | **17** | **18** | |
 
 **Lo que se miró y se deja como está**, para que no vuelva como hallazgo: que Kill cierre sin
 confirmar; que el diálogo arranque con el foco en el botón destructivo; que los avisos salgan abajo
 a la derecha; que «Kill» y «Nuke All» vayan en inglés; que las barras se escalen al mayor de la
-lista; que la combinación del atajo se pueda preparar con el atajo apagado; y la fuente Geist. Todo
-eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabrirlo.
+lista; y que la combinación del atajo se pueda preparar con el atajo apagado. Todo eso está
+decidido en CONTEXT §4 y la auditoría no encontró motivo para reabrirlo. **Nuke All en rojo lleno**
+se volvió a mirar el 2026-11-11 y se queda, por decisión del usuario. **La fuente Geist** también
+estaba en esta lista; el usuario la reabrió el 2026-11-11 para probarla contra la del sistema
+(T14-36).
 
 ### Fase A — La herramienta de medir
 
@@ -757,6 +768,120 @@ eso está decidido en CONTEXT §4 y la auditoría no encontró motivo para reabr
   - **Criterio de aceptación:** medido con el ajuste encendido: la fila baja de 40 px y a 1000×680
     caben al menos 15. axe sigue en cero y ningún objetivo baja de 24 px. Apagado, nada cambia.
   - **Esfuerzo:** medio · **Depende de:** T14-06
+
+### Fase I — La segunda opinión (2026-11-11)
+
+Sale de la `critique` de impeccable sobre la vista de Procesos (ver la nota de arriba). Lo medido es
+de la copia de prueba por CDP; lo que solo se leyó en el código lo dice. El usuario eligió hacerlas
+todas en una tanda, empezando por T14-31, con Nuke All en rojo lleno y la fuente a prueba.
+
+- [ ] **[T14-31] La fila con el foco de teclado no se ve**
+  - **Severidad:** alta · **Tipo:** problema
+  - **Ubicación:** `src/components/ProcessTable.tsx:410`, `tools/auditoria-ui.mjs`,
+    `tools/prueba-en-marcha.mjs`
+  - **Lo medido:** la fila activa tiene `:focus-visible` y su `outline-style` calculado es `none`,
+    en claro y en oscuro. En Tailwind v4, `outline-none` pone `--tw-outline-style: none` y
+    `focus-visible:outline-2` escribe `outline-style: var(--tw-outline-style)`: comprobado en el CSS
+    compilado. La única pista de qué fila tiene el foco es que su Kill se pone rojo, que se lee como
+    «armado» y no como «estás aquí». Con `forced-colors` sí se ve. T14-14 se dio por bueno con axe
+    en cero, y axe no mira si el foco se ve.
+  - **Qué hacer:** que el contorno se pinte (`focus-visible:outline-solid`, o sin `outline-none`) y
+    que la fila con el foco lleve el mismo fondo que bajo el puntero. Y una comprobación que no
+    dependa de mirar: el estilo calculado de la fila activa.
+  - **Criterio de aceptación:** en vivo, en claro y en oscuro, la fila activa tiene un contorno
+    sólido de 2 px en `--ring` y su fondo cambia. `prueba-en-marcha.mjs` falla si vuelve a salir
+    `outline-style: none`. WCAG 2.4.7.
+  - **Esfuerzo:** bajo · **Depende de:** ninguna
+
+- [ ] **[T14-32] La fila se presenta por `node.exe`, y lo que la distingue es lo primero que se recorta**
+  - **Severidad:** media · **Tipo:** problema
+  - **Ubicación:** `src/components/ProcessTable.tsx:366`, `src/i18n.tsx` (diálogo de Supr y aviso
+    de cierre), `src/hooks/useKills.ts`
+  - **Lo medido:** la línea principal es el ejecutable, igual en 11 de 18 filas, y el detalle es
+    `script · carpeta`: el proyecto va al final y se recorta el primero. A 1000×680, 5 de 17
+    detalles recortados; a 900×480, los 18, con 157 px para el nombre; al 200 %, 52 px. El diálogo de
+    Supr y el aviso de cierre dicen «node.exe (PID …)», que es justo lo que no identifica la fila.
+  - **Qué hacer:** la carpeta del proyecto delante en el detalle, y el diálogo, el aviso y el nombre
+    accesible de la fila con ella cuando la hay. Sin enseñar nada que hoy no se enseñe: el script y
+    el último tramo de la carpeta, como hasta ahora.
+  - **Criterio de aceptación:** a 900×480, en una fila con script y carpeta, la carpeta se lee
+    entera cuando cabe y se recorta el script antes que ella. El diálogo de Supr y el aviso de cierre
+    nombran la carpeta. Pruebas de componente en los dos idiomas.
+  - **Esfuerzo:** medio · **Depende de:** ninguna
+
+- [ ] **[T14-33] El camino de rescate: la lista no arranca por puerto, y del buscador a la fila hay diez tabuladores**
+  - **Severidad:** media · **Tipo:** mejora
+  - **Ubicación:** `src/lib/sort.ts:16`, `src/components/ProcessesHeader.tsx`,
+    `src/components/ProcessTable.tsx`
+  - **Lo medido:** el orden de fábrica es la RAM, y en vivo la única fila con puerto quedó 8.ª de
+    18; la captura del README ordena por puerto. Del buscador a la primera fila hay 10 tabuladores
+    y el 2.º es Nuke All. Ni la flecha abajo ni Intro en el buscador hacen nada.
+  - **Qué hacer:** que la lista arranque ordenada por puerto —los que no tienen van al final, como
+    ya hace `sort.ts`—, y que flecha abajo o Intro en el buscador lleven el foco a la primera fila.
+  - **Criterio de aceptación:** al abrir la app, las filas con puerto van primero, de menor a mayor.
+    En vivo y con teclado, tras escribir en el buscador, flecha abajo deja el foco en la primera
+    fila. Pruebas de `sort.ts` y de componente.
+  - **Esfuerzo:** bajo · **Depende de:** T14-31
+  - **Reabre:** el orden de fábrica, que hasta aquí era el que manda Rust (RAM descendente).
+
+- [ ] **[T14-34] Buscar un puerto que no tiene ningún proceso vigilado acaba en «Ningún proceso coincide»**
+  - **Severidad:** media · **Tipo:** mejora
+  - **Ubicación:** `src-tauri/src/ports.rs`, `src-tauri/src/commands.rs`, `src/components/EmptyState.tsx`
+  - **Lo medido** (en el código; en vivo no hubo puertos): `ports.rs` lee todos los sockets en
+    escucha del equipo, pero la vista solo enseña los de los procesos vigilados. Si el 3000 lo tiene
+    `wslrelay.exe` o Docker, la búsqueda dice «Ningún proceso coincide con el filtro» y se queda ahí.
+  - **Qué hacer:** con una búsqueda que es un número de puerto y ninguna fila, preguntar a Rust quién
+    escucha en él y decirlo: el nombre del ejecutable y su PID, con la forma de vigilarlo. Solo el
+    nombre, como en el resto de la app.
+  - **Criterio de aceptación:** prueba de Rust con un socket propio: el comando devuelve este
+    proceso para su puerto y nada para uno libre. En la vista, el vacío lo dice en los dos idiomas.
+  - **Esfuerzo:** medio · **Depende de:** ninguna
+
+- [ ] **[T14-35] En reposo, lo que más se ve no es lo que importa**
+  - **Severidad:** baja · **Tipo:** mejora
+  - **Ubicación:** `src/components/ProcessTable.tsx` (menú de la fila, barras),
+    `src/components/ProcessesHeader.tsx`
+  - **Lo medido:** una calavera (`SkullIcon`) en «Cerrar proceso» del menú, justo la estética que
+    rechaza `DESIGN.md`; 18 «0.0%» con su barra vacía en reposo; el recuento suelto junto al buscador
+    repite el del sidebar y no dice de qué es. El aviso ámbar fijo es T14-28, en esta misma tanda.
+  - **Qué hacer:** el icono de «Cerrar proceso», el de Kill o ninguno; sin barra por debajo de
+    0,05 % de CPU; el recuento con su palabra, o fuera.
+  - **Criterio de aceptación:** visto en las capturas de `auditoria-ui.mjs` en los dos temas. axe
+    sigue en cero.
+  - **Esfuerzo:** bajo · **Depende de:** ninguna
+
+- [ ] **[T14-36] La letra, a prueba: Geist frente a la del sistema**
+  - **Severidad:** baja · **Tipo:** decisión
+  - **Ubicación:** `src/index.css`, `src/components/ProcessTable.tsx:300`,
+    `src/components/ui/button.tsx:26`
+  - **Lo medido:** la app usa Geist; el Administrador de tareas y la Configuración de Windows 11 usan
+    Segoe UI Variable. Las cabeceras de columna van en mayúsculas con espaciado, que Windows no usa.
+    El botón `sm` de shadcn escribe a 0,8rem, un paso que no está en la escala (lo marcó el
+    detector).
+  - **Qué hacer:** capturas y medidas de las cuatro vistas con las dos letras, en los mismos tamaños
+    y zooms, para que el usuario decida. Las cabeceras en su caja normal y el botón `sm` en la
+    escala, se elija la letra que se elija.
+  - **Criterio de aceptación:** la decisión del usuario, anotada en CONTEXT §4, y `DESIGN.md`
+    regenerado. Con la letra que quede, nada se recorta que antes cupiera: medido con
+    `auditoria-ui.mjs --fases medidas`.
+  - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Reabre:** la fuente Geist, que la lista de «lo que se deja como está» daba por decidida.
+
+- [ ] **[T14-37] Lo que una app de Windows da por hecho: seleccionar con un clic, F6 y el sidebar con zoom**
+  - **Severidad:** media · **Tipo:** mejora
+  - **Ubicación:** `src/components/ProcessTable.tsx`, `src/components/Sidebar.tsx`,
+    `src/hooks/useVentana.ts`
+  - **Lo medido:** un clic en la fila no hace nada (el `<tr>` no tiene `onClick`); F6 no mueve el
+    foco entre zonas; al 200 % el sidebar se queda con el 42 % de la ventana y hay tres barras de
+    scroll verticales a la vez.
+  - **Qué hacer:** clic en la fila para seleccionarla, y Ctrl o Mayús+clic para varias, sin que un
+    clic en Kill, en la casilla o en el menú cambie la selección; F6 y Mayús+F6 entre el sidebar, la
+    cabecera y la tabla; y por debajo de un ancho, el sidebar compacto. La barra de selección sigue
+    flotando (CONTEXT §4, 2026-09-24).
+  - **Criterio de aceptación:** en vivo, sobre procesos del guion: un clic marca la fila, Ctrl+clic
+    añade otra, Mayús+clic marca el rango, y ninguno cierra nada. F6 recorre las tres zonas. Al 200 %,
+    una sola barra de scroll vertical en Procesos. axe sigue en cero.
+  - **Esfuerzo:** alto · **Depende de:** T14-31
 
 ### Lo que queda suelto
 

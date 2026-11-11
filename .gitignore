@@ -38,3 +38,9 @@ coverage
 # Cache incremental de `tsc -b` (npm run build). Es estado local de la compilacion: nada que
 # versionar, y ademas ensuciaria el arbol que release.ps1 exige limpio antes de cortar.
 *.tsbuildinfo
+
+# Las instantáneas de `/impeccable critique`: salida de cada ejecución, con lo que se vio en la
+# copia de prueba. La skill dice que esta carpeta se ignora sola, pero no trae su `.gitignore`.
+# `ignore.md`, si algún día existe, sí se versiona: es lo que la crítica tiene que dejar de decir.
+.impeccable/critique/*
+!.impeccable/critique/ignore.md
