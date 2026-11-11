@@ -13,6 +13,12 @@ type UseKillsParams = {
   confirmar: (peticion: ConfirmRequest) => void;
   /** Tras un cierre que Rust atendió: la selección ya no tiene sentido. */
   onCerrados: () => void;
+  /**
+   * La carpeta del proyecto de un PID, para que el aviso diga «node.exe de mi-web cerrado» y no
+   * solo «node.exe cerrado» (T14-32). Rust no la manda en el resultado: no la guarda en el
+   * historial, a propósito, y aquí se lee de la lista que había al pedir el cierre.
+   */
+  proyectoDe?: (pid: number) => string | null;
 };
 
 /**
@@ -21,7 +27,7 @@ type UseKillsParams = {
  * Salió de `App.tsx` en T12-15. Aquí solo se pide y se cuenta lo que pasó: quién se puede cerrar lo
  * decide Rust, que vuelve a comprobar cada PID (`kill_and_record`).
  */
-export function useKills({ t, elevated, confirmar, onCerrados }: UseKillsParams) {
+export function useKills({ t, elevated, confirmar, onCerrados, proyectoDe }: UseKillsParams) {
   const [killing, setKilling] = useState<Set<number>>(new Set());
 
   async function killMany(pids: number[]) {
@@ -55,7 +61,7 @@ export function useKills({ t, elevated, confirmar, onCerrados }: UseKillsParams)
         );
         toast.success(
           outcomes.length === 1
-            ? t.avisos.cerradoUno(outcomes[0].name)
+            ? t.avisos.cerradoUno(outcomes[0].name, proyectoDe?.(outcomes[0].pid))
             : t.avisos.cerradosVarios(outcomes.length),
           {
             description:

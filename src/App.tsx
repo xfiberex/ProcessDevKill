@@ -79,6 +79,7 @@ export default function App() {
     elevated,
     confirmar: setConfirm,
     onCerrados: lista.clearSelection,
+    proyectoDe: (pid) => lista.processes.find((p) => p.pid === pid)?.project ?? null,
   });
   const servicios = useServices(t, setConfirm);
   const updater = useUpdater();
@@ -355,7 +356,7 @@ export default function App() {
                   onToggle={lista.toggle}
                   onToggleAll={lista.toggleAll}
                   onKill={(pid) => killMany([pid])}
-                  onAskKill={(p) => askNuke([p.pid], t.confirmar.ambitoUno(p.name, p.pid), 0)}
+                  onAskKill={(p) => askNuke([p.pid], t.confirmar.ambitoUno(p.name, p.pid, p.project), 0)}
                   onCopy={copyToClipboard}
                   onProtect={protegerFila}
                   onFreezeChange={lista.alCongelar}

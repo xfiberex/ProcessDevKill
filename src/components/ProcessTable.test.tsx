@@ -278,9 +278,15 @@ describe("menu contextual", () => {
 
 /** Tier 11, A2: con trece `node.exe` en la lista, la segunda línea es lo que dice cuál es cuál. */
 describe("segunda línea de la fila", () => {
-  it("enseña el script y la carpeta debajo del nombre", () => {
+  it("enseña la carpeta y el script debajo del nombre, con la carpeta delante (T14-32)", () => {
     pintar([proceso({ pid: 70, script: "vite", project: "mi-web" })]);
-    expect(within(fila(70)).getByText("vite · mi-web")).toBeInTheDocument();
+    expect(within(fila(70)).getByText("mi-web · vite")).toBeInTheDocument();
+  });
+
+  it("el Kill se nombra con la carpeta cuando la hay, y sin ella cuando no (T14-32)", () => {
+    pintar([proceso({ pid: 72, script: "vite", project: "mi-web" }), proceso({ pid: 73 })]);
+    expect(screen.getByRole("button", { name: "Kill node.exe de mi-web, PID 72" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Kill node.exe, PID 73" })).toBeInTheDocument();
   });
 
   it("no pinta una línea vacía si no se pudo leer ninguno", () => {
@@ -709,7 +715,7 @@ describe("la tabla con el teclado", () => {
   it("cada fila se anuncia con lo que la identifica: nombre, script, carpeta y puertos", () => {
     pintar(TRES);
 
-    expect(fila(101)).toHaveAccessibleName("node.exe, server.js · tienda, puerto 3000, PID 101");
+    expect(fila(101)).toHaveAccessibleName("node.exe, tienda · server.js, puerto 3000, PID 101");
     expect(fila(102)).toHaveAccessibleName("python.exe, sin puerto, PID 102");
     expect(fila(103)).toHaveAccessibleName("bun.exe, puertos 4000, 4001, PID 103, protegido");
   });

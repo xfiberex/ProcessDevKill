@@ -361,9 +361,11 @@ export function ProcessTable({
             const color = RUNTIME_COLORS[p.runtime];
             const label = t.runtimes[p.runtime];
             const isKilling = killing.has(p.pid);
-            // Script y carpeta, en gris debajo del nombre: con 13 de 15 filas llamadas
-            // `node.exe`, es lo único que dice cuál es cuál. Mismo patrón que Servicios.
-            const detalle = [p.script, p.project].filter(Boolean).join(" · ");
+            // Carpeta y script, en gris debajo del nombre: con 13 de 15 filas llamadas
+            // `node.exe`, es lo único que dice cuál es cuál. **La carpeta va delante** (T14-32):
+            // detrás era lo primero que se recortaba, y a 900×480 las 18 filas de la crítica
+            // decían «npm · ProcessDev…». El script se adivina; el proyecto, no.
+            const detalle = [p.project, p.script].filter(Boolean).join(" · ");
             const clave = claveProteccion(p);
             const seleccionada = selected.has(p.pid);
 
@@ -567,7 +569,7 @@ export function ProcessTable({
                       // sin decir cual mata cada uno. El checkbox de la misma fila ya
                       // se nombraba bien; para el boton que cierra un proceso es
                       // justo la etiqueta que no se puede fallar.
-                      aria-label={t.tabla.killLabel(p.name, p.pid)}
+                      aria-label={t.tabla.killLabel(p.name, p.pid, p.project)}
                       data-kill
                       // Fuera del tabulador (T14-14): desde la fila, Supr pide el cierre.
                       tabIndex={-1}

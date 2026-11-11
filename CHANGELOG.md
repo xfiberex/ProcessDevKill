@@ -22,6 +22,9 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
   ese orden sigue a un clic, en la cabecera «RAM». (T14-33)
 - **Desde el buscador, la flecha abajo o Intro llevan a la primera fila** de la tabla, en vez de
   diez pulsaciones de tabulador que pasaban por Nuke All. (T14-33)
+- **Debajo de cada proceso, la carpeta del proyecto va delante del script** (`mi-web · vite`): en
+  una ventana estrecha o con zoom, lo que se recorta es el script y no lo que distingue la fila.
+  La confirmación de Supr y el aviso de cierre también la nombran: «node.exe de mi-web». (T14-32)
 
 ### Corregido
 - **Con el teclado, la fila de la tabla en la que estás se ve**: lleva su contorno y se ilumina

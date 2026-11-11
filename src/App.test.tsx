@@ -1771,4 +1771,23 @@ describe("Supr sobre una fila", () => {
     await waitFor(() => expect(cierres()).toHaveLength(1));
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
+
+  /**
+   * T14-32: con once `node.exe`, «node.exe (PID 100)» no dice cuál se cierra. El diálogo y el
+   * aviso nombran la carpeta, que es lo que el usuario leyó en la fila.
+   */
+  it("el diálogo y el aviso nombran la carpeta del proyecto", async () => {
+    const conCarpeta = [proceso({ pid: 100, script: "vite", project: "mi-web", ports: [5173] })];
+    const user = await montar(conCarpeta, {
+      kill_processes: [{ pid: 100, name: "node.exe", killed: true, error: null, freedPorts: [5173] }],
+    });
+    act(() => fila(100).focus());
+
+    await user.keyboard("{Delete}");
+    const dialogo = await screen.findByRole("alertdialog");
+    expect(dialogo).toHaveTextContent("node.exe de mi-web (PID 100)");
+
+    await user.click(within(dialogo).getByRole("button", { name: "Cerrar proceso" }));
+    expect(await screen.findByText("node.exe de mi-web cerrado")).toBeInTheDocument();
+  });
 });

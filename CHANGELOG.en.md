@@ -20,6 +20,9 @@ are tasks from the [ROADMAP](ROADMAP.md).
   by RAM; that order is still one click away, on the “RAM” header. (T14-33)
 - **From the search box, the Down arrow or Enter takes you to the first row** of the table,
   instead of ten presses of Tab that went through Nuke All. (T14-33)
+- **Under each process, the project folder now comes before the script** (`mi-web · vite`) — in a
+  narrow window or with zoom, what gets cut is the script, not what tells the rows apart. The
+  Delete confirmation and the closing notice name it too: “node.exe in mi-web”. (T14-32)
 
 ### Fixed
 - **With the keyboard, you can see which row of the table you are on**: it gets its outline and

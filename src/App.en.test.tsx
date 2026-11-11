@@ -159,6 +159,18 @@ describe("la ventana en inglés", () => {
     expect(textoDeLaVentana()).not.toMatch(DEL_ESPANOL);
   });
 
+  it("el Kill y el diálogo de Supr nombran la carpeta del proyecto (T14-32)", async () => {
+    const user = await montar();
+
+    expect(screen.getByRole("button", { name: "Kill node.exe in web, PID 100" })).toBeInTheDocument();
+    act(() => screen.getByLabelText("Select PID 100").closest("tr")!.focus());
+    await user.keyboard("{Delete}");
+
+    const dialogo = await screen.findByRole("alertdialog");
+    expect(dialogo).toHaveTextContent("node.exe in web (PID 100)");
+    expect(textoDeLaVentana()).not.toMatch(DEL_ESPANOL);
+  });
+
   it("el diálogo de Nuke All, con el protegido que se queda fuera", async () => {
     const user = await montar();
 

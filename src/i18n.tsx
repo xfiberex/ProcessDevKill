@@ -232,7 +232,11 @@ export const es = {
      * quien maneja el equipo por voz dice lo que lee: «clic en Kill» no encontraba el botón. Es el
      * criterio que ya seguían los dos «Añadir» de Ajustes. En inglés sale igual.
      */
-    killLabel: (name: string, pid: number) => `Kill ${name}, PID ${pid}`,
+    //
+    // Con la carpeta del proyecto cuando la hay (T14-32): con once filas llamadas `node.exe`, el
+    // nombre y el PID no dicen cuál se cierra. Igual en el diálogo de Supr y en el aviso.
+    killLabel: (name: string, pid: number, proyecto?: string | null) =>
+      proyecto ? `Kill ${name} de ${proyecto}, PID ${pid}` : `Kill ${name}, PID ${pid}`,
     /** «Cerrar» y no «Matar» (Tier 11, D3): Kill y Nuke All en inglés; todo lo demás, «cerrar». */
     cerrarProceso: "Cerrar proceso",
     protegido: "Protegido",
@@ -449,8 +453,9 @@ export const es = {
       n === 1 ? "Cerrar proceso" : "Cerrar procesos",
     ambitoSeleccionados: (n: number): string =>
       n === 1 ? "el proceso seleccionado" : `los ${n} procesos seleccionados`,
-    /** El proceso de una fila, cuando se cierra con Supr (T14-14). */
-    ambitoUno: (nombre: string, pid: number) => `${nombre} (PID ${pid})`,
+    /** El proceso de una fila, cuando se cierra con Supr (T14-14), con su carpeta si la tiene (T14-32). */
+    ambitoUno: (nombre: string, pid: number, proyecto?: string | null) =>
+      proyecto ? `${nombre} de ${proyecto} (PID ${pid})` : `${nombre} (PID ${pid})`,
     ambitoTodos: "todos los procesos de desarrollo activos",
     ambitoFiltrados: "todos los procesos de la lista filtrada",
     /** Se añade al mensaje cuando el lote deja fuera a alguno: que no parezca que se olvidó. */
@@ -480,7 +485,8 @@ export const es = {
       "Si se abrió como administrador, la app necesita ese permiso para cerrarlo: ver Ajustes.",
     fallosParciales: (fallidos: number, total: number) =>
       `${fallidos} de ${total} no se pudieron cerrar`,
-    cerradoUno: (name: string) => `${name} cerrado`,
+    cerradoUno: (name: string, proyecto?: string | null) =>
+      proyecto ? `${name} de ${proyecto} cerrado` : `${name} cerrado`,
     cerradosVarios: (n: number) => `${n} procesos cerrados`,
     puertosLiberados: (lista: number[]): string =>
       lista.length === 1
@@ -781,7 +787,8 @@ export const en: Catalogo = {
         lista.length === 1 ? "port" : "ports"
       } ${puertos(lista)}`,
     kill: "Kill",
-    killLabel: (name, pid) => `Kill ${name}, PID ${pid}`,
+    killLabel: (name, pid, proyecto) =>
+      proyecto ? `Kill ${name} in ${proyecto}, PID ${pid}` : `Kill ${name}, PID ${pid}`,
     cerrarProceso: "Close process",
     protegido: "Protected",
     protegidoTitulo:
@@ -937,7 +944,8 @@ export const en: Catalogo = {
     cerrarBoton: (n) => (n === 1 ? "Close process" : "Close processes"),
     ambitoSeleccionados: (n) =>
       n === 1 ? "the selected process" : `the ${n} selected processes`,
-    ambitoUno: (nombre, pid) => `${nombre} (PID ${pid})`,
+    ambitoUno: (nombre, pid, proyecto) =>
+      proyecto ? `${nombre} in ${proyecto} (PID ${pid})` : `${nombre} (PID ${pid})`,
     ambitoTodos: "every active development process",
     ambitoFiltrados: "every process in the filtered list",
     protegidosFuera: (n) =>
@@ -959,7 +967,7 @@ export const en: Catalogo = {
       "If it was opened as administrator, the app needs administrator rights to close it. See Settings.",
     fallosParciales: (fallidos, total) =>
       `${fallidos} of ${total} could not be closed`,
-    cerradoUno: (name) => `${name} closed`,
+    cerradoUno: (name, proyecto) => (proyecto ? `${name} in ${proyecto} closed` : `${name} closed`),
     cerradosVarios: (n) => `${n} processes closed`,
     puertosLiberados: (lista) =>
       lista.length === 1
