@@ -16,6 +16,7 @@
 > | [ROADMAP.md](ROADMAP.md) | ¿Qué falta por hacer? |
 > | [.claude/CLAUDE.md](.claude/CLAUDE.md) | ¿Cómo se trabaja aquí? (lo que lee el agente) |
 > | [docs/TIERS-1-11.md](docs/TIERS-1-11.md), [docs/REVISION-2026-08-18.md](docs/REVISION-2026-08-18.md) | ¿Qué se hizo, y qué enseñó? (lo cerrado, íntegro) |
+> | [docs/History.md](docs/History.md) | ¿Qué se hizo ya del Tier 14, que sigue abierto? (sus tareas cerradas, íntegras) |
 > | [docs/BITACORA.md](docs/BITACORA.md) | ¿Cómo se llegó hasta aquí? (sesión a sesión) |
 
 ---

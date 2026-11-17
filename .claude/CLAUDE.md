@@ -13,8 +13,9 @@ antes de tocar la interfaz. Los valores mandan en `src/index.css`; si cambian, `
 regenera con `/impeccable document`, no se corrige a mano por partes. Lo cerrado vive entero en `docs/`: los Tiers 1 a 11
 en [docs/TIERS-1-11.md](../docs/TIERS-1-11.md), el Tier 12 en [docs/TIER-12.md](../docs/TIER-12.md),
 el Tier 13 en [docs/TIER-13.md](../docs/TIER-13.md), la auditoría del 2026-08-18 en
-[docs/REVISION-2026-08-18.md](../docs/REVISION-2026-08-18.md) y la historia sesión a sesión en
-[docs/BITACORA.md](../docs/BITACORA.md). Ninguno de los cinco hace falta salvo para reconstruir
+[docs/REVISION-2026-08-18.md](../docs/REVISION-2026-08-18.md), las tareas hechas del Tier 14 —que sigue
+abierto— en [docs/History.md](../docs/History.md) y la historia sesión a sesión en
+[docs/BITACORA.md](../docs/BITACORA.md). Ninguno de los seis hace falta salvo para reconstruir
 cómo se llegó a algo.
 
 **Al cerrar un Tier, su detalle sale del ROADMAP a `docs/`** y en el ROADMAP queda una línea en «Lo
