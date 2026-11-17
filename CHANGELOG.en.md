@@ -14,6 +14,11 @@ are tasks from the [ROADMAP](ROADMAP.md).
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-11-17
+
+A more Windows-like Processes view: it starts sorted by port, tells you who holds a port, works
+with clicks, F6, and zoom, uses the system typeface, and shows ports again on Windows 11 Insider.
+
 ### Added
 - **The “Not running as admin” notice in the sidebar can be hidden** with the X in its corner,
   and it stays hidden after the app restarts. To see it again, go to *Settings → System → Show a
@@ -203,7 +208,8 @@ Java, Deno, and Bun, watched out of the box, and release notes in English too.
 - The tests that drive the running app can now also be started on GitHub, by hand: the runner
   handles them, in about 10 minutes. They still do not run on every push. (T13-03)
 
-[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.7...HEAD
+[Unreleased]: https://github.com/xfiberex/ProcessDevKill/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.11.0
 [1.10.7]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.7
 [1.10.6]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.6
 [1.10.5]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.5

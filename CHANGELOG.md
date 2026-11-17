@@ -16,6 +16,11 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 
 ## [Sin publicar]
 
+## [1.11.0] — 2026-11-17
+
+La vista de Procesos, más de Windows: arranca por puerto, dice quién tiene un puerto, se maneja con
+clic, F6 y zoom, usa la letra del sistema, y vuelve a enseñar los puertos en Windows 11 Insider.
+
 ### Añadido
 - **El aviso de «Sin modo administrador» del sidebar se puede ocultar** con la equis de su esquina,
   y no vuelve al reiniciar la app. Para verlo otra vez, *Ajustes → Sistema → Avisar en el sidebar
@@ -597,7 +602,8 @@ Se publicaron con un actualizador basado en firmas minisign que se abandonó el 
 CONTEXT §4). Se retiraron para que nadie instalara una versión que ya no podía actualizarse. Sus
 fechas exactas no se conservan en los releases.
 
-[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.10.7...HEAD
+[Sin publicar]: https://github.com/xfiberex/ProcessDevKill/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.11.0
 [1.10.7]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.7
 [1.10.6]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.6
 [1.10.5]: https://github.com/xfiberex/ProcessDevKill/releases/tag/v1.10.5
