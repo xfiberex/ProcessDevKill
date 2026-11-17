@@ -19,6 +19,10 @@ are tasks from the [ROADMAP](ROADMAP.md).
 A more Windows-like Processes view: it starts sorted by port, tells you who holds a port, works
 with clicks, F6, and zoom, uses the system typeface, and shows ports again on Windows 11 Insider.
 
+### Security
+- Updates `quinn-udp`, a dependency of the updater’s connection, to the version with the fix for
+  RUSTSEC-2026-0538 (a receive loop that could keep spinning).
+
 ### Added
 - **The “Not running as admin” notice in the sidebar can be hidden** with the X in its corner,
   and it stays hidden after the app restarts. To see it again, go to *Settings → System → Show a

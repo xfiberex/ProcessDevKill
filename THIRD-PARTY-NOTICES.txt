@@ -14,7 +14,7 @@ paquete; la sección 5 sale de tools/avisos-de-terceros.skills.txt.
 `release.ps1` y la CI lo vuelven a generar y se paran si no coincide con lo que
 hay.
 
-    28 componentes de npm y 325 crates de Rust
+    28 componentes de npm y 326 crates de Rust
     216 textos de licencia distintos, en la sección 6
 
 ALCANCE HONESTO
@@ -235,7 +235,7 @@ Con * las que la app pide directamente; el resto llega por ellas.
       quick-xml                       0.41.0            MIT
       quinn                           0.11.11           MIT OR Apache-2.0
       quinn-proto                     0.11.19           MIT OR Apache-2.0
-      quinn-udp                       0.5.15            MIT OR Apache-2.0
+      quinn-udp                       0.5.16            MIT OR Apache-2.0
       quote                           1.0.47            MIT OR Apache-2.0
       rand                            0.10.2            MIT OR Apache-2.0
       rand                            0.9.5             MIT OR Apache-2.0
@@ -377,6 +377,7 @@ Con * las que la app pide directamente; el resto llega por ellas.
       windows-result                  0.4.1             MIT OR Apache-2.0
       windows-strings                 0.4.2             MIT OR Apache-2.0
       windows-strings                 0.5.1             MIT OR Apache-2.0
+      windows-sys                     0.52.0            MIT OR Apache-2.0
       windows-sys                     0.59.0            MIT OR Apache-2.0
       windows-sys                     0.60.2            MIT OR Apache-2.0
       windows-sys                     0.61.2            MIT OR Apache-2.0
@@ -404,9 +405,9 @@ Con * las que la app pide directamente; el resto llega por ellas.
       zune-core                       0.5.1             MIT OR Apache-2.0 OR Zlib
       zune-jpeg                       0.5.15            MIT OR Apache-2.0 OR Zlib
 
-Reparto de licencias de los 325 crates:
+Reparto de licencias de los 326 crates:
 
-     206  Apache-2.0 OR MIT
+     207  Apache-2.0 OR MIT
       56  MIT
       18  Unicode-3.0
        8  Apache-2.0 OR MIT OR Zlib
@@ -881,7 +882,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ===============================================================================
-Lo traen 28 componentes: windows 0.61.3 (license-apache-2.0); windows 0.62.2
+Lo traen 29 componentes: windows 0.61.3 (license-apache-2.0); windows 0.62.2
 (license-apache-2.0); windows-collections 0.2.0 (license-apache-2.0);
 windows-collections 0.3.2 (license-apache-2.0); windows-core 0.61.2
 (license-apache-2.0); windows-core 0.62.2 (license-apache-2.0); windows-future
@@ -892,13 +893,14 @@ windows-implement 0.60.2 (license-apache-2.0); windows-interface 0.59.3
 windows-numerics 0.3.1 (license-apache-2.0); windows-result 0.3.4
 (license-apache-2.0); windows-result 0.4.1 (license-apache-2.0);
 windows-strings 0.4.2 (license-apache-2.0); windows-strings 0.5.1
-(license-apache-2.0); windows-sys 0.59.0 (license-apache-2.0); windows-sys
-0.60.2 (license-apache-2.0); windows-sys 0.61.2 (license-apache-2.0);
-windows-targets 0.52.6 (license-apache-2.0); windows-targets 0.53.5
-(license-apache-2.0); windows-threading 0.1.0 (license-apache-2.0);
-windows-threading 0.2.1 (license-apache-2.0); windows-version 0.1.7
-(license-apache-2.0); windows_x86_64_msvc 0.52.6 (license-apache-2.0);
-windows_x86_64_msvc 0.53.1 (license-apache-2.0)
+(license-apache-2.0); windows-sys 0.52.0 (license-apache-2.0); windows-sys
+0.59.0 (license-apache-2.0); windows-sys 0.60.2 (license-apache-2.0);
+windows-sys 0.61.2 (license-apache-2.0); windows-targets 0.52.6
+(license-apache-2.0); windows-targets 0.53.5 (license-apache-2.0);
+windows-threading 0.1.0 (license-apache-2.0); windows-threading 0.2.1
+(license-apache-2.0); windows-version 0.1.7 (license-apache-2.0);
+windows_x86_64_msvc 0.52.6 (license-apache-2.0); windows_x86_64_msvc 0.53.1
+(license-apache-2.0)
 ===============================================================================
 
                                  Apache License
@@ -1104,7 +1106,7 @@ windows_x86_64_msvc 0.53.1 (license-apache-2.0)
    limitations under the License.
 
 ===============================================================================
-Lo traen 28 componentes: windows 0.61.3 (license-mit); windows 0.62.2
+Lo traen 29 componentes: windows 0.61.3 (license-mit); windows 0.62.2
 (license-mit); windows-collections 0.2.0 (license-mit); windows-collections
 0.3.2 (license-mit); windows-core 0.61.2 (license-mit); windows-core 0.62.2
 (license-mit); windows-future 0.2.1 (license-mit); windows-future 0.3.2
@@ -1113,12 +1115,12 @@ Lo traen 28 componentes: windows 0.61.3 (license-mit); windows 0.62.2
 (license-mit); windows-numerics 0.2.0 (license-mit); windows-numerics 0.3.1
 (license-mit); windows-result 0.3.4 (license-mit); windows-result 0.4.1
 (license-mit); windows-strings 0.4.2 (license-mit); windows-strings 0.5.1
-(license-mit); windows-sys 0.59.0 (license-mit); windows-sys 0.60.2
-(license-mit); windows-sys 0.61.2 (license-mit); windows-targets 0.52.6
-(license-mit); windows-targets 0.53.5 (license-mit); windows-threading 0.1.0
-(license-mit); windows-threading 0.2.1 (license-mit); windows-version 0.1.7
-(license-mit); windows_x86_64_msvc 0.52.6 (license-mit); windows_x86_64_msvc
-0.53.1 (license-mit)
+(license-mit); windows-sys 0.52.0 (license-mit); windows-sys 0.59.0
+(license-mit); windows-sys 0.60.2 (license-mit); windows-sys 0.61.2
+(license-mit); windows-targets 0.52.6 (license-mit); windows-targets 0.53.5
+(license-mit); windows-threading 0.1.0 (license-mit); windows-threading 0.2.1
+(license-mit); windows-version 0.1.7 (license-mit); windows_x86_64_msvc 0.52.6
+(license-mit); windows_x86_64_msvc 0.53.1 (license-mit)
 ===============================================================================
 
     MIT License
@@ -1593,7 +1595,7 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ===============================================================================
 Lo traen 13 componentes: lru-slab 0.1.2 (LICENSE-APACHE); ntapi 0.4.3
 (LICENSE-APACHE); quinn 0.11.11 (LICENSE-APACHE); quinn-proto 0.11.19
-(LICENSE-APACHE); quinn-udp 0.5.15 (LICENSE-APACHE); rustls-platform-verifier
+(LICENSE-APACHE); quinn-udp 0.5.16 (LICENSE-APACHE); rustls-platform-verifier
 0.7.0 (LICENSE-APACHE); serialize-to-javascript 0.1.2 (LICENSE-APACHE);
 serialize-to-javascript-impl 0.1.2 (LICENSE-APACHE); tinyvec 1.12.0
 (LICENSE-APACHE.md); utf8_iter 1.0.4 (LICENSE-APACHE); zeroize 1.9.0
@@ -3788,7 +3790,7 @@ SOFTWARE.
 
 ===============================================================================
 Lo traen 3 componentes: quinn 0.11.11 (LICENSE-MIT); quinn-proto 0.11.19
-(LICENSE-MIT); quinn-udp 0.5.15 (LICENSE-MIT)
+(LICENSE-MIT); quinn-udp 0.5.16 (LICENSE-MIT)
 ===============================================================================
 
 Copyright (c) 2018 The quinn Developers

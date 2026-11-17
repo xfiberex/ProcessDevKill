@@ -21,6 +21,10 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
 La vista de Procesos, más de Windows: arranca por puerto, dice quién tiene un puerto, se maneja con
 clic, F6 y zoom, usa la letra del sistema, y vuelve a enseñar los puertos en Windows 11 Insider.
 
+### Seguridad
+- Sube `quinn-udp`, una dependencia de la conexión del actualizador, a la versión con el arreglo
+  de RUSTSEC-2026-0538 (un bucle de recepción que podía quedarse girando).
+
 ### Añadido
 - **El aviso de «Sin modo administrador» del sidebar se puede ocultar** con la equis de su esquina,
   y no vuelve al reiniciar la app. Para verlo otra vez, *Ajustes → Sistema → Avisar en el sidebar
