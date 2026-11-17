@@ -922,6 +922,10 @@ Dependabot después. No son del Tier 14, y siguen aquí hasta que alguien las ha
   las aguanta, en unos 10 minutos, y se pueden lanzar a mano con `gh workflow run
   en-marcha.yml`. Falta decidir si compensa pasarlas a cada push. Y un camino del guion no ha
   corrido nunca: el que deja «sin comprobar» un paso cuando GitHub contesta 403 al runner.
+- **La CI está fijada a Node 24** (2026-11-17, CONTEXT §4). Con Node 26 —la LTS actual— el
+  `localStorage` de Node tapa el de jsdom y las pruebas del frontend no arrancan. Para subir: que
+  `src/test/setup.ts` o `vitest.config.ts` den a jsdom su propio almacenamiento (o lanzar Vitest
+  sin el de Node), probarlo con Node 26 en local y volver a `lts/*` en `ci.yml` y `en-marcha.yml`.
 - **Lo que sigue sin verse en vivo**, con sus pruebas pero sin haber pasado en la app:
   - un instalador cambiado tras la descarga **en la app instalada y elevada**, que es el caso
     exacto de T12-02; se vio en la copia de prueba, sin elevar (T13-05);
