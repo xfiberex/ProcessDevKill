@@ -1186,6 +1186,33 @@ async function tablaConTeclado(cdp, app) {
       await cdp.enviar("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: 1 });
       await cdp.js(`document.querySelector('tr[data-pid="${primera}"]').focus()`);
 
+      // T14-37: al 200 % el sidebar se esconde tras ☰. Cerrado, en Procesos hay una sola barra de
+      // scroll vertical; ☰ lo abre encima, y Escape lo cierra con el foco de vuelta en ☰.
+      await cdp.enviar("Emulation.setDeviceMetricsOverride", { width: 500, height: 340, deviceScaleFactor: 2, mobile: false });
+      try {
+        await dormir(500);
+        const estrecha = await cdp.js(`(() => {
+          const conScroll = [...document.querySelectorAll("aside, aside *, main *")].filter((el) => {
+            const s = getComputedStyle(el);
+            return /(auto|scroll)/.test(s.overflowY) && el.scrollHeight > el.clientHeight && el.checkVisibility();
+          }).length;
+          return { sidebar: document.querySelector("#sidebar").checkVisibility(), conScroll };
+        })()`);
+        exigir(!estrecha.sidebar, "al 200 % el sidebar sigue a la vista");
+        exigir(estrecha.conScroll === 1, `al 200 % hay ${estrecha.conScroll} barras de scroll vertical, no una`);
+        await cdp.js(`document.querySelector("[data-menu-lateral]").click()`);
+        exigir(await esperar(() => cdp.js(`document.querySelector("#sidebar").checkVisibility()`), { ms: 3_000 }), "☰ no abrió el sidebar");
+        pulsar(TECLA.ESC);
+        exigir(
+          await esperar(() => cdp.js(`!document.querySelector("#sidebar").checkVisibility() && document.activeElement?.hasAttribute("data-menu-lateral")`), { ms: 3_000 }),
+          "Escape no cerró el sidebar o no devolvió el foco a ☰",
+        );
+      } finally {
+        await cdp.enviar("Emulation.clearDeviceMetricsOverride");
+        await dormir(400);
+      }
+      await cdp.js(`document.querySelector('tr[data-pid="${primera}"]').focus()`);
+
       // 2. Supr pregunta. Cancelar no cierra nada; confirmar cierra esa fila, y el foco pasa a la
       //    que ocupa su sitio (T14-13).
       pulsar(TECLA.SUPR);

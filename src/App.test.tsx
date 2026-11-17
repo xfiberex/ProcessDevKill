@@ -1857,3 +1857,25 @@ describe("F6 entre zonas", () => {
     expect(buscador()).toHaveFocus();
   });
 });
+
+/** T14-37: en una ventana estrecha el sidebar se abre con ☰ y se cierra con Escape o al elegir. */
+describe("el sidebar en una ventana estrecha", () => {
+  it("☰ lo abre con el foco en la vista elegida, y Escape lo cierra devolviendo el foco al ☰", async () => {
+    const user = await montar();
+    const menu = () => screen.getByRole("button", { name: "Abrir el menú" });
+    window.matchMedia = ((q: string) => ({ matches: q.includes("max-width"), media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+
+    expect(menu()).toHaveAttribute("aria-expanded", "false");
+    await user.click(menu());
+    expect(menu()).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("aria-current", "page"));
+
+    await user.keyboard("{Escape}");
+    expect(menu()).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(menu()).toHaveFocus());
+
+    await user.click(menu());
+    await user.click(screen.getByRole("button", { name: /^Historial/ }));
+    expect(menu()).toHaveAttribute("aria-expanded", "false");
+  });
+});

@@ -68,6 +68,12 @@ type SidebarProps = {
   elevated: boolean | null;
   /** Lleva a la sección de Ajustes que explica el aviso y deja reiniciar elevada. */
   onVerAdmin: () => void;
+  /**
+   * En una ventana estrecha el sidebar no está fijo: lo abre el ☰ de la cabecera y flota encima
+   * de la vista (T14-37). Fuera de ese ancho no cambia nada.
+   */
+  abiertoEnEstrecha?: boolean;
+  onCerrarEnEstrecha?: () => void;
   /** El usuario apartó el aviso (T14-28): no sale aunque la app corra sin elevar. */
   avisoAdminOculto?: boolean;
   /** La equis del aviso: lo aparta y lo recuerda. */
@@ -91,6 +97,8 @@ export function Sidebar({
   usage,
   elevated,
   onVerAdmin,
+  abiertoEnEstrecha = false,
+  onCerrarEnEstrecha,
   avisoAdminOculto = false,
   onOcultarAvisoAdmin,
   hayVersionNueva = false,
@@ -138,8 +146,24 @@ export function Sidebar({
   }
 
   return (
-    // `data-zona`: una de las tres paradas de F6 (T14-37, `useVentana`).
-    <aside data-zona="sidebar" className="flex w-52 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+    <>
+    {/* En una ventana estrecha y abierto, el fondo que lo cierra con un clic (T14-37). */}
+    {abiertoEnEstrecha && (
+      <div
+        aria-hidden
+        onClick={onCerrarEnEstrecha}
+        className="fixed inset-0 z-30 hidden bg-black/40 estrecha:block"
+      />
+    )}
+    {/* `data-zona`: una de las tres paradas de F6 (T14-37, `useVentana`). En una ventana estrecha
+        (`estrecha:`) flota encima de la vista, con sombra porque está por encima y se va a ir
+        (`DESIGN.md`), y cerrado no se pinta: lo abre el ☰ de la cabecera. Escape lo cierra
+        (`useMenuLateral`). */}
+    <aside
+      id="sidebar"
+      data-zona="sidebar"
+      className={`flex w-52 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground estrecha:fixed estrecha:inset-y-0 estrecha:left-0 estrecha:z-40 estrecha:shadow-lg ${abiertoEnEstrecha ? "" : "estrecha:hidden"}`}
+    >
       {/*
         En una ventana baja (`short:`, ≤ 600 px de alto) el sidebar se compacta: sin subtítulo, y
         el medidor sin su título ni las cifras del equipo, que siguen en el `title` de cada métrica
@@ -305,6 +329,7 @@ export function Sidebar({
         />
       </div>
     </aside>
+    </>
   );
 }
 

@@ -25,6 +25,9 @@ are tasks from the [ROADMAP](ROADMAP.md).
   Shift+click selects the range. Selecting never closes anything; each row still has its
   checkbox. (T14-37)
 - **F6 and Shift+F6 move between the sidebar, the view’s header, and the table.** (T14-37)
+- **At high zoom, the sidebar hides behind a ☰ button** in each view’s header and opens on top,
+  as in Windows 11 Settings; Escape or a click outside closes it. At 200 %, the table gets the full
+  width and a single scroll bar. (T14-37)
 - **Table headers use normal capitalization** (“Process,” “Port”), as Windows lists do, instead
   of all caps. (T14-36)
 - **The app uses the Windows 11 typeface, Segoe UI Variable** — the one in Task Manager and

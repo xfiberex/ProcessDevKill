@@ -25,7 +25,8 @@ import { Sidebar } from "./components/Sidebar";
 import type { View } from "./components/Sidebar";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { SelectionBar } from "./components/SelectionBar";
-import { ViewBody } from "./components/ViewHeader";
+import { MenuLateral, ViewBody } from "./components/ViewHeader";
+import { useMenuLateral } from "./hooks/useMenuLateral";
 import type { ConfirmRequest } from "./components/ConfirmDialog";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -82,6 +83,7 @@ export default function App() {
     proyectoDe: (pid) => lista.processes.find((p) => p.pid === pid)?.project ?? null,
   });
   const servicios = useServices(t, setConfirm);
+  const menu = useMenuLateral();
   const updater = useUpdater();
 
   useEffect(() => {
@@ -261,9 +263,17 @@ export default function App() {
       <div className="flex h-full">
         <Sidebar
           view={view}
-          onViewChange={setView}
+          onViewChange={(v) => {
+            setView(v);
+            menu.trasElegir();
+          }}
           filter={lista.filter}
-          onFilterChange={lista.setFilter}
+          onFilterChange={(f) => {
+            lista.setFilter(f);
+            menu.trasElegir();
+          }}
+          abiertoEnEstrecha={menu.abierto}
+          onCerrarEnEstrecha={menu.cerrar}
           processes={lista.processes}
           showAllFilters={settings.showAllFilters}
           refreshMs={settings.refreshMs}
@@ -275,10 +285,15 @@ export default function App() {
           onOcultarAvisoAdmin={() => saveSettings({ ...settings, hideAdminNotice: true })}
           hayVersionNueva={updater.state.fase === "disponible"}
           seccion={seccion}
-          onSeccionChange={setSeccion}
+          onSeccionChange={(s) => {
+            setSeccion(s);
+            menu.trasElegir();
+          }}
         />
 
-        {/* `relative` por la barra de la selección, que flota abajo sin empujar las filas. */}
+        {/* `relative` por la barra de la selección, que flota abajo sin empujar las filas. El
+            proveedor del ☰ (T14-37): la cabecera de cada vista lo pinta en una ventana estrecha. */}
+        <MenuLateral.Provider value={menu}>
         <main className="relative flex min-w-0 flex-1 flex-col">
           {/* Cada vista pinta su cabecera y su cuerpo con scroll (Tier 11, D1; ver `ViewHeader`).
               La de Procesos va aparte porque su estado —búsqueda, selección, orden— lo comparten
@@ -390,6 +405,7 @@ export default function App() {
             />
           )}
         </main>
+        </MenuLateral.Provider>
 
         <ConfirmDialog request={confirm} onCancel={() => setConfirm(null)} />
         <Toaster position="bottom-right" />

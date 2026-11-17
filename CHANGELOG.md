@@ -27,6 +27,9 @@ es la tarea A1 del Tier 11; `T1-01`, la tarea T1-01 de aquella revisión.
   quita otra, y Mayús+clic marca el rango. Seleccionar no cierra nada; la casilla de cada fila
   sigue ahí. (T14-37)
 - **F6 y Mayús+F6 saltan entre el sidebar, la cabecera de la vista y la tabla.** (T14-37)
+- **Con mucho zoom, el sidebar se esconde tras un botón ☰** en la cabecera de cada vista y se abre
+  encima, como en la Configuración de Windows 11; Escape o un clic fuera lo cierran. Al 200 %, la
+  tabla tiene todo el ancho y una sola barra de scroll. (T14-37)
 - **Las cabeceras de las tablas van en su caja normal** («Proceso», «Puerto»), como en las listas
   de Windows, y no en mayúsculas. (T14-36)
 - **La app usa la letra de Windows 11, Segoe UI Variable**, la del Administrador de tareas y la

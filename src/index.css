@@ -12,6 +12,11 @@
    sin scroll que lo alcanzara. 600 y no 582: un margen por si crece una línea. */
 @custom-variant short (@media (max-height: 600px));
 
+/* Ventana estrecha: el sidebar deja de estar fijo y se abre con ☰ encima de la vista (T14-37). Al
+   200 % de zoom la ventana de fábrica tiene 500 px de CSS y el sidebar se llevaba el 42 %, con
+   tres barras de scroll a la vez. 640 deja el 150 % (667 px) como estaba: ahí cabe. */
+@custom-variant estrecha (@media (max-width: 639px));
+
 html,
 body,
 #root {

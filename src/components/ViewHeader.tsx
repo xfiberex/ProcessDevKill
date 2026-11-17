@@ -1,4 +1,18 @@
+import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
+import { MenuIcon } from "lucide-react";
+import { useT } from "../i18n";
+import { Button } from "@/components/ui/button";
+
+/**
+ * El ☰ que abre el sidebar en una ventana estrecha (T14-37). Lo pone `App`, que es quien sabe si
+ * está abierto; la cabecera de cada vista lo pinta sin que las cuatro vistas tengan que pasarlo.
+ * Sin proveedor —en las pruebas de una vista suelta—, no hay botón.
+ */
+export const MenuLateral = createContext<{ abierto: boolean; abrir: () => void } | null>(null);
+
+/** El atributo con el que se encuentra el ☰ para devolverle el foco al cerrar el sidebar. */
+export const MARCA_DEL_MENU = "data-menu-lateral";
 
 /**
  * La cabecera de las cuatro vistas: título, una línea opcional y las acciones a la derecha.
@@ -40,6 +54,7 @@ export function ViewHeader({
       data-zona="cabecera"
       className={`@container/cabecera flex min-h-14.25 shrink-0 items-center gap-x-3 gap-y-2 border-b border-border px-5 py-3 ${wrap ? "flex-wrap" : ""}`}
     >
+      <BotonDelMenu />
       <div className="min-w-0">
         <h2 className="font-heading text-base font-semibold whitespace-nowrap">{title}</h2>
         {description && (
@@ -48,6 +63,31 @@ export function ViewHeader({
       </div>
       {children}
     </header>
+  );
+}
+
+/**
+ * El ☰ de la cabecera: solo en una ventana estrecha (`estrecha:`, ver `index.css`), donde el
+ * sidebar no está a la vista. Es el modo mínimo del NavigationView de Windows 11.
+ */
+function BotonDelMenu() {
+  const t = useT();
+  const menu = useContext(MenuLateral);
+  if (!menu) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={menu.abrir}
+      aria-label={t.sidebar.abrirMenu}
+      aria-expanded={menu.abierto}
+      aria-controls="sidebar"
+      title={t.sidebar.abrirMenu}
+      className="-ml-2 hidden shrink-0 estrecha:inline-flex"
+      {...{ [MARCA_DEL_MENU]: "" }}
+    >
+      <MenuIcon />
+    </Button>
   );
 }
 

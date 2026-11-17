@@ -149,6 +149,8 @@ export const es = {
      * app funciona entera; lo que no ve son dos cosas concretas. El resto está en Ajustes, adonde
      * lleva el aviso.
      */
+    /** El ☰ que abre el sidebar en una ventana estrecha (T14-37). */
+    abrirMenu: "Abrir el menú",
     sinAdmin: {
       titulo: "Sin modo administrador",
       detalle: "No se ve la RAM de los servicios ni el detalle de algunos procesos.",
@@ -743,6 +745,7 @@ export const en: Catalogo = {
     ajustes: "Settings",
     hayVersionNueva: "new version available",
     autoRefresco: "Auto-refresh",
+    abrirMenu: "Open the menu",
     sinAdmin: {
       titulo: "Not running as admin",
       detalle: "Service RAM and some process details are not visible.",
