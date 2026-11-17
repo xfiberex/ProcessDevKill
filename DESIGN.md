@@ -46,38 +46,37 @@ colors:
   runtime-otros-oscuro: "#94a3b8"
 typography:
   headline:
-    fontFamily: "Geist Variable, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI Variable, Segoe UI, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 600
     lineHeight: "1.5rem"
   title:
-    fontFamily: "Geist Variable, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI Variable, Segoe UI, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: "1.25rem"
   body:
-    fontFamily: "Geist Variable, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI Variable, Segoe UI, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: "1.25rem"
   body-strong:
-    fontFamily: "Geist Variable, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI Variable, Segoe UI, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 500
     lineHeight: "1.25rem"
   label:
-    fontFamily: "Geist Variable, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI Variable, Segoe UI, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: "1rem"
   overline:
-    fontFamily: "Geist Variable, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI Variable, Segoe UI, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: "1rem"
-    letterSpacing: "0.025em"
   caption:
-    fontFamily: "Geist Variable, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI Variable, Segoe UI, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: "1rem"
@@ -189,7 +188,7 @@ components:
 
 # Design System: ProcessDevKill
 
-> Recoge el sistema visual **tal como está en el código** el 2026-11-11 (v1.10.7). Los valores
+> Recoge el sistema visual **tal como está en el código** el 2026-11-17 (tras la tanda de la fase I del Tier 14). Los valores
 > mandan en [src/index.css](src/index.css) y en `src/components/`: si este archivo y el CSS no
 > coinciden, gana el CSS y se vuelve a generar con `/impeccable document`. Las reglas de cómo se
 > trabaja —`border-control`, `ring-ring`, `forced-colors`, tablas con `min-w`— viven en
@@ -226,7 +225,7 @@ todo en monoespaciada) y **el antivirus alarmista** (rojo y avisos por todas par
 - Un solo color de acción: el rojo de cierre, lleno solo en Nuke All.
 - Siete colores de runtime, ajustados por tema y medidos contra el fondo.
 - Plano, con bordes finos; solo lo que flota lleva sombra.
-- Geist para leer y monoespaciada solo para lo que se copia: PID y puertos.
+- La letra de Windows 11 (Segoe UI Variable) para leer, y monoespaciada solo para lo que se copia: PID y puertos.
 - Controles callados y precisos: neutros en reposo, con el foco siempre visible.
 - Claro, oscuro y temas de contraste de Windows, con reglas propias para cada uno.
 
@@ -303,11 +302,11 @@ con el fondo.
 
 ## Typography
 
-**Body Font:** Geist Variable (con `sans-serif`)
+**Body Font:** Segoe UI Variable Text (con Segoe UI en Windows 10, y `system-ui`)
 **Label/Mono Font:** la monoespaciada del sistema (`ui-monospace`, que en Windows cae en
 Consolas)
 
-**Character:** una sola familia, Geist, para todo lo que se lee, en tres pesos y dos tamaños, y la
+**Character:** una sola familia, la del sistema —Segoe UI Variable, la del Administrador de tareas—, para todo lo que se lee, en tres pesos y dos tamaños, y la
 monoespaciada del sistema reservada a lo que se copia y se compara cifra a cifra. No hay tamaño de
 titular: una herramienta de Windows no anuncia, rotula.
 
@@ -320,7 +319,7 @@ titular: una herramienta de Windows no anuncia, rotula.
 - **Body** (400, 14 px, 20 px): el texto de la tabla, de Ajustes, de los diálogos y de los menús.
 - **Body strong** (500, 14 px, 20 px): botones y elementos del sidebar.
 - **Label** (500, 12 px, 16 px): el Kill de cada fila, la marca de Zombie y los botones pequeños.
-- **Overline** (500, 12 px, 16 px, 0,025 em, en mayúsculas): las cabeceras de columna de las
+- **Overline** (500, 12 px, 16 px, en su caja normal, como en las listas de Windows): las cabeceras de columna de las
   tablas, en texto secundario.
 - **Caption** (400, 12 px, 16 px): la segunda línea de cada proceso —`vite · mi-web`—, las ayudas
   y las cifras del equipo en el medidor.
@@ -444,6 +443,10 @@ Callados y precisos: neutros en reposo, con el foco siempre visible.
 - **Grupo segmentado** (Tema, Idioma, Auto-refresco): un `radiogroup` de verdad, con un solo
   tabulador y las flechas para elegir. Lo elegido lleva fondo de la ventana, borde de control,
   sombra pequeña y 600. Solo para ajustes que se deshacen sin coste.
+- **Ventana estrecha** (menos de 640 px de CSS, es decir, mucho zoom): el sidebar deja de estar
+  fijo. Un ☰ en la cabecera de cada vista lo abre flotando encima, con sombra y un fondo que lo
+  cierra, como el modo mínimo del NavigationView de Windows 11.
+- **F6 y Mayús+F6** saltan entre las tres zonas: sidebar, cabecera de la vista y cuerpo.
 
 ### La fila de proceso (signature component)
 
@@ -455,7 +458,9 @@ secundario), el PID en monoespaciada, CPU y RAM con la cifra encima de su barra 
 al proceso que más gasta de la lista, no al equipo—, el tiempo activo y el Kill pegado a la
 derecha.
 
-La tabla es **una sola parada de tabulador**: la fila activa lleva el foco y las flechas la mueven.
+La tabla es **una sola parada de tabulador**: la fila activa lleva el foco —con su contorno de
+2 px en `anillo` y el fondo del puntero— y las flechas la mueven. Un clic en la fila la
+selecciona; Ctrl+clic suma y Mayús+clic marca el rango, como en el Administrador de tareas.
 Espacio marca, Supr pide cerrar (preguntando antes) y Mayús+F10 abre el menú de la fila. Bajo el
 puntero, la fila toma `acero-atenuado` al 60 %; marcada, `acero-atenuado` entero y una barra de
 3 px en `tinta-de-acero` a la izquierda, por dentro, que gana al ámbar de un zombi; en un tema de
@@ -481,7 +486,7 @@ y «Equipo» con su cifra. Las barras animan su anchura en 300 ms.
 - **Avisos** (Sonner, siempre desde `@/lib/avisos`): un error o una advertencia se quedan hasta que
   se cierran; un éxito se va solo.
 - **Aviso de «sin modo administrador»:** un recuadro ámbar en el sidebar, a 10 px de esquina, que
-  lleva a la sección de Ajustes que lo explica.
+  lleva a la sección de Ajustes que lo explica, con una equis abajo a la derecha que lo aparta.
 
 ## Do's and Don'ts
 

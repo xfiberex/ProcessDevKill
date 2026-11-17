@@ -83,8 +83,8 @@ resuelva sin leer de más, y que con teclado, con zoom o con un tema de contrast
 | F | Temas de contraste de Windows | 2 | 1 | 0 | 1 | 1 medio, 1 bajo |
 | G | Ajustes y contenido | 5 | 0 | 1 | 4 | 1 medio, 4 bajos |
 | H | Ideas del género | 2 | 0 | 0 | 2 | 2 medios |
-| I | La segunda opinión (2026-11-11) | 7 | 1 | 4 | 2 | 1 alto, 3 medios, 3 bajos |
-| | **Total** | **37** | **2** | **17** | **18** | |
+| I | La segunda opinión (2026-11-11) | 8 | 2 | 4 | 2 | 1 alto, 4 medios, 3 bajos |
+| | **Total** | **38** | **3** | **17** | **18** | |
 
 **Lo que se miró y se deja como está**, para que no vuelva como hallazgo: que Kill cierre sin
 confirmar; que el diálogo arranque con el foco en el botón destructivo; que los avisos salgan abajo
@@ -523,7 +523,7 @@ estaba en esta lista; el usuario la reabrió el 2026-11-11 para probarla contra 
     - **Un dato que no estaba en la tarea:** por debajo de 768 px de ventana el campo sube a
       16 px de letra, y el texto de ejemplo pasa de pedir 314 px a 359.
 
-- [ ] **[T14-19] En una ventana ancha, el puerto queda a más de mil píxeles de su proceso**
+- [x] **[T14-19] En una ventana ancha, el puerto queda a más de mil píxeles de su proceso**
   - **Severidad:** baja · **Tipo:** mejora
   - **Ubicación:** `src/components/ProcessTable.tsx:102`
   - **Lo medido:** el nombre es la única columna que crece. A 1920×1080 mide **1.177 px** y el resto
@@ -535,6 +535,10 @@ estaba en esta lista; el usuario la reabrió el 2026-11-11 para probarla contra 
   - **Criterio de aceptación:** medido a 1600×1000 y a 1920×1080, la columna «Proceso» no pasa de
     560 px. A 1000×680 y a 900×480, nada cambia.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-11-11.** La tabla lleva `max-w-270` (1080 px): las fijas suman 520 y el nombre
+    se queda en 560 como mucho, con el sitio que sobra en blanco a la derecha.
+    - **Medido** con `auditoria-ui.mjs --fases medidas`: «Proceso» de 560 px a 1600×1000 y a
+      1920×1080 (eran 1.177); 257 a 1000×680 y 157 a 900×480, como antes. axe, en cero.
 
 - [x] **[T14-20] En la ventana mínima, el nombre de un servicio se queda en siete letras**
   - **Severidad:** media · **Tipo:** problema
@@ -726,7 +730,7 @@ estaba en esta lista; el usuario la reabrió el 2026-11-11 para probarla contra 
     «Gestor de procesos». Los decimales se quedan con punto en los dos idiomas. Sale de la lista
     de entradas que `i18n.test.tsx` deja coincidir con el inglés. Visto en las capturas.
 
-- [ ] **[T14-28] El aviso de «sin modo administrador» no se puede apartar**
+- [x] **[T14-28] El aviso de «sin modo administrador» no se puede apartar**
   - **Severidad:** baja · **Tipo:** mejora
   - **Ubicación:** `src/components/Sidebar.tsx:224-249`, `src-tauri/src/storage.rs`, `src/types.ts`
   - **Lo medido:** arrancar sin elevar es lo de fábrica, así que el estado normal de la app lleva un
@@ -739,6 +743,14 @@ estaba en esta lista; el usuario la reabrió el 2026-11-11 para probarla contra 
   - **Esfuerzo:** bajo · **Depende de:** ninguna
   - **Reabre:** la decisión del 2026-09-24 (Tier 11, modo administrador), que puso el aviso fijo en
     el sidebar a petición del usuario.
+  - **Hecho el 2026-11-11.** El aviso lleva una equis (abajo a la derecha: arriba, con Geist, el
+    título partía en dos líneas y los filtros volvían a hacer scroll, visto en las capturas). Se
+    guarda como `hideAdminNotice` y vuelve con «Avisar en el sidebar…» en Ajustes → Sistema. Al
+    ocultarlo, el foco va al auto-refresco. Precisa la decisión del 2026-09-24 en CONTEXT §4.
+    - **En vivo:** `prueba-en-marcha.mjs` lo aparta con su equis, comprueba `settings.json`,
+      recarga y no vuelve, y el interruptor lo devuelve. Las seis secciones de Ajustes siguen
+      cabiendo sin scroll a 1000×680 (623/623, medido). Con la app elevada no hay aviso: no se pudo
+      ver en vivo, lo cubre la prueba de componente.
 
 ### Fase H — Ideas del género
 
@@ -775,7 +787,7 @@ Sale de la `critique` de impeccable sobre la vista de Procesos (ver la nota de a
 de la copia de prueba por CDP; lo que solo se leyó en el código lo dice. El usuario eligió hacerlas
 todas en una tanda, empezando por T14-31, con Nuke All en rojo lleno y la fuente a prueba.
 
-- [ ] **[T14-31] La fila con el foco de teclado no se ve**
+- [x] **[T14-31] La fila con el foco de teclado no se ve**
   - **Severidad:** alta · **Tipo:** problema
   - **Ubicación:** `src/components/ProcessTable.tsx:410`, `tools/auditoria-ui.mjs`,
     `tools/prueba-en-marcha.mjs`
@@ -792,8 +804,11 @@ todas en una tanda, empezando por T14-31, con Nuke All en rojo lleno y la fuente
     sólido de 2 px en `--ring` y su fondo cambia. `prueba-en-marcha.mjs` falla si vuelve a salir
     `outline-style: none`. WCAG 2.4.7.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-11-11.** `focus-visible:outline-solid` y el fondo del puntero en la fila con
+    el foco, salvo en la marcada. **En vivo**, tras una Flecha abajo de verdad, la fila activa tiene
+    `outline-style: solid` de 2 px y un fondo distinto del de las demás; el guion falla si vuelve.
 
-- [ ] **[T14-32] La fila se presenta por `node.exe`, y lo que la distingue es lo primero que se recorta**
+- [x] **[T14-32] La fila se presenta por `node.exe`, y lo que la distingue es lo primero que se recorta**
   - **Severidad:** media · **Tipo:** problema
   - **Ubicación:** `src/components/ProcessTable.tsx:366`, `src/i18n.tsx` (diálogo de Supr y aviso
     de cierre), `src/hooks/useKills.ts`
@@ -808,8 +823,14 @@ todas en una tanda, empezando por T14-31, con Nuke All en rojo lleno y la fuente
     entera cuando cabe y se recorta el script antes que ella. El diálogo de Supr y el aviso de cierre
     nombran la carpeta. Pruebas de componente en los dos idiomas.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-11-11.** El detalle es `carpeta · script`, y el Kill, el diálogo de Supr y el
+    aviso de cierre dicen «node.exe de mi-web» (en inglés, «in»). **Visto en vivo:** las capturas
+    enseñan «ProcessDevKill · chrome-devtools-mcp», y el aviso de éxito de la prueba en marcha dice
+    «node.exe de pdk-envivo-aviso cerrado». Pruebas de componente en los dos idiomas.
+    - **No se hizo** lo que la crítica proponía además —soltar PID y Activo antes de recortar—: el
+      criterio de T14-19 pide que a 900×480 no cambie nada, y con la carpeta delante ya no se pierde.
 
-- [ ] **[T14-33] El camino de rescate: la lista no arranca por puerto, y del buscador a la fila hay diez tabuladores**
+- [x] **[T14-33] El camino de rescate: la lista no arranca por puerto, y del buscador a la fila hay diez tabuladores**
   - **Severidad:** media · **Tipo:** mejora
   - **Ubicación:** `src/lib/sort.ts:16`, `src/components/ProcessesHeader.tsx`,
     `src/components/ProcessTable.tsx`
@@ -823,8 +844,11 @@ todas en una tanda, empezando por T14-31, con Nuke All en rojo lleno y la fuente
     fila. Pruebas de `sort.ts` y de componente.
   - **Esfuerzo:** bajo · **Depende de:** T14-31
   - **Reabre:** el orden de fábrica, que hasta aquí era el que manda Rust (RAM descendente).
+  - **Hecho el 2026-11-11.** `DEFAULT_SORT` por puerto (CONTEXT §4) y Flecha abajo o Intro del
+    buscador a la primera fila. **En vivo**, con puertos de verdad tras T14-38: la tabla arranca por
+    puerto y una Flecha abajo real deja el foco en la primera fila.
 
-- [ ] **[T14-34] Buscar un puerto que no tiene ningún proceso vigilado acaba en «Ningún proceso coincide»**
+- [x] **[T14-34] Buscar un puerto que no tiene ningún proceso vigilado acaba en «Ningún proceso coincide»**
   - **Severidad:** media · **Tipo:** mejora
   - **Ubicación:** `src-tauri/src/ports.rs`, `src-tauri/src/commands.rs`, `src/components/EmptyState.tsx`
   - **Lo medido** (en el código; en vivo no hubo puertos): `ports.rs` lee todos los sockets en
@@ -836,8 +860,13 @@ todas en una tanda, empezando por T14-31, con Nuke All en rojo lleno y la fuente
   - **Criterio de aceptación:** prueba de Rust con un socket propio: el comando devuelve este
     proceso para su puerto y nada para uno libre. En la vista, el vacío lo dice en los dos idiomas.
   - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-11-11.** Comando `who_listens` en `ports.rs` y el vacío que nombra al dueño,
+    con «Vigilar» si se puede. Sin dueño no afirma que el puerto esté libre. Prueba de Rust con un
+    socket propio, en verde tras T14-38, y de componente para los cuatro casos y el negativo.
+    - **No se provocó en vivo** un puerto ocupado por un programa no vigilado: el guion no tiene
+      uno que pueda lanzar y cerrar sin tocar los del usuario.
 
-- [ ] **[T14-35] En reposo, lo que más se ve no es lo que importa**
+- [x] **[T14-35] En reposo, lo que más se ve no es lo que importa**
   - **Severidad:** baja · **Tipo:** mejora
   - **Ubicación:** `src/components/ProcessTable.tsx` (menú de la fila, barras),
     `src/components/ProcessesHeader.tsx`
@@ -849,8 +878,11 @@ todas en una tanda, empezando por T14-31, con Nuke All en rojo lleno y la fuente
   - **Criterio de aceptación:** visto en las capturas de `auditoria-ui.mjs` en los dos temas. axe
     sigue en cero.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+  - **Hecho el 2026-11-11.** Sin carril bajo un «0.0%», el recuento solo con la lista filtrada
+    («3 de 17») y un círculo con equis en «Cerrar proceso». **Visto** en las capturas de la prueba
+    de la letra, en oscuro; axe en cero. El menú de la fila no se capturó: lo cubre su prueba.
 
-- [ ] **[T14-36] La letra, a prueba: Geist frente a la del sistema**
+- [x] **[T14-36] La letra, a prueba: Geist frente a la del sistema**
   - **Severidad:** baja · **Tipo:** decisión
   - **Ubicación:** `src/index.css`, `src/components/ProcessTable.tsx:300`,
     `src/components/ui/button.tsx:26`
@@ -866,8 +898,13 @@ todas en una tanda, empezando por T14-31, con Nuke All en rojo lleno y la fuente
     `auditoria-ui.mjs --fases medidas`.
   - **Esfuerzo:** medio · **Depende de:** ninguna
   - **Reabre:** la fuente Geist, que la lista de «lo que se deja como está» daba por decidida.
+  - **Hecho el 2026-11-17.** El usuario eligió **Segoe UI Variable** con las medidas delante: en
+    las cuatro vistas, a 1000×680, 900×480 y 150 %, recorta lo mismo o menos (Procesos, 12 → 10 y
+    21 → 18) y las filas miden igual. Geist sale del instalador, con su licencia OFL;
+    `THIRD-PARTY-NOTICES.txt` regenerado. Cabeceras en su caja normal y el botón `sm` a
+    `text-xs`. Anotado en CONTEXT §4 y `DESIGN.md` al día.
 
-- [ ] **[T14-37] Lo que una app de Windows da por hecho: seleccionar con un clic, F6 y el sidebar con zoom**
+- [x] **[T14-37] Lo que una app de Windows da por hecho: seleccionar con un clic, F6 y el sidebar con zoom**
   - **Severidad:** media · **Tipo:** mejora
   - **Ubicación:** `src/components/ProcessTable.tsx`, `src/components/Sidebar.tsx`,
     `src/hooks/useVentana.ts`
@@ -882,6 +919,29 @@ todas en una tanda, empezando por T14-31, con Nuke All en rojo lleno y la fuente
     añade otra, Mayús+clic marca el rango, y ninguno cierra nada. F6 recorre las tres zonas. Al 200 %,
     una sola barra de scroll vertical en Procesos. axe sigue en cero.
   - **Esfuerzo:** alto · **Depende de:** T14-31
+  - **Hecho el 2026-11-17.** Clic, Ctrl+clic y Mayús+clic seleccionan sin cerrar; F6 y Mayús+F6
+    recorren las tres zonas (`data-zona`); y por debajo de 640 px de CSS el sidebar se abre con ☰
+    (`useMenuLateral`), decisión del usuario entre ☰ y barra de iconos.
+    - **En vivo:** las tres selecciones con ratón por CDP, F6 de verdad en las tres zonas, y al
+      200 % el sidebar escondido, una sola barra de scroll vertical en Procesos, ☰ que lo abre y
+      Escape que lo cierra con el foco de vuelta en ☰.
+
+- [x] **[T14-38] En Windows 10.0.26300 la app no enseñaba ningún puerto**
+  - **Severidad:** alta · **Tipo:** problema
+  - **Ubicación:** `src-tauri/src/ports.rs`, `src-tauri/Cargo.toml`
+  - **Lo medido:** salió al preparar la crítica. En esa compilación de Windows todos los sockets
+    llegan con estado `0`, que no es ninguno —hasta `Get-NetTCPConnection` falla al leerlo—;
+    `listeners` lo daba como `Unknown` y el filtro por `Listen` los descartaba todos. Fallaban dos
+    pruebas de Rust de `ports` y tres pasos de `prueba-en-marcha.mjs`.
+  - **Qué hacer:** pedir la tabla `TCP_TABLE_OWNER_PID_LISTENER` de `GetExtendedTcpTable`, que trae
+    solo los que escuchan sin depender del estado.
+  - **Criterio de aceptación:** en este equipo, las pruebas de `ports` y los pasos del puerto de la
+    prueba en marcha pasan.
+  - **Esfuerzo:** medio · **Depende de:** ninguna
+  - **Hecho el 2026-11-17**, por decisión del usuario dentro de esta tanda. IPv4 e IPv6, el nombre
+    del dueño desde `sysinfo`, y `listeners` fuera (un componente menos en el instalador; avisos
+    regenerados). **En vivo:** las 34 comprobaciones de `prueba-en-marcha.mjs` pasan en este
+    equipo, con puertos de verdad; las 166 pruebas de Rust, también. CONTEXT §4.
 
 ### Lo que queda suelto
 

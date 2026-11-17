@@ -29,10 +29,10 @@ ProcessDevKill enseña esa tabla ya hecha, con el puerto en su columna y un bot�
 
 | | |
 |---|---|
-| **Ver qué corre** | **Node, Python, .NET, Java, Deno y Bun** —más los ejecutables que añadas— con CPU, RAM, tiempo activo y puertos TCP en escucha. Debajo de cada `node.exe`, el script y la carpeta del proyecto (`vite · mi-web`). Se busca por nombre, script, carpeta, PID **o puerto** (<kbd>Ctrl</kbd>+<kbd>F</kbd>), y un medidor en el sidebar dice cuánta CPU y RAM se lleva lo que estás desarrollando. |
+| **Ver qué corre** | **Node, Python, .NET, Java, Deno y Bun** —más los ejecutables que añadas— con CPU, RAM, tiempo activo y puertos TCP en escucha. Debajo de cada `node.exe`, la carpeta del proyecto y el script (`mi-web · vite`), y la lista arranca ordenada por puerto. Si buscas un puerto que no tiene ningún proceso vigilado, dice quién lo tiene. Se busca por nombre, script, carpeta, PID **o puerto** (<kbd>Ctrl</kbd>+<kbd>F</kbd>), y un medidor en el sidebar dice cuánta CPU y RAM se lleva lo que estás desarrollando. |
 | **Cerrar sin equivocarte** | **Kill** por fila, por selección o **Nuke All**, con confirmación. Mientras el puntero o el teclado están en la tabla, **las filas no cambian de sitio**. Menú de clic derecho para copiar PID, nombre, puerto o `http://localhost:PUERTO`, proteger o cerrar, e **historial** de cierres con su origen. |
 | **Procesos protegidos** | Por ejecutable, script o carpeta: nada de la app los cierra, y los críticos de Windows (`svchost`, `csrss`, `explorer`…) no se pueden vigilar. **Si usas un programa en Java que no es de desarrollo** —un juego, una app de escritorio—, protégelo: Nuke All, la bandeja, el atajo y el Auto-Kill no miran qué es cada fila. |
-| **Con el teclado** | La tabla es una sola parada de tabulador: flechas, Inicio y Fin para moverse, Espacio para marcar y <kbd>Supr</kbd> para cerrar, preguntando antes. |
+| **Con el teclado** | La tabla es una sola parada de tabulador: flechas, Inicio y Fin para moverse, Espacio para marcar y <kbd>Supr</kbd> para cerrar, preguntando antes. Del buscador a la tabla, flecha abajo; entre el sidebar, la cabecera y la tabla, <kbd>F6</kbd>. Con el ratón, un clic selecciona la fila, como en el Administrador de tareas. |
 | **Sin abrir la ventana** | Icono en la **bandeja**; **atajo global** que cierra todo lo vigilado con dos pulsaciones; **Auto-Kill** por umbral de RAM; y **Zombie Finder**, que resalta lo que lleva minutos sin CPU **y sigue ocupando un puerto**. Los tres últimos, apagados de fábrica. |
 | **Servicios de desarrollo** | SQL Server, PostgreSQL, MySQL, MongoDB, Redis, Docker e IIS, con estado, tipo de arranque y puerto. Se arrancan, se detienen y se les cambia el arranque; Windows pide administrador **solo en ese momento** y la app **anota lo que cambió** para deshacerlo. |
 | **Y además** | Tema claro u oscuro (o el de Windows), compatible con los temas de contraste; **español e inglés**, también en la bandeja, las notificaciones y los errores; Ajustes en seis secciones; y **avisa de versiones nuevas** y las instala comprobando su hash. |
@@ -126,7 +126,7 @@ notificaciones; eso lo hace Rust.
 
 ## Cómo funciona
 
-Un hilo de Rust enumera procesos (`sysinfo`) y sockets (`listeners`) y **empuja** el evento
+Un hilo de Rust enumera procesos (`sysinfo`) y pide a Windows los sockets en escucha (`GetExtendedTcpTable`) y **empuja** el evento
 `processes-updated`; React solo escucha. **Todo cierre pasa por `kill_and_record`**: la ventana, la
 bandeja, el atajo y el Auto-Kill notifican, registran y rechazan a los protegidos igual. Los puertos
 se filtran por **TCP + `Listen`** —si no, saldrían los efímeros de las conexiones salientes—, y la
@@ -140,7 +140,7 @@ resto de decisiones, con su fecha y su motivo, en [CONTEXT.md §4](CONTEXT.md#4-
 flowchart LR
     subgraph Rust["Backend en Rust"]
         S["sysinfo<br/>procesos, CPU, RAM"]
-        L["listeners<br/>PID → puerto TCP"]
+        L["GetExtendedTcpTable<br/>PID → puerto TCP"]
         H["hilo de refresco<br/>+ Auto-Kill"]
         K["kill_and_record"]
         J["settings.json<br/>history.json"]
@@ -166,7 +166,7 @@ flowchart LR
 |---|---|
 | Escritorio | **Tauri 2** (Rust + WebView2), con los plugins `notification`, `global-shortcut`, `clipboard-manager`, `opener` y `tray-icon` |
 | Frontend | **React 19 + TypeScript + Vite**, **Tailwind CSS v4**, **shadcn/ui** (`base-nova`, sobre **Base UI**), **Sonner** y **Motion** |
-| Procesos y puertos | crates **`sysinfo`** y **`listeners`** (`sysinfo` no expone los puertos) |
+| Procesos y puertos | crate **`sysinfo`** y la API de Windows **`GetExtendedTcpTable`**, por el crate `windows` (`sysinfo` no expone los puertos) |
 | Actualizaciones | **`reqwest`** (rustls) + **`sha2`**: implementación propia, sin plugin |
 | Pruebas y CI | **Vitest + Testing Library**, `cargo test` y **GitHub Actions** en `windows-latest` |
 
@@ -252,7 +252,7 @@ saliendo— ni versiones para **macOS o Linux**.
 Software libre bajo la **[GNU General Public License v3.0](LICENSE)**: puedes usarlo, estudiarlo,
 modificarlo y redistribuirlo, **siempre que los derivados conserven la misma licencia y publiquen su
 código fuente**. Se ofrece **sin ninguna garantía**. Las licencias de lo que empaqueta el instalador
-—incluida la tipografía Geist (OFL-1.1)— están en [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt),
+están en [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt),
 generado por [`tools/avisos-de-terceros.mjs`](tools/avisos-de-terceros.mjs); todas son compatibles
 con la GPLv3, aunque **no ha pasado una revisión legal**. Los **18 packs de skills de agente** de
 `.claude/skills/` y `.agents/skills/` (unos 270 de los 430 archivos versionados) **no forman parte

@@ -554,7 +554,10 @@ async function avisoDeAdmin(cdp) {
     const ajustes = await cdp.invoke("get_settings");
     exigir(ajustes.ok, ajustes.error);
     const equis = `aside button[aria-label="Ocultar el aviso"]`;
-    const hayAviso = () => cdp.js(`Boolean(document.querySelector('${equis}'))`);
+    // El aviso, no su equis: en Ajustes se queda en el título y sin equis (el interruptor está
+    // ahí mismo), y buscar la equis lo daría por desaparecido.
+    const hayAviso = () =>
+      cdp.js(`[...document.querySelectorAll("aside button")].some((b) => b.textContent.includes("Sin modo administrador"))`);
     try {
       await cdp.pulsar("Procesos", `document.querySelector("aside")`);
       exigir(await esperar(hayAviso), "sin elevar, el aviso no sale en el sidebar");
