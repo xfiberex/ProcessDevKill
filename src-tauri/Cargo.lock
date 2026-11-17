@@ -2956,7 +2956,7 @@ dependencies = [
 
 [[package]]
 name = "processdevkill"
-version = "1.10.7"
+version = "1.11.0"
 dependencies = [
  "futures-util",
  "reqwest",
