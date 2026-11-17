@@ -337,7 +337,10 @@ Dependabot después. No son del Tier 14, y siguen aquí hasta que alguien las ha
   rompe compatibilidad con el 3.8 que usamos: subirlo es una tarea, no un `npm audit fix`, y hay
   que mirar antes qué cambia en `shadcn add` y en los dos retoques obligatorios (Tier 11, B1). No
   viaja en el instalador y solo corre con el CLI de `shadcn` o con ESLint. El de `braces` que
-  había aquí (T13-02) ya no lo da `npm audit` a 2026-10-26.
+  había aquí (T13-02) ya no lo da `npm audit` a 2026-10-26. **El de `minimatch` 10.2.5 tiene el
+  mismo tapón** (2026-11-17): llega por `shadcn` → `@ts-morph/common` 0.27, el arreglo es la
+  11.0.1, y Dependabot falla en «Dependabot Updates» sin abrir PR porque su única salida baja
+  `shadcn` a la 1.0.0. Se cierra con la misma subida de `shadcn`.
 - **Las acciones de la CI corren en Node 20, que GitHub da por obsoleto.** `actions/checkout` y
   `actions/setup-node` están fijadas a la v4.4.0 y el runner las fuerza a Node 24 con un aviso;
   por ahora no falla. Se suben a una versión con Node 24, fijadas por SHA con la versión en un

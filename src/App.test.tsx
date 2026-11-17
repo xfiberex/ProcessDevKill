@@ -922,24 +922,30 @@ describe("cuando Rust rechaza", () => {
    * dialogo se cerraba como si el historial se hubiera vaciado.
    */
   it("avisa si no se pudo vaciar el historial", async () => {
-    const user = await montar();
-
     // Con el historial vacio no hay boton de vaciar, que es lo coherente: `HistoryView` devuelve
-    // el mensaje de "todavia no se ha cerrado ningun proceso" y nada mas.
-    invoke.mockResolvedValueOnce([
-      {
-        pid: 100,
-        name: "node.exe",
-        freedPorts: [3000],
-        killedAt: 1_787_000_000_000,
-        source: "window",
-      },
-    ]);
+    // el mensaje de "todavia no se ha cerrado ningun proceso" y nada mas. Las respuestas van por
+    // comando y no con `mockResolvedValueOnce`: esa se la lleva la siguiente llamada, sea cual sea,
+    // y en la CI del 2026-11-17 se adelanto otra a `get_history` y el boton no salio nunca.
+    const user = await montar(LISTA, {
+      get_history: [
+        {
+          pid: 100,
+          name: "node.exe",
+          freedPorts: [3000],
+          killedAt: 1_787_000_000_000,
+          source: "window",
+        },
+      ],
+    });
+    const responder = invoke.getMockImplementation()!;
+    invoke.mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd === "clear_history") throw new Error("no se pudo escribir history.json");
+      return responder(cmd, args);
+    });
     await user.click(screen.getByRole("button", { name: /^Historial/ }));
 
     await user.click(await screen.findByRole("button", { name: /Vaciar historial/ }));
 
-    invoke.mockRejectedValueOnce(new Error("no se pudo escribir history.json"));
     const dialogo = await screen.findByRole("alertdialog");
     await user.click(within(dialogo).getByRole("button", { name: "Vaciar" }));
 
