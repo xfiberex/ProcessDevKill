@@ -47,7 +47,7 @@ sha2 = "0.10"
 # elevada con `ShellExecuteExW` y esperar a que el hijo termine para leer su codigo de salida.
 # `Win32_NetworkManagement_IpHelper` lo pide `ports.rs`: la tabla de sockets TCP en escucha, que
 # sustituyó al crate `listeners` el 2026-11-11 (ver el comentario de arriba de ese archivo).
-windows ={ version = "0.62.2", features = ["Win32_System_Services", "Win32_Foundation", "Win32_Security", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_NetworkManagement_IpHelper"] }
+windows = { version = "0.62.2", features = ["Win32_System_Services", "Win32_Foundation", "Win32_Security", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_NetworkManagement_IpHelper"] }
 
 [dev-dependencies]
 # Solo para las pruebas: `download_and_verify` es async y hace falta un runtime que la ejecute.
